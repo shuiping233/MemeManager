@@ -187,10 +187,18 @@ public class MemeDataEngine
 
     public IReadOnlyList<string> GetCategories()
     {
-        return _memeCache.Select(m => m.Category)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // 分类 = 内存中已有分类 ∪ 磁盘上实际存在的分类文件夹
+        var set = new System.Collections.Generic.SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in _memeCache)
+            if (!string.IsNullOrWhiteSpace(m.Category)) set.Add(m.Category);
+
+        if (Directory.Exists(_baseDir))
+        {
+            foreach (var dir in Directory.GetDirectories(_baseDir))
+                set.Add(Path.GetFileName(dir));
+        }
+
+        return set.OrderBy(c => c, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     // 通过标题反查文件名列表
@@ -302,6 +310,39 @@ public class MemeDataEngine
         Directory.CreateDirectory(dir);
         await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
         return true;
+    }
+
+    // ---------- 分类删除 ----------
+
+    public async Task<bool> DeleteCategoryAsync(string category)
+    {
+        var dir = Path.Combine(_baseDir, SanitizeCategory(category));
+        if (!Directory.Exists(dir)) return false;
+
+        try
+        {
+            // 1. 从内存缓存移除该分类下所有表情，并清理标题反查 Map
+            var toRemove = _memeCache.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var m in toRemove)
+            {
+                _memeCache.Remove(m);
+                if (!string.IsNullOrWhiteSpace(m.Title) &&
+                    _titleReverseMap.TryGetValue(m.Title, out var list))
+                {
+                    list.Remove(m.FileName);
+                    if (list.Count == 0) _titleReverseMap.Remove(m.Title);
+                }
+            }
+
+            // 2. 删除整个分类文件夹（图片 + .metadata.json）
+            Directory.Delete(dir, recursive: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Engine] 删除分类失败: {ex.Message}");
+            return false;
+        }
     }
 
     // ---------- metadata 读写 ----------

@@ -28,7 +28,7 @@ public partial class App : Application
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
         if (DataEngine.GetCategories().Count == 0)
         {
-            await DataEngine.AddCategoryAsync("默认");
+            await DataEngine.AddCategoryAsync("Default");
         }
 
         _window = new MainWindow();

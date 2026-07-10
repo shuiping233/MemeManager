@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using MemeManager.Models;
 using Windows.Storage.Pickers;
+using System.Diagnostics;
 
 namespace MemeManager;
 
@@ -117,6 +118,22 @@ public sealed partial class SettingsPage : Page
         if (folder != null)
         {
             StoragePathBox.Text = folder.Path;
+        }
+    }
+
+    private async void OpenFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = StoragePathBox.Text;
+        if (string.IsNullOrWhiteSpace(path)) return;
+        try
+        {
+            // 确保目录存在
+            System.IO.Directory.CreateDirectory(path);
+            await Windows.System.Launcher.LaunchFolderPathAsync(path);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Settings] 打开文件夹失败: {ex.Message}");
         }
     }
 

@@ -35,11 +35,13 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox x:Name="SearchBox" Grid.Column="0" PlaceholderText="搜索表情..."
                      Margin="0,0,8,0" TextChanged="SearchBox_TextChanged"/>
             <Button x:Name="EditButton" Grid.Column="1" Content="修改" Margin="0,0,8,0" Click="EditButton_Click"/>
-            <Button x:Name="SettingsButton" Grid.Column="2" Content="设置" Click="SettingsButton_Click">
+            <Button x:Name="RefreshButton" Grid.Column="2" Content="刷新" Margin="0,0,8,0" Click="RefreshButton_Click"/>
+            <Button x:Name="SettingsButton" Grid.Column="3" Content="设置" Click="SettingsButton_Click">
                 <Button.Flyout>
                     <Flyout x:Name="SettingsFlyout"/>
                 </Button.Flyout>
@@ -55,7 +57,8 @@
             <ListView x:Name="CategoryList"
                       Grid.Row="0"
                       SelectionMode="Single"
-                      SelectionChanged="CategoryList_SelectionChanged">
+                      SelectionChanged="CategoryList_SelectionChanged"
+                      RightTapped="CategoryList_RightTapped">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:CategoryViewModel">
                         <Grid Padding="8,6">

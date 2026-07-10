@@ -35,7 +35,10 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="StoragePathBox" Grid.Column="0" IsReadOnly="True" VerticalAlignment="Center"/>
-                    <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览..." Margin="8,0,0,0" Click="BrowseButton_Click"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" Spacing="4">
+                        <Button x:Name="BrowseButton" Content="浏览..." Click="BrowseButton_Click"/>
+                        <Button x:Name="OpenFolderButton" Content="打开存放文件夹" Click="OpenFolderButton_Click"/>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
 

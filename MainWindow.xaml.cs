@@ -111,6 +111,13 @@ public sealed partial class MainWindow : Window
 
     private void LoadCategories()
     {
+        // 若没有任何分类文件夹，默认创建一个 "Default"
+        if (App.DataEngine.GetCategories().Count == 0)
+        {
+            try { App.DataEngine.AddCategoryAsync("Default").GetAwaiter().GetResult(); }
+            catch { }
+        }
+
         _categoryList.Clear();
         foreach (var cat in App.DataEngine.GetCategories())
         {
@@ -138,6 +145,61 @@ public sealed partial class MainWindow : Window
             _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
         }
+    }
+
+    private void CategoryList_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        // 找到右键所在的分类项
+        var cat = FindCategoryFromSource(e.OriginalSource);
+        if (cat == null) return;
+
+        Log($"右键分类项: {cat.Name}");
+
+        var flyout = new MenuFlyout();
+        var deleteItem = new MenuFlyoutItem { Text = "删除" };
+        deleteItem.Click += async (_, __) =>
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "删除分类",
+                Content = $"确定要删除分类「{cat.Name}」吗？\n该分类下的所有表情与文件夹都会被删除。",
+                PrimaryButtonText = "删除",
+                CloseButtonText = "取消",
+                XamlRoot = this.Content.XamlRoot
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            bool ok = await App.DataEngine.DeleteCategoryAsync(cat.Name);
+            if (ok)
+            {
+                // 从 UI 列表移除
+                for (int i = _categoryList.Count - 1; i >= 0; i--)
+                    if (_categoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+                        _categoryList.RemoveAt(i);
+
+                // 若删除的是当前分类，切换到第一项（若有）
+                if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    _currentCategory = _categoryList.FirstOrDefault()?.Name ?? string.Empty;
+                    CategoryList.SelectedItem = _categoryList.FirstOrDefault();
+                }
+                RefreshMemes();
+            }
+        };
+        flyout.Items.Add(deleteItem);
+        flyout.ShowAt((FrameworkElement)e.OriginalSource, e.GetPosition((FrameworkElement)e.OriginalSource));
+    }
+
+    private CategoryViewModel? FindCategoryFromSource(object? source)
+    {
+        var element = source as DependencyObject;
+        while (element != null)
+        {
+            if (element is FrameworkElement fe && fe.DataContext is CategoryViewModel vm)
+                return vm;
+            element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element);
+        }
+        return null;
     }
 
     private async void AddCategoryButton_Click(object sender, RoutedEventArgs e)
@@ -532,6 +594,20 @@ public sealed partial class MainWindow : Window
         SettingsFlyout.ShowAt(SettingsButton);
     }
 
+    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshDataAsync();
+    }
+
+    /// <summary>重新读取数据目录并重渲染：分类、表情、缩略图全部刷新</summary>
+    private async Task RefreshDataAsync()
+    {
+        Log("刷新：重新读取数据目录");
+        await App.DataEngine.InitializeAsync();
+        LoadCategories();
+        RefreshMemes();
+    }
+
     /// <summary>托盘菜单“设置”：先呼出窗口，再弹设置页</summary>
     public void OpenSettings()
     {
@@ -589,6 +665,14 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             _ = ImportFromClipboardAsync();
+            return;
+        }
+
+        // F5：刷新（任意模式都可用）
+        if (e.Key == Windows.System.VirtualKey.F5)
+        {
+            e.Handled = true;
+            _ = RefreshDataAsync();
             return;
         }
 
