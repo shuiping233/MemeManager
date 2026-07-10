@@ -19,6 +19,7 @@ internal static partial class NativeMethods
     public const int WM_LBUTTONUP = 0x0202;
     public const int WM_DESTROY = 0x0002;
     public const int WM_CLOSE = 0x0010;
+    public const int WM_DROPFILES = 0x0233;
 
     public const int WM_ACTIVATE = 0x0006;
     public const int WA_INACTIVE = 0;
@@ -65,6 +66,17 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsIconic(IntPtr hWnd);
+
+    // ---------- 拖放文件（WM_DROPFILES，兼容 QQ 等来源的拖入）----------
+
+    [DllImport("shell32.dll")]
+    public static extern void DragAcceptFiles(IntPtr hWnd, bool fAccept);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "DragQueryFileW")]
+    public static extern uint DragQueryFile(IntPtr hDrop, uint iFile, IntPtr lpszFile, uint cch);
+
+    [DllImport("shell32.dll")]
+    public static extern void DragFinish(IntPtr hDrop);
 
     public const int WM_SYSCOMMAND = 0x0112;
     public const int SC_MINIMIZE = 0xF020;

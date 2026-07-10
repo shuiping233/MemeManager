@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -59,6 +60,9 @@ public sealed partial class MainWindow : Window
 
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
+
+        // 让窗口在 Win32 层面也能接收拖入的文件（QQ 等来源可能只发文件，不走 XAML DataPackage）
+        NativeMethods.DragAcceptFiles(_hWnd, true);
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
@@ -267,49 +271,83 @@ public sealed partial class MainWindow : Window
 
     private void MemeGridView_DragOver(object sender, DragEventArgs e)
     {
-        var hasItems = e.DataView.Contains(StandardDataFormats.StorageItems);
-        var hasBitmap = e.DataView.Contains(StandardDataFormats.Bitmap);
-        var hasText = e.DataView.Contains(StandardDataFormats.Text);
-        Log($"DragOver from {sender?.GetType().Name}: hasStorageItems={hasItems}, hasBitmap={hasBitmap}, hasText={hasText}");
-        if (hasItems || hasBitmap || hasText)
-        {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-            e.DragUIOverride.IsCaptionVisible = false;
-        }
-        else
-        {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
-        }
+        // 接受一切拖拽对象，确保 Drop 能触发（后面在 Drop 里再筛选图片）
+        Log($"DragOver from {sender?.GetType().Name}");
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.DragUIOverride.IsCaptionVisible = false;
     }
 
     private async void MemeGridView_Drop(object sender, DragEventArgs e)
     {
         Log("Drop 事件触发");
-        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
-        {
-            Log("Drop: 没有 StorageItems，忽略");
-            return;
-        }
+        var view = e.DataView;
 
-        var items = await e.DataView.GetStorageItemsAsync();
-        Log($"Drop: 拖入 {items.Count} 个项, 目标分类={_currentCategory}");
-        bool any = false;
-        foreach (var item in items)
+        // 列出所有可用的数据格式，便于排查 QQ 等特殊来源
+        var formats = view.AvailableFormats;
+        Log($"Drop: 可用格式数量={formats.Count}");
+        foreach (var f in formats)
+            Log($"Drop: 格式 = {f}");
+
+        int importedCount = 0;
+
+        // 1) StorageItems（最常见：文件 / QQ 拖出的文件）
+        if (view.Contains(StandardDataFormats.StorageItems))
         {
-            Log($"Drop: 项 {item.Name} 是文件={item is StorageFile}, 类型={item.GetType().Name}");
-            if (item is StorageFile file && IsImage(file.FileType))
+            var items = await view.GetStorageItemsAsync();
+            Log($"Drop: StorageItems 共 {items.Count} 个, 目标分类={_currentCategory}");
+            foreach (var item in items)
             {
-                Log($"Drop: 导入图片 {file.Path} 到分类 {_currentCategory}");
-                var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
-                if (imported != null)
+                Log($"Drop: 项 {item.Name} 类型={item.GetType().Name} IsFile={item is StorageFile}");
+                if (item is StorageFile file && IsImage(file.FileType))
                 {
-                    if (!_memeList.Any(m => m.Hash == imported.Hash))
-                        _memeList.Add(new MemeViewModel(imported));
-                    any = true;
+                    var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
+                    if (imported != null) importedCount++;
                 }
             }
         }
-        if (any) UpdateCategoryCounts();
+
+        // 2) Bitmap（剪贴板/截图类拖拽）
+        if (view.Contains(StandardDataFormats.Bitmap))
+        {
+            Log("Drop: 含 Bitmap，尝试作为图片导入");
+            try
+            {
+                var streamRef = await view.GetBitmapAsync();
+                using var stream = await streamRef.OpenReadAsync();
+                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"meme_{Guid.NewGuid():N}.png");
+                using (var outStream = System.IO.File.Create(tempPath))
+                {
+                    await stream.AsStreamForRead().CopyToAsync(outStream);
+                }
+                var imported = await App.DataEngine.ImportMemeAsync(tempPath, _currentCategory);
+                if (imported != null) importedCount++;
+                try { System.IO.File.Delete(tempPath); } catch { }
+            }
+            catch (Exception ex) { Log("Drop: Bitmap 导入失败: " + ex.Message); }
+        }
+
+        // 3) Text / Html：看看是不是图片路径或图片链接
+        if (view.Contains(StandardDataFormats.Text))
+        {
+            var text = await view.GetTextAsync();
+            Log($"Drop: Text 内容(前200字符)= {text?.Substring(0, Math.Min(200, text?.Length ?? 0))}");
+        }
+        if (view.Contains(StandardDataFormats.Html))
+        {
+            var html = await view.GetHtmlFormatAsync();
+            Log($"Drop: Html 内容(前200字符)= {html?.Substring(0, Math.Min(200, html?.Length ?? 0))}");
+        }
+
+        if (importedCount > 0)
+        {
+            RefreshMemes();
+            UpdateCategoryCounts();
+            Log($"Drop: 成功导入 {importedCount} 个图片");
+        }
+        else
+        {
+            Log("Drop: 未导入任何图片（已忽略不符合要求的拖拽对象）");
+        }
     }
 
     private void MemeItem_DragStarting(object sender, DragStartingEventArgs e)
@@ -325,6 +363,65 @@ public sealed partial class MainWindow : Window
         {
             Log("DragStarting: 未找到 MemeViewModel，sender=" + sender?.GetType().Name);
         }
+    }
+
+    // ---------- Win32 层拖入文件（WM_DROPFILES）----------
+
+    private void HandleDropFiles(IntPtr hDrop)
+    {
+        // 注意：此函数在窗口过程(WM_DROPFILES)回调内同步执行，
+        // 绝对不能在里面阻塞等待异步(会卡死消息泵)。只同步收集路径，后续异步导入。
+        try
+        {
+            uint count = NativeMethods.DragQueryFile(hDrop, 0xFFFFFFFFu, IntPtr.Zero, 0);
+            Log($"WM_DROPFILES: 拖入 {count} 个文件, 目标分类={_currentCategory}");
+            var paths = new System.Collections.Generic.List<string>();
+            for (uint i = 0; i < count; i++)
+            {
+                uint len = NativeMethods.DragQueryFile(hDrop, i, IntPtr.Zero, 0);
+                if (len == 0) continue;
+                IntPtr buf = Marshal.AllocCoTaskMem((int)(len + 1) * 2);
+                try
+                {
+                    NativeMethods.DragQueryFile(hDrop, i, buf, len + 1);
+                    string path = Marshal.PtrToStringUni(buf) ?? string.Empty;
+                    Log($"WM_DROPFILES: 文件[{i}] = {path}");
+                    if (System.IO.File.Exists(path) && IsImage(System.IO.Path.GetExtension(path)))
+                        paths.Add(path);
+                }
+                finally
+                {
+                    Marshal.FreeCoTaskMem(buf);
+                }
+            }
+            NativeMethods.DragFinish(hDrop);
+
+            // 异步导入，不阻塞窗口过程
+            _ = ImportDroppedFilesAsync(paths);
+        }
+        catch (Exception ex)
+        {
+            Log("WM_DROPFILES 处理失败: " + ex.Message);
+        }
+    }
+
+    private async Task ImportDroppedFilesAsync(System.Collections.Generic.List<string> paths)
+    {
+        if (paths.Count == 0) return;
+        int importedCount = 0;
+        foreach (var path in paths)
+        {
+            var imported = await App.DataEngine.ImportMemeAsync(path, _currentCategory);
+            if (imported != null) importedCount++;
+        }
+
+        // 回到 UI 线程刷新
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            RefreshMemes();
+            UpdateCategoryCounts();
+            Log($"WM_DROPFILES: 成功导入 {importedCount} 个图片");
+        });
     }
 
     // ---------- 右键菜单 ----------
@@ -741,6 +838,12 @@ public sealed partial class MainWindow : Window
             }
             // _allowClose=true（托盘退出）时放行，交给默认处理真正关闭
             return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
+        }
+
+        if (uMsg == NativeMethods.WM_DROPFILES)
+        {
+            HandleDropFiles(wParam);
+            return IntPtr.Zero;
         }
 
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
