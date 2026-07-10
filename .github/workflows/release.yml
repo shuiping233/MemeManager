@@ -13,10 +13,10 @@ jobs:
       PUBLISH_DIR: ${{ github.workspace }}\publish-output
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -27,7 +27,7 @@ jobs:
         run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64.zip" -Force
 
       - name: Upload zip artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MemeManager-win-x64-zip
           path: MemeManager-win-x64.zip
@@ -37,10 +37,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -48,7 +48,7 @@ jobs:
         run: dotnet build MemeManager.csproj -c Release -p:Platform=x64 -p:GenerateAppxPackageOnBuild=true
 
       - name: Upload msix artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MemeManager-win-x64-msix
           path: AppPackages/**/*.msix
@@ -61,12 +61,12 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             artifacts/MemeManager-win-x64-zip/MemeManager-win-x64.zip
