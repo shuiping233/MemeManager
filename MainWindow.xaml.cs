@@ -177,16 +177,73 @@ public sealed partial class MainWindow : Window
 
     private async void MemeGridView_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (_editMode) return;
+        var clicked = FindMemeFromSource(e.OriginalSource);
+        if (clicked == null) return;
 
-        var sourceElement = e.OriginalSource as FrameworkElement;
-        if (sourceElement == null) return;
-
-        if (sourceElement.DataContext is MemeViewModel clicked)
+        if (_editMode)
         {
-            IgnoreNextClipboardChange();
-            await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, _prevActiveHwnd);
-            await App.DataEngine.IncrementUsageAsync(clicked.Hash);
+            // 多选模式：单击即切换选中（再次单击取消）
+            clicked.IsSelected = !clicked.IsSelected;
+            return;
+        }
+
+        IgnoreNextClipboardChange();
+        await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, _prevActiveHwnd);
+        await App.DataEngine.IncrementUsageAsync(clicked.Hash);
+    }
+
+    private static MemeViewModel? FindMemeFromSource(object? source)
+    {
+        var element = source as DependencyObject;
+        while (element != null)
+        {
+            if (element is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
+                return vm;
+            element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element);
+        }
+        return null;
+    }
+
+    // ---------- 拖拽：拖入导入 / 拖出到外部输入框 ----------
+
+    private void MemeGridView_DragOver(object sender, DragEventArgs e)
+    {
+        // 允许从文件管理器拖入图片
+        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        else
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+    }
+
+    private async void MemeGridView_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+
+        var items = await e.DataView.GetStorageItemsAsync();
+        bool any = false;
+        foreach (var item in items)
+        {
+            if (item is StorageFile file && IsImage(file.FileType))
+            {
+                var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
+                if (imported != null && imported.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+                {
+                    _memeList.Add(new MemeViewModel(imported));
+                    any = true;
+                }
+            }
+        }
+        if (any) UpdateCategoryCounts();
+    }
+
+    private void MemeItem_DragStarting(object sender, DragStartingEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
+        {
+            // 拖出时把图片文件作为 StorageItem 携带，外部输入框（微信/资源管理器等）可直接接收
+            var file = Windows.Storage.StorageFile.GetFileFromPathAsync(vm.LocalPath).AsTask().Result;
+            e.Data.SetStorageItems(new[] { file });
+            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
         }
     }
 

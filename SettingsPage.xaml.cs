@@ -35,6 +35,12 @@ public sealed partial class SettingsPage : Page
         }
     }
 
+    private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
+    {
+        // 进入设置页即聚焦，确保能接收 Enter 键
+        this.Focus(FocusState.Programmatic);
+    }
+
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
         var picker = new FolderPicker();

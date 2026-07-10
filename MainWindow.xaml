@@ -76,7 +76,10 @@
                   Margin="12"
                   HorizontalAlignment="Stretch"
                   SelectionMode="None"
-                  IsItemClickEnabled="False">
+                  IsItemClickEnabled="False"
+                  AllowDrop="True"
+                  DragOver="MemeGridView_DragOver"
+                  Drop="MemeGridView_Drop">
             <GridView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="-1"/>
@@ -88,6 +91,8 @@
                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                           CornerRadius="6"
                           ToolTipService.ToolTip="{x:Bind Title}"
+                          CanDrag="True"
+                          DragStarting="MemeItem_DragStarting"
                           RightTapped="MemeItem_RightTapped">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
                                Stretch="UniformToFill"
