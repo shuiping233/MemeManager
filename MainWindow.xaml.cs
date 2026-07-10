@@ -46,7 +46,7 @@ public sealed partial class MainWindow : Window
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
-        NativeMethods.RegisterHotKey(_hWnd, HOTKEY_ID, NativeMethods.MOD_ALT, 0x45);
+        RegisterConfiguredHotKey();
 
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
@@ -272,7 +272,7 @@ public sealed partial class MainWindow : Window
         }
 
         var items = await e.DataView.GetStorageItemsAsync();
-        Log($"Drop: 拖入 {items.Count} 个项");
+        Log($"Drop: 拖入 {items.Count} 个项, 目标分类={_currentCategory}");
         bool any = false;
         foreach (var item in items)
         {
@@ -281,9 +281,10 @@ public sealed partial class MainWindow : Window
             {
                 Log($"Drop: 导入图片 {file.Path} 到分类 {_currentCategory}");
                 var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
-                if (imported != null && imported.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+                if (imported != null)
                 {
-                    _memeList.Add(new MemeViewModel(imported));
+                    if (!_memeList.Any(m => m.Hash == imported.Hash))
+                        _memeList.Add(new MemeViewModel(imported));
                     any = true;
                 }
             }
@@ -400,7 +401,9 @@ public sealed partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        SettingsFlyout.Content = new SettingsPage();
+        var page = new SettingsPage();
+        page.RequestClose += (_, _) => SettingsFlyout.Hide();
+        SettingsFlyout.Content = page;
         SettingsFlyout.ShowAt(SettingsButton);
     }
 
@@ -417,6 +420,16 @@ public sealed partial class MainWindow : Window
 
     private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Ctrl+V：把剪贴板里的图片导入到当前分类
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        if (ctrl && e.Key == Windows.System.VirtualKey.V)
+        {
+            e.Handled = true;
+            _ = ImportFromClipboardAsync();
+            return;
+        }
+
         if (!_editMode) return;
 
         if (e.Key == Windows.System.VirtualKey.Escape)
@@ -428,6 +441,31 @@ public sealed partial class MainWindow : Window
         {
             ExitEditMode();
             e.Handled = true;
+        }
+    }
+
+    private async Task ImportFromClipboardAsync()
+    {
+        try
+        {
+            var view = Clipboard.GetContent();
+            if (view == null) return;
+            if (!view.Contains(StandardDataFormats.StorageItems) &&
+                !view.Contains(StandardDataFormats.Bitmap)) return;
+
+            var category = await PromptCategoryForPasteAsync();
+            if (category == null) return;
+
+            var imported = await ImportFromClipboardAsync(view, category);
+            if (imported != null && category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+            {
+                _memeList.Add(new MemeViewModel(imported));
+                UpdateCategoryCounts();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("ImportFromClipboardAsync 失败: " + ex.Message);
         }
     }
 
@@ -618,5 +656,46 @@ public sealed partial class MainWindow : Window
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         if (_clipboardHooked)
             Clipboard.ContentChanged -= Clipboard_ContentChanged;
+    }
+
+    // ---------- 全局快捷键 ----------
+
+    private void RegisterConfiguredHotKey()
+    {
+        NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
+        var cfg = App.DataEngine.Config;
+        NativeMethods.RegisterHotKey(_hWnd, HOTKEY_ID, cfg.HotKeyModifiers, cfg.HotKeyVk);
+    }
+
+    /// <summary>
+    /// 设置页修改快捷键后调用，重新注册并持久化
+    /// </summary>
+    public void ApplyHotKeyConfig(uint modifiers, ushort vk)
+    {
+        App.DataEngine.Config.HotKeyModifiers = modifiers;
+        App.DataEngine.Config.HotKeyVk = vk;
+        RegisterConfiguredHotKey();
+        _ = App.DataEngine.SaveConfigAsync();
+    }
+
+    /// <summary>
+    /// 当前配置的快捷键文本，如 "Alt+E"
+    /// </summary>
+    public static string HotKeyText(uint modifiers, ushort vk)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        if ((modifiers & 0x8) != 0) parts.Add("Win");
+        if ((modifiers & 0x1) != 0) parts.Add("Alt");
+        if ((modifiers & 0x2) != 0) parts.Add("Ctrl");
+        if ((modifiers & 0x4) != 0) parts.Add("Shift");
+        var keyName = vk switch
+        {
+            0x45 => "E", 0x56 => "V", 0x43 => "C", 0x41 => "A",
+            >= 0x30 and <= 0x39 => ((char)vk).ToString(),
+            >= 0x70 and <= 0x87 => "F" + (vk - 0x6F),
+            _ => "0x" + vk.ToString("X2")
+        };
+        parts.Add(keyName);
+        return string.Join("+", parts);
     }
 }

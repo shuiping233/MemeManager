@@ -38,6 +38,21 @@
                     <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览..." Margin="8,0,0,0" Click="BrowseButton_Click"/>
                 </Grid>
             </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="呼出快捷键" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="HotKeyBox" Grid.Column="0" IsReadOnly="True"
+                             VerticalAlignment="Center" Text="Alt+E"/>
+                    <Button x:Name="RecordHotKeyButton" Grid.Column="1" Content="录制..."
+                            Margin="8,0,0,0" Click="RecordHotKeyButton_Click"/>
+                </Grid>
+                <TextBlock FontSize="11" Opacity="0.6">点击“录制”后，按下想要的组合键（如 Alt+E）</TextBlock>
+            </StackPanel>
         </StackPanel>
 
         <Button Grid.Row="2" x:Name="CloseButton" Content="完成" HorizontalAlignment="Right"
