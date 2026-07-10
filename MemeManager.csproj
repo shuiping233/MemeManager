@@ -5,28 +5,32 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>MemeManager</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Platforms>x86;x64;ARM64</Platforms>
-    <!-- <Platforms>x64</Platforms> -->
-    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- 默认以非打包方式运行：用 Bootstrap 初始化 Windows App SDK（避免 DeploymentManager 崩溃）。
+         仅在显式生成 MSIX 包（GenerateAppxPackageOnBuild=true）时回到打包模式。 -->
+    <WindowsPackageType Condition="'$(GenerateAppxPackageOnBuild)' != 'true'">None</WindowsPackageType>
+    <WindowsAppSdkBootstrapInitialize Condition="'$(GenerateAppxPackageOnBuild)' != 'true'">true</WindowsAppSdkBootstrapInitialize>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <!-- 🔥 Native AOT 与极致体积裁剪配置 -->
-    <PublishAot>true</PublishAot>
-    <OptimizationPreference>Size</OptimizationPreference>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
-    <!-- <PublishSingleFile>true</PublishSingleFile> -->
+    <!-- 体积 + 启动速度：WinUI 与 trimming / AOT 均不兼容，关闭以避免运行时崩溃 -->
+    <PublishAot>false</PublishAot>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
 
-    <!-- 禁用不必要的国际化与堆栈支持（再次压榨体积） -->
-    <InvariantGlobalization>true</InvariantGlobalization>
-    <StackTraceSupport>false</StackTraceSupport>
+    <!-- 保留栈追踪与全球化，确保 WinUI / COM 互操作正常运行 -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <StackTraceSupport>true</StackTraceSupport>
 
-    <!-- 🔥 允许不安全代码以解决 CS0227 错误 -->
+    <!-- 允许不安全代码以解决 CS0227 错误 -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -78,11 +82,4 @@
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
 
-  <!-- Publish Properties -->
-  <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-  </PropertyGroup>
-</Project>
+  </Project>
