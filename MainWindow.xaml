@@ -95,7 +95,7 @@
                           CornerRadius="6"
                           ToolTipService.ToolTip="{x:Bind Title}"
                           CanDrag="True"
-                          PointerPressed="MemeItem_PointerPressed"
+                          Tapped="MemeItem_Tapped"
                           DragStarting="MemeItem_DragStarting"
                           RightTapped="MemeItem_RightTapped">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
@@ -126,6 +126,7 @@
               Padding="12"
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="SelectAllButton" Content="全选" Click="SelectAllButton_Click"/>
                 <Button x:Name="BatchImportButton" Content="批量导入" Click="BatchImportButton_Click"/>
                 <Button x:Name="BatchExportButton" Content="批量导出" Click="BatchExportButton_Click"/>
                 <Button x:Name="DeleteButton" Content="删除" Style="{StaticResource AccentButtonStyle}" Click="DeleteButton_Click"/>

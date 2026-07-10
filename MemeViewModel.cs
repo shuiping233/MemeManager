@@ -33,8 +33,24 @@ namespace MemeManager.ViewModels
             }
         }
 
-        public Visibility CheckBoxVisibility => _isSelected ? Visibility.Collapsed : Visibility.Visible;
-        public Visibility BadgeVisibility => _isSelected ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility CheckBoxVisibility => (_showSelectionUI && !_isSelected) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility BadgeVisibility => (_showSelectionUI && _isSelected) ? Visibility.Visible : Visibility.Collapsed;
+
+        private bool _showSelectionUI;
+        public bool ShowSelectionUI
+        {
+            get => _showSelectionUI;
+            set
+            {
+                if (_showSelectionUI != value)
+                {
+                    _showSelectionUI = value;
+                    OnPropertyChanged(nameof(ShowSelectionUI));
+                    OnPropertyChanged(nameof(CheckBoxVisibility));
+                    OnPropertyChanged(nameof(BadgeVisibility));
+                }
+            }
+        }
 
         private BitmapImage? _imageSource;
         public BitmapImage ImageSource

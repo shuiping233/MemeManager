@@ -15,6 +15,10 @@ internal static partial class NativeMethods
     public const int WM_HOTKEY = 0x0312;
     public const int MOD_ALT = 0x0001;
 
+    public const int WM_RBUTTONUP = 0x0205;
+    public const int WM_LBUTTONUP = 0x0202;
+    public const int WM_DESTROY = 0x0002;
+
     public const int WM_ACTIVATE = 0x0006;
     public const int WA_INACTIVE = 0;
     public const int WA_ACTIVE = 1;
@@ -51,6 +55,9 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern int GetKeyNameTextW(int lParam, System.Text.StringBuilder lpString, int cchSize);
 
     // 引入窗口子类化 API
     [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
@@ -119,4 +126,57 @@ internal static partial class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    // ---------- 系统托盘 (NotifyIcon) ----------
+
+    [DllImport("shell32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool Shell_NotifyIcon(uint dwMessage, ref TrayNotifyIconData lpData);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr CreatePopupMenu();
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool AppendMenu(IntPtr hMenu, uint uFlags, uint uIDNewItem, string lpNewItem);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint TrackPopupMenu(IntPtr hMenu, uint uFlags, int x, int y,
+        int nReserved, IntPtr hWnd, IntPtr prcRect);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyMenu(IntPtr hMenu);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern IntPtr LoadImage(IntPtr hInst, string lpszName, uint uType,
+        int cxDesired, int cyDesired, uint fuLoad);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr LoadIcon(IntPtr hInstance, IntPtr lpIconName);
+
+    [LibraryImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct TrayNotifyIconData
+    {
+        public int cbSize;
+        public IntPtr hWnd;
+        public uint uID;
+        public uint uFlags;
+        public uint uCallbackMessage;
+        public IntPtr hIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szTip;
+        public uint uVersion;
+    }
 }

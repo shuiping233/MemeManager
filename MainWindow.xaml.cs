@@ -37,6 +37,12 @@ public sealed partial class MainWindow : Window
     private IntPtr _lastExternalFg;
     private bool _isActive;
 
+    // 多选模式：Shift 连续选择的锚点（在 _memeList 中的索引）
+    private int _lastShiftAnchor = -1;
+
+    // 防止粘贴导入的分类对话框重入
+    private bool _pasteDialogOpen;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -163,7 +169,11 @@ public sealed partial class MainWindow : Window
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
         foreach (var m in memes)
-            _memeList.Add(new MemeViewModel(m));
+        {
+            var vm = new MemeViewModel(m);
+            vm.ShowSelectionUI = _editMode;
+            _memeList.Add(vm);
+        }
 
         UpdateCategoryCounts();
     }
@@ -188,32 +198,51 @@ public sealed partial class MainWindow : Window
             Log("进入多选模式");
             _editMode = true;
             EditButton.Content = "完成";
+            EditButton.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
             BatchBar.Visibility = Visibility.Visible;
+            foreach (var m in _memeList) m.ShowSelectionUI = true;
         }
     }
 
-    // ---------- 点击表情（非修改模式 = 粘贴） ----------
+    // ---------- 点击表情（非修改模式 = 粘贴；多选模式 = 切换选中） ----------
+    // 用 Tapped 而非 PointerPressed：拖拽(CanDrag)会取消 Tapped，避免“先单击粘贴一次、再拖出又粘贴一次”
 
-    private async void MemeItem_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private async void MemeItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
-        // 右键交给 RightTapped 处理
-        if (e.GetCurrentPoint(null).Properties.IsRightButtonPressed)
-            return;
-
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel clicked)
         {
-            Log("MemeItem_PointerPressed: 取不到 MemeViewModel, sender=" + sender?.GetType().Name);
+            Log("MemeItem_Tapped: 取不到 MemeViewModel, sender=" + sender?.GetType().Name);
             return;
         }
 
+        int index = _memeList.IndexOf(clicked);
+
+        // ---- 多选模式：切换选中，支持 Shift 范围选择 ----
         if (_editMode)
         {
-            Log($"左键单击(多选模式): 切换选中 {clicked.Title}，新选中态={!clicked.IsSelected}");
-            clicked.IsSelected = !clicked.IsSelected;
+            bool shift = Microsoft.UI.Input.InputKeyboardSource
+                .GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+            if (shift && _lastShiftAnchor >= 0 && index >= 0)
+            {
+                int a = Math.Min(_lastShiftAnchor, index);
+                int b = Math.Max(_lastShiftAnchor, index);
+                bool targetState = !clicked.IsSelected; // 以当前点击项的目标状态为准
+                for (int i = a; i <= b; i++)
+                    _memeList[i].IsSelected = targetState;
+            }
+            else
+            {
+                clicked.IsSelected = !clicked.IsSelected;
+            }
+
+            _lastShiftAnchor = index;
+            Log($"单击(多选模式): 切换选中 {clicked.Title}，新选中态={clicked.IsSelected} (shift={shift})");
             return;
         }
 
-        // 点击瞬间先抓取当前前台窗口，再结合“我们未激活时持续记录的外部门窗”作为粘贴目标
+        // ---- 普通模式：发送图片 ----
         IntPtr liveFg = NativeMethods.GetForegroundWindow();
         IntPtr target = IntPtr.Zero;
         if (_lastExternalFg != IntPtr.Zero && _lastExternalFg != _hWnd)
@@ -223,22 +252,10 @@ public sealed partial class MainWindow : Window
         else if (liveFg != IntPtr.Zero && liveFg != _hWnd)
             target = liveFg;
 
-        Log($"左键单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target} (_lastExternalFg={_lastExternalFg}, _prevActiveHwnd={_prevActiveHwnd}, liveFg={liveFg})");
+        Log($"单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target}");
         IgnoreNextClipboardChange();
         await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, target);
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
-    }
-
-    private static MemeViewModel? FindMemeFromSource(object? source)
-    {
-        var element = source as DependencyObject;
-        while (element != null)
-        {
-            if (element is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
-                return vm;
-            element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element);
-        }
-        return null;
     }
 
     // ---------- 拖拽：拖入导入 / 拖出到外部输入框 ----------
@@ -341,6 +358,14 @@ public sealed partial class MainWindow : Window
 
     // ---------- 批量操作 ----------
 
+    private void SelectAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_editMode) return;
+        bool allSelected = _memeList.Count > 0 && _memeList.All(m => m.IsSelected);
+        foreach (var m in _memeList) m.IsSelected = !allSelected;
+        SelectAllButton.Content = allSelected ? "全选" : "取消全选";
+    }
+
     private async void BatchImportButton_Click(object sender, RoutedEventArgs e)
     {
         var picker = new FileOpenPicker();
@@ -405,6 +430,21 @@ public sealed partial class MainWindow : Window
         page.RequestClose += (_, _) => SettingsFlyout.Hide();
         SettingsFlyout.Content = page;
         SettingsFlyout.ShowAt(SettingsButton);
+    }
+
+    /// <summary>托盘菜单“设置”：弹出设置页</summary>
+    public void OpenSettings()
+    {
+        SettingsButton_Click(this, new RoutedEventArgs());
+    }
+
+    /// <summary>托盘菜单“显示主窗口”：显示并激活窗口</summary>
+    public void ShowAndActivate()
+    {
+        _isVisible = true;
+        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOW);
+        NativeMethods.SetForegroundWindow(_hWnd);
+        RefreshMemes();
     }
 
     private async void SettingsFlyout_Closed(object? sender, object e)
@@ -474,7 +514,14 @@ public sealed partial class MainWindow : Window
         _editMode = false;
         EditButton.Content = "修改";
         BatchBar.Visibility = Visibility.Collapsed;
-        foreach (var m in _memeList) m.IsSelected = false;
+        foreach (var m in _memeList)
+        {
+            m.IsSelected = false;
+            m.ShowSelectionUI = false;
+        }
+        _lastShiftAnchor = -1;
+        SelectAllButton.Content = "全选";
+        EditButton.Style = null;
     }
 
     // ---------- 粘贴图片进窗口 ----------
@@ -533,30 +580,41 @@ public sealed partial class MainWindow : Window
 
     private async Task<string?> PromptCategoryForPasteAsync()
     {
-        var box = new TextBox
-        {
-            PlaceholderText = "输入分类名称（不存在则新建）",
-            Text = _currentCategory
-        };
-        var dialog = new ContentDialog
-        {
-            Title = "粘贴图片到分类",
-            Content = box,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot
-        };
-        var result = await dialog.ShowAsync();
-        if (result != ContentDialogResult.Primary) return null;
-        var name = box.Text.Trim();
-        if (string.IsNullOrWhiteSpace(name)) return null;
+        // 防止高速事件重入：对话框已打开时直接返回
+        if (_pasteDialogOpen) return null;
+        _pasteDialogOpen = true;
 
-        if (!_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        try
         {
-            await App.DataEngine.AddCategoryAsync(name);
-            _categoryList.Add(new CategoryViewModel(name, 0));
+            var box = new TextBox
+            {
+                PlaceholderText = "输入分类名称（不存在则新建）",
+                Text = _currentCategory
+            };
+            var dialog = new ContentDialog
+            {
+                Title = "粘贴图片到分类",
+                Content = box,
+                PrimaryButtonText = "确定",
+                CloseButtonText = "取消",
+                XamlRoot = this.Content.XamlRoot
+            };
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return null;
+            var name = box.Text.Trim();
+            if (string.IsNullOrWhiteSpace(name)) return null;
+
+            if (!_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                await App.DataEngine.AddCategoryAsync(name);
+                _categoryList.Add(new CategoryViewModel(name, 0));
+            }
+            return name;
         }
-        return name;
+        finally
+        {
+            _pasteDialogOpen = false;
+        }
     }
 
     private async Task<MemeModel?> ImportFromClipboardAsync(DataPackageView view, string category)
@@ -679,7 +737,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 当前配置的快捷键文本，如 "Alt+E"
+    /// 当前配置的快捷键文本，如 "Alt+E" / "Alt+."
     /// </summary>
     public static string HotKeyText(uint modifiers, ushort vk)
     {
@@ -688,14 +746,16 @@ public sealed partial class MainWindow : Window
         if ((modifiers & 0x1) != 0) parts.Add("Alt");
         if ((modifiers & 0x2) != 0) parts.Add("Ctrl");
         if ((modifiers & 0x4) != 0) parts.Add("Shift");
-        var keyName = vk switch
-        {
-            0x45 => "E", 0x56 => "V", 0x43 => "C", 0x41 => "A",
-            >= 0x30 and <= 0x39 => ((char)vk).ToString(),
-            >= 0x70 and <= 0x87 => "F" + (vk - 0x6F),
-            _ => "0x" + vk.ToString("X2")
-        };
-        parts.Add(keyName);
+
+        // 用 Win32 GetKeyNameText 取真实键名（如 0xBE -> "."，F1，数字等）
+        var sb = new System.Text.StringBuilder(64);
+        // lParam 布局：低字节=虚拟键码，第24位=扩展键
+        int lParam = (vk << 16);
+        if (NativeMethods.GetKeyNameTextW(lParam, sb, sb.Capacity) > 0 && sb.Length > 0)
+            parts.Add(sb.ToString());
+        else
+            parts.Add("0x" + vk.ToString("X2"));
+
         return string.Join("+", parts);
     }
 }

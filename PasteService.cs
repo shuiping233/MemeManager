@@ -37,7 +37,7 @@ public static class PasteService
             // SetContent 已足够让随后的 Ctrl+V 使用数据
             try { Clipboard.Flush(); } catch { }
 
-            await Task.Delay(1);
+            await Task.Delay(30);
 
             // 若未显式指定目标，则取当前前台窗口（通常是用户正在输入的应用）
             IntPtr target = targetWindow.HasValue && targetWindow.Value != IntPtr.Zero
