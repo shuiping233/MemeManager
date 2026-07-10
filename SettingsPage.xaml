@@ -1,0 +1,45 @@
+<Page
+    x:Class="MemeManager.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MemeManager"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="设置" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+        <StackPanel Grid.Row="1" Spacing="16">
+            <StackPanel Spacing="6">
+                <TextBlock Text="主题" FontWeight="SemiBold"/>
+                <ComboBox x:Name="ThemeComboBox" HorizontalAlignment="Stretch" SelectionChanged="ThemeComboBox_SelectionChanged">
+                    <x:String>跟随系统</x:String>
+                    <x:String>浅色</x:String>
+                    <x:String>深色</x:String>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="表情包存放路径" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="StoragePathBox" Grid.Column="0" IsReadOnly="True" VerticalAlignment="Center"/>
+                    <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览..." Margin="8,0,0,0" Click="BrowseButton_Click"/>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+
+        <Button Grid.Row="2" x:Name="CloseButton" Content="完成" HorizontalAlignment="Right"
+                Margin="0,16,0,0" Click="CloseButton_Click" Style="{StaticResource AccentButtonStyle}"/>
+    </Grid>
+</Page>

@@ -1,11 +1,18 @@
 ﻿using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
+using MemeManager.Data;
+using MemeManager.Models;
 using MemeManager.ViewModels;
 
 namespace MemeManager;
@@ -17,10 +24,17 @@ public sealed partial class MainWindow : Window
     private const int HOTKEY_ID = 9001;
     private const uint SUBCLASS_ID = 101;
 
-    // 必须保持对回调委托的硬引用，防止被垃圾回收器 (GC) 回收
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
 
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
+    private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
+
+    private string _currentCategory = string.Empty;
+    private bool _editMode;
+
+    // 记录本窗口激活前的前台窗口（通常是正在聊天的目标应用），用于粘贴时回投 Ctrl+V
+    private IntPtr _prevActiveHwnd;
+    private bool _isActive;
 
     public MainWindow()
     {
@@ -28,42 +42,430 @@ public sealed partial class MainWindow : Window
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
-        // 1. 无焦点样式置顶
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
-        NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOPMOST);
+        NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
-        // 2. 注册 Alt + E 全局热键
         NativeMethods.RegisterHotKey(_hWnd, HOTKEY_ID, NativeMethods.MOD_ALT, 0x45);
 
-        // 3. 挂接窗口过程
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
 
-        // 4. 调整窗体尺寸
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new Windows.Graphics.SizeInt32(420, 600));
+        appWindow.Resize(new Windows.Graphics.SizeInt32(720, 640));
 
         if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
-        {
             overlappedPresenter.IsAlwaysOnTop = true;
+
+        CategoryList.ItemsSource = _categoryList;
+        MemeGridView.ItemsSource = _memeList;
+        MemeGridView.PointerPressed += MemeGridView_PointerPressed;
+
+        // 粘贴图片进窗口
+        this.Activated += MainWindow_Activated;
+        _clipboardHooked = false;
+        HookClipboard();
+
+        Closed += Window_Closed;
+
+        SettingsFlyout.Closed += SettingsFlyout_Closed;
+
+        // Esc 退出多选模式 / Enter 完成多选模式
+        if (this.Content is FrameworkElement root)
+        {
+            root.KeyDown += Root_KeyDown;
+            root.Loaded += (_, _) => { if (this.Content is FrameworkElement r) r.Focus(FocusState.Programmatic); };
         }
 
-        // 5. 🎯 动态解耦挂载：绑定 GridView 的数据源与底层物理指针按下事件
-        if (Content is FrameworkElement root && root.FindName("MemeGridView") is GridView gridView)
-    {
-        gridView.ItemsSource = _memeList;
-        gridView.PointerPressed += MemeGridView_PointerPressed;
+        LoadCategories();
     }
 
-        // 首次加载数据
-        LoadVisibleMemes();
+    // ---------- 分类 ----------
+
+    private void LoadCategories()
+    {
+        _categoryList.Clear();
+        foreach (var cat in App.DataEngine.GetCategories())
+        {
+            int count = App.DataEngine.GetMemes(cat).Count;
+            _categoryList.Add(new CategoryViewModel(cat, count));
+        }
+
+        // 默认选中上次或第一项
+        var last = App.DataEngine.Config.LastCategory;
+        var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
+        if (target != null)
+        {
+            CategoryList.SelectedItem = target;
+            _currentCategory = target.Name;
+        }
+
+        RefreshMemes();
     }
+
+    private void CategoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CategoryList.SelectedItem is CategoryViewModel cat)
+        {
+            _currentCategory = cat.Name;
+            _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
+            RefreshMemes();
+        }
+    }
+
+    private async void AddCategoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        var box = new TextBox { PlaceholderText = "输入新分类名称" };
+        var dialog = new ContentDialog
+        {
+            Title = "新增分类",
+            Content = box,
+            PrimaryButtonText = "确定",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot
+        };
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            var name = box.Text.Trim();
+            if (string.IsNullOrWhiteSpace(name)) return;
+            bool added = await App.DataEngine.AddCategoryAsync(name);
+            if (added)
+            {
+                _categoryList.Add(new CategoryViewModel(name, 0));
+                CategoryList.SelectedItem = _categoryList.Last();
+            }
+        }
+    }
+
+    // ---------- 表情渲染 ----------
+
+    private void RefreshMemes()
+    {
+        _memeList.Clear();
+        var keyword = SearchBox.Text?.Trim();
+        var memes = App.DataEngine.GetMemes(
+            string.IsNullOrWhiteSpace(_currentCategory) ? null : _currentCategory,
+            string.IsNullOrWhiteSpace(keyword) ? null : keyword);
+
+        foreach (var m in memes)
+            _memeList.Add(new MemeViewModel(m));
+
+        UpdateCategoryCounts();
+    }
+
+    private void UpdateCategoryCounts()
+    {
+        foreach (var c in _categoryList)
+            c.Count = App.DataEngine.GetMemes(c.Name).Count;
+    }
+
+    // ---------- 修改模式 ----------
+
+    private void EditButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_editMode) ExitEditMode();
+        else
+        {
+            _editMode = true;
+            EditButton.Content = "完成";
+            BatchBar.Visibility = Visibility.Visible;
+        }
+    }
+
+    // ---------- 点击表情（非修改模式 = 粘贴） ----------
+
+    private async void MemeGridView_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_editMode) return;
+
+        var sourceElement = e.OriginalSource as FrameworkElement;
+        if (sourceElement == null) return;
+
+        if (sourceElement.DataContext is MemeViewModel clicked)
+        {
+            IgnoreNextClipboardChange();
+            await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, _prevActiveHwnd);
+            await App.DataEngine.IncrementUsageAsync(clicked.Hash);
+        }
+    }
+
+    // ---------- 右键菜单 ----------
+
+    private void MemeItem_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
+        {
+            var flyout = new MenuFlyout();
+            var deleteItem = new MenuFlyoutItem { Text = "删除" };
+            deleteItem.Click += async (_, __) =>
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "删除确认",
+                    Content = $"确定要删除「{vm.Title}」吗？",
+                    PrimaryButtonText = "删除",
+                    CloseButtonText = "取消",
+                    XamlRoot = this.Content.XamlRoot
+                };
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
+                    var item = _memeList.FirstOrDefault(m => m == vm);
+                    if (item != null) _memeList.Remove(item);
+                    UpdateCategoryCounts();
+                }
+            };
+            flyout.Items.Add(deleteItem);
+            flyout.ShowAt(fe, e.GetPosition(fe));
+        }
+    }
+
+    // ---------- 批量操作 ----------
+
+    private async void BatchImportButton_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker();
+        InitializeWithWindow.Initialize(picker, _hWnd);
+        picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+        picker.FileTypeFilter.Add(".png");
+        picker.FileTypeFilter.Add(".jpg");
+        picker.FileTypeFilter.Add(".jpeg");
+        picker.FileTypeFilter.Add(".gif");
+        picker.FileTypeFilter.Add(".webp");
+        picker.FileTypeFilter.Add(".bmp");
+
+        var files = await picker.PickMultipleFilesAsync();
+        if (files == null || files.Count == 0) return;
+
+        foreach (var file in files)
+        {
+            var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
+            if (imported != null)
+                _memeList.Add(new MemeViewModel(imported));
+        }
+        UpdateCategoryCounts();
+    }
+
+    private async void BatchExportButton_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _memeList.Where(m => m.IsSelected).ToList();
+        if (selected.Count == 0) return;
+
+        var picker = new FolderPicker();
+        InitializeWithWindow.Initialize(picker, _hWnd);
+        picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder == null) return;
+
+        await App.DataEngine.ExportMemesAsync(selected.Select(m => m.Model), folder.Path);
+    }
+
+    private async void DeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _memeList.Where(m => m.IsSelected).ToList();
+        if (selected.Count == 0) return;
+
+        var dialog = new ContentDialog
+        {
+            Title = "删除确认",
+            Content = $"确定要删除选中的 {selected.Count} 个表情吗？",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
+        foreach (var m in selected) _memeList.Remove(m);
+        UpdateCategoryCounts();
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsFlyout.Content = new SettingsPage();
+        SettingsFlyout.ShowAt(SettingsButton);
+    }
+
+    private async void SettingsFlyout_Closed(object? sender, object e)
+    {
+        if (SettingsFlyout.Content is SettingsPage page)
+            await page.SaveAsync();
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshMemes();
+    }
+
+    private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (!_editMode) return;
+
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            ExitEditMode();
+            e.Handled = true;
+        }
+        else if (e.Key == Windows.System.VirtualKey.Enter)
+        {
+            ExitEditMode();
+            e.Handled = true;
+        }
+    }
+
+    private void ExitEditMode()
+    {
+        _editMode = false;
+        EditButton.Content = "修改";
+        BatchBar.Visibility = Visibility.Collapsed;
+        foreach (var m in _memeList) m.IsSelected = false;
+    }
+
+    // ---------- 粘贴图片进窗口 ----------
+
+    private bool _clipboardHooked;
+    private int _ignoreClipboardDepth;
+
+    public void IgnoreNextClipboardChange() => _ignoreClipboardDepth++;
+
+    private void HookClipboard()
+    {
+        if (_clipboardHooked) return;
+        try
+        {
+            Clipboard.ContentChanged += Clipboard_ContentChanged;
+            _clipboardHooked = true;
+        }
+        catch { }
+    }
+
+    private void Clipboard_ContentChanged(object? sender, object e)
+    {
+        // 忽略由本程序（如输出表情）触发的剪贴板变更，避免自循环
+        if (_ignoreClipboardDepth > 0)
+        {
+            _ignoreClipboardDepth--;
+            return;
+        }
+
+        // 仅当窗口可见、且焦点确实在本窗口时（用户主动 Ctrl+V 贴进来）才响应
+        if (!_isVisible || !_isActive) return;
+
+        try
+        {
+            var dataPackageView = Clipboard.GetContent();
+            if (dataPackageView == null) return;
+            if (!dataPackageView.Contains(StandardDataFormats.Bitmap) &&
+                !dataPackageView.Contains(StandardDataFormats.StorageItems)) return;
+
+            // 在 UI 线程弹窗选择分类
+           DispatcherQueue.TryEnqueue(async () =>
+           {
+               var category = await PromptCategoryForPasteAsync();
+               if (category == null) return;
+
+               var imported = await ImportFromClipboardAsync(dataPackageView, category);
+               if (imported != null && category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+               {
+                   _memeList.Add(new MemeViewModel(imported));
+                   UpdateCategoryCounts();
+               }
+           });
+        }
+        catch { }
+    }
+
+    private async Task<string?> PromptCategoryForPasteAsync()
+    {
+        var box = new TextBox
+        {
+            PlaceholderText = "输入分类名称（不存在则新建）",
+            Text = _currentCategory
+        };
+        var dialog = new ContentDialog
+        {
+            Title = "粘贴图片到分类",
+            Content = box,
+            PrimaryButtonText = "确定",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot
+        };
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary) return null;
+        var name = box.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        if (!_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            await App.DataEngine.AddCategoryAsync(name);
+            _categoryList.Add(new CategoryViewModel(name, 0));
+        }
+        return name;
+    }
+
+    private async Task<MemeModel?> ImportFromClipboardAsync(DataPackageView view, string category)
+    {
+        try
+        {
+            if (view.Contains(StandardDataFormats.StorageItems))
+            {
+                var items = await view.GetStorageItemsAsync();
+                foreach (var item in items)
+                {
+                    if (item is StorageFile file && IsImage(file.FileType))
+                    {
+                        return await App.DataEngine.ImportMemeAsync(file.Path, category);
+                    }
+                }
+            }
+            else if (view.Contains(StandardDataFormats.Bitmap))
+            {
+                var streamRef = await view.GetBitmapAsync();
+                using var stream = await streamRef.OpenReadAsync();
+                var tempPath = Path.Combine(Path.GetTempPath(), $"meme_{Guid.NewGuid():N}.png");
+                using (var outStream = File.Create(tempPath))
+                {
+                    await stream.AsStreamForRead().CopyToAsync(outStream);
+                }
+                var imported = await App.DataEngine.ImportMemeAsync(tempPath, category);
+                try { File.Delete(tempPath); } catch { }
+                return imported;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Paste] 导入失败: {ex.Message}");
+        }
+        return null;
+    }
+
+    private static bool IsImage(string ext) =>
+        ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp";
+
+    private void MainWindow_Activated(object sender, WindowActivatedEventArgs args) => HookClipboard();
+
+    // ---------- 热键 / 窗口过程 ----------
+
     private IntPtr NewWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, uint uIdSubclass, IntPtr dwRefData)
     {
         if (uMsg == NativeMethods.WM_MOUSEACTIVATE)
         {
-            return (IntPtr)3; // MA_NOACTIVATE
+            // 允许点击窗口时正常激活（这样文本框可以输入），
+            // 不再返回 MA_NOACTIVATE 以免整个窗口无法获得焦点。
+            return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
+        }
+
+        if (uMsg == NativeMethods.WM_ACTIVATE)
+        {
+            // 记录被我们抢走焦点的那个窗口，粘贴时把 Ctrl+V 投回给它
+            int state = (int)wParam & 0xFFFF;
+            _isActive = state != NativeMethods.WA_INACTIVE;
+            if (state != NativeMethods.WA_INACTIVE && lParam != IntPtr.Zero)
+            {
+                _prevActiveHwnd = lParam;
+            }
+            return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
         if (uMsg == NativeMethods.WM_HOTKEY && (int)wParam == HOTKEY_ID)
@@ -75,85 +477,27 @@ public sealed partial class MainWindow : Window
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
-    private void LoadVisibleMemes()
-    {
-        _memeList.Clear();
-
-        // 🎯 从全局单例数据引擎中获取所有表情包
-        var rawMemes = App.DataEngine.GetMemes();
-
-        foreach (var meme in rawMemes)
-        {
-            _memeList.Add(new MemeViewModel(meme));
-        }
-
-        // 🛠️ 首次运行调试：如果里面什么都没有，悄悄伪造一个刚才的测试图片，免得界面空空如也
-        if (_memeList.Count == 0)
-        {
-            string testImg = @"C:\Users\Admin\Pictures\稍有不慎就能写出更多bug来.jpg";
-            if (File.Exists(testImg))
-            {
-                _ = App.DataEngine.ImportMemeAsync(testImg, "程序员专属", new() { "bug", "测试" }).ContinueWith(t =>
-                {
-                    if (t.Result != null)
-                    {
-                        DispatcherQueue.TryEnqueue(() => _memeList.Add(new MemeViewModel(t.Result)));
-                    }
-                });
-            }
-        }
-    }
-
-    // 🎯 降维打击的核心点击：直接在 GridView 的全局容器上捕捉底层输入指针
-    private async void MemeGridView_PointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        // 1. 获取当前鼠标点中的视觉原件 (OriginalSource)
-        var sourceElement = e.OriginalSource as FrameworkElement;
-        if (sourceElement == null) return;
-
-        // 2. 向上追溯，看看点击的是不是某个表情包的 DataContext
-        if (sourceElement.DataContext is MemeViewModel clickedMeme)
-        {
-            // 3. 抓到对应的路径，立刻触发异步剪贴板穿透投递！
-            await PasteService.OutputMemeToCursorAsync(clickedMeme.LocalPath);
-
-            // 4. 递增使用频次（用于热度统计）
-            await App.DataEngine.IncrementUsageAsync(clickedMeme.Hash);
-        }
-    }
-    
-    private void Window_Closed(object sender, WindowEventArgs args)
-    {
-        NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
-    }
-
-
     private void ToggleWindowVisibility()
     {
         if (_isVisible)
         {
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
-            ReleaseUiResources();
+            _isVisible = false;
         }
         else
         {
-            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOW);
-            LoadVisibleMemes();
+            // 用 SHOWNOACTIVATE 显示：窗口置顶但不抢焦点，
+            // 这样用户仍能直接点表情粘贴到原来的应用里
+            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
+            RefreshMemes();
+            _isVisible = true;
         }
-        _isVisible = !_isVisible;
     }
 
-    private void ReleaseUiResources()
+    private void Window_Closed(object sender, WindowEventArgs args)
     {
-        // 留空：后续在这里清空 GridView 数据源并执行 GC 压榨内存
-    }
-
-
-    private async void TestButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        // 🛠️ 临时测试：请先换成你本地电脑里一张真实存在的图片绝对路径
-        string testImagePath = @"C:\Users\Admin\Pictures\稍有不慎就能写出更多bug来.jpg";
-        await PasteService.OutputMemeToCursorAsync(testImagePath);
+        NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
+        if (_clipboardHooked)
+            Clipboard.ContentChanged -= Clipboard_ContentChanged;
     }
 }
-

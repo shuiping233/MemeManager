@@ -1,21 +1,40 @@
 using System;
 using System.IO;
+using System.ComponentModel;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 using MemeManager.Models;
 
 namespace MemeManager.ViewModels
 {
-    public class MemeViewModel
+    public class MemeViewModel : INotifyPropertyChanged
     {
-        // 保留对底层原始数据的引用
         public MemeModel Model { get; }
 
-        // 快捷提供哈希和路径
         public string Hash => Model.Hash;
         public string LocalPath => Model.LocalPath;
+        public string Title => Model.Title;
+        public string Category => Model.Category;
 
-        // 🎯 核心优化：懒加载、异步渲染的图片源
-        // 只有当 GridView 滚到这一帧、需要显示时，才会触发 WinUI 的底层硬件加速解码
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    OnPropertyChanged(nameof(IsSelected));
+                    OnPropertyChanged(nameof(CheckBoxVisibility));
+                    OnPropertyChanged(nameof(BadgeVisibility));
+                }
+            }
+        }
+
+        public Visibility CheckBoxVisibility => _isSelected ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility BadgeVisibility => _isSelected ? Visibility.Visible : Visibility.Collapsed;
+
         private BitmapImage? _imageSource;
         public BitmapImage ImageSource
         {
@@ -24,8 +43,7 @@ namespace MemeManager.ViewModels
                 if (_imageSource == null && File.Exists(LocalPath))
                 {
                     _imageSource = new BitmapImage();
-                    // 启用软解码和缓存优化
-                    _imageSource.DecodePixelWidth = 120; // 紧凑模式下限制解码宽度，极大地压榨并节省内存开销
+                    _imageSource.DecodePixelWidth = 120;
                     _imageSource.UriSource = new Uri(LocalPath);
                 }
                 return _imageSource ?? new BitmapImage();
@@ -36,5 +54,9 @@ namespace MemeManager.ViewModels
         {
             Model = model;
         }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged(string name) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

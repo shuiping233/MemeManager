@@ -11,96 +11,242 @@ namespace MemeManager.Data;
 
 public class MemeDataEngine
 {
-    private readonly string _baseDir;
-    private readonly string _imagesDir;
-    private readonly string _dbFilePath;
-    
-    // 内存缓存，用于极速渲染 UI，避免频繁读盘
+    // 根目录：MeMeManagerData
+    private string _baseDir;
+
+    // 内存缓存
     private readonly List<MemeModel> _memeCache = new();
+
+    // 🎯 标题反查 Map：title(小写) -> 该 title 对应的文件名列表（哈希文件名）
+    // 便于按标题秒级检索
+    private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
+
+    public string BaseDir => _baseDir;
+    public AppConfig Config { get; private set; } = new();
 
     public MemeDataEngine()
     {
-        // 1. 初始化存储路径（这里定在本地 AppData 下，也可以改成 AppDomain.CurrentDomain.BaseDirectory）
-        _baseDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MemeManager");
-        _imagesDir = Path.Combine(_baseDir, "Images");
-        _dbFilePath = Path.Combine(_baseDir, "memes.json");
-
-        // 确保目录存在
-        Directory.CreateDirectory(_imagesDir);
+        _baseDir = DefaultStoragePath();
+        Config.StoragePath = _baseDir;
     }
 
-    /// <summary>
-    /// 初始化加载：程序启动时，异步从 json 中恢复数据到内存缓存
-    /// </summary>
+    public static string DefaultStoragePath()
+    {
+        var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        return Path.Combine(pictures, "MeMeManagerData");
+    }
+
+    // ---------- 配置 ----------
+
     public async Task InitializeAsync()
     {
-        _memeCache.Clear();
+        LoadConfig();
 
-        if (!File.Exists(_dbFilePath))
-        {
-            await SaveDatabaseAsync();
-            return;
-        }
+        _baseDir = string.IsNullOrWhiteSpace(Config.StoragePath) ? DefaultStoragePath() : Config.StoragePath;
+        Directory.CreateDirectory(_baseDir);
 
+        await LoadAllMetadataAsync();
+    }
+
+    private string ConfigPath => Path.Combine(_baseDir, "config.json");
+
+    private void LoadConfig()
+    {
         try
         {
-            string jsonText = await File.ReadAllTextAsync(_dbFilePath);
-            if (!string.IsNullOrWhiteSpace(jsonText))
+            Directory.CreateDirectory(_baseDir);
+            if (File.Exists(ConfigPath))
             {
-                // 🎯 严格遵循 AOT 安全：传入编译期生成的 ListMemeModel 元数据
-                var list = JsonSerializer.Deserialize(jsonText, MemeJsonContext.Default.ListMemeModel);
-                if (list != null)
+                var json = File.ReadAllText(ConfigPath);
+                if (!string.IsNullOrWhiteSpace(json))
                 {
-                    _memeCache.AddRange(list);
+                    var cfg = JsonSerializer.Deserialize(json, MemeJsonContext.Default.AppConfig);
+                    if (cfg != null) Config = cfg;
                 }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Engine] 读取数据库失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Engine] 读取配置失败: {ex.Message}");
+        }
+
+        if (string.IsNullOrWhiteSpace(Config.StoragePath))
+            Config.StoragePath = DefaultStoragePath();
+    }
+
+    public async Task SaveConfigAsync()
+    {
+        try
+        {
+            Directory.CreateDirectory(_baseDir);
+            var json = JsonSerializer.Serialize(Config, MemeJsonContext.Default.AppConfig);
+            await File.WriteAllTextAsync(ConfigPath, json);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Engine] 保存配置失败: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// 导入新表情包：计算哈希、拷贝文件、规避重复、入库
-    /// </summary>
-    public async Task<MemeModel?> ImportMemeAsync(string sourcePath, string category, List<string>? tags = null)
+    public async Task UpdateConfigAsync(Action<AppConfig> patch)
+    {
+        patch(Config);
+        await SaveConfigAsync();
+        if (!string.IsNullOrWhiteSpace(Config.StoragePath) &&
+            !Config.StoragePath.Equals(_baseDir, StringComparison.OrdinalIgnoreCase))
+        {
+            _baseDir = Config.StoragePath;
+            await InitializeAsync();
+        }
+    }
+
+    // ---------- 加载 ----------
+
+    private async Task LoadAllMetadataAsync()
+    {
+        _memeCache.Clear();
+        _titleReverseMap.Clear();
+
+        var dirs = Directory.GetDirectories(_baseDir);
+        foreach (var dir in dirs)
+        {
+            var category = Path.GetFileName(dir);
+            var metaPath = Path.Combine(dir, ".metadata.json");
+            CategoryMetadata meta;
+            if (File.Exists(metaPath))
+            {
+                try
+                {
+                    var json = await File.ReadAllTextAsync(metaPath);
+                    meta = JsonSerializer.Deserialize(json, MemeJsonContext.Default.CategoryMetadata)
+                           ?? new CategoryMetadata();
+                }
+                catch
+                {
+                    meta = new CategoryMetadata();
+                }
+            }
+            else
+            {
+                meta = new CategoryMetadata();
+            }
+
+            foreach (var kv in meta.Items)
+            {
+                var fileName = kv.Key;
+                var localPath = Path.Combine(dir, fileName);
+                if (!File.Exists(localPath)) continue;
+
+                var hash = Path.GetFileNameWithoutExtension(fileName);
+                var ext = Path.GetExtension(fileName);
+
+                var model = new MemeModel
+                {
+                    Hash = hash,
+                    Extension = ext,
+                    LocalPath = localPath,
+                    Category = category,
+                    Title = kv.Value.Title,
+                    Tags = kv.Value.Tags ?? new List<string>()
+                };
+                _memeCache.Add(model);
+                IndexTitle(model);
+            }
+        }
+    }
+
+    private void IndexTitle(MemeModel meme)
+    {
+        if (string.IsNullOrWhiteSpace(meme.Title)) return;
+        if (!_titleReverseMap.TryGetValue(meme.Title, out var list))
+        {
+            list = new List<string>();
+            _titleReverseMap[meme.Title] = list;
+        }
+        list.Add(meme.FileName);
+    }
+
+    // ---------- 查询 ----------
+
+    public IReadOnlyList<MemeModel> GetMemes(string? category = null, string? keyword = null)
+    {
+        IEnumerable<MemeModel> query = _memeCache;
+
+        if (!string.IsNullOrWhiteSpace(category))
+            query = query.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            query = query.Where(m =>
+                (m.Title != null && m.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase)) ||
+                m.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return query.OrderByDescending(m => m.DateAdded).ToList();
+    }
+
+    public IReadOnlyList<string> GetCategories()
+    {
+        return _memeCache.Select(m => m.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    // 通过标题反查文件名列表
+    public IReadOnlyList<string> ReverseLookupByTitle(string title)
+    {
+        if (_titleReverseMap.TryGetValue(title, out var list))
+            return list;
+        return new List<string>();
+    }
+
+    // ---------- 导入 ----------
+
+    public async Task<MemeModel?> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
     {
         if (!File.Exists(sourcePath)) return null;
 
         try
         {
-            // 1. 计算 SHA256 哈希值作为唯一 ID
             string hash = await CalculateSha256Async(sourcePath);
+            string ext = Path.GetExtension(sourcePath);
+            string fileName = $"{hash}{ext}";
 
-            // 2. 检查去重：如果哈希已存在，直接返回已有的模型，防止硬盘爆满
-            var existing = _memeCache.FirstOrDefault(m => m.Hash == hash);
+            // 去重：同分类下文件名已存在则视为重复
+            var categoryDir = Path.Combine(_baseDir, SanitizeCategory(category));
+            var targetPath = Path.Combine(categoryDir, fileName);
+            var existing = _memeCache.FirstOrDefault(m =>
+                m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
             if (existing != null) return existing;
 
-            // 3. 确定新文件的拷贝目标路径（保持原有后缀）
-            string ext = Path.GetExtension(sourcePath);
-            string targetFileName = $"{hash}{ext}";
-            string targetPath = Path.Combine(_imagesDir, targetFileName);
-
-            // 4. 拷贝文件到托管目录
+            Directory.CreateDirectory(categoryDir);
             await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true));
 
-            // 5. 构造新模型
-            var newMeme = new MemeModel
+            var meta = await LoadCategoryMetadataAsync(categoryDir);
+
+            var model = new MemeModel
             {
                 Hash = hash,
+                Extension = ext,
                 LocalPath = targetPath,
-                Category = string.IsNullOrWhiteSpace(category) ? "未分类" : category,
+                Category = Path.GetFileName(categoryDir),
+                Title = title ?? Path.GetFileNameWithoutExtension(sourcePath),
                 Tags = tags ?? new List<string>(),
                 DateAdded = DateTime.UtcNow,
                 UsageCount = 0
             };
 
-            // 6. 更新内存并写入本地 JSON
-            _memeCache.Add(newMeme);
-            await SaveDatabaseAsync();
+            meta.Items[fileName] = new MemeMetaEntry
+            {
+                Title = model.Title,
+                Tags = model.Tags
+            };
 
-            return newMeme;
+            _memeCache.Add(model);
+            IndexTitle(model);
+            await SaveCategoryMetadataAsync(categoryDir, meta);
+            return model;
         }
         catch (Exception ex)
         {
@@ -109,58 +255,100 @@ public class MemeDataEngine
         }
     }
 
-    /// <summary>
-    /// 获取当前所有表情（提供给 UI 渲染）
-    /// </summary>
-    public IReadOnlyList<MemeModel> GetMemes(string? category = null, string? keyword = null)
+    // ---------- 导出 ----------
+
+    public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir)
     {
-        IEnumerable<MemeModel> query = _memeCache;
-
-        if (!string.IsNullOrWhiteSpace(category))
+        Directory.CreateDirectory(targetDir);
+        foreach (var meme in memes)
         {
-            query = query.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+            if (!File.Exists(meme.LocalPath)) continue;
+            var dest = Path.Combine(targetDir, meme.FileName);
+            await Task.Run(() => File.Copy(meme.LocalPath, dest, overwrite: true));
         }
-
-        if (!string.IsNullOrWhiteSpace(keyword))
-        {
-            query = query.Where(m => m.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        // 按添加时间倒序排列（新导入的在前面）
-        return query.OrderByDescending(m => m.DateAdded).ToList();
     }
 
-    /// <summary>
-    /// 增加使用频次（每次点击增加，用于后续做热度推荐）
-    /// </summary>
+    // ---------- 删除 ----------
+
+    public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes)
+    {
+        var byCategory = memes.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
+        foreach (var group in byCategory)
+        {
+            var categoryDir = Path.Combine(_baseDir, SanitizeCategory(group.Key));
+            var meta = await LoadCategoryMetadataAsync(categoryDir);
+            foreach (var meme in group)
+            {
+                try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); } catch { }
+                meta.Items.Remove(meme.FileName);
+                _memeCache.Remove(meme);
+                if (!string.IsNullOrWhiteSpace(meme.Title) &&
+                    _titleReverseMap.TryGetValue(meme.Title, out var list))
+                {
+                    list.Remove(meme.FileName);
+                    if (list.Count == 0) _titleReverseMap.Remove(meme.Title);
+                }
+            }
+            await SaveCategoryMetadataAsync(categoryDir, meta);
+        }
+    }
+
+    // ---------- 分类管理 ----------
+
+    public async Task<bool> AddCategoryAsync(string category)
+    {
+        var dir = Path.Combine(_baseDir, SanitizeCategory(category));
+        if (Directory.Exists(dir)) return false;
+        Directory.CreateDirectory(dir);
+        await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
+        return true;
+    }
+
+    // ---------- metadata 读写 ----------
+
+    private async Task<CategoryMetadata> LoadCategoryMetadataAsync(string categoryDir)
+    {
+        var metaPath = Path.Combine(categoryDir, ".metadata.json");
+        if (!File.Exists(metaPath)) return new CategoryMetadata();
+        try
+        {
+            var json = await File.ReadAllTextAsync(metaPath);
+            return JsonSerializer.Deserialize(json, MemeJsonContext.Default.CategoryMetadata)
+                   ?? new CategoryMetadata();
+        }
+        catch
+        {
+            return new CategoryMetadata();
+        }
+    }
+
+    private async Task SaveCategoryMetadataAsync(string categoryDir, CategoryMetadata meta)
+    {
+        Directory.CreateDirectory(categoryDir);
+        var metaPath = Path.Combine(categoryDir, ".metadata.json");
+        var json = JsonSerializer.Serialize(meta, MemeJsonContext.Default.CategoryMetadata);
+        await File.WriteAllTextAsync(metaPath, json);
+    }
+
+    // ---------- 工具 ----------
+
+    private static string SanitizeCategory(string category)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(category.Where(c => !invalid.Contains(c)).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "未分类" : cleaned;
+    }
+
+    private static async Task<string> CalculateSha256Async(string filePath)
+    {
+        await using var stream = File.OpenRead(filePath);
+        byte[] hashBytes = await SHA256.HashDataAsync(stream);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
     public async Task IncrementUsageAsync(string hash)
     {
         var meme = _memeCache.FirstOrDefault(m => m.Hash == hash);
-        if (meme != null)
-        {
-            meme.UsageCount++;
-            await SaveDatabaseAsync();
-        }
-    }
-
-    /// <summary>
-    /// 核心私有方法：序列化保存本地
-    /// </summary>
-    private async Task SaveDatabaseAsync()
-    {
-        // 🎯 严格遵循 AOT 安全：使用编译期生成的元数据
-        string jsonText = JsonSerializer.Serialize(_memeCache, MemeJsonContext.Default.ListMemeModel);
-        await File.WriteAllTextAsync(_dbFilePath, jsonText);
-    }
-
-    /// <summary>
-    /// 异步计算文件 SHA256 哈希值
-    /// </summary>
-    private static async Task<string> CalculateSha256Async(string filePath)
-    {
-        using var stream = File.OpenRead(filePath);
-        // 使用 .NET 10 的静态哈希方法，免去创建 HashAlgorithm 实例的开销
-        byte[] hashBytes = await SHA256.HashDataAsync(stream);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+        if (meme != null) meme.UsageCount++;
     }
 }

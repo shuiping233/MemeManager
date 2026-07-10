@@ -15,8 +15,14 @@ internal static partial class NativeMethods
     public const int WM_HOTKEY = 0x0312;
     public const int MOD_ALT = 0x0001;
 
+    public const int WM_ACTIVATE = 0x0006;
+    public const int WA_INACTIVE = 0;
+    public const int WA_ACTIVE = 1;
+    public const int WA_CLICKACTIVE = 2;
+
     public const int SW_HIDE = 0;
     public const int SW_SHOW = 5;
+    public const int SW_SHOWNOACTIVATE = 4;
 
     // 子类化窗口的回调委托声明
     public delegate IntPtr SUBCLASSPROC(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, uint uIdSubclass, IntPtr dwRefData);
@@ -38,6 +44,10 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetForegroundWindow(IntPtr hWnd);
 
     // 引入窗口子类化 API
     [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]

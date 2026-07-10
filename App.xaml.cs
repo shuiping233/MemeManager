@@ -1,49 +1,50 @@
-﻿using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
+using MemeManager.Models;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
 using MemeManager.Data;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
 
 namespace MemeManager;
 
-/// <summary>
-/// Provides application-specific behavior to supplement the default Application class.
-/// </summary>
 public partial class App : Application
 {
     private Window? _window;
 
     public static MemeDataEngine DataEngine { get; } = new();
-    
-    /// <summary>
-    /// Initializes the singleton application object.  This is the first line of authored code
-    /// executed, and as such is the logical equivalent of main() or WinMain().
-    /// </summary>
+
+    public static MainWindow MainWindow => ((App)Current)._window as MainWindow
+        ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
+
     public App()
     {
         InitializeComponent();
     }
 
-    /// <summary>
-    /// Invoked when the application is launched.
-    /// </summary>
-    /// <param name="args">Details about the launch request and process.</param>
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         await DataEngine.InitializeAsync();
 
+        // 若没有任何分类，则初始化一个默认分类，避免界面空荡
+        if (DataEngine.GetCategories().Count == 0)
+        {
+            await DataEngine.AddCategoryAsync("默认");
+        }
+
         _window = new MainWindow();
+        ApplyTheme();
         _window.Activate();
+    }
+
+    public static void ApplyTheme()
+    {
+        if (MainWindow is null) return;
+        var theme = DataEngine.Config.Theme;
+        ElementTheme applied = theme switch
+        {
+            ThemeMode.Light => ElementTheme.Light,
+            ThemeMode.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default
+        };
+        if (MainWindow.Content is FrameworkElement root)
+            root.RequestedTheme = applied;
     }
 }
