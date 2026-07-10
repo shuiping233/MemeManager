@@ -56,6 +56,12 @@
                 </Grid>
                 <TextBlock FontSize="11" Opacity="0.6">点击“录制”后，按下想要的组合键（如 Alt+E）</TextBlock>
             </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="效率模式" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="EcoModeToggle" Toggled="EcoModeToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6">以 Windows “效率模式” 运行，降低 CPU 优先级与能耗（下次启动生效）</TextBlock>
+            </StackPanel>
         </StackPanel>
 
         <Button Grid.Row="2" x:Name="CloseButton" Content="完成" HorizontalAlignment="Right"

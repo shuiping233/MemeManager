@@ -16,6 +16,7 @@ public sealed partial class SettingsPage : Page
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
+        EcoModeToggle.IsOn = cfg.EcoMode;
 
         this.KeyDown += SettingsPage_KeyDown;
     }
@@ -81,6 +82,16 @@ public sealed partial class SettingsPage : Page
         this.Focus(FocusState.Programmatic);
     }
 
+    private void EcoModeToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 即时生效：切换效率模式
+        App.DataEngine.Config.EcoMode = EcoModeToggle.IsOn;
+        if (EcoModeToggle.IsOn)
+            App.ApplyEcoMode();
+        else
+            App.ResetEcoMode();
+    }
+
     private bool _recording;
 
     private void RecordHotKeyButton_Click(object sender, RoutedEventArgs e)
@@ -141,11 +152,13 @@ public sealed partial class SettingsPage : Page
     {
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
         var path = StoragePathBox.Text;
+        var eco = EcoModeToggle.IsOn;
 
         await App.DataEngine.UpdateConfigAsync(cfg =>
         {
             cfg.Theme = theme;
             cfg.StoragePath = path;
+            cfg.EcoMode = eco;
         });
 
         App.ApplyTheme();
