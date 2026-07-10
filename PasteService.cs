@@ -37,7 +37,7 @@ public static class PasteService
             // SetContent 已足够让随后的 Ctrl+V 使用数据
             try { Clipboard.Flush(); } catch { }
 
-            await Task.Delay(30);
+            await Task.Delay(10);
 
             // 若未显式指定目标，则取当前前台窗口（通常是用户正在输入的应用）
             IntPtr target = targetWindow.HasValue && targetWindow.Value != IntPtr.Zero
@@ -66,7 +66,7 @@ public static class PasteService
         if (targetWindow.HasValue && targetWindow.Value != IntPtr.Zero)
         {
             NativeMethods.SetForegroundWindow(targetWindow.Value);
-            System.Threading.Thread.Sleep(30);
+            System.Threading.Thread.Sleep(20);
         }
 
         // 1. 构造 4 个按键动作：Ctrl按下 -> V按下 -> V弹起 -> Ctrl弹起
