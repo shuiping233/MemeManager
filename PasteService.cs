@@ -36,7 +36,7 @@ public static class PasteService
 
             // 🎯 优化 1：给系统和剪贴板更充分的缓冲时间（从 50ms 提升至 100ms）
             // 确保前一个激活的窗口（如微信、记事本）有足够的时间重新锁定光标焦点
-            await Task.Delay(100);
+            await Task.Delay(1);
 
             // 5. 触发 Win32 SendInput 模拟按下 Ctrl + V
             TriggerCtrlV();
@@ -57,37 +57,38 @@ public static class PasteService
 
     private static void TriggerCtrlV()
     {
+        // 1. 构造 4 个按键动作：Ctrl按下 -> V按下 -> V弹起 -> Ctrl弹起
         var inputs = new NativeMethods.INPUT[4];
+
+        // Ctrl 按下
+        inputs[0].type = NativeMethods.INPUT_KEYBOARD;
+        inputs[0].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_CONTROL, dwFlags = 0 };
+
+        // V 按下
+        inputs[1].type = NativeMethods.INPUT_KEYBOARD;
+        inputs[1].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_V, dwFlags = 0 };
+
+        // V 弹起
+        inputs[2].type = NativeMethods.INPUT_KEYBOARD;
+        inputs[2].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_V, dwFlags = NativeMethods.KEYEVENTF_KEYUP };
+
+        // Ctrl 弹起
+        inputs[3].type = NativeMethods.INPUT_KEYBOARD;
+        inputs[3].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_CONTROL, dwFlags = NativeMethods.KEYEVENTF_KEYUP };
+
+        // 🎯 核心检查：显式计算结构体大小
         int size = Marshal.SizeOf<NativeMethods.INPUT>();
 
-        // 1. Ctrl 键按下
-        inputs[0] = new NativeMethods.INPUT
-        {
-            type = NativeMethods.INPUT_KEYBOARD,
-            ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_CONTROL, dwFlags = 0 }
-        };
+        // 执行模拟输入
+        uint sent = NativeMethods.SendInput((uint)inputs.Length, inputs, size);
 
-        // 2. V 键按下
-        inputs[1] = new NativeMethods.INPUT
-        {
-            type = NativeMethods.INPUT_KEYBOARD,
-            ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_V, dwFlags = 0 }
-        };
+        // 🎯 打印调试信息：看看究竟有多少个按键事件成功被 Windows 接收了
+        Debug.WriteLine($"[SendInput 调试] 预期发送: {inputs.Length}，实际成功接收: {sent}，结构体大小: {size} 字节");
 
-        // 3. V 键弹起
-        inputs[2] = new NativeMethods.INPUT
+        if (sent < inputs.Length)
         {
-            type = NativeMethods.INPUT_KEYBOARD,
-            ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_V, dwFlags = NativeMethods.KEYEVENTF_KEYUP }
-        };
-
-        // 4. Ctrl 键弹起
-        inputs[3] = new NativeMethods.INPUT
-        {
-            type = NativeMethods.INPUT_KEYBOARD,
-            ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_CONTROL, dwFlags = NativeMethods.KEYEVENTF_KEYUP }
-        };
-
-        NativeMethods.SendInput((uint)inputs.Length, inputs, size);
+            int errorCode = Marshal.GetLastWin32Error();
+            Debug.WriteLine($"[SendInput 警告] 模拟失败！Win32 错误码: {errorCode}");
+        }
     }
 }

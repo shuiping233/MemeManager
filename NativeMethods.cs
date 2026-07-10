@@ -54,22 +54,56 @@ internal static partial class NativeMethods
     public const ushort VK_V = 0x56;
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct INPUT
-    {
-        public uint type;
-        public KEYBDINPUT ki;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
     public struct KEYBDINPUT
     {
         public ushort wVk;
         public ushort wScan;
         public uint dwFlags;
         public uint time;
-        public IntPtr dwExtraInfo;
+        public IntPtr dwExtraInfo; // 8 字节
     }
 
-    [LibraryImport("user32.dll", SetLastError = true)]
-    public static partial uint SendInput(uint nInputs, [MarshalAs(UnmanagedType.LPArray)] INPUT[] pInputs, int cbSize);
+    [StructLayout(LayoutKind.Sequential)]
+    public struct HARDWAREINPUT
+    {
+        public uint uMsg;
+        public ushort wParamL;
+        public ushort wParamH;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo; // 8 字节
+    }
+
+    // 🎯 核心修复 1：明确指定显式布局与偏移量，完美对应 x64 架构
+    [StructLayout(LayoutKind.Explicit)]
+    public struct InputUnion
+    {
+        [FieldOffset(0)] public MOUSEINPUT mi;
+        [FieldOffset(0)] public KEYBDINPUT ki;
+        [FieldOffset(0)] public HARDWAREINPUT hi;
+    }
+
+    // 🎯 核心修复 2：外层结构体必须使用 Explicit。
+    // 在 x64 操作系统中，type 字段占用 4 字节，但由于后面的 Union 包含 8 字节指针（dwExtraInfo），
+    // 导致 Union 的起始地址必须在第 8 字节处对齐（即前面产生 4 字节的空白填充 padding）。
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    public struct INPUT
+    {
+        [FieldOffset(0)]
+        public uint type;
+
+        [FieldOffset(8)] // 👈 跳过 4 字节 padding，从第 8 字节精确开始
+        public InputUnion U;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 }
