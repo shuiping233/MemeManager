@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using System;
 using WinRT.Interop;
 
@@ -18,39 +18,46 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // 1. 获取 WinUI 3 窗体的底层 Win32 HWND
         _hWnd = WindowNative.GetWindowHandle(this);
 
-        // 2. 强行注入“不激活窗口 (无焦点)” + “永远置顶” 样式
+        // 保留原本的样式注入
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE,
             exStyle | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOPMOST);
 
-        // 3. 注册全局热键：Alt + E (E 的虚拟键码是 0x45)
         NativeMethods.RegisterHotKey(_hWnd, HOTKEY_ID, NativeMethods.MOD_ALT, 0x45);
 
-        // 4. 挂接窗口子类化过程，用于在后台拦截热键消息
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
 
-        // 5. 设置初始大小（例如仿系统 Emoji 面板的紧凑尺寸）
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
         appWindow.Resize(new Windows.Graphics.SizeInt32(420, 600));
+
+        // 🎯 核心新增：使用 WinUI 3 官方推荐的 OverlappedPresenter 确保绝对置顶
+        if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
+        {
+            overlappedPresenter.IsAlwaysOnTop = true;
+        }
     }
 
-    // 这就是我们接管的 WndProc 子消息循环，纯静态编译安全，AOT 绝不报错
     private IntPtr NewWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, uint uIdSubclass, IntPtr dwRefData)
     {
+        // 🎯 修改点 2：拦截鼠标激活消息！
+        // 当鼠标点击这个窗口时，直接回复系统：允许点击，但不允许把别的应用（如微信）的焦点抢过来！
+        if (uMsg == NativeMethods.WM_MOUSEACTIVATE)
+        {
+            return (IntPtr)NativeMethods.MA_NOACTIVATE;
+        }
+
         if (uMsg == NativeMethods.WM_HOTKEY && (int)wParam == HOTKEY_ID)
         {
             ToggleWindowVisibility();
-            return IntPtr.Zero; // 消息已处理
+            return IntPtr.Zero;
         }
 
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
-
     private void ToggleWindowVisibility()
     {
         if (_isVisible)
@@ -81,4 +88,11 @@ public sealed partial class MainWindow : Window
         // 程序关闭时清理热键
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
     }
+    private async void TestButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // 🛠️ 临时测试：请先换成你本地电脑里一张真实存在的图片绝对路径
+        string testImagePath = @"C:\Users\Admin\Pictures\稍有不慎就能写出更多bug来.jpg";
+        await PasteService.OutputMemeToCursorAsync(testImagePath);
+    }
 }
+

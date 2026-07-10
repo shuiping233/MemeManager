@@ -1,10 +1,13 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 
 namespace MemeManager;
 
 internal static partial class NativeMethods
 {
+    public const int WM_MOUSEACTIVATE = 0x0021;
+    public const int MA_NOACTIVATE = 3; // 不激活窗口，但吃掉/处理鼠标消息
+
     public const int GWL_EXSTYLE = -20;
     public const int WS_EX_NOACTIVATE = 0x08000000;
     public const int WS_EX_TOPMOST = 0x00000008;
@@ -43,4 +46,30 @@ internal static partial class NativeMethods
 
     [LibraryImport("comctl32.dll", EntryPoint = "DefSubclassProc")]
     public static partial IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+    // --- 键盘输入模拟相关定义 ---
+    public const int INPUT_KEYBOARD = 1;
+    public const uint KEYEVENTF_KEYUP = 0x0002;
+    public const ushort VK_CONTROL = 0x11;
+    public const ushort VK_V = 0x56;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT
+    {
+        public uint type;
+        public KEYBDINPUT ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial uint SendInput(uint nInputs, [MarshalAs(UnmanagedType.LPArray)] INPUT[] pInputs, int cbSize);
 }
