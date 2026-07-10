@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:MemeManager"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:MemeManager.ViewModels"
     Title="MemeManager"
     mc:Ignorable="d">
 
@@ -19,26 +20,45 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 标题栏占位（第一行） -->
-        <TitleBar x:Name="AppTitleBar"
-                  Title="MemeManager">
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/AppIcon.ico"/>
-            </TitleBar.IconSource>
-        </TitleBar>
+        <!-- 顶部搜索框 -->
+        <TextBox x:Name="SearchBox"
+                 Grid.Row="0"
+                 Margin="12,12,12,6"
+                 PlaceholderText="搜索关键词..."
+                 AllowFocusOnInteraction="False"/>
 
-        <!-- 内容区域（第二行） -->
-        <Frame x:Name="RootFrame"
-               Grid.Row="1"/>
+        <!-- 🎯 表情包核心网格流 -->
+        <GridView x:Name="MemeGridView"
+                  Grid.Row="1"
+                  Margin="12,6,12,12"
+                  HorizontalAlignment="Stretch"
+                  SelectionMode="None"
+                  IsItemClickEnabled="False">
 
-        <!-- 🎯 核心修复：显式指定 Grid.Row="1" 让他继承剩下全部空间，并在其中绝对居中 -->
-        <Button x:Name="TestButton"
-        Content="测试点击输出表情包"
-        Grid.Row="1"
-        HorizontalAlignment="Center"
-        VerticalAlignment="Center"
-        Click="TestButton_Click"
-                />
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid Orientation="Horizontal"
+                                   MaximumRowsOrColumns="-1"/>
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
 
+            <GridView.ItemTemplate>
+                <!-- 🎯 只有在标准的 winui 命名空间下，x:DataType 才能被正常编译解析 -->
+                <DataTemplate x:DataType="viewmodels:MemeViewModel">
+                    <Grid Width="90"
+                          Height="90"
+                          Margin="4"
+                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                          CornerRadius="6"
+                          ToolTipService.ToolTip="{x:Bind LocalPath}">
+
+                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
+                               Stretch="UniformToFill"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                    </Grid>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
     </Grid>
 </Window>
