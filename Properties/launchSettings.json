@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MemeManager (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MemeManager (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
