@@ -14,7 +14,10 @@
         <MicaBackdrop/>
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid x:Name="RootGrid"
+          AllowDrop="True"
+          DragOver="MemeGridView_DragOver"
+          Drop="MemeGridView_Drop">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -92,6 +95,7 @@
                           CornerRadius="6"
                           ToolTipService.ToolTip="{x:Bind Title}"
                           CanDrag="True"
+                          PointerPressed="MemeItem_PointerPressed"
                           DragStarting="MemeItem_DragStarting"
                           RightTapped="MemeItem_RightTapped">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"

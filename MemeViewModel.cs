@@ -15,6 +15,7 @@ namespace MemeManager.ViewModels
         public string LocalPath => Model.LocalPath;
         public string Title => Model.Title;
         public string Category => Model.Category;
+        public string FileName => Model.FileName;
 
         private bool _isSelected;
         public bool IsSelected

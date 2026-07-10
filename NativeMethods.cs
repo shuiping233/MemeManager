@@ -49,6 +49,9 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetForegroundWindow(IntPtr hWnd);
 
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr GetForegroundWindow();
+
     // 引入窗口子类化 API
     [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]

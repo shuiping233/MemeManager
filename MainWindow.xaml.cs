@@ -59,7 +59,6 @@ public sealed partial class MainWindow : Window
 
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
-        MemeGridView.PointerPressed += MemeGridView_PointerPressed;
 
         // 粘贴图片进窗口
         this.Activated += MainWindow_Activated;
@@ -164,9 +163,14 @@ public sealed partial class MainWindow : Window
 
     private void EditButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_editMode) ExitEditMode();
+        if (_editMode)
+        {
+            Log("退出多选模式(点击修改/完成按钮)");
+            ExitEditMode();
+        }
         else
         {
+            Log("进入多选模式");
             _editMode = true;
             EditButton.Content = "完成";
             BatchBar.Visibility = Visibility.Visible;
@@ -175,18 +179,26 @@ public sealed partial class MainWindow : Window
 
     // ---------- 点击表情（非修改模式 = 粘贴） ----------
 
-    private async void MemeGridView_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private async void MemeItem_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        var clicked = FindMemeFromSource(e.OriginalSource);
-        if (clicked == null) return;
+        // 右键交给 RightTapped 处理
+        if (e.GetCurrentPoint(null).Properties.IsRightButtonPressed)
+            return;
+
+        if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel clicked)
+        {
+            Log("MemeItem_PointerPressed: 取不到 MemeViewModel, sender=" + sender?.GetType().Name);
+            return;
+        }
 
         if (_editMode)
         {
-            // 多选模式：单击即切换选中（再次单击取消）
+            Log($"左键单击(多选模式): 切换选中 {clicked.Title}，新选中态={!clicked.IsSelected}");
             clicked.IsSelected = !clicked.IsSelected;
             return;
         }
 
+        Log($"左键单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 _prevActiveHwnd={_prevActiveHwnd}");
         IgnoreNextClipboardChange();
         await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, _prevActiveHwnd);
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
@@ -206,25 +218,43 @@ public sealed partial class MainWindow : Window
 
     // ---------- 拖拽：拖入导入 / 拖出到外部输入框 ----------
 
+    private static void Log(string msg) => System.Diagnostics.Debug.WriteLine($"[MemeManager] {msg}");
+
     private void MemeGridView_DragOver(object sender, DragEventArgs e)
     {
-        // 允许从文件管理器拖入图片
-        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        var hasItems = e.DataView.Contains(StandardDataFormats.StorageItems);
+        var hasBitmap = e.DataView.Contains(StandardDataFormats.Bitmap);
+        var hasText = e.DataView.Contains(StandardDataFormats.Text);
+        Log($"DragOver from {sender?.GetType().Name}: hasStorageItems={hasItems}, hasBitmap={hasBitmap}, hasText={hasText}");
+        if (hasItems || hasBitmap || hasText)
+        {
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.DragUIOverride.IsCaptionVisible = false;
+        }
         else
+        {
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+        }
     }
 
     private async void MemeGridView_Drop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+        Log("Drop 事件触发");
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            Log("Drop: 没有 StorageItems，忽略");
+            return;
+        }
 
         var items = await e.DataView.GetStorageItemsAsync();
+        Log($"Drop: 拖入 {items.Count} 个项");
         bool any = false;
         foreach (var item in items)
         {
+            Log($"Drop: 项 {item.Name} 是文件={item is StorageFile}, 类型={item.GetType().Name}");
             if (item is StorageFile file && IsImage(file.FileType))
             {
+                Log($"Drop: 导入图片 {file.Path} 到分类 {_currentCategory}");
                 var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
                 if (imported != null && imported.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
                 {
@@ -240,10 +270,14 @@ public sealed partial class MainWindow : Window
     {
         if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
         {
-            // 拖出时把图片文件作为 StorageItem 携带，外部输入框（微信/资源管理器等）可直接接收
+            Log($"DragStarting: 拖出图片 {vm.Title} ({vm.FileName}) 路径={vm.LocalPath}");
             var file = Windows.Storage.StorageFile.GetFileFromPathAsync(vm.LocalPath).AsTask().Result;
             e.Data.SetStorageItems(new[] { file });
             e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        }
+        else
+        {
+            Log("DragStarting: 未找到 MemeViewModel，sender=" + sender?.GetType().Name);
         }
     }
 
@@ -251,6 +285,7 @@ public sealed partial class MainWindow : Window
 
     private void MemeItem_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
+        Log("右键单击表情项: " + ((sender as FrameworkElement)?.DataContext as MemeViewModel)?.Title);
         if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
         {
             var flyout = new MenuFlyout();

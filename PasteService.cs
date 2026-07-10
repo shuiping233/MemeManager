@@ -37,7 +37,12 @@ public static class PasteService
 
             await Task.Delay(1);
 
-            TriggerCtrlV(targetWindow);
+            // 若未显式指定目标，则取当前前台窗口（通常是用户正在输入的应用）
+            IntPtr target = targetWindow.HasValue && targetWindow.Value != IntPtr.Zero
+                ? targetWindow.Value
+                : NativeMethods.GetForegroundWindow();
+
+            TriggerCtrlV(target);
         }
         catch (Exception ex)
         {
