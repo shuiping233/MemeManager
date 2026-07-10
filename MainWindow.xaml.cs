@@ -524,10 +524,7 @@ public sealed partial class MainWindow : Window
 
     private void SelectAllButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_editMode) return;
-        bool allSelected = _memeList.Count > 0 && _memeList.All(m => m.IsSelected);
-        foreach (var m in _memeList) m.IsSelected = !allSelected;
-        SelectAllButton.Content = allSelected ? "全选" : "取消全选";
+        ToggleSelectAll();
     }
 
     private async void BatchImportButton_Click(object sender, RoutedEventArgs e)
@@ -725,6 +722,14 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // Ctrl+A：编辑模式下全选/取消全选
+        if (ctrl && e.Key == Windows.System.VirtualKey.A)
+        {
+            ToggleSelectAll();
+            e.Handled = true;
+            return;
+        }
+
         if (!_editMode) return;
 
         if (e.Key == Windows.System.VirtualKey.Escape)
@@ -737,6 +742,15 @@ public sealed partial class MainWindow : Window
             ExitEditMode();
             e.Handled = true;
         }
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (!_editMode) return;
+        bool allSelected = _memeList.Count > 0 && _memeList.All(m => m.IsSelected);
+        foreach (var m in _memeList) m.IsSelected = !allSelected;
+        if (SelectAllButton != null)
+            SelectAllButton.Content = allSelected ? "全选" : "取消全选";
     }
 
     private async Task ImportFromClipboardAsync()
