@@ -33,7 +33,9 @@ public static class PasteService
             package.SetBitmap(streamRef);
 
             Clipboard.SetContent(package);
-            Clipboard.Flush();
+            // Flush 在剪贴板被其他进程占用时可能抛 COMException，这里忽略，
+            // SetContent 已足够让随后的 Ctrl+V 使用数据
+            try { Clipboard.Flush(); } catch { }
 
             await Task.Delay(1);
 

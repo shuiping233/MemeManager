@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
 
     // 记录本窗口激活前的前台窗口（通常是正在聊天的目标应用），用于粘贴时回投 Ctrl+V
     private IntPtr _prevActiveHwnd;
+    private IntPtr _lastExternalFg;
     private bool _isActive;
 
     public MainWindow()
@@ -68,6 +69,20 @@ public sealed partial class MainWindow : Window
         Closed += Window_Closed;
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
+
+        // 当我们未激活时，持续记录当前前台窗口（即用户正在用的 QQ 等应用），
+        // 点击表情时把 Ctrl+V 投回给它
+        var fgTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        fgTimer.Tick += (_, _) =>
+        {
+            if (!_isActive)
+            {
+                var fg = NativeMethods.GetForegroundWindow();
+                if (fg != IntPtr.Zero && fg != _hWnd)
+                    _lastExternalFg = fg;
+            }
+        };
+        fgTimer.Start();
 
         // Esc 退出多选模式 / Enter 完成多选模式
         if (this.Content is FrameworkElement root)
@@ -198,9 +213,19 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        Log($"左键单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 _prevActiveHwnd={_prevActiveHwnd}");
+        // 点击瞬间先抓取当前前台窗口，再结合“我们未激活时持续记录的外部门窗”作为粘贴目标
+        IntPtr liveFg = NativeMethods.GetForegroundWindow();
+        IntPtr target = IntPtr.Zero;
+        if (_lastExternalFg != IntPtr.Zero && _lastExternalFg != _hWnd)
+            target = _lastExternalFg;
+        else if (_prevActiveHwnd != IntPtr.Zero && _prevActiveHwnd != _hWnd)
+            target = _prevActiveHwnd;
+        else if (liveFg != IntPtr.Zero && liveFg != _hWnd)
+            target = liveFg;
+
+        Log($"左键单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target} (_lastExternalFg={_lastExternalFg}, _prevActiveHwnd={_prevActiveHwnd}, liveFg={liveFg})");
         IgnoreNextClipboardChange();
-        await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, _prevActiveHwnd);
+        await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, target);
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
     }
 
@@ -550,10 +575,12 @@ public sealed partial class MainWindow : Window
 
         if (uMsg == NativeMethods.WM_ACTIVATE)
         {
-            // 记录被我们抢走焦点的那个窗口，粘贴时把 Ctrl+V 投回给它
+            // 记录“另一个窗口”的句柄：无论是我们被激活（lParam=被挤掉的窗口）
+            // 还是我们失去激活（lParam=新激活的窗口），都能拿到上一次的外部应用，
+            // 粘贴时把 Ctrl+V 投回给它。
             int state = (int)wParam & 0xFFFF;
             _isActive = state != NativeMethods.WA_INACTIVE;
-            if (state != NativeMethods.WA_INACTIVE && lParam != IntPtr.Zero)
+            if (lParam != IntPtr.Zero)
             {
                 _prevActiveHwnd = lParam;
             }
