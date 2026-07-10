@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Shapes;
+using MemeManager.Data;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -22,6 +23,8 @@ namespace MemeManager;
 public partial class App : Application
 {
     private Window? _window;
+
+    public static MemeDataEngine DataEngine { get; } = new();
     
     /// <summary>
     /// Initializes the singleton application object.  This is the first line of authored code
@@ -36,8 +39,10 @@ public partial class App : Application
     /// Invoked when the application is launched.
     /// </summary>
     /// <param name="args">Details about the launch request and process.</param>
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        await DataEngine.InitializeAsync();
+
         _window = new MainWindow();
         _window.Activate();
     }

@@ -38,7 +38,6 @@ public static class PasteService
             // 确保前一个激活的窗口（如微信、记事本）有足够的时间重新锁定光标焦点
             await Task.Delay(1);
 
-            // 5. 触发 Win32 SendInput 模拟按下 Ctrl + V
             TriggerCtrlV();
         }
         catch (Exception ex)
