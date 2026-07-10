@@ -59,6 +59,9 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetForegroundWindow();
 
+    [LibraryImport("user32.dll", SetLastError = true, EntryPoint = "MapVirtualKeyW")]
+    public static partial uint MapVirtualKey(uint uCode, uint uMapType);
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsWindowVisible(IntPtr hWnd);
