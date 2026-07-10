@@ -53,6 +53,8 @@ public sealed partial class MainWindow : Window
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
+        SetTaskbarIcon();
+
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
@@ -643,6 +645,53 @@ public sealed partial class MainWindow : Window
     {
         _allowClose = true;
         this.Close();
+    }
+
+    /// <summary>
+    /// 手动将图标设到窗口，使独立发布（非 MSIX）时任务栏/标题栏也显示 Logo。
+    /// WinUI 3 不会自动从 EXE 图标继承窗口图标，需通过 WM_SETICON 显式设置。
+    /// </summary>
+    private void SetTaskbarIcon()
+    {
+        try
+        {
+            var hIcon = LoadAppIcon();
+            if (hIcon == IntPtr.Zero)
+                return;
+
+            // 同时设置大/小两套，任务栏用 small，标题栏/alt-tab 用 big
+            NativeMethods.SendMessage(_hWnd, NativeMethods.WM_SETICON, (IntPtr)NativeMethods.ICON_SMALL, hIcon);
+            NativeMethods.SendMessage(_hWnd, NativeMethods.WM_SETICON, (IntPtr)NativeMethods.ICON_BIG, hIcon);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MemeManager] 设置窗口图标失败: {ex}");
+        }
+    }
+
+    private IntPtr LoadAppIcon()
+    {
+        // 从 exe 运行目录的 AppIcon.ico 文件加载（LoadImage 已验证可用）
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"),
+            Path.Combine(AppContext.BaseDirectory, "AppIcon.ico"),
+            Path.Combine(AppContext.BaseDirectory, "..", "Assets", "AppIcon.ico"),
+        };
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path))
+            {
+                var h = NativeMethods.LoadImage(
+                    IntPtr.Zero, path, NativeMethods.IMAGE_ICON, 0, 0,
+                    NativeMethods.LR_LOADFROMFILE | NativeMethods.LR_DEFAULTSIZE);
+                if (h != IntPtr.Zero)
+                    return h;
+            }
+        }
+
+        System.Diagnostics.Debug.WriteLine("[MemeManager] 未找到 AppIcon.ico");
+        return IntPtr.Zero;
     }
 
     private async void SettingsFlyout_Closed(object? sender, object e)
