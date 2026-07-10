@@ -68,6 +68,7 @@ public sealed class TrayIcon : IDisposable
             var mouseMsg = (uint)lParam & 0xFFFF;
             if (mouseMsg == NativeMethods.WM_RBUTTONUP || mouseMsg == NativeMethods.WM_LBUTTONUP)
             {
+                Log($"托盘图标点击: mouseMsg=0x{mouseMsg:X4}");
                 ShowContextMenu();
             }
             return IntPtr.Zero;
@@ -97,6 +98,15 @@ public sealed class TrayIcon : IDisposable
         var cmd = NativeMethods.TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, 0, _hwnd, IntPtr.Zero);
         NativeMethods.DestroyMenu(hMenu);
 
+        string cmdName = cmd switch
+        {
+            CMD_SHOW => "显示主窗口",
+            CMD_SETTINGS => "设置",
+            CMD_EXIT => "退出",
+            _ => "无(" + cmd + ")"
+        };
+        Log($"托盘菜单点击: {cmdName} (cmd={cmd})");
+
         switch (cmd)
         {
             case CMD_SHOW: ShowMainWindow?.Invoke(this, EventArgs.Empty); break;
@@ -104,6 +114,8 @@ public sealed class TrayIcon : IDisposable
             case CMD_EXIT: ExitApplication?.Invoke(this, EventArgs.Empty); break;
         }
     }
+
+    private static void Log(string msg) => System.Diagnostics.Debug.WriteLine($"[MemeManager.Tray] {msg}");
 
     private static string GetIconPath()
     {

@@ -43,6 +43,9 @@ public sealed partial class MainWindow : Window
     // 防止粘贴导入的分类对话框重入
     private bool _pasteDialogOpen;
 
+    // 是否允许真正关闭窗口（仅托盘“退出”时置 true；普通点 X 只隐藏）
+    private bool _allowClose;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -432,19 +435,41 @@ public sealed partial class MainWindow : Window
         SettingsFlyout.ShowAt(SettingsButton);
     }
 
-    /// <summary>托盘菜单“设置”：弹出设置页</summary>
+    /// <summary>托盘菜单“设置”：先呼出窗口，再弹设置页</summary>
     public void OpenSettings()
     {
+        RestoreAndShow();
         SettingsButton_Click(this, new RoutedEventArgs());
     }
 
-    /// <summary>托盘菜单“显示主窗口”：显示并激活窗口</summary>
+    /// <summary>托盘菜单“显示主窗口”：显示并激活窗口（兼容最小化状态）</summary>
     public void ShowAndActivate()
     {
-        _isVisible = true;
-        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOW);
+        RestoreAndShow();
         NativeMethods.SetForegroundWindow(_hWnd);
+    }
+
+    /// <summary>
+    /// 把窗口从最小化/隐藏状态恢复到可见前台。
+    /// 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）。
+    /// </summary>
+    private void RestoreAndShow()
+    {
+        if (NativeMethods.IsIconic(_hWnd))
+            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_RESTORE);
+        else
+            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOW);
+
+        NativeMethods.SetForegroundWindow(_hWnd);
+        _isVisible = true;
         RefreshMemes();
+    }
+
+    /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
+    public void RequestExit()
+    {
+        _allowClose = true;
+        this.Close();
     }
 
     private async void SettingsFlyout_Closed(object? sender, object e)
@@ -683,10 +708,39 @@ public sealed partial class MainWindow : Window
             return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
+        if (uMsg == NativeMethods.WM_SYSCOMMAND)
+        {
+            // 最小化/还原会改变真实可见性，保持 _isVisible 与实际一致，
+            // 否则全局快捷键会因状态错位而需要按两次
+            int cmd = (int)wParam & 0xFFF0;
+            Log($"WM_SYSCOMMAND: cmd={cmd:X4} (MINIMIZE={NativeMethods.SC_MINIMIZE:X4}, RESTORE={NativeMethods.SC_RESTORE:X4}), _isVisible(before)={_isVisible}");
+            if (cmd == NativeMethods.SC_MINIMIZE)
+                _isVisible = false;
+            else if (cmd == NativeMethods.SC_RESTORE)
+                _isVisible = true;
+            Log($"  _isVisible(after)={_isVisible}");
+            return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
+        }
+
         if (uMsg == NativeMethods.WM_HOTKEY && (int)wParam == HOTKEY_ID)
         {
+            Log($"WM_HOTKEY 触发, _isVisible={_isVisible}, IsWindowVisible={NativeMethods.IsWindowVisible(_hWnd)}");
             ToggleWindowVisibility();
             return IntPtr.Zero;
+        }
+
+        if (uMsg == NativeMethods.WM_CLOSE)
+        {
+            // 普通点右上角 X：只隐藏窗口，后台（托盘）继续运行
+            if (!_allowClose)
+            {
+                Log("WM_CLOSE: 仅隐藏窗口（后台保留）");
+                NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
+                _isVisible = false;
+                return IntPtr.Zero;
+            }
+            // _allowClose=true（托盘退出）时放行，交给默认处理真正关闭
+            return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -694,10 +748,18 @@ public sealed partial class MainWindow : Window
 
     private void ToggleWindowVisibility()
     {
-        if (_isVisible)
+        // 注意：Windows 中“最小化(iconic)”的窗口 IsWindowVisible 仍为 true，
+        // 所以必须用 IsIconic 判断最小化，否则会误判为“可见”而执行隐藏。
+        bool iconic = NativeMethods.IsIconic(_hWnd);
+        bool visible = NativeMethods.IsWindowVisible(_hWnd) && !iconic;
+        _isVisible = visible;
+        Log($"ToggleWindowVisibility: IsWindowVisible={NativeMethods.IsWindowVisible(_hWnd)}, IsIconic={iconic}, _isVisible→{_isVisible}");
+
+        if (visible)
         {
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
             _isVisible = false;
+            Log("  执行 SW_HIDE");
         }
         else
         {
@@ -706,6 +768,7 @@ public sealed partial class MainWindow : Window
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
             RefreshMemes();
             _isVisible = true;
+            Log("  执行 SW_SHOWNOACTIVATE");
         }
     }
 

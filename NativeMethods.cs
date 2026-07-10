@@ -18,6 +18,7 @@ internal static partial class NativeMethods
     public const int WM_RBUTTONUP = 0x0205;
     public const int WM_LBUTTONUP = 0x0202;
     public const int WM_DESTROY = 0x0002;
+    public const int WM_CLOSE = 0x0010;
 
     public const int WM_ACTIVATE = 0x0006;
     public const int WA_INACTIVE = 0;
@@ -27,6 +28,7 @@ internal static partial class NativeMethods
     public const int SW_HIDE = 0;
     public const int SW_SHOW = 5;
     public const int SW_SHOWNOACTIVATE = 4;
+    public const int SW_RESTORE = 9;
 
     // 子类化窗口的回调委托声明
     public delegate IntPtr SUBCLASSPROC(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, uint uIdSubclass, IntPtr dwRefData);
@@ -55,6 +57,18 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetForegroundWindow();
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindowVisible(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsIconic(IntPtr hWnd);
+
+    public const int WM_SYSCOMMAND = 0x0112;
+    public const int SC_MINIMIZE = 0xF020;
+    public const int SC_RESTORE = 0xF120;
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int GetKeyNameTextW(int lParam, System.Text.StringBuilder lpString, int cchSize);

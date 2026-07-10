@@ -51,7 +51,7 @@ public partial class App : Application
     {
         _trayIcon?.Dispose();
         _trayIcon = null;
-        _window?.Close();
+        MainWindow.RequestExit();
         Current.Exit();
     }
 
