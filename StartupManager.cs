@@ -30,8 +30,9 @@ public static class StartupManager
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
             if (key?.GetValue(AppName) is not string value) return false;
-            // 仅比对 exe 路径部分（忽略参数差异），确保移动/重命名后状态正确
-            var path = value.Trim().Trim('"').Split(' ')[0];
+            // 仅比对 exe 路径部分（忽略参数差异），确保移动/重命名后状态正确。
+            // 注意：值形如 "\"C:\x\MemeManager.exe\" --hidden"，需先去掉所有引号再取第一段。
+            var path = value.Replace("\"", "").Split(' ')[0];
             return !string.IsNullOrEmpty(path) &&
                    path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
         }
