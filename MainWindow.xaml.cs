@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
     private IntPtr _prevActiveHwnd;
     private IntPtr _lastExternalFg;
     private bool _isActive;
+    private DispatcherTimer? _fgTimer;
 
     // 多选模式：Shift 连续选择的锚点（在 _memeList 中的索引）
     private int _lastShiftAnchor = -1;
@@ -90,10 +91,11 @@ public sealed partial class MainWindow : Window
 
         // 选中项变化经 SelectionChanged 自动启用/禁用批量操作按钮
 
-        // 当我们未激活时，持续记录当前前台窗口（即用户正在用的 QQ 等应用），
-        // 点击表情时把 Ctrl+V 投回给它
-        var fgTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-        fgTimer.Tick += (_, _) =>
+        // 轮询前台窗口的定时器：用于把 Ctrl+V 投回用户正在用的外部窗口(如 QQ)。
+        // 只在窗口可见时运行（见 SetMemeViewVisible）；窗口隐藏(后台常驻)时停止，
+        // 既保证粘贴目标正确，又让后台零轮询、零 CPU 占用。
+        _fgTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _fgTimer.Tick += (_, _) =>
         {
             if (!_isActive)
             {
@@ -102,7 +104,6 @@ public sealed partial class MainWindow : Window
                     _lastExternalFg = fg;
             }
         };
-        fgTimer.Start();
 
         // Esc 退出多选模式 / Enter 完成多选模式
         if (this.Content is FrameworkElement root)
@@ -354,6 +355,26 @@ public sealed partial class MainWindow : Window
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
+    // 显示/隐藏表情视图。窗口隐藏(后台常驻)时把 ItemsSource 置空，
+    // 释放 GridView 视觉树与几十张 BitmapImage 的 GPU 纹理，后台 GPU 占用归零；
+    // 重新显示时再绑回并刷新。
+    private void SetMemeViewVisible(bool visible)
+    {
+        if (visible)
+        {
+            if (MemeGridView.ItemsSource != _memeList)
+                MemeGridView.ItemsSource = _memeList;
+            RefreshMemes();
+            // 窗口可见时才轮询前台窗口，保证粘贴目标正确；隐藏时停止以零 CPU 后台。
+            _fgTimer?.Start();
+        }
+        else
+        {
+            _fgTimer?.Stop();
+            MemeGridView.ItemsSource = null;
+        }
+    }
+
     // 从 DataView 的 StorageItems（拖拽时写入的文件路径）还原被拖的 MemeModel 列表
     private async Task<List<MemeModel>> MemesFromDataViewAsync(DataPackageView view)
     {
@@ -521,6 +542,10 @@ public sealed partial class MainWindow : Window
         }
 
         // ---- 普通模式：发送图片 ----
+        // 目标窗口优先级：轮询记录的外部前台窗口(_lastExternalFg) >
+        // 失去激活时记录的上一个外部窗口(_prevActiveHwnd) > 实时前台窗口。
+        // _lastExternalFg 由 _fgTimer 在窗口可见且未激活时持续刷新，
+        // 确保点表情能把 Ctrl+V 投回用户正在用的外部输入框(QQ 等)。
         IntPtr liveFg = NativeMethods.GetForegroundWindow();
         IntPtr target = IntPtr.Zero;
         if (_lastExternalFg != IntPtr.Zero && _lastExternalFg != _hWnd)
@@ -1049,7 +1074,7 @@ public sealed partial class MainWindow : Window
 
         NativeMethods.SetForegroundWindow(_hWnd);
         _isVisible = true;
-        RefreshMemes();
+        SetMemeViewVisible(true);
     }
 
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
@@ -1453,6 +1478,7 @@ public sealed partial class MainWindow : Window
                 Log("WM_CLOSE: 仅隐藏窗口（后台保留）");
                 NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
                 _isVisible = false;
+                SetMemeViewVisible(false);
                 return IntPtr.Zero;
             }
             // _allowClose=true（托盘退出）时放行，交给默认处理真正关闭
@@ -1481,6 +1507,7 @@ public sealed partial class MainWindow : Window
         {
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
             _isVisible = false;
+            SetMemeViewVisible(false);
             Log("  执行 SW_HIDE");
         }
         else
@@ -1488,7 +1515,7 @@ public sealed partial class MainWindow : Window
             // 用 SHOWNOACTIVATE 显示：窗口置顶但不抢焦点，
             // 这样用户仍能直接点表情粘贴到原来的应用里
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
-            RefreshMemes();
+            SetMemeViewVisible(true);
             _isVisible = true;
             Log("  执行 SW_SHOWNOACTIVATE");
         }
