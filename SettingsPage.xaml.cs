@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using MemeManager.Data;
 using MemeManager.Models;
 using Windows.Storage.Pickers;
 using System.Diagnostics;
@@ -19,8 +20,14 @@ public sealed partial class SettingsPage : Page
         EcoModeToggle.IsOn = cfg.EcoMode;
         SaveLogToggle.IsOn = cfg.SaveLogFile;
 
+        // 进入设置时记录“之前保存的有效路径”，作为手动输入校验失败时的回退基准
+        _originalStoragePath = cfg.StoragePath;
+
         this.KeyDown += SettingsPage_KeyDown;
     }
+
+    // 进入设置时已有的有效路径（校验失败回退用，而非默认路径）
+    private string? _originalStoragePath;
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -188,6 +195,50 @@ public sealed partial class SettingsPage : Page
         {
             Logger.Log($"[Settings] 打开文件夹失败: {ex.Message}");
         }
+    }
+
+    // 用户手动修改路径文本框时校验：
+    //  - 目录存在 → 立即写入 config 并刷新主窗口
+    //  - 目录不存在 → 弹窗提示并回退到进入设置前的有效路径
+    private bool _revertingPath;
+    private async void StoragePathBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_revertingPath) return;
+
+        var text = StoragePathBox.Text?.Trim() ?? string.Empty;
+        // 空字符串暂不打扰（用户可能正在输入中）
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        if (System.IO.Directory.Exists(text))
+        {
+            // 有效路径：立即持久化并刷新，与“浏览”行为一致
+            await App.DataEngine.UpdateConfigAsync(cfg => cfg.StoragePath = text);
+            App.MainWindow.ReloadData();
+            Logger.Log($"[Settings] 手动输入有效路径已保存并刷新: {text}");
+            return;
+        }
+
+        // 目录不存在：弹窗提示并回退到进入设置前保存的有效路径
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "路径不存在",
+                Content = $"指定的存放路径不存在：\n{text}\n\n已恢复为之前的有效路径。",
+                CloseButtonText = "确定",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 路径校验弹窗失败: {ex.Message}");
+        }
+
+        var fallback = _originalStoragePath ?? MemeDataEngine.DefaultStoragePath();
+        _revertingPath = true;
+        StoragePathBox.Text = fallback;
+        _revertingPath = false;
     }
 
     public async Task SaveAsync()
