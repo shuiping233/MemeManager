@@ -52,7 +52,10 @@ public class MemeDataEngine
         await LoadAllMetadataAsync();
     }
 
-    private string ConfigPath => Path.Combine(_baseDir, "config.json");
+    // 配置文件固定保存在 %LOCALAPPDATA% 下（与数据目录解耦），否则迁移数据目录后二次启动读不到配置
+    private static string ConfigDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager");
+    private string ConfigPath => Path.Combine(ConfigDir, "config.json");
 
     // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
     private string CategoryOrderPath => Path.Combine(_baseDir, ".metadata.json");
@@ -61,7 +64,23 @@ public class MemeDataEngine
     {
         try
         {
-            Directory.CreateDirectory(_baseDir);
+            Directory.CreateDirectory(ConfigDir);
+
+            // 迁移兼容：首次升级时旧 config.json 位于数据目录下，搬到用户目录，避免丢失（含 StoragePath）
+            var oldConfigPath = Path.Combine(_baseDir, "config.json");
+            if (!File.Exists(ConfigPath) && File.Exists(oldConfigPath))
+            {
+                try
+                {
+                    File.Copy(oldConfigPath, ConfigPath, overwrite: true);
+                    MemeManager.Logger.Log($"[Engine] 已迁移旧配置到用户目录: {oldConfigPath} -> {ConfigPath}");
+                }
+                catch (Exception ex)
+                {
+                    MemeManager.Logger.Log($"[Engine] 迁移旧配置失败: {ex.Message}");
+                }
+            }
+
             if (File.Exists(ConfigPath))
             {
                 var json = File.ReadAllText(ConfigPath);
@@ -85,7 +104,7 @@ public class MemeDataEngine
     {
         try
         {
-            Directory.CreateDirectory(_baseDir);
+            Directory.CreateDirectory(ConfigDir);
             var json = JsonSerializer.Serialize(Config, MemeJsonContext.Default.AppConfig);
             await File.WriteAllTextAsync(ConfigPath, json);
         }
