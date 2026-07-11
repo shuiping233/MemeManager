@@ -380,6 +380,31 @@ public class MemeDataEngine
         }
     }
 
+    // ---------- 重命名（仅改 metadata 里的 title） ----------
+
+    public async Task RenameMemeAsync(MemeModel meme, string newTitle)
+    {
+        var title = (newTitle ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(title) || title.Equals(meme.Title, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var dir = Path.Combine(_baseDir, SanitizeCategory(meme.Category));
+        var meta = await LoadCategoryMetadataAsync(dir);
+        if (meta.Items.TryGetValue(meme.FileName, out var entry))
+            entry.Title = title;
+
+        await SaveCategoryMetadataAsync(dir, meta);
+
+        // 更新内存缓存与标题反查表
+        if (_titleReverseMap.TryGetValue(meme.Title, out var list))
+        {
+            list.Remove(meme.FileName);
+            if (list.Count == 0) _titleReverseMap.Remove(meme.Title);
+        }
+        meme.Title = title;
+        IndexTitle(meme);
+    }
+
     // ---------- 删除 ----------
 
     public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes)

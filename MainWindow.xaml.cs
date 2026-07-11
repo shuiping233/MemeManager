@@ -711,6 +711,33 @@ public sealed partial class MainWindow : Window
             };
             flyout.Items.Add(openItem);
 
+            // 重命名：仅修改 metadata 里的 title（可在搜索栏查到）
+            var renameItem = new MenuFlyoutItem { Text = "重命名" };
+            renameItem.Click += async (_, __) =>
+            {
+                var input = new TextBox
+                {
+                    Text = vm.Title,
+                    PlaceholderText = "输入新的名称"
+                };
+                var dialog = new ContentDialog
+                {
+                    Title = "重命名",
+                    Content = input,
+                    PrimaryButtonText = "确定",
+                    CloseButtonText = "取消",
+                    XamlRoot = this.Content.XamlRoot,
+                    DefaultButton = ContentDialogButton.Primary
+                };
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    await App.DataEngine.RenameMemeAsync(vm.Model, input.Text);
+                    Log($"重命名「{vm.Title}」-> 「{input.Text}」");
+                    RefreshMemes();
+                }
+            };
+            flyout.Items.Add(renameItem);
+
             // 移动到其他分类：子菜单列出所有分类（排除当前所在分类）
             var moveSub = new MenuFlyoutSubItem { Text = "移动到其他分类" };
             var currentCat = vm.Category;
