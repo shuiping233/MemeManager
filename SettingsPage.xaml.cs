@@ -129,27 +129,17 @@ public sealed partial class SettingsPage : Page
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
-        Logger.Log("[Settings] BrowseButton_Click: 开始选择文件夹");
         try
         {
-            var picker = new FolderPicker();
-            var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            Logger.Log($"[Settings] BrowseButton_Click: 窗口句柄 hWnd=0x{(long)hWnd:X}");
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
-            picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-            // Win10 要求至少指定一个文件类型筛选器，否则 PickSingleFolderAsync 抛 E_FAIL
-            picker.FileTypeFilter.Add("*");
-            Logger.Log("[Settings] BrowseButton_Click: 已 InitializeWithWindow，准备 PickSingleFolderAsync");
-
-            var folder = await picker.PickSingleFolderAsync();
+            var folder = await PickerHelper.PickFolderAsync();
             if (folder != null)
             {
-                Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder.Path}");
-                StoragePathBox.Text = folder.Path;
+                Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder}");
+                StoragePathBox.Text = folder;
             }
             else
             {
-                Logger.Log("[Settings] BrowseButton_Click: 用户取消或未选择任何文件夹（folder == null）");
+                Logger.Log("[Settings] BrowseButton_Click: 用户取消或未选择任何文件夹");
             }
         }
         catch (Exception ex)

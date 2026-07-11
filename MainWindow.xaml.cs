@@ -531,22 +531,17 @@ public sealed partial class MainWindow : Window
 
     private async void BatchImportButton_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FileOpenPicker();
-        InitializeWithWindow.Initialize(picker, _hWnd);
-        picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-        picker.FileTypeFilter.Add(".png");
-        picker.FileTypeFilter.Add(".jpg");
-        picker.FileTypeFilter.Add(".jpeg");
-        picker.FileTypeFilter.Add(".gif");
-        picker.FileTypeFilter.Add(".webp");
-        picker.FileTypeFilter.Add(".bmp");
+        var files = await PickerHelper.PickMultipleFilesAsync(
+            this,
+            PickerLocationId.PicturesLibrary,
+            ("图片", ".png"), ("图片", ".jpg"), ("图片", ".jpeg"),
+            ("图片", ".gif"), ("图片", ".webp"), ("图片", ".bmp"));
 
-        var files = await picker.PickMultipleFilesAsync();
-        if (files == null || files.Count == 0) return;
+        if (files.Count == 0) return;
 
         foreach (var file in files)
         {
-            var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
+            var imported = await App.DataEngine.ImportMemeAsync(file, _currentCategory);
             if (imported != null)
                 _memeList.Add(new MemeViewModel(imported));
         }
@@ -558,13 +553,10 @@ public sealed partial class MainWindow : Window
         var selected = _memeList.Where(m => m.IsSelected).ToList();
         if (selected.Count == 0) return;
 
-        var picker = new FolderPicker();
-        InitializeWithWindow.Initialize(picker, _hWnd);
-        picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-        var folder = await picker.PickSingleFolderAsync();
+        var folder = await PickerHelper.PickFolderAsync(this);
         if (folder == null) return;
 
-        await App.DataEngine.ExportMemesAsync(selected.Select(m => m.Model), folder.Path);
+        await App.DataEngine.ExportMemesAsync(selected.Select(m => m.Model), folder);
     }
 
     private async void DeleteButton_Click(object sender, RoutedEventArgs e)
