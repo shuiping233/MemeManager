@@ -121,14 +121,52 @@ public sealed partial class SettingsPage : Page
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FolderPicker();
-        var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
-        picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder != null)
+        Debug.WriteLine("[Settings] BrowseButton_Click: 开始选择文件夹");
+        try
         {
-            StoragePathBox.Text = folder.Path;
+            var picker = new FolderPicker();
+            var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+            Debug.WriteLine($"[Settings] BrowseButton_Click: 窗口句柄 hWnd=0x{(long)hWnd:X}");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
+            picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+            // Win10 要求至少指定一个文件类型筛选器，否则 PickSingleFolderAsync 抛 E_FAIL
+            picker.FileTypeFilter.Add("*");
+            Debug.WriteLine("[Settings] BrowseButton_Click: 已 InitializeWithWindow，准备 PickSingleFolderAsync");
+
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                Debug.WriteLine($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder.Path}");
+                StoragePathBox.Text = folder.Path;
+            }
+            else
+            {
+                Debug.WriteLine("[Settings] BrowseButton_Click: 用户取消或未选择任何文件夹（folder == null）");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Settings] BrowseButton_Click 异常: {ex}");
+            await ShowErrorAsync("打开文件夹选择器失败", ex.ToString());
+        }
+    }
+
+    private async Task ShowErrorAsync(string title, string detail)
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = detail,
+                CloseButtonText = "确定",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Settings] 弹出错误对话框也失败: {ex}");
         }
     }
 
