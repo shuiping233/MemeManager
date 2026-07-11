@@ -402,7 +402,8 @@ public sealed partial class MainWindow : Window
             Content = box,
             PrimaryButtonText = "确定",
             CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot
+            XamlRoot = this.Content.XamlRoot,
+            DefaultButton = ContentDialogButton.Primary
         };
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
@@ -1128,6 +1129,14 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             SearchBox.Focus(FocusState.Keyboard);
+            return;
+        }
+
+        // Ctrl+N：新建分类
+        if (ctrl && e.Key == Windows.System.VirtualKey.N)
+        {
+            e.Handled = true;
+            await ShowAddCategoryDialog();
             return;
         }
 
