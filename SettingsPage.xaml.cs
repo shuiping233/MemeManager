@@ -19,14 +19,8 @@ public sealed partial class SettingsPage : Page
         EcoModeToggle.IsOn = cfg.EcoMode;
         SaveLogToggle.IsOn = cfg.SaveLogFile;
 
-        // 记录“待保存”的存放路径：优先用此项，避免 IsReadOnly 的 TextBox 回读文本不可靠
-        _pendingStoragePath = cfg.StoragePath;
-
         this.KeyDown += SettingsPage_KeyDown;
     }
-
-    // 待保存的存放路径（Browse 选中后暂存，SaveAsync 时使用，避免依赖 IsReadOnly TextBox 的回读）
-    private string? _pendingStoragePath;
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -141,7 +135,6 @@ public sealed partial class SettingsPage : Page
             if (folder != null)
             {
                 Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder}");
-                _pendingStoragePath = folder;
                 StoragePathBox.Text = folder;
 
                 // 立即把新路径写入引擎并持久化，不依赖关闭时的 SaveAsync 回读

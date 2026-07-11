@@ -92,8 +92,6 @@ public class MemeDataEngine
     {
         patch(Config);
 
-        Logger.Log($"[Engine] UpdateConfigAsync: 写前 Config.StoragePath={Config.StoragePath}, _baseDir={_baseDir}");
-
         // 先把 _baseDir 切到目标路径，确保 config.json 写到“新路径”而不是旧路径
         string newBase = string.IsNullOrWhiteSpace(Config.StoragePath)
             ? DefaultStoragePath()
@@ -102,8 +100,6 @@ public class MemeDataEngine
         _baseDir = newBase;
 
         await SaveConfigAsync();
-
-        Logger.Log($"[Engine] UpdateConfigAsync: 写后 _baseDir={_baseDir}, ConfigPath={ConfigPath}, changed={changed}");
 
         // 仅当存放路径真正变化时才重新加载该路径下的元数据
         if (changed)
