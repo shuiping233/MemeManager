@@ -1083,8 +1083,21 @@ public sealed partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
+    // 搜索框输入防抖：避免每次按键都重建表情列表
+    private DispatcherTimer? _searchDebounceTimer;
+
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Tick -= SearchDebounce_Tick;
+        _searchDebounceTimer.Tick += SearchDebounce_Tick;
+        _searchDebounceTimer.Start();
+    }
+
+    private void SearchDebounce_Tick(object? sender, object e)
+    {
+        _searchDebounceTimer?.Stop();
         RefreshMemes();
     }
 
@@ -1107,6 +1120,14 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             _ = ImportFromClipboardAsync();
+            return;
+        }
+
+        // Ctrl+F：聚焦搜索框
+        if (ctrl && e.Key == Windows.System.VirtualKey.F)
+        {
+            e.Handled = true;
+            SearchBox.Focus(FocusState.Keyboard);
             return;
         }
 
