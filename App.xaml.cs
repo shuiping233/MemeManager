@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml.Controls;
 using MemeManager.Data;
 using WinRT.Interop;
 using System.Runtime.InteropServices;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace MemeManager;
 
@@ -23,6 +25,60 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+
+        // 全局崩溃兜底：捕获 UI 线程 / 后台线程 / 未观察 Task 异常
+        UnhandledException += (_, args) =>
+        {
+            args.Handled = true;
+            HandleFatalException(args.Exception);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            var ex = args.ExceptionObject as Exception;
+            HandleFatalException(ex ?? new Exception("Unknown non-CLR exception"));
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            args.SetObserved();
+            HandleFatalException(args.Exception);
+        };
+    }
+
+    // 致命异常处理：写崩溃日志 + 弹窗提示 + 退出
+    private static void HandleFatalException(Exception ex)
+    {
+        try
+        {
+            var baseDir = MemeDataEngine.DefaultStoragePath();
+            var logDir = Path.Combine(baseDir, "log");
+            Directory.CreateDirectory(logDir);
+            var crashPath = Path.Combine(logDir, "crash.log");
+            var msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [CRASH] {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}";
+            // 追加写入，保留历史崩溃记录
+            File.AppendAllText(crashPath, msg);
+
+            // 同时走常规日志（若用户开启了保存日志文件）
+            Logger.Log("[CRASH] " + ex);
+        }
+        catch
+        {
+            // 连写日志都失败就不管了，不能再次抛异常
+        }
+
+        try
+        {
+            NativeMethods.MessageBoxW(
+                IntPtr.Zero,
+                $"程序遇到意外错误，即将退出：\n\n{ex.GetType().Name}: {ex.Message}\n\n崩溃日志已保存到日志目录的 crash.log",
+                "MemeManager 崩溃",
+                0x10); // MB_ICONERROR | MB_OK
+        }
+        catch
+        {
+        }
+
+        try { Current?.Exit(); } catch { }
+        Environment.Exit(1);
     }
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)

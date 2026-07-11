@@ -58,7 +58,7 @@
                       Grid.Row="0"
                       SelectionMode="Single"
                       SelectionChanged="CategoryList_SelectionChanged"
-                      RightTapped="CategoryList_RightTapped">
+                      ContextRequested="CategoryList_ContextRequested">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:CategoryViewModel">
                         <Grid Padding="8,6">

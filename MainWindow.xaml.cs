@@ -149,7 +149,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void CategoryList_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    private void CategoryList_ContextRequested(object sender, ContextRequestedEventArgs e)
     {
         // 找到右键所在的分类项
         var cat = FindCategoryFromSource(e.OriginalSource);
@@ -189,7 +189,8 @@ public sealed partial class MainWindow : Window
             }
         };
         flyout.Items.Add(deleteItem);
-        flyout.ShowAt((FrameworkElement)e.OriginalSource, e.GetPosition((FrameworkElement)e.OriginalSource));
+        // 不传坐标，避免边界坐标导致 ShowAt 失败
+        flyout.ShowAt((FrameworkElement)e.OriginalSource);
     }
 
     private CategoryViewModel? FindCategoryFromSource(object? source)
