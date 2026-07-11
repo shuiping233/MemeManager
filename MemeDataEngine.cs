@@ -21,6 +21,9 @@ public class MemeDataEngine
     // 便于按标题秒级检索
     private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
 
+    // 分类顺序：分类名(小写, 即文件夹名) -> 优先级（值越大越靠前）
+    private readonly Dictionary<string, uint> _categoryOrder = new(StringComparer.OrdinalIgnoreCase);
+
     public string BaseDir => _baseDir;
     public AppConfig Config { get; private set; } = new();
 
@@ -45,10 +48,14 @@ public class MemeDataEngine
         _baseDir = string.IsNullOrWhiteSpace(Config.StoragePath) ? DefaultStoragePath() : Config.StoragePath;
         Directory.CreateDirectory(_baseDir);
 
+        await LoadCategoryOrderAsync();
         await LoadAllMetadataAsync();
     }
 
     private string ConfigPath => Path.Combine(_baseDir, "config.json");
+
+    // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
+    private string CategoryOrderPath => Path.Combine(_baseDir, ".metadata.json");
 
     private void LoadConfig()
     {
@@ -212,7 +219,72 @@ public class MemeDataEngine
             }
         }
 
-        return set.OrderBy(c => c, StringComparer.OrdinalIgnoreCase).ToList();
+        var result = set.ToList();
+        // 按优先级降序（值越大越靠前），同优先级按名称稳定排序
+        result.Sort((a, b) =>
+        {
+            int pa = _categoryOrder.TryGetValue(a, out var va) ? (int)va : 0;
+            int pb = _categoryOrder.TryGetValue(b, out var vb) ? (int)vb : 0;
+            int cmp = pb.CompareTo(pa);
+            return cmp != 0 ? cmp : string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+        });
+        return result;
+    }
+
+    // ---------- 分类顺序（拖拽重排） ----------
+
+    private async Task LoadCategoryOrderAsync()
+    {
+        _categoryOrder.Clear();
+        try
+        {
+            if (File.Exists(CategoryOrderPath))
+            {
+                var json = await File.ReadAllTextAsync(CategoryOrderPath);
+                if (!string.IsNullOrWhiteSpace(json))
+                {
+                    var meta = JsonSerializer.Deserialize(json, MemeJsonContext.Default.CategoryOrderMetadata);
+                    if (meta?.Categories != null)
+                        foreach (var kv in meta.Categories)
+                            _categoryOrder[kv.Key] = kv.Value.Priority;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MemeManager.Logger.Log($"[Engine] 读取分类顺序失败: {ex.Message}");
+        }
+    }
+
+    private async Task SaveCategoryOrderAsync()
+    {
+        try
+        {
+            Directory.CreateDirectory(_baseDir);
+            var meta = new CategoryOrderMetadata
+            {
+                Categories = _categoryOrder.ToDictionary(
+                    kv => kv.Key,
+                    kv => new CategoryOrderEntry { Priority = kv.Value })
+            };
+            var json = JsonSerializer.Serialize(meta, MemeJsonContext.Default.CategoryOrderMetadata);
+            await File.WriteAllTextAsync(CategoryOrderPath, json);
+        }
+        catch (Exception ex)
+        {
+            MemeManager.Logger.Log($"[Engine] 保存分类顺序失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 按给定分类名顺序整体重算优先级（列表最前=最大优先级，依次递减），写回 .metadata.json。
+    /// </summary>
+    public async Task ReorderCategoriesAsync(IReadOnlyList<string> orderedNames)
+    {
+        uint p = (uint)orderedNames.Count;
+        foreach (var name in orderedNames)
+            _categoryOrder[name] = p--;
+        await SaveCategoryOrderAsync();
     }
 
     // 通过标题反查文件名列表
@@ -394,6 +466,14 @@ public class MemeDataEngine
             await SaveConfigAsync();
         }
 
+        // 同步更新分类顺序表中的 key（保留原优先级）
+        if (_categoryOrder.TryGetValue(safeOld, out var prio))
+        {
+            _categoryOrder.Remove(safeOld);
+            _categoryOrder[safeNew] = prio;
+            await SaveCategoryOrderAsync();
+        }
+
         MemeManager.Logger.Log($"[Engine] 重命名分类: {oldName} -> {newName}");
         return true;
     }
@@ -493,6 +573,9 @@ public class MemeDataEngine
         if (Directory.Exists(dir)) return false;
         Directory.CreateDirectory(dir);
         await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
+        // 新分类默认优先级 0（排在同优先级最后），并持久化顺序
+        _categoryOrder[category] = 0;
+        await SaveCategoryOrderAsync();
         MemeManager.Logger.Log($"[Engine] 创建分类: {category}");
         return true;
     }
@@ -541,6 +624,11 @@ public class MemeDataEngine
 
             // 2. 删除整个分类文件夹（图片 + .metadata.json）
             Directory.Delete(dir, recursive: true);
+
+            // 3. 从分类顺序表移除该分类
+            _categoryOrder.Remove(SanitizeCategory(category));
+            await SaveCategoryOrderAsync();
+
             MemeManager.Logger.Log($"[Engine] 删除分类: {category}");
             return true;
         }

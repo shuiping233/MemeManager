@@ -277,8 +277,21 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            // 内部重排（CanReorderItems）由 WinUI 自己处理，这里接受 Move 以免被否决
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
         }
+    }
+
+    // 分类列表内部拖拽重排完成：WinUI 已把 _categoryList 排好，读顺序写回 .metadata.json
+    private async void CategoryList_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
+    {
+        if (e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move &&
+            e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy)
+            return;
+
+        var ordered = _categoryList.Select(c => c.Name).ToList();
+        await App.DataEngine.ReorderCategoriesAsync(ordered);
+        Log($"分类重排写回 {ordered.Count} 个分类顺序");
     }
 
     private async void CategoryListItem_Drop(object sender, DragEventArgs e)

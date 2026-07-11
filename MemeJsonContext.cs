@@ -8,6 +8,7 @@ namespace MemeManager.Data;
 [JsonSerializable(typeof(MemeModel))]
 [JsonSerializable(typeof(List<MemeModel>))]
 [JsonSerializable(typeof(CategoryMetadata))]
+[JsonSerializable(typeof(CategoryOrderMetadata))]
 [JsonSerializable(typeof(AppConfig))]
 [JsonSerializable(typeof(ThemeMode))]
 internal partial class MemeJsonContext : JsonSerializerContext
