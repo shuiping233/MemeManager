@@ -66,9 +66,16 @@ public sealed class TrayIcon : IDisposable
         {
             // lParam 低位 = 鼠标消息
             var mouseMsg = (uint)lParam & 0xFFFF;
-            if (mouseMsg == NativeMethods.WM_RBUTTONUP || mouseMsg == NativeMethods.WM_LBUTTONUP)
+            if (mouseMsg == NativeMethods.WM_LBUTTONUP)
             {
-                Log($"托盘图标点击: mouseMsg=0x{mouseMsg:X4}");
+                // 左键：直接显示主窗口
+                Log("托盘图标左键点击：显示主窗口");
+                ShowMainWindow?.Invoke(this, EventArgs.Empty);
+            }
+            else if (mouseMsg == NativeMethods.WM_RBUTTONUP)
+            {
+                // 右键：弹出菜单
+                Log($"托盘图标右键点击: mouseMsg=0x{mouseMsg:X4}");
                 ShowContextMenu();
             }
             return IntPtr.Zero;
