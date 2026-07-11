@@ -280,6 +280,58 @@ public class MemeDataEngine
         }
     }
 
+    // ---------- 移动到其他分类 ----------
+
+    /// <summary>
+    /// 将一批表情移动到目标分类：移动物理文件、更新两分类的 metadata 与内存缓存。
+    /// 若目标分类不存在会自动创建。
+    /// </summary>
+    public async Task MoveMemesToCategoryAsync(IEnumerable<MemeModel> memes, string targetCategory)
+    {
+        var safeTarget = SanitizeCategory(targetCategory);
+        var targetDir = Path.Combine(_baseDir, safeTarget);
+        Directory.CreateDirectory(targetDir);
+        var targetMeta = await LoadCategoryMetadataAsync(targetDir);
+
+        foreach (var meme in memes)
+        {
+            if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
+                continue; // 已在目标分类，跳过
+
+            var sourceDir = Path.Combine(_baseDir, SanitizeCategory(meme.Category));
+            var sourceMeta = await LoadCategoryMetadataAsync(sourceDir);
+
+            var destPath = Path.Combine(targetDir, meme.FileName);
+            try
+            {
+                if (File.Exists(meme.LocalPath))
+                    File.Move(meme.LocalPath, destPath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                MemeManager.Logger.Log($"[Engine] 移动文件失败 {meme.FileName}: {ex.Message}");
+                continue;
+            }
+
+            // 更新目标分类 metadata
+            targetMeta.Items[meme.FileName] = new MemeMetaEntry
+            {
+                Title = meme.Title,
+                Tags = meme.Tags
+            };
+
+            // 从源分类 metadata 移除
+            sourceMeta.Items.Remove(meme.FileName);
+            await SaveCategoryMetadataAsync(sourceDir, sourceMeta);
+
+            // 更新内存缓存
+            meme.Category = safeTarget;
+            meme.LocalPath = destPath;
+        }
+
+        await SaveCategoryMetadataAsync(targetDir, targetMeta);
+    }
+
     // ---------- 删除 ----------
 
     public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes)

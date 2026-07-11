@@ -14,10 +14,7 @@
         <MicaBackdrop/>
     </Window.SystemBackdrop>
 
-    <Grid x:Name="RootGrid"
-          AllowDrop="True"
-          DragOver="MemeGridView_DragOver"
-          Drop="MemeGridView_Drop">
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -57,11 +54,16 @@
             <ListView x:Name="CategoryList"
                       Grid.Row="0"
                       SelectionMode="Single"
+                      AllowDrop="True"
+                      DragOver="CategoryList_DragOver"
                       SelectionChanged="CategoryList_SelectionChanged"
                       ContextRequested="CategoryList_ContextRequested">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:CategoryViewModel">
-                        <Grid Padding="8,6">
+                        <Grid Padding="8,6"
+                              AllowDrop="True"
+                              DragOver="CategoryListItem_DragOver"
+                              Drop="CategoryListItem_Drop">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -132,6 +134,11 @@
                 <Button x:Name="SelectAllButton" Content="全选" Click="SelectAllButton_Click"/>
                 <Button x:Name="BatchImportButton" Content="批量导入" Click="BatchImportButton_Click"/>
                 <Button x:Name="BatchExportButton" Content="批量导出" IsEnabled="False" Click="BatchExportButton_Click"/>
+                <Button x:Name="BatchMoveButton" Content="批量移动" IsEnabled="False">
+                    <Button.Flyout>
+                        <MenuFlyout x:Name="BatchMoveFlyout" Opening="BatchMoveFlyout_Opening"/>
+                    </Button.Flyout>
+                </Button>
                 <Button x:Name="DeleteButton" Content="删除" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" Click="DeleteButton_Click"/>
             </StackPanel>
         </Grid>

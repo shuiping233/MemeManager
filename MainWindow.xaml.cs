@@ -33,6 +33,9 @@ public sealed partial class MainWindow : Window
     private string _currentCategory = string.Empty;
     private bool _editMode;
 
+    // 内部拖拽移动：当前拖拽的 meme 模型列表（非空即表示内部拖拽，区别于外部导入）
+    private List<MemeModel>? _draggingMemes;
+
     // 记录本窗口激活前的前台窗口（通常是正在聊天的目标应用），用于粘贴时回投 Ctrl+V
     private IntPtr _prevActiveHwnd;
     private IntPtr _lastExternalFg;
@@ -208,6 +211,64 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
+    // 拖拽图片到分类列表：仅接受内部移动，并高亮可放置
+    private void CategoryList_DragOver(object sender, DragEventArgs e)
+    {
+        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = "移动到该分类";
+            e.DragUIOverride.IsCaptionVisible = true;
+            e.DragUIOverride.IsGlyphVisible = true;
+        }
+        else
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+        }
+    }
+
+    private async void CategoryListItem_Drop(object sender, DragEventArgs e)
+    {
+        if (_draggingMemes == null || _draggingMemes.Count == 0)
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            return;
+        }
+
+        // 目标分类 = 被拖放到的那个分类项（sender 即该项模板根 Grid，DataContext 为分类）
+        var targetCat = (sender as FrameworkElement)?.DataContext as CategoryViewModel;
+        Log($"[分类Drop] 触发, 目标分类={targetCat?.Name ?? "(无)"}");
+        if (targetCat == null) return;
+
+        var memes = _draggingMemes;
+        _draggingMemes = null;
+
+        int moved = memes.Count(m => !m.Category.Equals(targetCat.Name, StringComparison.OrdinalIgnoreCase));
+        if (moved > 0)
+        {
+            await App.DataEngine.MoveMemesToCategoryAsync(memes, targetCat.Name);
+            Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」");
+            RefreshMemes();
+            UpdateCategoryCounts();
+        }
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+    }
+
+    private void CategoryListItem_DragOver(object sender, DragEventArgs e)
+    {
+        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = "移动到该分类";
+            e.DragUIOverride.IsCaptionVisible = true;
+            e.DragUIOverride.IsGlyphVisible = true;
+        }
+        else
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+        }
+    }
+
     private async void AddCategoryButton_Click(object sender, RoutedEventArgs e)
     {
         var box = new TextBox { PlaceholderText = "输入新分类名称" };
@@ -264,6 +325,7 @@ public sealed partial class MainWindow : Window
     {
         bool anySelected = _memeList.Any(m => m.IsSelected);
         if (BatchExportButton != null) BatchExportButton.IsEnabled = anySelected;
+        if (BatchMoveButton != null) BatchMoveButton.IsEnabled = anySelected;
         if (DeleteButton != null) DeleteButton.IsEnabled = anySelected;
     }
 
@@ -375,6 +437,23 @@ public sealed partial class MainWindow : Window
         Log("Drop 事件触发");
         var view = e.DataView;
 
+        // 内部拖拽移动：拖到其他分类的网格时，移动到该分类
+        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        {
+            var memes = _draggingMemes;
+            _draggingMemes = null;
+            int moved = memes.Count(m => !m.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase));
+            if (moved > 0)
+            {
+                await App.DataEngine.MoveMemesToCategoryAsync(memes, _currentCategory);
+                Log($"Drop: 内部移动 {moved} 张图片到分类「{_currentCategory}」");
+                RefreshMemes();
+                UpdateCategoryCounts();
+            }
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            return;
+        }
+
         // 列出所有可用的数据格式，便于排查 QQ 等特殊来源
         var formats = view.AvailableFormats;
         Log($"Drop: 可用格式数量={formats.Count}");
@@ -447,7 +526,17 @@ public sealed partial class MainWindow : Window
     {
         if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
         {
-            Log($"DragStarting: 拖出图片 {vm.Title} ({vm.FileName}) 路径={vm.LocalPath}");
+            // 编辑模式下若该项已选中，则拖拽所有选中项；否则只拖当前项
+            List<MemeViewModel> dragged;
+            if (_editMode && vm.IsSelected)
+                dragged = _memeList.Where(m => m.IsSelected).ToList();
+            else
+                dragged = new List<MemeViewModel> { vm };
+
+            _draggingMemes = dragged.Select(m => m.Model).ToList();
+            Log($"DragStarting: 拖出 {dragged.Count} 张图片 (首项 {vm.Title})");
+
+            // 设文件以便拖到外部（文件管理器）时复制
             var file = Windows.Storage.StorageFile.GetFileFromPathAsync(vm.LocalPath).AsTask().Result;
             e.Data.SetStorageItems(new[] { file });
             e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
@@ -545,6 +634,54 @@ public sealed partial class MainWindow : Window
                 }
             };
             flyout.Items.Add(deleteItem);
+
+            var openItem = new MenuFlyoutItem { Text = "打开" };
+            openItem.Click += (_, __) =>
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = vm.Model.LocalPath,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Log($"[打开图片] 失败: {ex.Message}");
+                }
+            };
+            flyout.Items.Add(openItem);
+
+            // 移动到其他分类：子菜单列出所有分类（排除当前所在分类）
+            var moveSub = new MenuFlyoutSubItem { Text = "移动到其他分类" };
+            var currentCat = vm.Category;
+            bool hasTarget = false;
+            foreach (var cat in _categoryList)
+            {
+                if (cat.Name.Equals(currentCat, StringComparison.OrdinalIgnoreCase)) continue;
+                hasTarget = true;
+                var targetName = cat.Name;
+                var moveItem = new MenuFlyoutItem { Text = cat.Name };
+                moveItem.Click += async (_, __) =>
+                {
+                    // 编辑模式且已选中则移动所有选中项，否则只移动当前项
+                    List<MemeViewModel> toMove;
+                    if (_editMode && vm.IsSelected)
+                        toMove = _memeList.Where(m => m.IsSelected).ToList();
+                    else
+                        toMove = new List<MemeViewModel> { vm };
+
+                    await App.DataEngine.MoveMemesToCategoryAsync(toMove.Select(m => m.Model), targetName);
+                    Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」");
+                    RefreshMemes();
+                    UpdateCategoryCounts();
+                };
+                moveSub.Items.Add(moveItem);
+            }
+            if (hasTarget)
+                flyout.Items.Add(moveSub);
+
             // ContextRequested 的 target 用 fe 自身（不传坐标），避免边界坐标导致 ShowAt 失败
             flyout.ShowAt(fe);
         }
@@ -605,6 +742,40 @@ public sealed partial class MainWindow : Window
         await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
         foreach (var m in selected) _memeList.Remove(m);
         UpdateCategoryCounts();
+    }
+
+    // 批量移动到：弹出分类下拉，点击后将选中项移动到该分类
+    private void BatchMoveFlyout_Opening(object? sender, object e)
+    {
+        if (BatchMoveFlyout == null) return;
+        BatchMoveFlyout.Items.Clear();
+
+        var selected = _memeList.Where(m => m.IsSelected).ToList();
+        if (selected.Count == 0) return;
+
+        bool hasTarget = false;
+        foreach (var cat in _categoryList)
+        {
+            // 跳过当前所在分类（移动过去无意义）
+            if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            hasTarget = true;
+            var targetName = cat.Name;
+            var item = new MenuFlyoutItem { Text = cat.Name };
+            item.Click += async (_, __) =>
+            {
+                await App.DataEngine.MoveMemesToCategoryAsync(selected.Select(m => m.Model), targetName);
+                Log($"批量移动 {selected.Count} 张图片到分类「{targetName}」");
+                RefreshMemes();
+                UpdateCategoryCounts();
+            };
+            BatchMoveFlyout.Items.Add(item);
+        }
+
+        if (!hasTarget)
+        {
+            BatchMoveFlyout.Items.Add(new MenuFlyoutItem { Text = "（无其他分类）", IsEnabled = false });
+        }
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
