@@ -127,7 +127,17 @@ public partial class App : Application
 
         _window = new MainWindow();
         ApplyTheme();
-        _window.Activate();
+
+        // 开机自启(--hidden)：直接隐藏到后台、只留托盘，不闪界面
+        var cmdArgs = Environment.GetCommandLineArgs();
+        if (cmdArgs.Contains(StartupManager.LaunchArgs, StringComparer.OrdinalIgnoreCase))
+        {
+            ((MainWindow)_window).StartHidden();
+        }
+        else
+        {
+            _window.Activate();
+        }
 
         // 系统托盘图标
         _trayIcon = new TrayIcon(WindowNativeHwnd());

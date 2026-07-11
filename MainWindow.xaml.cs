@@ -1098,6 +1098,17 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 开机自启(--hidden)使用：窗口创建后直接隐藏到后台、只留托盘，
+    /// 不抢焦点、不激活，避免启动瞬间闪一下界面。
+    /// </summary>
+    public void StartHidden()
+    {
+        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
+        _isVisible = false;
+        SetMemeViewVisible(false);
+    }
+
+    /// <summary>
     /// 手动将图标设到窗口，使独立发布（非 MSIX）时任务栏/标题栏也显示 Logo。
     /// WinUI 3 不会自动从 EXE 图标继承窗口图标，需通过 WM_SETICON 显式设置。
     /// </summary>

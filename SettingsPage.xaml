@@ -62,6 +62,12 @@
                 <ToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6">日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</TextBlock>
             </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="开机自动启动" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6">登录系统后自动在后台运行（仅托盘，不弹主窗口）</TextBlock>
+            </StackPanel>
         </StackPanel>
 
         <Button Grid.Row="2" x:Name="CloseButton" Content="完成" HorizontalAlignment="Right"
