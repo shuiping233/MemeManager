@@ -68,7 +68,7 @@ public sealed partial class MainWindow : Window
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new Windows.Graphics.SizeInt32(720, 640));
+        appWindow.Resize(new Windows.Graphics.SizeInt32(900, 700));
 
         if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
             overlappedPresenter.IsAlwaysOnTop = true;
@@ -331,7 +331,7 @@ public sealed partial class MainWindow : Window
 
     // ---------- 拖拽：拖入导入 / 拖出到外部输入框 ----------
 
-    private static void Log(string msg) => System.Diagnostics.Debug.WriteLine($"[MemeManager] {msg}");
+    private static void Log(string msg) => Logger.Log($"[MemeManager] {msg}");
 
     private void MemeGridView_DragOver(object sender, DragEventArgs e)
     {
@@ -662,7 +662,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[MemeManager] 设置窗口图标失败: {ex}");
+            Logger.Log($"[MemeManager] 设置窗口图标失败: {ex}");
         }
     }
 
@@ -687,7 +687,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        System.Diagnostics.Debug.WriteLine("[MemeManager] 未找到 AppIcon.ico");
+        Logger.Log("[MemeManager] 未找到 AppIcon.ico");
         return IntPtr.Zero;
     }
 
@@ -917,7 +917,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Paste] 导入失败: {ex.Message}");
+            Logger.Log($"[Paste] 导入失败: {ex.Message}");
         }
         return null;
     }

@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     x:Class="MemeManager.SettingsPage"
     Loaded="SettingsPage_Loaded"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="24">
+    <Grid Padding="24" HorizontalAlignment="Left">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -17,10 +17,10 @@
 
         <TextBlock Grid.Row="0" Text="设置" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
-        <StackPanel Grid.Row="1" Spacing="16">
+        <StackPanel Grid.Row="1" Spacing="16" MaxWidth="600">
             <StackPanel Spacing="6">
                 <TextBlock Text="主题" FontWeight="SemiBold"/>
-                <ComboBox x:Name="ThemeComboBox" HorizontalAlignment="Stretch" SelectionChanged="ThemeComboBox_SelectionChanged">
+                <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">
                     <x:String>跟随系统</x:String>
                     <x:String>浅色</x:String>
                     <x:String>深色</x:String>
@@ -61,6 +61,12 @@
                 <TextBlock Text="效率模式" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="EcoModeToggle" Toggled="EcoModeToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6">以 Windows “效率模式” 运行，降低 CPU 优先级与能耗（下次启动生效）</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="保存日志文件" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6">日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</TextBlock>
             </StackPanel>
         </StackPanel>
 

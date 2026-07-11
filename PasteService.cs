@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -48,15 +48,15 @@ public static class PasteService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine("================ 表情包粘贴失败 ================");
-            Debug.WriteLine($"异常类型: {ex.GetType().FullName}");
-            Debug.WriteLine($"错误原因: {ex.Message}");
-            Debug.WriteLine($"堆栈轨迹:\n{ex.StackTrace}");
+            Logger.Log("================ 表情包粘贴失败 ================");
+            Logger.Log($"异常类型: {ex.GetType().FullName}");
+            Logger.Log($"错误原因: {ex.Message}");
+            Logger.Log($"堆栈轨迹:\n{ex.StackTrace}");
             if (ex.InnerException != null)
             {
-                Debug.WriteLine($"内部异常: {ex.InnerException.Message}");
+                Logger.Log($"内部异常: {ex.InnerException.Message}");
             }
-            Debug.WriteLine("================================================");
+            Logger.Log("================================================");
         }
     }
 
@@ -92,12 +92,12 @@ public static class PasteService
 
         uint sent = NativeMethods.SendInput((uint)inputs.Length, inputs, size);
 
-        Debug.WriteLine($"[SendInput 调试] 预期发送: {inputs.Length}，实际成功接收: {sent}，结构体大小: {size} 字节");
+        Logger.Log($"[SendInput 调试] 预期发送: {inputs.Length}，实际成功接收: {sent}，结构体大小: {size} 字节");
 
         if (sent < inputs.Length)
         {
             int errorCode = Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[SendInput 警告] 模拟失败！Win32 错误码: {errorCode}");
+            Logger.Log($"[SendInput 警告] 模拟失败！Win32 错误码: {errorCode}");
         }
     }
 }

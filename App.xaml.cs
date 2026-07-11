@@ -75,13 +75,13 @@ public partial class App : Application
     public static void ApplyEcoMode()
     {
         var ok = SetThrottling(on: true);
-        System.Diagnostics.Debug.WriteLine($"[MemeManager.Eco] 启用效率模式: {(ok ? "成功" : "失败")}");
+        Logger.Log($"[MemeManager.Eco] 启用效率模式: {(ok ? "成功" : "失败")}");
     }
 
     public static void ResetEcoMode()
     {
         var ok = SetThrottling(on: false);
-        System.Diagnostics.Debug.WriteLine($"[MemeManager.Eco] 关闭效率模式: {(ok ? "成功" : "失败")}");
+        Logger.Log($"[MemeManager.Eco] 关闭效率模式: {(ok ? "成功" : "失败")}");
     }
 
     // 通过 SetProcessInformation(ProcessPowerThrottling) 启用/关闭 Windows 效率模式。
@@ -126,7 +126,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[MemeManager.Eco] 设置效率模式异常: {ex}");
+            Logger.Log($"[MemeManager.Eco] 设置效率模式异常: {ex}");
             return false;
         }
     }

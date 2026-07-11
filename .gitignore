@@ -3,6 +3,9 @@
 [Oo]bj/
 [Dd]ebug/
 [Rr]elease/
+
+# 应用数据目录中的日志文件夹
+**/MeMeManagerData/log/
 .vs/
 *.user
 *.suo

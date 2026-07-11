@@ -122,7 +122,7 @@ public sealed class TrayIcon : IDisposable
         }
     }
 
-    private static void Log(string msg) => System.Diagnostics.Debug.WriteLine($"[MemeManager.Tray] {msg}");
+    private static void Log(string msg) => Logger.Log($"[MemeManager.Tray] {msg}");
 
     private static string GetIconPath()
     {

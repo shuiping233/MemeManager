@@ -17,6 +17,7 @@ public sealed partial class SettingsPage : Page
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         EcoModeToggle.IsOn = cfg.EcoMode;
+        SaveLogToggle.IsOn = cfg.SaveLogFile;
 
         this.KeyDown += SettingsPage_KeyDown;
     }
@@ -92,6 +93,13 @@ public sealed partial class SettingsPage : Page
             App.ResetEcoMode();
     }
 
+    private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 即时生效：切换日志文件保存
+        App.DataEngine.Config.SaveLogFile = SaveLogToggle.IsOn;
+        Logger.Log($"[Settings] 保存日志文件已{(SaveLogToggle.IsOn ? "启用" : "关闭")}");
+    }
+
     private bool _recording;
 
     private void RecordHotKeyButton_Click(object sender, RoutedEventArgs e)
@@ -121,32 +129,32 @@ public sealed partial class SettingsPage : Page
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
-        Debug.WriteLine("[Settings] BrowseButton_Click: 开始选择文件夹");
+        Logger.Log("[Settings] BrowseButton_Click: 开始选择文件夹");
         try
         {
             var picker = new FolderPicker();
             var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            Debug.WriteLine($"[Settings] BrowseButton_Click: 窗口句柄 hWnd=0x{(long)hWnd:X}");
+            Logger.Log($"[Settings] BrowseButton_Click: 窗口句柄 hWnd=0x{(long)hWnd:X}");
             WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
             picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
             // Win10 要求至少指定一个文件类型筛选器，否则 PickSingleFolderAsync 抛 E_FAIL
             picker.FileTypeFilter.Add("*");
-            Debug.WriteLine("[Settings] BrowseButton_Click: 已 InitializeWithWindow，准备 PickSingleFolderAsync");
+            Logger.Log("[Settings] BrowseButton_Click: 已 InitializeWithWindow，准备 PickSingleFolderAsync");
 
             var folder = await picker.PickSingleFolderAsync();
             if (folder != null)
             {
-                Debug.WriteLine($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder.Path}");
+                Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder.Path}");
                 StoragePathBox.Text = folder.Path;
             }
             else
             {
-                Debug.WriteLine("[Settings] BrowseButton_Click: 用户取消或未选择任何文件夹（folder == null）");
+                Logger.Log("[Settings] BrowseButton_Click: 用户取消或未选择任何文件夹（folder == null）");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[Settings] BrowseButton_Click 异常: {ex}");
+            Logger.Log($"[Settings] BrowseButton_Click 异常: {ex}");
             await ShowErrorAsync("打开文件夹选择器失败", ex.ToString());
         }
     }
@@ -166,7 +174,7 @@ public sealed partial class SettingsPage : Page
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[Settings] 弹出错误对话框也失败: {ex}");
+            Logger.Log($"[Settings] 弹出错误对话框也失败: {ex}");
         }
     }
 
@@ -182,7 +190,7 @@ public sealed partial class SettingsPage : Page
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[Settings] 打开文件夹失败: {ex.Message}");
+            Logger.Log($"[Settings] 打开文件夹失败: {ex.Message}");
         }
     }
 
@@ -197,6 +205,7 @@ public sealed partial class SettingsPage : Page
             cfg.Theme = theme;
             cfg.StoragePath = path;
             cfg.EcoMode = eco;
+            cfg.SaveLogFile = SaveLogToggle.IsOn;
         });
 
         App.ApplyTheme();

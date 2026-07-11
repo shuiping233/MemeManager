@@ -67,7 +67,7 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Engine] 读取配置失败: {ex.Message}");
+            MemeManager.Logger.Log($"[Engine] 读取配置失败: {ex.Message}");
         }
 
         if (string.IsNullOrWhiteSpace(Config.StoragePath))
@@ -84,7 +84,7 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Engine] 保存配置失败: {ex.Message}");
+            MemeManager.Logger.Log($"[Engine] 保存配置失败: {ex.Message}");
         }
     }
 
@@ -195,7 +195,11 @@ public class MemeDataEngine
         if (Directory.Exists(_baseDir))
         {
             foreach (var dir in Directory.GetDirectories(_baseDir))
-                set.Add(Path.GetFileName(dir));
+            {
+                // 仅将含有 .metadata.json 的文件夹视为有效分类
+                if (File.Exists(Path.Combine(dir, ".metadata.json")))
+                    set.Add(Path.GetFileName(dir));
+            }
         }
 
         return set.OrderBy(c => c, StringComparer.OrdinalIgnoreCase).ToList();
@@ -258,7 +262,7 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Engine] 导入表情包失败: {ex.Message}");
+            MemeManager.Logger.Log($"[Engine] 导入表情包失败: {ex.Message}");
             return null;
         }
     }
@@ -309,6 +313,7 @@ public class MemeDataEngine
         if (Directory.Exists(dir)) return false;
         Directory.CreateDirectory(dir);
         await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
+        MemeManager.Logger.Log($"[Engine] 创建分类: {category}");
         return true;
     }
 
@@ -336,11 +341,12 @@ public class MemeDataEngine
 
             // 2. 删除整个分类文件夹（图片 + .metadata.json）
             Directory.Delete(dir, recursive: true);
+            MemeManager.Logger.Log($"[Engine] 删除分类: {category}");
             return true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Engine] 删除分类失败: {ex.Message}");
+            MemeManager.Logger.Log($"[Engine] 删除分类失败: {ex.Message}");
             return false;
         }
     }
