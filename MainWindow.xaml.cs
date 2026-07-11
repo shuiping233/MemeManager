@@ -116,13 +116,18 @@ public sealed partial class MainWindow : Window
 
     // ---------- 分类 ----------
 
+    // 供设置页在“浏览”修改存放路径后即时刷新主窗口（分类/表情）
+    public void ReloadData()
+    {
+        LoadCategories();
+    }
+
     private void LoadCategories()
     {
         // 若没有任何分类文件夹，默认创建一个 "Default"
         if (App.DataEngine.GetCategories().Count == 0)
         {
-            try { App.DataEngine.AddCategoryAsync("Default").GetAwaiter().GetResult(); }
-            catch { }
+            App.DataEngine.EnsureDefaultCategory();
         }
 
         _categoryList.Clear();
@@ -849,8 +854,8 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
         await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
+        RemoveFromCurrentView(selected.Select(m => m.Model));
         MemeGridView.SelectedItems.Clear();
-        RefreshMemes();
         UpdateCategoryCounts();
     }
 
@@ -994,15 +999,19 @@ public sealed partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
-    private async void SettingsFlyout_Closed(object? sender, object e)
-    {
-        if (SettingsFlyout.Content is SettingsPage page)
-            await page.SaveAsync();
-    }
-
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         RefreshMemes();
+    }
+
+    private async void SettingsFlyout_Closed(object? sender, object e)
+    {
+        if (SettingsFlyout.Content is SettingsPage page)
+        {
+            await page.SaveAsync();
+            // 存放路径可能已改变：重新加载分类与表情，反映新路径内容
+            LoadCategories();
+        }
     }
 
     private void Root_KeyDown(object sender, KeyRoutedEventArgs e)

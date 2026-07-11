@@ -91,13 +91,23 @@ public class MemeDataEngine
     public async Task UpdateConfigAsync(Action<AppConfig> patch)
     {
         patch(Config);
+
+        Logger.Log($"[Engine] UpdateConfigAsync: 写前 Config.StoragePath={Config.StoragePath}, _baseDir={_baseDir}");
+
+        // 先把 _baseDir 切到目标路径，确保 config.json 写到“新路径”而不是旧路径
+        string newBase = string.IsNullOrWhiteSpace(Config.StoragePath)
+            ? DefaultStoragePath()
+            : Config.StoragePath;
+        bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
+        _baseDir = newBase;
+
         await SaveConfigAsync();
-        if (!string.IsNullOrWhiteSpace(Config.StoragePath) &&
-            !Config.StoragePath.Equals(_baseDir, StringComparison.OrdinalIgnoreCase))
-        {
-            _baseDir = Config.StoragePath;
-            await InitializeAsync();
-        }
+
+        Logger.Log($"[Engine] UpdateConfigAsync: 写后 _baseDir={_baseDir}, ConfigPath={ConfigPath}, changed={changed}");
+
+        // 仅当存放路径真正变化时才重新加载该路径下的元数据
+        if (changed)
+            await LoadAllMetadataAsync();
     }
 
     // ---------- 加载 ----------
@@ -440,6 +450,26 @@ public class MemeDataEngine
         await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
         MemeManager.Logger.Log($"[Engine] 创建分类: {category}");
         return true;
+    }
+
+    // 同步确保存在 Default 分类（供 UI 线程的 LoadCategories 调用，避免 async 死锁）
+    public void EnsureDefaultCategory()
+    {
+        var dir = Path.Combine(_baseDir, SanitizeCategory("Default"));
+        if (Directory.Exists(dir)) return;
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var metaPath = Path.Combine(dir, ".metadata.json");
+            if (!File.Exists(metaPath))
+                File.WriteAllTextAsync(metaPath,
+                    JsonSerializer.Serialize(new CategoryMetadata(), MemeJsonContext.Default.CategoryMetadata))
+                    .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            MemeManager.Logger.Log($"[Engine] 创建默认分类失败: {ex.Message}");
+        }
     }
 
     // ---------- 分类删除 ----------

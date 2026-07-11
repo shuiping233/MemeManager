@@ -19,8 +19,14 @@ public sealed partial class SettingsPage : Page
         EcoModeToggle.IsOn = cfg.EcoMode;
         SaveLogToggle.IsOn = cfg.SaveLogFile;
 
+        // 记录“待保存”的存放路径：优先用此项，避免 IsReadOnly 的 TextBox 回读文本不可靠
+        _pendingStoragePath = cfg.StoragePath;
+
         this.KeyDown += SettingsPage_KeyDown;
     }
+
+    // 待保存的存放路径（Browse 选中后暂存，SaveAsync 时使用，避免依赖 IsReadOnly TextBox 的回读）
+    private string? _pendingStoragePath;
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -135,7 +141,14 @@ public sealed partial class SettingsPage : Page
             if (folder != null)
             {
                 Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder}");
+                _pendingStoragePath = folder;
                 StoragePathBox.Text = folder;
+
+                // 立即把新路径写入引擎并持久化，不依赖关闭时的 SaveAsync 回读
+                // （Flyout 打开文件选择器会失焦，可能导致设置页实例被换，SaveAsync 读到的是旧实例的默认值）
+                await App.DataEngine.UpdateConfigAsync(cfg => cfg.StoragePath = folder);
+                App.MainWindow.ReloadData();
+                Logger.Log($"[Settings] BrowseButton_Click: 已立即保存存放路径并刷新: {folder}");
             }
             else
             {
@@ -187,13 +200,13 @@ public sealed partial class SettingsPage : Page
     public async Task SaveAsync()
     {
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
-        var path = StoragePathBox.Text;
+        // 注意：存放路径(StoragePath)由 BrowseButton_Click 选中后立即持久化，
+        // 此处不再回写，避免 Flyout 失焦导致实例被换、用默认值覆盖已保存的新路径。
         var eco = EcoModeToggle.IsOn;
 
         await App.DataEngine.UpdateConfigAsync(cfg =>
         {
             cfg.Theme = theme;
-            cfg.StoragePath = path;
             cfg.EcoMode = eco;
             cfg.SaveLogFile = SaveLogToggle.IsOn;
         });
