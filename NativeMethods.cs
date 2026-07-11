@@ -59,6 +59,12 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetForegroundWindow();
 
+    [LibraryImport("user32.dll", EntryPoint = "FindWindowW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    public static partial IntPtr FindWindowW(string? lpClassName, string lpWindowName);
+
+    [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int MessageBoxW(IntPtr hWnd, string lpText, string lpCaption, uint uType);
+
     [LibraryImport("user32.dll", SetLastError = true, EntryPoint = "MapVirtualKeyW")]
     public static partial uint MapVirtualKey(uint uCode, uint uMapType);
 

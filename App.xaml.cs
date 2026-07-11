@@ -12,6 +12,9 @@ public partial class App : Application
     private Window? _window;
     private TrayIcon? _trayIcon;
 
+    // 单实例互斥体：持有期间禁止第二个实例启动
+    private static Mutex? _singleInstanceMutex;
+
     public static MemeDataEngine DataEngine { get; } = new();
 
     public static MainWindow MainWindow => ((App)Current)._window as MainWindow
@@ -24,6 +27,41 @@ public partial class App : Application
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        // ---------- 单实例检查 ----------
+        const string mutexName = @"Global\MemeManager_SingleInstance";
+        bool createdNew;
+        try
+        {
+            _singleInstanceMutex = new Mutex(initiallyOwned: true, mutexName, out createdNew);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 已存在但无法获取所有权，视为已有实例在运行
+            createdNew = false;
+            _singleInstanceMutex = null;
+        }
+
+        if (!createdNew)
+        {
+            // 已有实例：弹窗提示，并尝试把已有窗口激活到前台
+            IntPtr existing = NativeMethods.FindWindowW(null, "MemeManager");
+            if (existing != IntPtr.Zero)
+            {
+                if (NativeMethods.IsIconic(existing))
+                    NativeMethods.ShowWindow(existing, 9); // SW_RESTORE
+                NativeMethods.SetForegroundWindow(existing);
+            }
+            NativeMethods.MessageBoxW(
+                IntPtr.Zero,
+                "MemeManager 已经在运行中。",
+                "提示",
+                0x0); // MB_OK
+            Logger.Log("[MemeManager] 检测到重复实例并退出");
+            _singleInstanceMutex?.Close();
+            Current.Exit();
+            return;
+        }
+
         await DataEngine.InitializeAsync();
 
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
