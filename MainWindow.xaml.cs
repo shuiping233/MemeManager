@@ -71,7 +71,7 @@ public sealed partial class MainWindow : Window
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new Windows.Graphics.SizeInt32(900, 700));
+        appWindow.Resize(new Windows.Graphics.SizeInt32(950, 750));
 
         if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
             overlappedPresenter.IsAlwaysOnTop = true;
