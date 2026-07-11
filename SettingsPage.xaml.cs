@@ -18,6 +18,7 @@ public sealed partial class SettingsPage : Page
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         SaveLogToggle.IsOn = cfg.SaveLogFile;
+        AutoStartToggle.IsOn = StartupManager.IsEnabled();
 
         // 进入设置时记录“之前保存的有效路径”，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
@@ -94,6 +95,22 @@ public sealed partial class SettingsPage : Page
         // 即时生效：切换日志文件保存
         App.DataEngine.Config.SaveLogFile = SaveLogToggle.IsOn;
         Logger.Log($"[Settings] 保存日志文件已{(SaveLogToggle.IsOn ? "启用" : "关闭")}");
+    }
+
+    private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 即时生效：写/删 HKCU\...\Run 注册表键值
+        bool ok = AutoStartToggle.IsOn ? StartupManager.Enable() : StartupManager.Disable();
+        if (!ok)
+        {
+            // 写注册表失败（如权限不足），回滚开关状态
+            AutoStartToggle.IsOn = StartupManager.IsEnabled();
+            Logger.Log("[Settings] 设置开机自启失败（注册表写入被拒绝）");
+        }
+        else
+        {
+            Logger.Log($"[Settings] 开机自启已{(AutoStartToggle.IsOn ? "启用" : "关闭")}");
+        }
     }
 
     private bool _recording;
