@@ -355,17 +355,19 @@ public sealed partial class MainWindow : Window
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
-    // 显示/隐藏表情视图。窗口隐藏(后台常驻)时把 ItemsSource 置空，
-    // 释放 GridView 视觉树与几十张 BitmapImage 的 GPU 纹理，后台 GPU 占用归零；
-    // 重新显示时再绑回并刷新。
+    // 仅控制前台窗口轮询定时器的启停（与数据刷新解耦）：
+    // - 窗口可见时才轮询前台窗口，保证粘贴目标正确；
+    // - 窗口隐藏(后台常驻)时停止，零 CPU 后台。
+    // 隐藏时把 ItemsSource 置空，卸载 GridView 视觉树与几百张 BitmapImage 的
+    // GPU 纹理，使后台 GPU 占用归零；但 _memeList 中的 MemeViewModel 集合保留、
+    // 不 Clear/不重建，避免频繁呼出/隐藏反复分配导致内存上涨。
+    // 显示时只把 ItemsSource 重新绑回（复用已有 VM），不调用 RefreshMemes。
     private void SetMemeViewVisible(bool visible)
     {
         if (visible)
         {
             if (MemeGridView.ItemsSource != _memeList)
                 MemeGridView.ItemsSource = _memeList;
-            RefreshMemes();
-            // 窗口可见时才轮询前台窗口，保证粘贴目标正确；隐藏时停止以零 CPU 后台。
             _fgTimer?.Start();
         }
         else
