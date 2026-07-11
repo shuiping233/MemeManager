@@ -31,4 +31,7 @@ public class MemeModel
 
     // 使用频次（后续用来做热度排序）
     public int UsageCount { get; set; }
+
+    // 排序优先级：值越小越靠前
+    public uint Priority { get; set; }
 }

@@ -362,6 +362,10 @@ public sealed partial class MainWindow : Window
             EditButton.Content = "完成";
             EditButton.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
             BatchBar.Visibility = Visibility.Visible;
+            // 编辑模式开启内置重排：落点由 WinUI 自己算准
+            MemeGridView.CanReorderItems = true;
+            // 多选拖拽重排需要 GridView 原生选中(SelectedItems)，否则 WinUI 只重排被按下的单个项
+            MemeGridView.SelectionMode = ListViewSelectionMode.Multiple;
             foreach (var m in _memeList) m.ShowSelectionUI = true;
         }
     }
@@ -379,7 +383,7 @@ public sealed partial class MainWindow : Window
 
         int index = _memeList.IndexOf(clicked);
 
-        // ---- 多选模式：切换选中，支持 Shift 范围选择 ----
+        // ---- 多选模式：切换原生选中（驱动 SelectedItems，WinUI 才能整组拖拽重排） ----
         if (_editMode)
         {
             bool shift = Microsoft.UI.Input.InputKeyboardSource
@@ -390,17 +394,24 @@ public sealed partial class MainWindow : Window
             {
                 int a = Math.Min(_lastShiftAnchor, index);
                 int b = Math.Max(_lastShiftAnchor, index);
-                bool targetState = !clicked.IsSelected; // 以当前点击项的目标状态为准
+                bool targetState = !MemeGridView.SelectedItems.Contains(clicked);
                 for (int i = a; i <= b; i++)
-                    _memeList[i].IsSelected = targetState;
+                {
+                    var vm = _memeList[i];
+                    if (targetState) { if (!MemeGridView.SelectedItems.Contains(vm)) MemeGridView.SelectedItems.Add(vm); }
+                    else MemeGridView.SelectedItems.Remove(vm);
+                }
             }
             else
             {
-                clicked.IsSelected = !clicked.IsSelected;
+                if (MemeGridView.SelectedItems.Contains(clicked))
+                    MemeGridView.SelectedItems.Remove(clicked);
+                else
+                    MemeGridView.SelectedItems.Add(clicked);
             }
 
             _lastShiftAnchor = index;
-            Log($"单击(多选模式): 切换选中 {clicked.Title}，新选中态={clicked.IsSelected} (shift={shift})");
+            Log($"单击(多选模式): 切换选中 {clicked.Title}, 已选={MemeGridView.SelectedItems.Count} (shift={shift})");
             return;
         }
 
@@ -420,6 +431,17 @@ public sealed partial class MainWindow : Window
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
     }
 
+    // GridView 原生选中变化 → 同步自定义 IsSelected（供 UI 勾选 + 批量操作读取）
+    private void MemeGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_editMode) return;
+        foreach (var item in e.AddedItems)
+            if (item is MemeViewModel vm) vm.IsSelected = true;
+        foreach (var item in e.RemovedItems)
+            if (item is MemeViewModel vm) vm.IsSelected = false;
+        UpdateBatchButtons();
+    }
+
     // ---------- 拖拽：拖入导入 / 拖出到外部输入框 ----------
 
     private static void Log(string msg) => Logger.Log($"[MemeManager] {msg}");
@@ -427,9 +449,75 @@ public sealed partial class MainWindow : Window
     private void MemeGridView_DragOver(object sender, DragEventArgs e)
     {
         // 接受一切拖拽对象，确保 Drop 能触发（后面在 Drop 里再筛选图片）
-        Log($"DragOver from {sender?.GetType().Name}");
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
         e.DragUIOverride.IsCaptionVisible = false;
+    }
+
+    // ---------- 拖拽项事件（WinUI 内置重排 / 拖出） ----------
+
+    // 项开始被拖出（编辑模式或非编辑模式都会触发，因为 CanDragItems=True）。
+    // 记录被拖项 + 设 StorageItems（供拖到文件管理器/输入框时复制）。
+    private void MemeGridView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        var draggedVms = e.Items.Cast<MemeViewModel>().ToList();
+        if (draggedVms.Count == 0) return;
+
+        // 编辑模式多选：WinUI 内置重排整组依据的是 GridView.SelectedItems，
+        // 所以被拖组 = 当前原生选中项（若拖动的项是选中组一员）；否则只拖当前项。
+        List<MemeViewModel> group;
+        var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+        if (_editMode && selected.Count > 0 && draggedVms.Any(v => selected.Contains(v)))
+            group = selected;
+        else
+            group = draggedVms;
+
+        _draggingMemes = group.Select(m => m.Model).ToList();
+        Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title})");
+
+        // 设文件以便拖到外部时复制
+        try
+        {
+            var files = group
+                .Select(v => StorageFile.GetFileFromPathAsync(v.LocalPath).AsTask().Result)
+                .ToArray();
+            e.Data.SetStorageItems(files);
+            // 内置重排(CanReorderItems)需要 Move 语义才会真正移动集合；
+            // 拖到外部(文件管理器/输入框)时 WinUI 会按目标能力自动回退成 Copy。
+            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        }
+        catch (Exception ex)
+        {
+            Log("DragItemsStarting: 设 StorageItems 失败: " + ex.Message);
+        }
+    }
+
+    // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
+    private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
+    {
+        Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, _editMode={_editMode}, DropResult={e.DropResult}");
+        if (_draggingMemes == null) return;
+
+        if (_editMode)
+        {
+            // WinUI 内置重排在 DropResult==Move 时已移动 ItemsSource(_memeList)。
+            // 打印前后顺序确认。
+            var currentOrder = _memeList.Select(m => m.FileName).ToList();
+            Log($"DragItemsCompleted: DropResult={e.DropResult}, 当前_memeList顺序=[{string.Join(",", currentOrder)}]");
+
+            var itemsOrder = new List<string>();
+            for (int i = 0; i < MemeGridView.Items.Count; i++)
+                if (MemeGridView.Items[i] is MemeViewModel vm) itemsOrder.Add(vm.FileName);
+            Log($"DragItemsCompleted: GridView.Items顺序=[{string.Join(",", itemsOrder)}]");
+
+            var ordered = itemsOrder.Count == currentOrder.Count && itemsOrder.Count > 0 ? itemsOrder : currentOrder;
+
+            await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
+            Log($"DragItemsCompleted: 编辑模式重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+            RefreshMemes();
+            UpdateCategoryCounts();
+        }
+
+        _draggingMemes = null;
     }
 
     private async void MemeGridView_Drop(object sender, DragEventArgs e)
@@ -437,11 +525,21 @@ public sealed partial class MainWindow : Window
         Log("Drop 事件触发");
         var view = e.DataView;
 
-        // 内部拖拽移动：拖到其他分类的网格时，移动到该分类
+        // 内部拖拽
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
             var memes = _draggingMemes;
             _draggingMemes = null;
+
+            // 编辑模式下，网格内重排交给 WinUI 内置重排（CanReorderItems），
+            // 落点在 DragItemsCompleted 里读新顺序写回 Priority，这里不处理。
+            if (_editMode)
+            {
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+                return;
+            }
+
+            // 非编辑模式：拖到网格（当前分类）视为移动到当前分类（原地，通常无意义但保持行为一致）
             int moved = memes.Count(m => !m.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase));
             if (moved > 0)
             {
@@ -519,31 +617,6 @@ public sealed partial class MainWindow : Window
         else
         {
             Log("Drop: 未导入任何图片（已忽略不符合要求的拖拽对象）");
-        }
-    }
-
-    private void MemeItem_DragStarting(object sender, DragStartingEventArgs e)
-    {
-        if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
-        {
-            // 编辑模式下若该项已选中，则拖拽所有选中项；否则只拖当前项
-            List<MemeViewModel> dragged;
-            if (_editMode && vm.IsSelected)
-                dragged = _memeList.Where(m => m.IsSelected).ToList();
-            else
-                dragged = new List<MemeViewModel> { vm };
-
-            _draggingMemes = dragged.Select(m => m.Model).ToList();
-            Log($"DragStarting: 拖出 {dragged.Count} 张图片 (首项 {vm.Title})");
-
-            // 设文件以便拖到外部（文件管理器）时复制
-            var file = Windows.Storage.StorageFile.GetFileFromPathAsync(vm.LocalPath).AsTask().Result;
-            e.Data.SetStorageItems(new[] { file });
-            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-        }
-        else
-        {
-            Log("DragStarting: 未找到 MemeViewModel，sender=" + sender?.GetType().Name);
         }
     }
 
@@ -940,8 +1013,11 @@ public sealed partial class MainWindow : Window
     private void ToggleSelectAll()
     {
         if (!_editMode) return;
-        bool allSelected = _memeList.Count > 0 && _memeList.All(m => m.IsSelected);
-        foreach (var m in _memeList) m.IsSelected = !allSelected;
+        bool allSelected = MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
+        if (allSelected)
+            MemeGridView.SelectedItems.Clear();
+        else
+            foreach (var m in _memeList) if (!MemeGridView.SelectedItems.Contains(m)) MemeGridView.SelectedItems.Add(m);
         if (SelectAllButton != null)
             SelectAllButton.Content = allSelected ? "全选" : "取消全选";
     }
@@ -976,6 +1052,10 @@ public sealed partial class MainWindow : Window
         _editMode = false;
         EditButton.Content = "修改";
         BatchBar.Visibility = Visibility.Collapsed;
+        // 退出编辑模式：关闭内置重排与原生多选
+        MemeGridView.CanReorderItems = false;
+        MemeGridView.SelectedItems.Clear();
+        MemeGridView.SelectionMode = ListViewSelectionMode.None;
         foreach (var m in _memeList)
         {
             m.IsSelected = false;

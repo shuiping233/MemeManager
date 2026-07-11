@@ -147,7 +147,8 @@ public class MemeDataEngine
                     LocalPath = localPath,
                     Category = category,
                     Title = kv.Value.Title,
-                    Tags = kv.Value.Tags ?? new List<string>()
+                    Tags = kv.Value.Tags ?? new List<string>(),
+                    Priority = kv.Value.Priority
                 };
                 _memeCache.Add(model);
                 IndexTitle(model);
@@ -182,7 +183,8 @@ public class MemeDataEngine
                 m.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
         }
 
-        return query.OrderByDescending(m => m.DateAdded).ToList();
+        // Priority 值越大越靠前（左侧/开头）；同值按导入时间新→旧
+        return query.OrderByDescending(m => m.Priority).ThenByDescending(m => m.DateAdded).ToList();
     }
 
     public IReadOnlyList<string> GetCategories()
@@ -237,6 +239,11 @@ public class MemeDataEngine
 
             var meta = await LoadCategoryMetadataAsync(categoryDir);
 
+            // 新导入图片的优先级 = 当前分类已有最大优先级 + 1（后导入排后面）
+            uint maxPriority = 0;
+            foreach (var entry in meta.Items.Values)
+                if (entry.Priority > maxPriority) maxPriority = entry.Priority;
+
             var model = new MemeModel
             {
                 Hash = hash,
@@ -246,13 +253,15 @@ public class MemeDataEngine
                 Title = title ?? Path.GetFileNameWithoutExtension(sourcePath),
                 Tags = tags ?? new List<string>(),
                 DateAdded = DateTime.UtcNow,
-                UsageCount = 0
+                UsageCount = 0,
+                Priority = maxPriority + 1
             };
 
             meta.Items[fileName] = new MemeMetaEntry
             {
                 Title = model.Title,
-                Tags = model.Tags
+                Tags = model.Tags,
+                Priority = model.Priority
             };
 
             _memeCache.Add(model);
@@ -330,6 +339,43 @@ public class MemeDataEngine
         }
 
         await SaveCategoryMetadataAsync(targetDir, targetMeta);
+    }
+
+    // ---------- 重排（拖拽调整顺序） ----------
+
+    /// <summary>
+    /// 按给定文件名顺序（已是目标顺序）整体重算该分类的 Priority 为 1,2,3...
+    /// 并写回 metadata 与内存缓存。
+    /// </summary>
+    public async Task ReorderMemesAsync(string category, IReadOnlyList<string> orderedFileNames)
+    {
+        var dir = Path.Combine(_baseDir, SanitizeCategory(category));
+        var meta = await LoadCategoryMetadataAsync(dir);
+
+        // 按给定顺序整体重算：列表最前（索引0）拿最大优先级，依次递减，
+        // 以契合“Priority 越大越靠前（左）”的展示规则
+        uint p = (uint)orderedFileNames.Count;
+        foreach (var fileName in orderedFileNames)
+        {
+            if (meta.Items.TryGetValue(fileName, out var entry))
+                entry.Priority = p--;
+        }
+        // 兜底：列表中未涵盖的 item（理论上不应出现），顺延补上更小的值
+        uint tail = 0;
+        foreach (var kv in meta.Items)
+            if (kv.Value.Priority == 0 && !orderedFileNames.Contains(kv.Key))
+                kv.Value.Priority = tail++;
+
+        await SaveCategoryMetadataAsync(dir, meta);
+
+        foreach (var m in _memeCache)
+        {
+            if (m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) &&
+                meta.Items.TryGetValue(m.FileName, out var e2))
+            {
+                m.Priority = e2.Priority;
+            }
+        }
     }
 
     // ---------- 删除 ----------
