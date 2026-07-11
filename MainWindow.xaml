@@ -98,9 +98,9 @@
                           CornerRadius="6"
                           ToolTipService.ToolTip="{x:Bind Title}"
                           CanDrag="True"
-                          Tapped="MemeItem_Tapped"
-                          DragStarting="MemeItem_DragStarting"
-                          RightTapped="MemeItem_RightTapped">
+                           Tapped="MemeItem_Tapped"
+                           DragStarting="MemeItem_DragStarting"
+                           ContextRequested="MemeItem_ContextRequested">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
                                Stretch="UniformToFill"
                                HorizontalAlignment="Center"

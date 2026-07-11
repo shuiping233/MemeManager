@@ -155,15 +155,9 @@ public sealed partial class MainWindow : Window
         var cat = FindCategoryFromSource(e.OriginalSource);
         if (cat == null) return;
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
         Log($"右键分类项: {cat.Name}");
 
         var flyout = new MenuFlyout();
-        flyout.Opened += (_, __) =>
-        {
-            sw.Stop();
-            Log($"[计时] 分类右键菜单显示耗时: {sw.ElapsedMilliseconds}ms");
-        };
         var deleteItem = new MenuFlyoutItem { Text = "删除" };
         deleteItem.Click += async (_, __) =>
         {
@@ -496,25 +490,12 @@ public sealed partial class MainWindow : Window
 
     // ---------- 右键菜单 ----------
 
-    private void MemeItem_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    private void MemeItem_ContextRequested(object sender, ContextRequestedEventArgs e)
     {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var title = ((sender as FrameworkElement)?.DataContext as MemeViewModel)?.Title;
-        Log($"右键单击表情项: {title} | sender={sender?.GetType().Name} | OriginalSource={e.OriginalSource?.GetType().Name}");
         if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
         {
-            var pt = e.GetPosition(fe);
-            Log($"[调试] 表情右键 ShowAt 坐标: X={pt.X:F1}, Y={pt.Y:F1} | fe={fe.GetType().Name} Name={fe.Name}");
+            Log("右键单击表情项: " + vm.Title);
             var flyout = new MenuFlyout();
-            flyout.Opened += (_, __) =>
-            {
-                sw.Stop();
-                Log($"[计时] 表情右键菜单显示耗时: {sw.ElapsedMilliseconds}ms");
-            };
-            flyout.Closed += (_, __) =>
-            {
-                Log($"[调试] 表情右键菜单 Closed (Opened前耗时 {sw.ElapsedMilliseconds}ms)");
-            };
             var deleteItem = new MenuFlyoutItem { Text = "删除" };
             deleteItem.Click += async (_, __) =>
             {
@@ -535,7 +516,8 @@ public sealed partial class MainWindow : Window
                 }
             };
             flyout.Items.Add(deleteItem);
-            flyout.ShowAt(fe, pt);
+            // ContextRequested 的 target 用 fe 自身（不传坐标），避免边界坐标导致 ShowAt 失败
+            flyout.ShowAt(fe);
         }
     }
 
