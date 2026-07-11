@@ -85,6 +85,9 @@ public sealed partial class MainWindow : Window
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
 
+        // 监听选中项变化，自动启用/禁用批量操作按钮
+        _memeList.CollectionChanged += OnMemeListChanged;
+
         // 当我们未激活时，持续记录当前前台窗口（即用户正在用的 QQ 等应用），
         // 点击表情时把 Ctrl+V 投回给它
         var fgTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
@@ -254,6 +257,31 @@ public sealed partial class MainWindow : Window
     {
         foreach (var c in _categoryList)
             c.Count = App.DataEngine.GetMemes(c.Name).Count;
+    }
+
+    // 根据当前是否有选中项，启用/禁用批量操作按钮（无选中时灰掉且不可点）
+    private void UpdateBatchButtons()
+    {
+        bool anySelected = _memeList.Any(m => m.IsSelected);
+        if (BatchExportButton != null) BatchExportButton.IsEnabled = anySelected;
+        if (DeleteButton != null) DeleteButton.IsEnabled = anySelected;
+    }
+
+    private void OnMemeListChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+            foreach (MemeViewModel vm in e.NewItems)
+                vm.PropertyChanged += OnMemeVmPropertyChanged;
+        if (e.OldItems != null)
+            foreach (MemeViewModel vm in e.OldItems)
+                vm.PropertyChanged -= OnMemeVmPropertyChanged;
+        UpdateBatchButtons();
+    }
+
+    private void OnMemeVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MemeViewModel.IsSelected))
+            UpdateBatchButtons();
     }
 
     // ---------- 修改模式 ----------
