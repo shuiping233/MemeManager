@@ -155,9 +155,15 @@ public sealed partial class MainWindow : Window
         var cat = FindCategoryFromSource(e.OriginalSource);
         if (cat == null) return;
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         Log($"右键分类项: {cat.Name}");
 
         var flyout = new MenuFlyout();
+        flyout.Opened += (_, __) =>
+        {
+            sw.Stop();
+            Log($"[计时] 分类右键菜单显示耗时: {sw.ElapsedMilliseconds}ms");
+        };
         var deleteItem = new MenuFlyoutItem { Text = "删除" };
         deleteItem.Click += async (_, __) =>
         {
@@ -492,10 +498,16 @@ public sealed partial class MainWindow : Window
 
     private void MemeItem_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         Log("右键单击表情项: " + ((sender as FrameworkElement)?.DataContext as MemeViewModel)?.Title);
         if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
         {
             var flyout = new MenuFlyout();
+            flyout.Opened += (_, __) =>
+            {
+                sw.Stop();
+                Log($"[计时] 表情右键菜单显示耗时: {sw.ElapsedMilliseconds}ms");
+            };
             var deleteItem = new MenuFlyoutItem { Text = "删除" };
             deleteItem.Click += async (_, __) =>
             {
