@@ -104,7 +104,9 @@ public sealed partial class SettingsPage : Page
         if (!ok)
         {
             // 写注册表失败（如权限不足），回滚开关状态
-            AutoStartToggle.IsOn = StartupManager.IsEnabled();
+        bool autoStart = StartupManager.IsEnabled();
+        Logger.Log($"[Settings] 初始化开机自启开关: IsEnabled={autoStart}");
+        AutoStartToggle.IsOn = autoStart;
             Logger.Log("[Settings] 设置开机自启失败（注册表写入被拒绝）");
         }
         else

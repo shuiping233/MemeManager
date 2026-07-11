@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
 
@@ -29,15 +29,23 @@ public static class StartupManager
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
-            if (key?.GetValue(AppName) is not string value) return false;
+            var raw = key?.GetValue(AppName);
+            if (raw is not string value)
+            {
+                Logger.Log($"[Startup] 检查注册表开机自启设置: key={RunKey}\\{AppName} 未找到(string)值, raw={raw}, 当前exe={CurrentExePath} => false");
+                return false;
+            }
             // 仅比对 exe 路径部分（忽略参数差异），确保移动/重命名后状态正确。
             // 注意：值形如 "\"C:\x\MemeManager.exe\" --hidden"，需先去掉所有引号再取第一段。
             var path = value.Replace("\"", "").Split(' ')[0];
-            return !string.IsNullOrEmpty(path) &&
-                   path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
+            bool matched = !string.IsNullOrEmpty(path) &&
+                           path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
+            Logger.Log($"[Startup] 检查注册表开机自启设置: key={RunKey}\\{AppName}, 读取value=\"{value}\", 解析path=\"{path}\", 当前exe=\"{CurrentExePath}\", matched={matched} => {matched}");
+            return matched;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Log($"[Startup] 检查注册表开机自启设置异常: {ex.Message}");
             return false;
         }
     }
@@ -48,11 +56,18 @@ public static class StartupManager
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            key?.SetValue(AppName, DesiredValue, RegistryValueKind.String);
+            if (key == null)
+            {
+                Logger.Log($"[Startup] 写入注册表开机自启设置失败: 无法打开可写注册表键 {RunKey}");
+                return false;
+            }
+            key.SetValue(AppName, DesiredValue, RegistryValueKind.String);
+            Logger.Log($"[Startup] 写入注册表开机自启设置: key={RunKey}\\{AppName}, value=\"{DesiredValue}\", 当前exe=\"{CurrentExePath}\"");
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Log($"[Startup] 写入注册表开机自启设置异常: {ex.Message}");
             return false;
         }
     }
@@ -63,12 +78,20 @@ public static class StartupManager
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            if (key?.GetValue(AppName) != null)
+            if (key == null)
+            {
+                Logger.Log($"[Startup] Disable 失败: 无法打开可写注册表键 {RunKey}");
+                return false;
+            }
+            var existed = key.GetValue(AppName) != null;
+            if (existed)
                 key.DeleteValue(AppName, throwOnMissingValue: false);
+            Logger.Log($"[Startup] Disable: key={RunKey}\\{AppName}, 删除前存在={existed}");
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Log($"[Startup] Disable 异常: {ex.Message}");
             return false;
         }
     }
