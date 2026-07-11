@@ -17,7 +17,6 @@ public sealed partial class SettingsPage : Page
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
-        EcoModeToggle.IsOn = cfg.EcoMode;
         SaveLogToggle.IsOn = cfg.SaveLogFile;
 
         // 进入设置时记录“之前保存的有效路径”，作为手动输入校验失败时的回退基准
@@ -88,16 +87,6 @@ public sealed partial class SettingsPage : Page
     {
         // 进入设置页即聚焦，确保能接收 Enter 键
         this.Focus(FocusState.Programmatic);
-    }
-
-    private void EcoModeToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        // 即时生效：切换效率模式
-        App.DataEngine.Config.EcoMode = EcoModeToggle.IsOn;
-        if (EcoModeToggle.IsOn)
-            App.ApplyEcoMode();
-        else
-            App.ResetEcoMode();
     }
 
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
@@ -246,12 +235,10 @@ public sealed partial class SettingsPage : Page
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
         // 注意：存放路径(StoragePath)由 BrowseButton_Click 选中后立即持久化，
         // 此处不再回写，避免 Flyout 失焦导致实例被换、用默认值覆盖已保存的新路径。
-        var eco = EcoModeToggle.IsOn;
 
         await App.DataEngine.UpdateConfigAsync(cfg =>
         {
             cfg.Theme = theme;
-            cfg.EcoMode = eco;
             cfg.SaveLogFile = SaveLogToggle.IsOn;
         });
 

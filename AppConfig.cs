@@ -21,9 +21,6 @@ public class AppConfig
     public uint HotKeyModifiers { get; set; } = 3; // 默认 Ctrl(2) + Alt(1)
     public ushort HotKeyVk { get; set; } = 0xBE;   // 默认 . (OEM_PERIOD)
 
-    // 是否以 Windows “效率模式” 运行（降低 CPU 优先级与能耗）
-    public bool EcoMode { get; set; } = true;
-
     // 是否将日志写入数据目录下的 log/debug.log（便于排查问题，注意日志文件大小）
     public bool SaveLogFile { get; set; } = false;
 }

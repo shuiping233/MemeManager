@@ -218,40 +218,6 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
 
-    // ---------- 效率模式（Eco Mode / Windows 效率模式）----------
-
-    [LibraryImport("kernel32.dll")]
-    public static partial IntPtr GetCurrentProcess();
-
-    [LibraryImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool SetPriorityClass(IntPtr hProcess, uint dwPriorityClass);
-
-    [LibraryImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool SetProcessInformation(
-        IntPtr hProcess, int processInformationClass, IntPtr lpProcessInformation, uint cb);
-
-    // 普通优先级
-    public const uint NORMAL_PRIORITY_CLASS = 0x00000020;
-
-    // 略低于普通：效率模式下调用的优先级类（任务管理器据此显示“效率模式”）
-    public const uint BELOW_NORMAL_PRIORITY_CLASS = 0x00004000;
-
-    // 配合 NORMAL_PRIORITY_CLASS 使用以启用 Windows “效率模式”（降低执行速度/能耗）
-    public const uint PROCESS_POWER_THINNING = 0x08000000;
-
-    // PROCESS_POWER_THROTTLING_STATE 标志
-    public const uint PROCESS_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PROCESS_POWER_THROTTLING_STATE
-    {
-        public uint Version;     // 必须为 1
-        public uint ControlMask; // 要控制的字段掩码
-        public uint StateMask;   // 要启用的状态
-    }
-
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct TrayNotifyIconData
     {

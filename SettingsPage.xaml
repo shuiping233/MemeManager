@@ -58,12 +58,6 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="效率模式" FontWeight="SemiBold"/>
-                <ToggleSwitch x:Name="EcoModeToggle" Toggled="EcoModeToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6">以 Windows “效率模式” 运行，降低 CPU 优先级与能耗（下次启动生效）</TextBlock>
-            </StackPanel>
-
-            <StackPanel Spacing="6">
                 <TextBlock Text="保存日志文件" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6">日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</TextBlock>
