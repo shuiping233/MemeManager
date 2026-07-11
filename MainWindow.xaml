@@ -106,7 +106,7 @@
                     <Grid Width="90" Height="90" Margin="4"
                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                           CornerRadius="6"
-                           ToolTipService.ToolTip="{x:Bind Title}"
+                           ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}"
                            Tapped="MemeItem_Tapped"
                            ContextRequested="MemeItem_ContextRequested">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"

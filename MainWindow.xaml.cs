@@ -901,7 +901,9 @@ public sealed partial class MainWindow : Window
                 {
                     await App.DataEngine.RenameMemeAsync(vm.Model, input.Text);
                     Log($"重命名「{vm.Title}」-> 「{input.Text}」");
-                    RefreshMemes();
+                    // 仅更新该项的显示标题，不重建整个列表（避免滚动条重置/容器刷新）。
+                    // RenameMemeAsync 已写入 metadata 与内存缓存，这里只通知 UI 刷新 tooltip。
+                    vm.Title = input.Text;
                 }
             };
             flyout.Items.Add(renameItem);

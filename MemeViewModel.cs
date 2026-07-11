@@ -13,7 +13,19 @@ namespace MemeManager.ViewModels
 
         public string Hash => Model.Hash;
         public string LocalPath => Model.LocalPath;
-        public string Title => Model.Title;
+        private string _title;
+        public string Title
+        {
+            get => _title;
+            set
+            {
+                if (_title != value)
+                {
+                    _title = value;
+                    OnPropertyChanged(nameof(Title));
+                }
+            }
+        }
         public string Category => Model.Category;
         public string FileName => Model.FileName;
 
@@ -35,6 +47,7 @@ namespace MemeManager.ViewModels
         public MemeViewModel(MemeModel model)
         {
             Model = model;
+            _title = model.Title;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
