@@ -285,6 +285,9 @@ public sealed partial class MainWindow : Window
     {
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
+            // 拖入表情图片：仅关闭 CanReorderItems 的插入占位，避免分类列表被撑开；
+            // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
+            CategoryList.CanReorderItems = false;
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = "移动到该分类";
@@ -293,7 +296,8 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            // 内部重排（CanReorderItems）由 WinUI 自己处理，这里接受 Move 以免被否决
+            // 分类自身重排序：开启 CanReorderItems，允许占位撑开动画
+            CategoryList.CanReorderItems = true;
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
         }
     }
@@ -301,6 +305,8 @@ public sealed partial class MainWindow : Window
     // 分类列表内部拖拽重排完成：WinUI 已把 _categoryList 排好，读顺序写回 .metadata.json
     private async void CategoryList_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
     {
+        // 重排结束，恢复 CanReorderItems（image 拖入时曾被临时关闭）
+        CategoryList.CanReorderItems = true;
         if (e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move &&
             e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy)
             return;
@@ -593,8 +599,10 @@ public sealed partial class MainWindow : Window
 
         if (_editMode)
         {
+            // 记录整组被拖项（多选拖拽时是整组），重排后据此恢复多选状态
+            var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
+
             // WinUI 内置重排在 DropResult==Move 时已移动 ItemsSource(_memeList)。
-            // 打印前后顺序确认。
             var currentOrder = _memeList.Select(m => m.FileName).ToList();
             Log($"DragItemsCompleted: DropResult={e.DropResult}, 当前_memeList顺序=[{string.Join(",", currentOrder)}]");
 
@@ -608,6 +616,20 @@ public sealed partial class MainWindow : Window
             await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
             Log($"DragItemsCompleted: 编辑模式重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
             // 场景A：仅顺序变、内容不变。WinUI 已排好 _memeList，不重建集合以保持滚动条位置。
+
+            // 重排时 WinUI 会把选中重置为仅被拖动的那一张，导致多选变单选；
+            // 这里按拖拽开始时记录的整组(_draggingMemes/draggedGroup)恢复多选高亮。
+            if (draggedGroup.Count > 0)
+            {
+                var vms = draggedGroup
+                    .Select(m => _memeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
+                    .Where(v => v != null)
+                    .ToList()!;
+                MemeGridView.SelectedItems.Clear();
+                foreach (var vm in vms)
+                    MemeGridView.SelectedItems.Add(vm);
+                UpdateBatchButtons();
+            }
         }
 
         _draggingMemes = null;
