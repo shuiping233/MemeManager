@@ -36,8 +36,12 @@ public static class StartupManager
                 return false;
             }
             // 仅比对 exe 路径部分（忽略参数差异），确保移动/重命名后状态正确。
-            // 注意：值形如 "\"C:\x\MemeManager.exe\" --hidden"，需先去掉所有引号再取第一段。
-            var path = value.Replace("\"", "").Split(' ')[0];
+            // 注意：值形如 "\"C:\Program Files\MemeManager\MemeManager.exe\" --hidden"，
+            // 路径可能含空格，不能简单按空格 Split，否则只取到 "C:\Program"。
+            // 改用：去首尾引号后，截取到 ".exe" 为止（忽略后面的参数）。
+            var unquoted = value.Trim().Trim('"');
+            int exeIdx = unquoted.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+            var path = exeIdx >= 0 ? unquoted.Substring(0, exeIdx + 4) : unquoted;
             bool matched = !string.IsNullOrEmpty(path) &&
                            path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
             Logger.Log($"[Startup] 检查注册表开机自启设置: key={RunKey}\\{AppName}, 读取value=\"{value}\", 解析path=\"{path}\", 当前exe=\"{CurrentExePath}\", matched={matched} => {matched}");
