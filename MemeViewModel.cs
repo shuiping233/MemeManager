@@ -17,41 +17,6 @@ namespace MemeManager.ViewModels
         public string Category => Model.Category;
         public string FileName => Model.FileName;
 
-        private bool _isSelected;
-        public bool IsSelected
-        {
-            get => _isSelected;
-            set
-            {
-                if (_isSelected != value)
-                {
-                    _isSelected = value;
-                    OnPropertyChanged(nameof(IsSelected));
-                    OnPropertyChanged(nameof(CheckBoxVisibility));
-                    OnPropertyChanged(nameof(BadgeVisibility));
-                }
-            }
-        }
-
-        public Visibility CheckBoxVisibility => (_showSelectionUI && !_isSelected) ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility BadgeVisibility => (_showSelectionUI && _isSelected) ? Visibility.Visible : Visibility.Collapsed;
-
-        private bool _showSelectionUI;
-        public bool ShowSelectionUI
-        {
-            get => _showSelectionUI;
-            set
-            {
-                if (_showSelectionUI != value)
-                {
-                    _showSelectionUI = value;
-                    OnPropertyChanged(nameof(ShowSelectionUI));
-                    OnPropertyChanged(nameof(CheckBoxVisibility));
-                    OnPropertyChanged(nameof(BadgeVisibility));
-                }
-            }
-        }
-
         private BitmapImage? _imageSource;
         public BitmapImage ImageSource
         {

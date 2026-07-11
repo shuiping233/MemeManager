@@ -88,8 +88,7 @@ public sealed partial class MainWindow : Window
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
 
-        // 监听选中项变化，自动启用/禁用批量操作按钮
-        _memeList.CollectionChanged += OnMemeListChanged;
+        // 选中项变化经 SelectionChanged 自动启用/禁用批量操作按钮
 
         // 当我们未激活时，持续记录当前前台窗口（即用户正在用的 QQ 等应用），
         // 点击表情时把 Ctrl+V 投回给它
@@ -306,9 +305,7 @@ public sealed partial class MainWindow : Window
 
         foreach (var m in memes)
         {
-            var vm = new MemeViewModel(m);
-            vm.ShowSelectionUI = _editMode;
-            _memeList.Add(vm);
+            _memeList.Add(new MemeViewModel(m));
         }
 
         UpdateCategoryCounts();
@@ -323,27 +320,10 @@ public sealed partial class MainWindow : Window
     // 根据当前是否有选中项，启用/禁用批量操作按钮（无选中时灰掉且不可点）
     private void UpdateBatchButtons()
     {
-        bool anySelected = _memeList.Any(m => m.IsSelected);
+        bool anySelected = MemeGridView.SelectedItems.Count > 0;
         if (BatchExportButton != null) BatchExportButton.IsEnabled = anySelected;
         if (BatchMoveButton != null) BatchMoveButton.IsEnabled = anySelected;
         if (DeleteButton != null) DeleteButton.IsEnabled = anySelected;
-    }
-
-    private void OnMemeListChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        if (e.NewItems != null)
-            foreach (MemeViewModel vm in e.NewItems)
-                vm.PropertyChanged += OnMemeVmPropertyChanged;
-        if (e.OldItems != null)
-            foreach (MemeViewModel vm in e.OldItems)
-                vm.PropertyChanged -= OnMemeVmPropertyChanged;
-        UpdateBatchButtons();
-    }
-
-    private void OnMemeVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(MemeViewModel.IsSelected))
-            UpdateBatchButtons();
     }
 
     // ---------- 修改模式 ----------
@@ -366,7 +346,6 @@ public sealed partial class MainWindow : Window
             MemeGridView.CanReorderItems = true;
             // 多选拖拽重排需要 GridView 原生选中(SelectedItems)，否则 WinUI 只重排被按下的单个项
             MemeGridView.SelectionMode = ListViewSelectionMode.Multiple;
-            foreach (var m in _memeList) m.ShowSelectionUI = true;
         }
     }
 
@@ -383,35 +362,11 @@ public sealed partial class MainWindow : Window
 
         int index = _memeList.IndexOf(clicked);
 
-        // ---- 多选模式：切换原生选中（驱动 SelectedItems，WinUI 才能整组拖拽重排） ----
+        // ---- 编辑模式：选中完全交给 GridView 原生(SelectionMode=Multiple)处理，
+        //      Tapped 不再手动切换，避免与控件自带选中逻辑冲突导致要双击。
         if (_editMode)
         {
-            bool shift = Microsoft.UI.Input.InputKeyboardSource
-                .GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
-                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-
-            if (shift && _lastShiftAnchor >= 0 && index >= 0)
-            {
-                int a = Math.Min(_lastShiftAnchor, index);
-                int b = Math.Max(_lastShiftAnchor, index);
-                bool targetState = !MemeGridView.SelectedItems.Contains(clicked);
-                for (int i = a; i <= b; i++)
-                {
-                    var vm = _memeList[i];
-                    if (targetState) { if (!MemeGridView.SelectedItems.Contains(vm)) MemeGridView.SelectedItems.Add(vm); }
-                    else MemeGridView.SelectedItems.Remove(vm);
-                }
-            }
-            else
-            {
-                if (MemeGridView.SelectedItems.Contains(clicked))
-                    MemeGridView.SelectedItems.Remove(clicked);
-                else
-                    MemeGridView.SelectedItems.Add(clicked);
-            }
-
             _lastShiftAnchor = index;
-            Log($"单击(多选模式): 切换选中 {clicked.Title}, 已选={MemeGridView.SelectedItems.Count} (shift={shift})");
             return;
         }
 
@@ -431,14 +386,9 @@ public sealed partial class MainWindow : Window
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
     }
 
-    // GridView 原生选中变化 → 同步自定义 IsSelected（供 UI 勾选 + 批量操作读取）
+    // GridView 原生选中变化 → 更新批量操作按钮可用状态
     private void MemeGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_editMode) return;
-        foreach (var item in e.AddedItems)
-            if (item is MemeViewModel vm) vm.IsSelected = true;
-        foreach (var item in e.RemovedItems)
-            if (item is MemeViewModel vm) vm.IsSelected = false;
         UpdateBatchButtons();
     }
 
@@ -738,10 +688,11 @@ public sealed partial class MainWindow : Window
                 var moveItem = new MenuFlyoutItem { Text = cat.Name };
                 moveItem.Click += async (_, __) =>
                 {
-                    // 编辑模式且已选中则移动所有选中项，否则只移动当前项
+                    // 编辑模式且有其他选中项则移动所有选中项，否则只移动当前项
                     List<MemeViewModel> toMove;
-                    if (_editMode && vm.IsSelected)
-                        toMove = _memeList.Where(m => m.IsSelected).ToList();
+                    var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+                    if (_editMode && selected.Count > 0)
+                        toMove = selected;
                     else
                         toMove = new List<MemeViewModel> { vm };
 
@@ -786,9 +737,13 @@ public sealed partial class MainWindow : Window
         UpdateCategoryCounts();
     }
 
+    // 当前 GridView 原生选中的项
+    private List<MemeViewModel> SelectedMemeViewModels()
+        => MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+
     private async void BatchExportButton_Click(object sender, RoutedEventArgs e)
     {
-        var selected = _memeList.Where(m => m.IsSelected).ToList();
+        var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
 
         var folder = await PickerHelper.PickFolderAsync(this);
@@ -799,7 +754,7 @@ public sealed partial class MainWindow : Window
 
     private async void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
-        var selected = _memeList.Where(m => m.IsSelected).ToList();
+        var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
 
         var dialog = new ContentDialog
@@ -813,7 +768,8 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
         await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
-        foreach (var m in selected) _memeList.Remove(m);
+        MemeGridView.SelectedItems.Clear();
+        RefreshMemes();
         UpdateCategoryCounts();
     }
 
@@ -823,7 +779,7 @@ public sealed partial class MainWindow : Window
         if (BatchMoveFlyout == null) return;
         BatchMoveFlyout.Items.Clear();
 
-        var selected = _memeList.Where(m => m.IsSelected).ToList();
+        var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
 
         bool hasTarget = false;
@@ -1056,11 +1012,6 @@ public sealed partial class MainWindow : Window
         MemeGridView.CanReorderItems = false;
         MemeGridView.SelectedItems.Clear();
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
-        foreach (var m in _memeList)
-        {
-            m.IsSelected = false;
-            m.ShowSelectionUI = false;
-        }
         _lastShiftAnchor = -1;
         SelectAllButton.Content = "全选";
         EditButton.Style = null;
