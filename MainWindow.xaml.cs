@@ -258,7 +258,8 @@ public sealed partial class MainWindow : Window
         {
             await App.DataEngine.MoveMemesToCategoryAsync(memes, targetCat.Name);
             Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」");
-            RefreshMemes();
+            // 场景B：内容减少但顺序不变。精准移除被移走的项，保持滚动条位置。
+            RemoveFromCurrentView(memes);
             UpdateCategoryCounts();
         }
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
@@ -344,6 +345,24 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateCategoryCounts();
+    }
+
+    // 精准从当前视图移除若干项（不 Clear 重建，保持滚动条位置与选中状态）。
+    // 用于“移动到其他分类”等“内容减少但顺序不变”的场景。
+    private void RemoveFromCurrentView(IEnumerable<MemeModel> removed)
+    {
+        var names = new HashSet<string>(
+            removed.Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
+        for (int i = _memeList.Count - 1; i >= 0; i--)
+            if (names.Contains(_memeList[i].FileName))
+                _memeList.RemoveAt(i);
+    }
+
+    // 重排后顺序已由 WinUI / _memeList 排好，仅需把内存模型 Priority 同步到 ViewModel 顺序，
+    // 不重建集合（保持滚动条位置）。这里直接信任 _memeList 当前顺序即最终顺序。
+    private void SyncCurrentViewAfterReorder()
+    {
+        // 无需操作：_memeList 已是正确顺序，ViewModel 实例保持不变。
     }
 
     private void UpdateCategoryCounts()
@@ -498,8 +517,7 @@ public sealed partial class MainWindow : Window
 
             await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
             Log($"DragItemsCompleted: 编辑模式重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
-            RefreshMemes();
-            UpdateCategoryCounts();
+            // 场景A：仅顺序变、内容不变。WinUI 已排好 _memeList，不重建集合以保持滚动条位置。
         }
 
         _draggingMemes = null;
@@ -760,7 +778,8 @@ public sealed partial class MainWindow : Window
 
                     await App.DataEngine.MoveMemesToCategoryAsync(toMove.Select(m => m.Model), targetName);
                     Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」");
-                    RefreshMemes();
+                    // 内容减少、顺序不变：精准移除被移走的项，保持滚动条位置
+                    RemoveFromCurrentView(toMove.Select(m => m.Model));
                     UpdateCategoryCounts();
                 };
                 moveSub.Items.Add(moveItem);
@@ -857,7 +876,7 @@ public sealed partial class MainWindow : Window
             {
                 await App.DataEngine.MoveMemesToCategoryAsync(selected.Select(m => m.Model), targetName);
                 Log($"批量移动 {selected.Count} 张图片到分类「{targetName}」");
-                RefreshMemes();
+                RemoveFromCurrentView(selected.Select(m => m.Model));
                 UpdateCategoryCounts();
             };
             BatchMoveFlyout.Items.Add(item);
