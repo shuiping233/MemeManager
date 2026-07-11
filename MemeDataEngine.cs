@@ -349,6 +349,55 @@ public class MemeDataEngine
         await SaveCategoryMetadataAsync(targetDir, targetMeta);
     }
 
+    // ---------- 重命名分类 ----------
+
+    /// <summary>
+    /// 重命名分类：重命名对应的物理文件夹，并更新该分类下所有表情的
+    /// Category 与 LocalPath（路径中的目录部分），以及 Config.LastCategory。
+    /// </summary>
+    public async Task<bool> RenameCategoryAsync(string oldName, string newName)
+    {
+        var safeOld = SanitizeCategory(oldName);
+        var safeNew = SanitizeCategory(newName);
+        if (string.Equals(safeOld, safeNew, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var oldDir = Path.Combine(_baseDir, safeOld);
+        var newDir = Path.Combine(_baseDir, safeNew);
+        if (!Directory.Exists(oldDir)) return false;
+        if (Directory.Exists(newDir)) return false; // 目标已存在，避免覆盖
+
+        try
+        {
+            Directory.Move(oldDir, newDir);
+        }
+        catch (Exception ex)
+        {
+            MemeManager.Logger.Log($"[Engine] 重命名分类文件夹失败 {oldName}->{newName}: {ex.Message}");
+            return false;
+        }
+
+        // 更新内存缓存中该分类下表情的路径与分类名
+        foreach (var m in _memeCache)
+        {
+            if (m.Category.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
+            {
+                m.Category = safeNew;
+                m.LocalPath = Path.Combine(newDir, m.FileName);
+            }
+        }
+
+        // 若当前记录的上次分类是被重命名的，同步更新
+        if (Config.LastCategory.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
+        {
+            Config.LastCategory = safeNew;
+            await SaveConfigAsync();
+        }
+
+        MemeManager.Logger.Log($"[Engine] 重命名分类: {oldName} -> {newName}");
+        return true;
+    }
+
     // ---------- 重排（拖拽调整顺序） ----------
 
     /// <summary>

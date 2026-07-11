@@ -199,6 +199,55 @@ public sealed partial class MainWindow : Window
             }
         };
         flyout.Items.Add(deleteItem);
+
+        // 重命名分类：同步重命名物理文件夹
+        var renameItem = new MenuFlyoutItem { Text = "重命名" };
+        renameItem.Click += async (_, __) =>
+        {
+            var input = new TextBox
+            {
+                Text = cat.Name,
+                PlaceholderText = "输入新的分类名称",
+            };
+            var dialog = new ContentDialog
+            {
+                Title = "重命名分类",
+                Content = input,
+                PrimaryButtonText = "确定",
+                CloseButtonText = "取消",
+                XamlRoot = this.Content.XamlRoot,
+                DefaultButton = ContentDialogButton.Primary
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            var newName = input.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(newName)) return;
+
+            bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
+            if (!ok)
+            {
+                try
+                {
+                    var err = new ContentDialog
+                    {
+                        Title = "重命名失败",
+                        Content = "分类重命名失败（可能名称已存在或文件夹无法访问）。",
+                        CloseButtonText = "确定",
+                        XamlRoot = this.Content.XamlRoot
+                    };
+                    await err.ShowAsync();
+                }
+                catch (Exception ex) { Logger.Log($"[分类重命名] 错误弹窗失败: {ex.Message}"); }
+                return;
+            }
+
+            Log($"重命名分类「{cat.Name}」-> 「{newName}」");
+            // 重建分类列表（x:Bind 默认 OneTime，需重建以刷新分类名显示），
+            // LoadCategories 内部会按 LastCategory 恢复当前分类并 RefreshMemes
+            LoadCategories();
+        };
+        flyout.Items.Add(renameItem);
+
         // 不传坐标，避免边界坐标导致 ShowAt 失败
         flyout.ShowAt((FrameworkElement)e.OriginalSource);
     }
