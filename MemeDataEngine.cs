@@ -169,6 +169,8 @@ public class MemeDataEngine
 
     // ---------- 查询 ----------
 
+    public IReadOnlyList<MemeModel> GetAllMemes() => _memeCache.ToList();
+
     public IReadOnlyList<MemeModel> GetMemes(string? category = null, string? keyword = null)
     {
         IEnumerable<MemeModel> query = _memeCache;

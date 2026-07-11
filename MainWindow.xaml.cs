@@ -215,7 +215,8 @@ public sealed partial class MainWindow : Window
     {
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = "移动到该分类";
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
@@ -228,19 +229,29 @@ public sealed partial class MainWindow : Window
 
     private async void CategoryListItem_Drop(object sender, DragEventArgs e)
     {
-        if (_draggingMemes == null || _draggingMemes.Count == 0)
+        // 优先用 DragItemsStarting 记录的 _draggingMemes；
+        // 若它已被 DragItemsCompleted 提前清空（跨控件拖拽事件顺序不确定），
+        // 则从 e.DataView 的 StorageItems 还原被拖项，避免依赖共享字段。
+        List<MemeModel> memes;
+        if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
-            return;
+            memes = _draggingMemes;
+            _draggingMemes = null;
+        }
+        else
+        {
+            memes = await MemesFromDataViewAsync(e.DataView);
+            if (memes.Count == 0)
+            {
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+                return;
+            }
         }
 
         // 目标分类 = 被拖放到的那个分类项（sender 即该项模板根 Grid，DataContext 为分类）
         var targetCat = (sender as FrameworkElement)?.DataContext as CategoryViewModel;
-        Log($"[分类Drop] 触发, 目标分类={targetCat?.Name ?? "(无)"}");
+        Log($"[分类Drop] 触发, 目标分类={targetCat?.Name ?? "(无)"}, 项数={memes.Count}");
         if (targetCat == null) return;
-
-        var memes = _draggingMemes;
-        _draggingMemes = null;
 
         int moved = memes.Count(m => !m.Category.Equals(targetCat.Name, StringComparison.OrdinalIgnoreCase));
         if (moved > 0)
@@ -250,14 +261,38 @@ public sealed partial class MainWindow : Window
             RefreshMemes();
             UpdateCategoryCounts();
         }
-        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+    }
+
+    // 从 DataView 的 StorageItems（拖拽时写入的文件路径）还原被拖的 MemeModel 列表
+    private async Task<List<MemeModel>> MemesFromDataViewAsync(DataPackageView view)
+    {
+        var result = new List<MemeModel>();
+        if (view == null || !view.Contains(StandardDataFormats.StorageItems)) return result;
+        try
+        {
+            var items = await view.GetStorageItemsAsync();
+            var all = App.DataEngine.GetAllMemes();
+            foreach (var item in items)
+            {
+                var name = System.IO.Path.GetFileName(item.Path);
+                var m = all.FirstOrDefault(x => x.FileName.Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (m != null) result.Add(m);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("MemesFromDataViewAsync 失败: " + ex.Message);
+        }
+        return result;
     }
 
     private void CategoryListItem_DragOver(object sender, DragEventArgs e)
     {
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = "移动到该分类";
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
