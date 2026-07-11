@@ -163,93 +163,109 @@ public sealed partial class MainWindow : Window
     {
         // 找到右键所在的分类项
         var cat = FindCategoryFromSource(e.OriginalSource);
-        if (cat == null) return;
+
+        // 空白处右键：仅提供“新建分类”
+        if (cat == null)
+        {
+            var blankFlyout = new MenuFlyout();
+            var newItem = new MenuFlyoutItem { Text = "新建分类" };
+            newItem.Click += async (_, __) => await ShowAddCategoryDialog();
+            blankFlyout.Items.Add(newItem);
+            // 空白区域没有合适的 FrameworkElement 锚点，直接显示
+            blankFlyout.ShowAt((FrameworkElement)sender);
+            return;
+        }
 
         Log($"右键分类项: {cat.Name}");
 
         var flyout = new MenuFlyout();
         var deleteItem = new MenuFlyoutItem { Text = "删除" };
-        deleteItem.Click += async (_, __) =>
-        {
-            var dialog = new ContentDialog
-            {
-                Title = "删除分类",
-                Content = $"确定要删除分类「{cat.Name}」吗？\n该分类下的所有表情与文件夹都会被删除。",
-                PrimaryButtonText = "删除",
-                CloseButtonText = "取消",
-                XamlRoot = this.Content.XamlRoot
-            };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-            bool ok = await App.DataEngine.DeleteCategoryAsync(cat.Name);
-            if (ok)
-            {
-                // 从 UI 列表移除
-                for (int i = _categoryList.Count - 1; i >= 0; i--)
-                    if (_categoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
-                        _categoryList.RemoveAt(i);
-
-                // 若删除的是当前分类，切换到第一项（若有）
-                if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
-                {
-                    _currentCategory = _categoryList.FirstOrDefault()?.Name ?? string.Empty;
-                    CategoryList.SelectedItem = _categoryList.FirstOrDefault();
-                }
-                RefreshMemes();
-            }
-        };
+        deleteItem.Click += async (_, __) => await DeleteCategoryConfirmed(cat);
         flyout.Items.Add(deleteItem);
 
         // 重命名分类：同步重命名物理文件夹
         var renameItem = new MenuFlyoutItem { Text = "重命名" };
-        renameItem.Click += async (_, __) =>
-        {
-            var input = new TextBox
-            {
-                Text = cat.Name,
-                PlaceholderText = "输入新的分类名称",
-            };
-            var dialog = new ContentDialog
-            {
-                Title = "重命名分类",
-                Content = input,
-                PrimaryButtonText = "确定",
-                CloseButtonText = "取消",
-                XamlRoot = this.Content.XamlRoot,
-                DefaultButton = ContentDialogButton.Primary
-            };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-            var newName = input.Text?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(newName)) return;
-
-            bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
-            if (!ok)
-            {
-                try
-                {
-                    var err = new ContentDialog
-                    {
-                        Title = "重命名失败",
-                        Content = "分类重命名失败（可能名称已存在或文件夹无法访问）。",
-                        CloseButtonText = "确定",
-                        XamlRoot = this.Content.XamlRoot
-                    };
-                    await err.ShowAsync();
-                }
-                catch (Exception ex) { Logger.Log($"[分类重命名] 错误弹窗失败: {ex.Message}"); }
-                return;
-            }
-
-            Log($"重命名分类「{cat.Name}」-> 「{newName}」");
-            // 重建分类列表（x:Bind 默认 OneTime，需重建以刷新分类名显示），
-            // LoadCategories 内部会按 LastCategory 恢复当前分类并 RefreshMemes
-            LoadCategories();
-        };
+        renameItem.Click += async (_, __) => await ShowRenameCategoryDialog(cat);
         flyout.Items.Add(renameItem);
 
         // 不传坐标，避免边界坐标导致 ShowAt 失败
         flyout.ShowAt((FrameworkElement)e.OriginalSource);
+    }
+
+    // 重命名分类对话框：同步重命名物理文件夹并刷新分类列表
+    private async Task ShowRenameCategoryDialog(CategoryViewModel cat)
+    {
+        var input = new TextBox
+        {
+            Text = cat.Name,
+            PlaceholderText = "输入新的分类名称",
+        };
+        var dialog = new ContentDialog
+        {
+            Title = "重命名分类",
+            Content = input,
+            PrimaryButtonText = "确定",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot,
+            DefaultButton = ContentDialogButton.Primary
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var newName = input.Text?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
+        if (!ok)
+        {
+            try
+            {
+                var err = new ContentDialog
+                {
+                    Title = "重命名失败",
+                    Content = "分类重命名失败（可能名称已存在或文件夹无法访问）。",
+                    CloseButtonText = "确定",
+                    XamlRoot = this.Content.XamlRoot
+                };
+                await err.ShowAsync();
+            }
+            catch (Exception ex) { Logger.Log($"[分类重命名] 错误弹窗失败: {ex.Message}"); }
+            return;
+        }
+
+        Log($"重命名分类「{cat.Name}」-> 「{newName}」");
+        // 重建分类列表（x:Bind 默认 OneTime，需重建以刷新分类名显示），
+        // LoadCategories 内部会按 LastCategory 恢复当前分类并 RefreshMemes
+        LoadCategories();
+    }
+
+    // 删除分类（含确认对话框与 UI 更新）
+    private async Task DeleteCategoryConfirmed(CategoryViewModel cat)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "删除分类",
+            Content = $"确定要删除分类「{cat.Name}」吗？\n该分类下的所有表情与文件夹都会被删除。",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        bool ok = await App.DataEngine.DeleteCategoryAsync(cat.Name);
+        if (!ok) return;
+
+        // 从 UI 列表移除
+        for (int i = _categoryList.Count - 1; i >= 0; i--)
+            if (_categoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+                _categoryList.RemoveAt(i);
+
+        // 若删除的是当前分类，切换到第一项（若有）
+        if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            _currentCategory = _categoryList.FirstOrDefault()?.Name ?? string.Empty;
+            CategoryList.SelectedItem = _categoryList.FirstOrDefault();
+        }
+        RefreshMemes();
     }
 
     private CategoryViewModel? FindCategoryFromSource(object? source)
@@ -372,6 +388,12 @@ public sealed partial class MainWindow : Window
     }
 
     private async void AddCategoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowAddCategoryDialog();
+    }
+
+    // 新增分类对话框：成功后在列表末尾追加并选中
+    private async Task ShowAddCategoryDialog()
     {
         var box = new TextBox { PlaceholderText = "输入新分类名称" };
         var dialog = new ContentDialog
@@ -1076,7 +1098,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
+    private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         // Ctrl+V：把剪贴板里的图片导入到当前分类
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
@@ -1101,6 +1123,28 @@ public sealed partial class MainWindow : Window
         {
             ToggleSelectAll();
             e.Handled = true;
+            return;
+        }
+
+        // F2：重命名当前选中的分类（聚焦分类控件时）
+        if (e.Key == Windows.System.VirtualKey.F2)
+        {
+            if (CategoryList.SelectedItem is CategoryViewModel selCat)
+            {
+                e.Handled = true;
+                await ShowRenameCategoryDialog(selCat);
+            }
+            return;
+        }
+
+        // Delete：删除当前选中的分类（聚焦分类控件时）
+        if (e.Key == Windows.System.VirtualKey.Delete)
+        {
+            if (CategoryList.SelectedItem is CategoryViewModel selCat)
+            {
+                e.Handled = true;
+                await DeleteCategoryConfirmed(selCat);
+            }
             return;
         }
 
