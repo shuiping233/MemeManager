@@ -136,7 +136,9 @@ public partial class App : Application
         }
         else
         {
-            _window.Activate();
+            // 普通启动：显示窗口但不抢前台焦点，让外部应用(QQ 等)保持前台，
+            // 以便 _fgTimer 记录其窗口句柄，点击表情能精准投回输入框。
+            ((MainWindow)_window).ShowWithoutActivate();
         }
 
         // 系统托盘图标

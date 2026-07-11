@@ -556,9 +556,10 @@ public sealed partial class MainWindow : Window
 
         // ---- 普通模式：发送图片 ----
         // 目标窗口优先级：轮询记录的外部前台窗口(_lastExternalFg) >
-        // 失去激活时记录的上一个外部窗口(_prevActiveHwnd) > 实时前台窗口。
-        // _lastExternalFg 由 _fgTimer 在窗口可见且未激活时持续刷新，
-        // 确保点表情能把 Ctrl+V 投回用户正在用的外部输入框(QQ 等)。
+        // 失去激活时记录的上一个外部窗口(_prevActiveHwnd) > 实时前台窗口(liveFg)。
+        // _lastExternalFg 由 _fgTimer 在窗口可见且未激活时持续刷新。
+        // liveFg 取“点击瞬间”的前台窗口：Tapped 事件通常先于窗口激活完成触发，
+        // 此时前台往往仍是用户正在用的外部输入框(QQ 等)，故可作兜底。
         IntPtr liveFg = NativeMethods.GetForegroundWindow();
         IntPtr target = IntPtr.Zero;
         if (_lastExternalFg != IntPtr.Zero && _lastExternalFg != _hWnd)
@@ -567,6 +568,14 @@ public sealed partial class MainWindow : Window
             target = _prevActiveHwnd;
         else if (liveFg != IntPtr.Zero && liveFg != _hWnd)
             target = liveFg;
+
+        // 兜底：若仍解析不到有效外部窗口（target 为空或就是自己窗口），
+        // 不执行粘贴，避免把图片投回自身窗口触发“粘贴到分类”弹窗。
+        if (target == IntPtr.Zero || target == _hWnd)
+        {
+            Log($"单击(发送模式): 未解析到有效外部窗口(target={target})，取消本次粘贴");
+            return;
+        }
 
         Log($"单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target}");
         IgnoreNextClipboardChange();
@@ -1108,6 +1117,19 @@ public sealed partial class MainWindow : Window
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
         SetMemeViewVisible(false);
+    }
+
+    /// <summary>
+    /// 普通启动使用：显示窗口但不抢前台焦点（SW_SHOWNOACTIVATE）。
+    /// 这样用户正在用的外部应用(QQ 等)仍是前台，_fgTimer 在窗口“可见未激活”
+    /// 期间持续记录其窗口句柄，点表情时才能把 Ctrl+V 精准投回输入框。
+    /// 若直接 Activate() 抢前台，则 Tapped 时前台已是本窗口，无法拿到外部窗口。
+    /// </summary>
+    public void ShowWithoutActivate()
+    {
+        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
+        _isVisible = true;
+        SetMemeViewVisible(true);
     }
 
     /// <summary>
