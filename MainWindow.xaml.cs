@@ -154,6 +154,9 @@ public sealed partial class MainWindow : Window
     {
         if (CategoryList.SelectedItem is CategoryViewModel cat)
         {
+            // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配
+            if (cat.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+                return;
             _currentCategory = cat.Name;
             _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
@@ -452,6 +455,10 @@ public sealed partial class MainWindow : Window
 
     private void RefreshMemes()
     {
+        // 先卸载旧 ItemsSource，让 GridView 旧 Item 容器与已解码的 BitmapImage
+        // 纹理立即释放（不依赖 GC 节奏），再重建 VM 并重新绑回。
+        MemeGridView.ItemsSource = null;
+
         _memeList.Clear();
         var keyword = SearchBox.Text?.Trim();
         var memes = App.DataEngine.GetMemes(
@@ -462,6 +469,8 @@ public sealed partial class MainWindow : Window
         {
             _memeList.Add(new MemeViewModel(m));
         }
+
+        MemeGridView.ItemsSource = _memeList;
 
         UpdateCategoryCounts();
     }
@@ -486,8 +495,10 @@ public sealed partial class MainWindow : Window
 
     private void UpdateCategoryCounts()
     {
+        // 直接基于内存缓存计数，避免每个分类都走一次 GetMemes().ToList() 的临时分配
+        var cache = App.DataEngine.GetAllMemes();
         foreach (var c in _categoryList)
-            c.Count = App.DataEngine.GetMemes(c.Name).Count;
+            c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
     }
 
     // 根据当前是否有选中项，启用/禁用批量操作按钮（无选中时灰掉且不可点）
