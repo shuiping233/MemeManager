@@ -80,10 +80,10 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="宽" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <TextBox x:Name="PreviewMaxWidthBox" Grid.Column="1" Width="80"
-                             InputScope="Number" TextChanged="PreviewResolution_TextChanged"/>
+                             InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
                     <TextBlock Grid.Column="2" Text="高" VerticalAlignment="Center" Margin="12,0,6,0"/>
                     <TextBox x:Name="PreviewMaxHeightBox" Grid.Column="3" Width="80"
-                             InputScope="Number" TextChanged="PreviewResolution_TextChanged"/>
+                             InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
                 </Grid>
                 <TextBlock FontSize="11" Opacity="0.6">超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 800*600）</TextBlock>
             </StackPanel>
@@ -91,12 +91,13 @@
             <StackPanel Spacing="6">
                 <TextBlock Text="预览图触发延时（毫秒）" FontWeight="SemiBold"/>
                 <TextBox x:Name="PreviewDelayBox" Width="80" HorizontalAlignment="Left"
-                         InputScope="Number" TextChanged="PreviewDelay_TextChanged"/>
+                         InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewDelay_TextChanged"/>
                 <TextBlock FontSize="11" Opacity="0.6">鼠标悬停后等待多久才弹出预览（默认 400）</TextBlock>
             </StackPanel>
         </StackPanel>
 
         <Button Grid.Row="2" x:Name="CloseButton" Content="完成" HorizontalAlignment="Right"
-                Margin="0,16,0,0" Click="CloseButton_Click" Style="{StaticResource AccentButtonStyle}"/>
+                Margin="0,16,0,0" Click="CloseButton_Click"
+                Style="{StaticResource AccentButtonStyle}"/>
     </Grid>
 </Page>

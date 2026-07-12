@@ -1546,9 +1546,13 @@ public sealed partial class MainWindow : Window
     {
         if (SettingsFlyout.Content is SettingsPage page)
         {
-            await page.SaveAsync();
-            // 存放路径可能已改变：重新加载分类与表情，反映新路径内容
-            LoadCategories();
+            // 若已通过“完成”按钮保存过（_saved），不再重复保存/刷新
+            if (!page.IsSaved)
+            {
+                await page.SaveAsync();
+                // 存放路径可能已改变：重新加载分类与表情，反映新路径内容
+                LoadCategories();
+            }
         }
     }
 

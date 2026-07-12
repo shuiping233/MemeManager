@@ -38,6 +38,9 @@ public class AppConfig
 
     // 悬停预览触发延时（毫秒）。
     public int PreviewDelayMs { get; set; } = 400;
+
+    // 开机自动启动
+    public bool AutoStart { get; set; } = false;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）
