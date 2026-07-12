@@ -110,10 +110,8 @@ public sealed partial class MainWindow : Window
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
 
-        // 粘贴图片进窗口
-        this.Activated += MainWindow_Activated;
-        _clipboardHooked = false;
-        HookClipboard();
+        // 粘贴图片进窗口：改为仅在本窗口激活时由 Ctrl+V 触发（见 Root_KeyDown），
+        // 不再监听剪贴板变化，避免截图等写入剪贴板时误触发“粘贴到分类”。
 
         Closed += Window_Closed;
 
@@ -886,7 +884,6 @@ public sealed partial class MainWindow : Window
         }
 
         Log($"单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target}");
-        IgnoreNextClipboardChange();
         await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, target);
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
     }
@@ -1547,13 +1544,19 @@ public sealed partial class MainWindow : Window
 
     private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        // Ctrl+V：把剪贴板里的图片导入到当前分类
+        // Ctrl+V：仅在本窗口激活（焦点在主窗口）时，才把剪贴板里的图片导入到分类。
+        // 这样截图等写剪贴板的行为不会误触发“粘贴到分类”；无焦点时的 Ctrl+V 仍走投回外部逻辑。
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         if (ctrl && e.Key == Windows.System.VirtualKey.V)
         {
+            if (!_isActive)
+            {
+                // 窗口未激活：不消费 Ctrl+V，放行给外部窗口（沿用原有“投回外部”行为）
+                return;
+            }
             e.Handled = true;
-            _ = ImportFromClipboardAsync();
+            await PasteFromClipboardViaShortcutAsync();
             return;
         }
 
@@ -1637,33 +1640,49 @@ public sealed partial class MainWindow : Window
             SelectAllButton.Content = allSelected ? "全选" : "取消全选";
     }
 
-    private async Task ImportFromClipboardAsync()
+    // 由 Ctrl+V 主动触发的剪贴板图片导入：先记录内容类型，仅当为图片/位图/文件时才继续，
+    // 挡掉文本、HTML、RTF 等非图片/图片路径类内容。
+    private async Task PasteFromClipboardViaShortcutAsync()
     {
         try
         {
             var view = Clipboard.GetContent();
-            if (view == null) return;
-            if (!view.Contains(StandardDataFormats.StorageItems) &&
-                !view.Contains(StandardDataFormats.Bitmap)) return;
+            if (view == null)
+            {
+                Log("[粘贴] 触发了 Ctrl+V，但剪贴板为空(GetContent=null)");
+                return;
+            }
+
+            // 列出当前剪贴板包含的格式，便于排查与打点
+            var formats = string.Join(",", view.AvailableFormats);
+            Log($"[粘贴] 触发了 Ctrl+V，内容类型: [{formats}]");
+
+            bool hasBitmap = view.Contains(StandardDataFormats.Bitmap);
+            bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
+            if (!hasBitmap && !hasStorageItems)
+            {
+                Log("[粘贴] 剪贴板非图片/图片路径类内容，已忽略（仅接受 Bitmap / StorageItems）");
+                return;
+            }
 
             var category = await PromptCategoryForPasteAsync();
             if (category == null) return;
 
             var (imported, duplicate) = await ImportFromClipboardAsync(view, category);
             if (imported == null)
-                Log("[剪贴板] 导入失败或内容为空");
+                Log("[粘贴] 导入失败或内容为空");
             else if (duplicate)
-                Log($"[剪贴板] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
+                Log($"[粘贴] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
             else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
             {
-                Log($"[剪贴板] 导入成功: {imported.Title} (分类={category})");
+                Log($"[粘贴] 导入成功: {imported.Title} (分类={category})");
                 InsertMemeAtFront(new MemeViewModel(imported));
                 UpdateCategoryCounts();
             }
         }
         catch (Exception ex)
         {
-            Log("ImportFromClipboardAsync 失败: " + ex.Message);
+            Log("[粘贴] PasteFromClipboardViaShortcutAsync 失败: " + ex.Message);
         }
     }
 
@@ -1682,91 +1701,8 @@ public sealed partial class MainWindow : Window
     }
 
     // ---------- 粘贴图片进窗口 ----------
-
-    private bool _clipboardHooked;
-    private int _ignoreClipboardDepth;
-
-    public void IgnoreNextClipboardChange() => _ignoreClipboardDepth++;
-
-    private void HookClipboard()
-    {
-        if (_clipboardHooked) return;
-        try
-        {
-            Clipboard.ContentChanged += Clipboard_ContentChanged;
-            _clipboardHooked = true;
-            Log("[防护] 已挂载剪贴板监听");
-        }
-        catch (Exception ex)
-        {
-            Log($"[防护] 挂载剪贴板监听失败: {ex.Message}");
-        }
-    }
-
-    private void Clipboard_ContentChanged(object? sender, object e)
-    {
-        // 忽略由本程序（如输出表情）触发的剪贴板变更，避免自循环
-        if (_ignoreClipboardDepth > 0)
-        {
-            _ignoreClipboardDepth--;
-            Log($"[剪贴板] 忽略本次剪贴板变更(自触发计数剩余={_ignoreClipboardDepth})");
-            return;
-        }
-
-        // 仅当窗口可见时才响应（不再要求 _isActive：用户常在其他程序复制图片，
-        // 窗口虽可见但无焦点，仍应自动收进列表）。隐藏/销毁由 Suspend 守卫兜底。
-        if (!_isVisible)
-        {
-            Log($"[剪贴板] 不可见状态跳过(_isVisible={_isVisible})");
-            return;
-        }
-
-        try
-        {
-            var dataPackageView = Clipboard.GetContent();
-            if (dataPackageView == null)
-            {
-                Log("[剪贴板] GetContent 返回 null（剪贴板可能正被占用或为空）");
-                return;
-            }
-            if (!dataPackageView.Contains(StandardDataFormats.Bitmap) &&
-                !dataPackageView.Contains(StandardDataFormats.StorageItems)) return;
-
-            // 在 UI 线程弹窗选择分类
-           DispatcherQueue.TryEnqueue(async () =>
-           {
-                // 窗口已隐藏/销毁则放弃，避免操作已不存在的 XAML 导致 native AV
-                if (_isClosing || !_isVisible)
-                {
-                    Log($"[防护] Clipboard_ContentChanged 弹窗被守卫拦截(_isClosing={_isClosing}, _isVisible={_isVisible})");
-                    return;
-                }
-
-               var category = await PromptCategoryForPasteAsync();
-               if (category == null) return;
-
-                var (imported, duplicate) = await ImportFromClipboardAsync(dataPackageView, category);
-                if (imported == null)
-                {
-                    Log("[剪贴板] 导入失败或内容为空");
-                }
-                else if (duplicate)
-                {
-                    Log($"[剪贴板] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
-                }
-                else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
-                {
-                    Log($"[剪贴板] 导入成功: {imported.Title} (分类={category})");
-                    InsertMemeAtFront(new MemeViewModel(imported));
-                    UpdateCategoryCounts();
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            Log($"[剪贴板] Clipboard_ContentChanged 处理异常: {ex}");
-        }
-    }
+    // 注意：不再监听剪贴板变化（避免截图写剪贴板时误触发“粘贴到分类”），
+    // 仅在本窗口激活时由用户主动 Ctrl+V 触发（见 Root_KeyDown）。
 
     private async Task<string?> PromptCategoryForPasteAsync()
     {
@@ -1859,8 +1795,6 @@ public sealed partial class MainWindow : Window
 
     private static bool IsImage(string ext) =>
         ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp";
-
-    private void MainWindow_Activated(object sender, WindowActivatedEventArgs args) => HookClipboard();
 
     // ---------- 热键 / 窗口过程 ----------
 
@@ -1980,14 +1914,6 @@ public sealed partial class MainWindow : Window
         CategoryList.CanReorderItems = false;
         CategoryList.AllowDrop = false;
 
-        // 注销剪贴板监听：隐藏/销毁期间不再响应剪贴板变更
-        if (_clipboardHooked)
-        {
-            Clipboard.ContentChanged -= Clipboard_ContentChanged;
-            _clipboardHooked = false;
-            Log("[防护] 已注销剪贴板监听");
-        }
-
         // 停前台窗口轮询定时器
         _fgTimer?.Stop();
     }
@@ -2009,9 +1935,7 @@ public sealed partial class MainWindow : Window
         CategoryList.CanDragItems = true;
         CategoryList.AllowDrop = true;
 
-        // 重新挂上剪贴板监听
-        HookClipboard();
-        Log("[防护] 已恢复剪贴板监听");
+        Log("[防护] 已恢复窗口交互");
     }
 
     private void Window_Closed(object sender, WindowEventArgs args)
