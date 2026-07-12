@@ -51,6 +51,10 @@ public sealed partial class MainWindow : Window
     // 是否允许真正关闭窗口（仅托盘“退出”时置 true；普通点 X 只隐藏）
     private bool _allowClose;
 
+    // 窗口正在关闭/销毁中：所有异步回调(XAML 操作)据此放弃触碰控件，
+    // 避免 WinUI 在视觉树销毁后仍被访问导致 native AV(0xc0000005)。
+    private bool _isClosing;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -660,22 +664,36 @@ public sealed partial class MainWindow : Window
 
             var ordered = itemsOrder.Count == currentOrder.Count && itemsOrder.Count > 0 ? itemsOrder : currentOrder;
 
-            await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
-            Log($"DragItemsCompleted: 编辑模式重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+            try
+            {
+                await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
+                Log($"DragItemsCompleted: 编辑模式重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+            }
+            catch (Exception ex)
+            {
+                Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
+            }
             // 场景A：仅顺序变、内容不变。WinUI 已排好 _memeList，不重建集合以保持滚动条位置。
 
             // 重排时 WinUI 会把选中重置为仅被拖动的那一张，导致多选变单选；
             // 这里按拖拽开始时记录的整组(_draggingMemes/draggedGroup)恢复多选高亮。
-            if (draggedGroup.Count > 0)
+            if (draggedGroup.Count > 0 && !_isClosing)
             {
-                var vms = draggedGroup
-                    .Select(m => _memeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
-                    .Where(v => v != null)
-                    .ToList()!;
-                MemeGridView.SelectedItems.Clear();
-                foreach (var vm in vms)
-                    MemeGridView.SelectedItems.Add(vm);
-                UpdateBatchButtons();
+                try
+                {
+                    var vms = draggedGroup
+                        .Select(m => _memeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
+                        .Where(v => v != null)
+                        .ToList()!;
+                    MemeGridView.SelectedItems.Clear();
+                    foreach (var vm in vms)
+                        MemeGridView.SelectedItems.Add(vm);
+                    UpdateBatchButtons();
+                }
+                catch (Exception ex)
+                {
+                    Log($"[拖拽] 恢复多选选中失败: {ex}");
+                }
             }
         }
 
@@ -707,8 +725,11 @@ public sealed partial class MainWindow : Window
             {
                 await App.DataEngine.MoveMemesToCategoryAsync(memes, _currentCategory);
                 Log($"Drop: 内部移动 {moved} 张图片到分类「{_currentCategory}」");
-                RefreshMemes();
-                UpdateCategoryCounts();
+                if (!_isClosing && _isVisible)
+                {
+                    RefreshMemes();
+                    UpdateCategoryCounts();
+                }
             }
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
             return;
@@ -772,8 +793,11 @@ public sealed partial class MainWindow : Window
 
         if (importedCount > 0)
         {
-            RefreshMemes();
-            UpdateCategoryCounts();
+            if (!_isClosing && _isVisible)
+            {
+                RefreshMemes();
+                UpdateCategoryCounts();
+            }
             Log($"Drop: 成功导入 {importedCount} 个图片");
         }
         else
@@ -835,6 +859,12 @@ public sealed partial class MainWindow : Window
         // 回到 UI 线程刷新
         DispatcherQueue.TryEnqueue(() =>
         {
+            // 窗口已隐藏/销毁则放弃，避免操作已不存在的 XAML 导致 native AV
+            if (_isClosing || !_isVisible)
+            {
+                Log($"[防护] ImportDroppedFilesAsync 刷新被守卫拦截(_isClosing={_isClosing}, _isVisible={_isVisible})，丢弃 {importedCount} 个导入");
+                return;
+            }
             RefreshMemes();
             UpdateCategoryCounts();
             Log($"WM_DROPFILES: 成功导入 {importedCount} 个图片");
@@ -1105,6 +1135,7 @@ public sealed partial class MainWindow : Window
     public void RequestExit()
     {
         _allowClose = true;
+        _isClosing = true;
         this.Close();
     }
 
@@ -1352,8 +1383,12 @@ public sealed partial class MainWindow : Window
         {
             Clipboard.ContentChanged += Clipboard_ContentChanged;
             _clipboardHooked = true;
+            Log("[防护] 已挂载剪贴板监听");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Log($"[防护] 挂载剪贴板监听失败: {ex.Message}");
+        }
     }
 
     private void Clipboard_ContentChanged(object? sender, object e)
@@ -1371,13 +1406,24 @@ public sealed partial class MainWindow : Window
         try
         {
             var dataPackageView = Clipboard.GetContent();
-            if (dataPackageView == null) return;
+            if (dataPackageView == null)
+            {
+                Log("[剪贴板] GetContent 返回 null（剪贴板可能正被占用或为空）");
+                return;
+            }
             if (!dataPackageView.Contains(StandardDataFormats.Bitmap) &&
                 !dataPackageView.Contains(StandardDataFormats.StorageItems)) return;
 
             // 在 UI 线程弹窗选择分类
            DispatcherQueue.TryEnqueue(async () =>
            {
+                // 窗口已隐藏/销毁则放弃，避免操作已不存在的 XAML 导致 native AV
+                if (_isClosing || !_isVisible)
+                {
+                    Log($"[防护] Clipboard_ContentChanged 弹窗被守卫拦截(_isClosing={_isClosing}, _isVisible={_isVisible})");
+                    return;
+                }
+
                var category = await PromptCategoryForPasteAsync();
                if (category == null) return;
 
@@ -1387,9 +1433,12 @@ public sealed partial class MainWindow : Window
                    _memeList.Add(new MemeViewModel(imported));
                    UpdateCategoryCounts();
                }
-           });
+            });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Log($"[剪贴板] Clipboard_ContentChanged 处理异常: {ex}");
+        }
     }
 
     private async Task<string?> PromptCategoryForPasteAsync()
@@ -1527,6 +1576,7 @@ public sealed partial class MainWindow : Window
                 NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
                 _isVisible = false;
                 SetMemeViewVisible(false);
+                SuspendWindowInteractions(closing: false);
                 return IntPtr.Zero;
             }
             // _allowClose=true（托盘退出）时放行，交给默认处理真正关闭
@@ -1556,6 +1606,8 @@ public sealed partial class MainWindow : Window
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
             _isVisible = false;
             SetMemeViewVisible(false);
+            // 隐藏后即停用拖拽/剪贴板/轮询，避免隐藏期间这些回调触发 XAML 操作
+            SuspendWindowInteractions(closing: false);
             Log("  执行 SW_HIDE");
         }
         else
@@ -1564,16 +1616,67 @@ public sealed partial class MainWindow : Window
             // 这样用户仍能直接点表情粘贴到原来的应用里
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
             SetMemeViewVisible(true);
+            ResumeWindowInteractions();
             _isVisible = true;
             Log("  执行 SW_SHOWNOACTIVATE");
         }
     }
 
+    // 窗口即将隐藏/销毁时调用：停掉 WinUI 拖拽能力、注销剪贴板监听、
+    // 停止前台窗口轮询定时器，防止拖拽会话进行中或隐藏期间这些回调触发
+    // XAML 操作导致 native AV(0xc0000005)。closing=true 表示真正销毁窗口，
+    // 会置 _isClosing 阻止一切后续异步 XAML 操作。
+    private void SuspendWindowInteractions(bool closing)
+    {
+        if (closing) _isClosing = true;
+        Log($"[防护] SuspendWindowInteractions: closing={closing}, _isVisible={_isVisible}");
+
+        // 停止 WinUI 内置拖拽/重排，让进行中的拖拽会话安全结束
+        MemeGridView.CanDragItems = false;
+        MemeGridView.CanReorderItems = false;
+        MemeGridView.AllowDrop = false;
+        CategoryList.CanDragItems = false;
+        CategoryList.CanReorderItems = false;
+        CategoryList.AllowDrop = false;
+
+        // 注销剪贴板监听：隐藏/销毁期间不再响应剪贴板变更
+        if (_clipboardHooked)
+        {
+            Clipboard.ContentChanged -= Clipboard_ContentChanged;
+            _clipboardHooked = false;
+            Log("[防护] 已注销剪贴板监听");
+        }
+
+        // 停前台窗口轮询定时器
+        _fgTimer?.Stop();
+    }
+
+    // 窗口重新显示时调用：恢复剪贴板监听、轮询定时器与拖拽能力(编辑模式下)
+    private void ResumeWindowInteractions()
+    {
+        if (_isClosing) return;
+        Log($"[防护] ResumeWindowInteractions: _isVisible={_isVisible}, _editMode={_editMode}");
+
+        // 恢复 WinUI 拖拽能力（编辑模式才需要重排/拖出）
+        CategoryList.CanReorderItems = true;
+        if (_editMode)
+        {
+            MemeGridView.CanDragItems = true;
+            MemeGridView.CanReorderItems = true;
+        }
+        MemeGridView.AllowDrop = true;
+        CategoryList.CanDragItems = true;
+        CategoryList.AllowDrop = true;
+
+        // 重新挂上剪贴板监听
+        HookClipboard();
+        Log("[防护] 已恢复剪贴板监听");
+    }
+
     private void Window_Closed(object sender, WindowEventArgs args)
     {
+        SuspendWindowInteractions(closing: true);
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
-        if (_clipboardHooked)
-            Clipboard.ContentChanged -= Clipboard_ContentChanged;
     }
 
     // ---------- 全局快捷键 ----------
