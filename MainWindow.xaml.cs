@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -49,6 +49,11 @@ public sealed partial class MainWindow : Window
     // 防止粘贴导入的分类对话框重入
     private bool _pasteDialogOpen;
 
+    // 悬停放大预览：延迟定时器 + 当前待显示项
+    private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private MemeViewModel? _pendingPreviewVm;
+    private FrameworkElement? _pendingPreviewAnchor;
+
     // 是否允许真正关闭窗口（仅托盘“退出”时置 true；普通点 X 只隐藏）
     private bool _allowClose;
 
@@ -61,6 +66,9 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         _hWnd = WindowNative.GetWindowHandle(this);
+
+        _previewTimer.Tick += PreviewTimer_Tick;
+
 
         SetTaskbarIcon();
 
@@ -434,6 +442,20 @@ public sealed partial class MainWindow : Window
         {
             _fgTimer?.Stop();
             MemeGridView.ItemsSource = null;
+            HidePreviewPopup();
+        }
+    }
+
+    private void HidePreviewPopup()
+    {
+        _previewTimer.Stop();
+        _pendingPreviewVm = null;
+        _pendingPreviewAnchor = null;
+        _hoveredElement = null;
+        if (PreviewPopup.IsOpen)
+        {
+            PreviewPopup.IsOpen = false;
+            Log($"[预览] 浮窗已关闭");
         }
     }
 
@@ -565,6 +587,149 @@ public sealed partial class MainWindow : Window
             c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
     }
 
+    // ---------- 悬停放大预览（Popup）----------
+
+    // 当前真正悬停的表情项（用于判断是否需要关闭预览）。
+    // 注意：浮窗可能覆盖在项上方，鼠标进入浮窗时会先触发项的 PointerExited，
+    // 因此不能单凭“离开某项”就关闭，还要看是否落在浮窗内（见 Root_PointerMoved）。
+    private FrameworkElement? _hoveredElement;
+
+    // 浮窗在【窗口坐标(DIP)】中的矩形，用于命中测试。
+    private Windows.Foundation.Rect _previewPopupWindowRect;
+
+    private void MemeItem_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        // 编辑模式或窗口隐藏时不显示预览
+        if (_editMode || !_isVisible || _isClosing) return;
+        if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
+
+        _hoveredElement = fe;
+        _pendingPreviewVm = vm;
+        _pendingPreviewAnchor = fe;
+        _previewTimer.Start();
+    }
+
+    private void MemeItem_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _previewTimer.Stop();
+        // 仅清空“当前悬停项”，不直接关闭浮窗——
+        // 浮窗覆盖在项上方时也会触发此项退出，真正关闭由 Root_PointerMoved 统一判断。
+        if (ReferenceEquals(_hoveredElement, sender))
+            _hoveredElement = null;
+        _pendingPreviewVm = null;
+        _pendingPreviewAnchor = null;
+    }
+
+    // 鼠标在项内移动时更新锚点（用项自身矩形即可，无需实时跟手）
+    private void MemeItem_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            _hoveredElement = fe;
+            _pendingPreviewAnchor = fe;
+        }
+    }
+
+    // 窗口范围内统一判断是否需要关闭预览：
+    // 仅当 浮窗已开 且 鼠标既不在浮窗内 也不在任何表情项内 时，才关闭。
+    private void Root_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!PreviewPopup.IsOpen) return;
+
+        var pt = e.GetCurrentPoint((UIElement)this.Content).Position;
+        bool overPopup = PointInRect(pt, _previewPopupWindowRect, 4);
+        bool overItem = _hoveredElement != null;
+        if (!overPopup && !overItem)
+        {
+            HidePreviewPopup();
+        }
+    }
+
+    private static bool PointInRect(Windows.Foundation.Point p, Windows.Foundation.Rect r, double inflate)
+        => p.X >= r.X - inflate && p.Y >= r.Y - inflate
+        && p.X <= r.Right + inflate && p.Y <= r.Bottom + inflate;
+
+    private void PreviewTimer_Tick(object? sender, object e)
+    {
+        _previewTimer.Stop();
+        if (_pendingPreviewVm == null || _pendingPreviewAnchor == null) return;
+        if (_isClosing || !_isVisible) return;
+
+        ShowPreviewPopup(_pendingPreviewVm, _pendingPreviewAnchor);
+    }
+
+    private void ShowPreviewPopup(MemeViewModel vm, FrameworkElement anchor)
+    {
+        PreviewTitle.Text = vm.Title;
+
+        // 先把 Image 源设好，待布局完成后量取尺寸再定位
+        PreviewImage.Source = vm.PreviewSource;
+
+        // 锚点矩形（窗口坐标 DIP）
+        var anchorRect = GetElementWindowRect(anchor);
+
+        // 先打开以便 Measure 出内容真实尺寸
+        PreviewPopup.IsOpen = true;
+
+        if (PreviewPopup.Child is FrameworkElement child)
+        {
+            child.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double pw = child.DesiredSize.Width;
+            double ph = child.DesiredSize.Height;
+
+            var workArea = GetWindowWorkArea();
+            var (x, y, placement) = Utils.PlacePopup(
+                anchorRect, pw, ph, workArea, Placement.Above);
+
+            PreviewPopup.HorizontalOffset = x;
+            PreviewPopup.VerticalOffset = y;
+
+            // 记录浮窗窗口坐标矩形（用于命中测试）
+            _previewPopupWindowRect = new Windows.Foundation.Rect(x, y, pw, ph);
+
+            var (nw, nh) = vm.GetPreviewNaturalSize();
+            var (ow, oh) = vm.GetPreviewOutputSize();
+            Log($"[预览] 显示: 标题={vm.Title} | 原图={nw}x{nh} | 实际输出图={ow}x{oh} | " +
+                $"浮窗={pw:F0}x{ph:F0} | 坐标=({x:F0},{y:F0}) | 方位={placement}");
+        }
+    }
+
+    // 取得元素相对【窗口内容根】的矩形（DIP）。Popup 的 Offset 是窗口相对坐标，
+    // 因此定位与命中测试必须统一用窗口坐标，不能用屏幕坐标。
+    private Windows.Foundation.Rect GetElementWindowRect(FrameworkElement element)
+    {
+        var root = (FrameworkElement)this.Content;
+        var transform = element.TransformToVisual(root);
+        var topLeft = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+        return new Windows.Foundation.Rect(topLeft.X, topLeft.Y, element.ActualWidth, element.ActualHeight);
+    }
+
+    // 取得主窗口所在屏幕的工作区，转换为【窗口坐标(DIP)】，
+    // 用于把浮窗限制在屏幕内（而非限制在窗口内——浮窗可越过主窗口边界，只要不超出屏幕）。
+    private Windows.Foundation.Rect GetWindowWorkArea()
+    {
+        // 默认兜底：相对窗口的“无限”区域（即不限制），避免窗口位置取不到时把浮窗夹死。
+        var fallback = new Windows.Foundation.Rect(
+            -this.Bounds.X, -this.Bounds.Y,
+            double.PositiveInfinity, double.PositiveInfinity);
+        try
+        {
+            var display = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
+                Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd),
+                Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
+            if (display != null && _appWindow != null)
+            {
+                var r = display.WorkArea;          // 屏幕坐标
+                var pos = _appWindow.Position;      // 窗口左上角屏幕坐标
+                return new Windows.Foundation.Rect(
+                    r.X - pos.X, r.Y - pos.Y, r.Width, r.Height);
+            }
+        }
+        catch { }
+        return fallback;
+    }
+
+
     // 根据当前是否有选中项，启用/禁用批量操作按钮（无选中时灰掉且不可点）
     private void UpdateBatchButtons()
     {
@@ -602,6 +767,8 @@ public sealed partial class MainWindow : Window
 
     private async void MemeItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
+        HidePreviewPopup();
+
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel clicked)
         {
             Log("MemeItem_Tapped: 取不到 MemeViewModel, sender=" + sender?.GetType().Name);

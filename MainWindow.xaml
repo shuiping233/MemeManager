@@ -14,7 +14,7 @@
         <MicaBackdrop/>
     </Window.SystemBackdrop>
 
-    <Grid x:Name="RootGrid">
+    <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -106,7 +106,9 @@
                     <Grid Width="90" Height="90" Margin="4"
                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                           CornerRadius="6"
-                           ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}"
+                           PointerEntered="MemeItem_PointerEntered"
+                           PointerExited="MemeItem_PointerExited"
+                           PointerMoved="MemeItem_PointerMoved"
                            Tapped="MemeItem_Tapped"
                            ContextRequested="MemeItem_ContextRequested">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
@@ -117,6 +119,29 @@
                 </DataTemplate>
             </GridView.ItemTemplate>
         </GridView>
+
+        <!-- 鼠标悬停表情时的放大预览 Popup -->
+        <Popup x:Name="PreviewPopup"
+               IsLightDismissEnabled="False"
+               ShouldConstrainToRootBounds="False">
+            <Border Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}"
+                    BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="PreviewTitle"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               MaxWidth="800"/>
+                    <Image x:Name="PreviewImage"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Popup>
 
         <!-- 修改模式底部批量操作栏 -->
         <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
