@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -479,6 +479,13 @@ public sealed partial class MainWindow : Window
         UpdateCategoryCounts();
     }
 
+    // 新导入的表情包优先级最高(DateAdded 最新)，按现有排序规则(Priority 降序、
+    // 同值 DateAdded 降序)应排在列表最前。直接在头部插入，避免整列表重建。
+    private void InsertMemeAtFront(MemeViewModel vm)
+    {
+        _memeList.Insert(0, vm);
+    }
+
     // 精准从当前视图移除若干项（不 Clear 重建，保持滚动条位置与选中状态）。
     // 用于“移动到其他分类”等“内容减少但顺序不变”的场景。
     private void RemoveFromCurrentView(IEnumerable<MemeModel> removed)
@@ -747,13 +754,11 @@ public sealed partial class MainWindow : Window
         if (view.Contains(StandardDataFormats.StorageItems))
         {
             var items = await view.GetStorageItemsAsync();
-            Log($"Drop: StorageItems 共 {items.Count} 个, 目标分类={_currentCategory}");
             foreach (var item in items)
             {
-                Log($"Drop: 项 {item.Name} 类型={item.GetType().Name} IsFile={item is StorageFile}");
                 if (item is StorageFile file && IsImage(file.FileType))
                 {
-                    var imported = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
+                    var (imported, _) = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
                     if (imported != null) importedCount++;
                 }
             }
@@ -762,7 +767,6 @@ public sealed partial class MainWindow : Window
         // 2) Bitmap（剪贴板/截图类拖拽）
         if (view.Contains(StandardDataFormats.Bitmap))
         {
-            Log("Drop: 含 Bitmap，尝试作为图片导入");
             try
             {
                 var streamRef = await view.GetBitmapAsync();
@@ -772,23 +776,11 @@ public sealed partial class MainWindow : Window
                 {
                     await stream.AsStreamForRead().CopyToAsync(outStream);
                 }
-                var imported = await App.DataEngine.ImportMemeAsync(tempPath, _currentCategory);
+                var (imported, _) = await App.DataEngine.ImportMemeAsync(tempPath, _currentCategory);
                 if (imported != null) importedCount++;
                 try { System.IO.File.Delete(tempPath); } catch { }
             }
-            catch (Exception ex) { Log("Drop: Bitmap 导入失败: " + ex.Message); }
-        }
-
-        // 3) Text / Html：看看是不是图片路径或图片链接
-        if (view.Contains(StandardDataFormats.Text))
-        {
-            var text = await view.GetTextAsync();
-            Log($"Drop: Text 内容(前200字符)= {text?.Substring(0, Math.Min(200, text?.Length ?? 0))}");
-        }
-        if (view.Contains(StandardDataFormats.Html))
-        {
-            var html = await view.GetHtmlFormatAsync();
-            Log($"Drop: Html 内容(前200字符)= {html?.Substring(0, Math.Min(200, html?.Length ?? 0))}");
+            catch (Exception ex) { Log("拖入(Bitmap)失败: " + ex.Message); }
         }
 
         if (importedCount > 0)
@@ -798,11 +790,11 @@ public sealed partial class MainWindow : Window
                 RefreshMemes();
                 UpdateCategoryCounts();
             }
-            Log($"Drop: 成功导入 {importedCount} 个图片");
+            Log($"拖入完成(GridView): 新增 {importedCount} 个图片");
         }
         else
         {
-            Log("Drop: 未导入任何图片（已忽略不符合要求的拖拽对象）");
+            Log("拖入: 未导入任何图片（已忽略不符合要求的拖拽对象）");
         }
     }
 
@@ -815,7 +807,6 @@ public sealed partial class MainWindow : Window
         try
         {
             uint count = NativeMethods.DragQueryFile(hDrop, 0xFFFFFFFFu, IntPtr.Zero, 0);
-            Log($"WM_DROPFILES: 拖入 {count} 个文件, 目标分类={_currentCategory}");
             var paths = new System.Collections.Generic.List<string>();
             for (uint i = 0; i < count; i++)
             {
@@ -826,7 +817,7 @@ public sealed partial class MainWindow : Window
                 {
                     NativeMethods.DragQueryFile(hDrop, i, buf, len + 1);
                     string path = Marshal.PtrToStringUni(buf) ?? string.Empty;
-                    Log($"WM_DROPFILES: 文件[{i}] = {path}");
+                    Log($"拖入文件[{i}] = {path}");
                     if (System.IO.File.Exists(path) && IsImage(System.IO.Path.GetExtension(path)))
                         paths.Add(path);
                 }
@@ -836,6 +827,9 @@ public sealed partial class MainWindow : Window
                 }
             }
             NativeMethods.DragFinish(hDrop);
+
+            if (paths.Count > 0)
+                Log($"拖入 {paths.Count} 个文件, 目标分类={_currentCategory}");
 
             // 异步导入，不阻塞窗口过程
             _ = ImportDroppedFilesAsync(paths);
@@ -850,10 +844,13 @@ public sealed partial class MainWindow : Window
     {
         if (paths.Count == 0) return;
         int importedCount = 0;
+        int duplicateCount = 0;
         foreach (var path in paths)
         {
-            var imported = await App.DataEngine.ImportMemeAsync(path, _currentCategory);
-            if (imported != null) importedCount++;
+            var (imported, dup) = await App.DataEngine.ImportMemeAsync(path, _currentCategory);
+            if (imported == null) continue;
+            if (dup) duplicateCount++;
+            else importedCount++;
         }
 
         // 回到 UI 线程刷新
@@ -862,12 +859,12 @@ public sealed partial class MainWindow : Window
             // 窗口已隐藏/销毁则放弃，避免操作已不存在的 XAML 导致 native AV
             if (_isClosing || !_isVisible)
             {
-                Log($"[防护] ImportDroppedFilesAsync 刷新被守卫拦截(_isClosing={_isClosing}, _isVisible={_isVisible})，丢弃 {importedCount} 个导入");
+                Log($"[防护] 拖入刷新被守卫拦截(_isClosing={_isClosing}, _isVisible={_isVisible})，丢弃 {importedCount} 个导入");
                 return;
             }
             RefreshMemes();
             UpdateCategoryCounts();
-            Log($"WM_DROPFILES: 成功导入 {importedCount} 个图片");
+            Log($"拖入完成: 新增 {importedCount} 个, 重复跳过 {duplicateCount} 个");
         });
     }
 
@@ -1002,9 +999,9 @@ public sealed partial class MainWindow : Window
 
         foreach (var file in files)
         {
-            var imported = await App.DataEngine.ImportMemeAsync(file, _currentCategory);
+            var (imported, _) = await App.DataEngine.ImportMemeAsync(file, _currentCategory);
             if (imported != null)
-                _memeList.Add(new MemeViewModel(imported));
+                InsertMemeAtFront(new MemeViewModel(imported));
         }
         UpdateCategoryCounts();
     }
@@ -1342,10 +1339,15 @@ public sealed partial class MainWindow : Window
             var category = await PromptCategoryForPasteAsync();
             if (category == null) return;
 
-            var imported = await ImportFromClipboardAsync(view, category);
-            if (imported != null && category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+            var (imported, duplicate) = await ImportFromClipboardAsync(view, category);
+            if (imported == null)
+                Log("[剪贴板] 导入失败或内容为空");
+            else if (duplicate)
+                Log($"[剪贴板] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
+            else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
             {
-                _memeList.Add(new MemeViewModel(imported));
+                Log($"[剪贴板] 导入成功: {imported.Title} (分类={category})");
+                InsertMemeAtFront(new MemeViewModel(imported));
                 UpdateCategoryCounts();
             }
         }
@@ -1397,11 +1399,17 @@ public sealed partial class MainWindow : Window
         if (_ignoreClipboardDepth > 0)
         {
             _ignoreClipboardDepth--;
+            Log($"[剪贴板] 忽略本次剪贴板变更(自触发计数剩余={_ignoreClipboardDepth})");
             return;
         }
 
-        // 仅当窗口可见、且焦点确实在本窗口时（用户主动 Ctrl+V 贴进来）才响应
-        if (!_isVisible || !_isActive) return;
+        // 仅当窗口可见时才响应（不再要求 _isActive：用户常在其他程序复制图片，
+        // 窗口虽可见但无焦点，仍应自动收进列表）。隐藏/销毁由 Suspend 守卫兜底。
+        if (!_isVisible)
+        {
+            Log($"[剪贴板] 不可见状态跳过(_isVisible={_isVisible})");
+            return;
+        }
 
         try
         {
@@ -1427,12 +1435,21 @@ public sealed partial class MainWindow : Window
                var category = await PromptCategoryForPasteAsync();
                if (category == null) return;
 
-               var imported = await ImportFromClipboardAsync(dataPackageView, category);
-               if (imported != null && category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
-               {
-                   _memeList.Add(new MemeViewModel(imported));
-                   UpdateCategoryCounts();
-               }
+                var (imported, duplicate) = await ImportFromClipboardAsync(dataPackageView, category);
+                if (imported == null)
+                {
+                    Log("[剪贴板] 导入失败或内容为空");
+                }
+                else if (duplicate)
+                {
+                    Log($"[剪贴板] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
+                }
+                else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log($"[剪贴板] 导入成功: {imported.Title} (分类={category})");
+                    InsertMemeAtFront(new MemeViewModel(imported));
+                    UpdateCategoryCounts();
+                }
             });
         }
         catch (Exception ex)
@@ -1444,7 +1461,11 @@ public sealed partial class MainWindow : Window
     private async Task<string?> PromptCategoryForPasteAsync()
     {
         // 防止高速事件重入：对话框已打开时直接返回
-        if (_pasteDialogOpen) return null;
+        if (_pasteDialogOpen)
+        {
+            Log("[剪贴板] 分类对话框重入，跳过");
+            return null;
+        }
         _pasteDialogOpen = true;
 
         try
@@ -1463,14 +1484,23 @@ public sealed partial class MainWindow : Window
                 XamlRoot = this.Content.XamlRoot
             };
             var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary) return null;
+            if (result != ContentDialogResult.Primary)
+            {
+                Log("[剪贴板] 取消粘贴");
+                return null;
+            }
             var name = box.Text.Trim();
-            if (string.IsNullOrWhiteSpace(name)) return null;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                Log("[剪贴板] 分类名为空，取消粘贴");
+                return null;
+            }
 
             if (!_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
                 await App.DataEngine.AddCategoryAsync(name);
                 _categoryList.Add(new CategoryViewModel(name, 0));
+                Log($"[剪贴板] 新建分类 {name}");
             }
             return name;
         }
@@ -1480,7 +1510,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task<MemeModel?> ImportFromClipboardAsync(DataPackageView view, string category)
+    private async Task<(MemeModel? model, bool duplicate)> ImportFromClipboardAsync(DataPackageView view, string category)
     {
         try
         {
@@ -1491,7 +1521,8 @@ public sealed partial class MainWindow : Window
                 {
                     if (item is StorageFile file && IsImage(file.FileType))
                     {
-                        return await App.DataEngine.ImportMemeAsync(file.Path, category);
+                        var (m, dup) = await App.DataEngine.ImportMemeAsync(file.Path, category);
+                        return (m, dup);
                     }
                 }
             }
@@ -1504,16 +1535,16 @@ public sealed partial class MainWindow : Window
                 {
                     await stream.AsStreamForRead().CopyToAsync(outStream);
                 }
-                var imported = await App.DataEngine.ImportMemeAsync(tempPath, category);
+                var (imported, dup) = await App.DataEngine.ImportMemeAsync(tempPath, category);
                 try { File.Delete(tempPath); } catch { }
-                return imported;
+                return (imported, dup);
             }
         }
         catch (Exception ex)
         {
             Logger.Log($"[Paste] 导入失败: {ex.Message}");
         }
-        return null;
+        return (null, false);
     }
 
     private static bool IsImage(string ext) =>

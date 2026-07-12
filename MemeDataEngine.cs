@@ -316,9 +316,9 @@ public class MemeDataEngine
 
     // ---------- 导入 ----------
 
-    public async Task<MemeModel?> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
+    public async Task<(MemeModel? model, bool duplicate)> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
     {
-        if (!File.Exists(sourcePath)) return null;
+        if (!File.Exists(sourcePath)) return (null, false);
 
         try
         {
@@ -331,7 +331,10 @@ public class MemeDataEngine
             var targetPath = Path.Combine(categoryDir, fileName);
             var existing = _memeCache.FirstOrDefault(m =>
                 m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
-            if (existing != null) return existing;
+            if (existing != null)
+            {
+                return (existing, true);
+            }
 
             Directory.CreateDirectory(categoryDir);
             await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true));
@@ -366,12 +369,12 @@ public class MemeDataEngine
             _memeCache.Add(model);
             IndexTitle(model);
             await SaveCategoryMetadataAsync(categoryDir, meta);
-            return model;
+            return (model, false);
         }
         catch (Exception ex)
         {
             MemeManager.Logger.Log($"[Engine] 导入表情包失败: {ex.Message}");
-            return null;
+            return (null, false);
         }
     }
 
