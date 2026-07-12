@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -455,19 +456,64 @@ public sealed partial class MainWindow : Window
         {
             _fgTimer?.Stop();
             MemeGridView.ItemsSource = null;
-            HidePreviewPopup();
+            HidePreviewPopup(true);
         }
     }
 
-    private void HidePreviewPopup()
+    private void HidePreviewPopup(bool immediate = false)
     {
         _previewTimer.Stop();
         _pendingPreviewVm = null;
         _pendingPreviewAnchor = null;
         _hoveredElement = null;
-        if (PreviewPopup.IsOpen)
+
+        if (!PreviewPopup.IsOpen)
+        {
+            _previewFadingOut = false;
+            return;
+        }
+
+        // 窗口隐藏/销毁等场景直接关闭，不做淡出
+        if (immediate || _isClosing)
         {
             PreviewPopup.IsOpen = false;
+            _previewFadingOut = false;
+            Log($"[预览] 浮窗已关闭");
+            return;
+        }
+
+        // 已在淡出则忽略重复请求
+        if (_previewFadingOut) return;
+        _previewFadingOut = true;
+
+        if (PreviewBorder != null)
+        {
+            var sb = new Storyboard();
+            var da = new DoubleAnimation
+            {
+                From = 1,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(PreviewFadeOutMs)
+            };
+            Storyboard.SetTarget(da, PreviewBorder);
+            Storyboard.SetTargetProperty(da, "Opacity");
+            sb.Completed += (_, _) =>
+            {
+                // 淡出期间若又被重新显示（_previewFadingOut 被置 false），则不关闭
+                if (_previewFadingOut)
+                {
+                    _previewFadingOut = false;
+                    PreviewPopup.IsOpen = false;
+                    Log($"[预览] 浮窗已关闭");
+                }
+            };
+            sb.Children.Add(da);
+            sb.Begin();
+        }
+        else
+        {
+            PreviewPopup.IsOpen = false;
+            _previewFadingOut = false;
             Log($"[预览] 浮窗已关闭");
         }
     }
@@ -602,6 +648,10 @@ public sealed partial class MainWindow : Window
 
     // ---------- 悬停放大预览（Popup）----------
 
+    // 淡入/淡出动画时长（毫秒），调快就改小这两个值
+    private const int PreviewFadeInMs = 95;
+    private const int PreviewFadeOutMs = 0;
+
     // 当前真正悬停的表情项（用于判断是否需要关闭预览）。
     // 注意：浮窗可能覆盖在项上方，鼠标进入浮窗时会先触发项的 PointerExited，
     // 因此不能单凭“离开某项”就关闭，还要看是否落在浮窗内（见 Root_PointerMoved）。
@@ -610,6 +660,9 @@ public sealed partial class MainWindow : Window
     // 浮窗在【窗口坐标(DIP)】中的矩形，用于命中测试。
     private Windows.Foundation.Rect _previewPopupWindowRect;
 
+    // 浮窗是否正在淡出中（淡出动画结束前不真正关闭，便于快速划过时复用）
+    private bool _previewFadingOut;
+
     private void MemeItem_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         // 编辑模式或窗口隐藏时不显示预览
@@ -617,9 +670,17 @@ public sealed partial class MainWindow : Window
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
 
         _hoveredElement = fe;
-        _pendingPreviewVm = vm;
-        _pendingPreviewAnchor = fe;
-        _previewTimer.Start();
+        // 若浮窗已开（且未在淡出），直接切换内容/位置并淡入，无需再等延时
+        if (PreviewPopup.IsOpen && !_previewFadingOut)
+        {
+            ShowPreviewPopup(vm, fe);
+        }
+        else
+        {
+            _pendingPreviewVm = vm;
+            _pendingPreviewAnchor = fe;
+            _previewTimer.Start();
+        }
     }
 
     private void MemeItem_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -705,6 +766,28 @@ public sealed partial class MainWindow : Window
             Log($"[预览] 显示: 标题={vm.Title} | 原图={nw}x{nh} | 实际输出图={ow}x{oh} | " +
                 $"浮窗={pw:F0}x{ph:F0} | 坐标=({x:F0},{y:F0}) | 方位={placement}");
         }
+
+        // 取消可能正在进行的淡出并重新淡入（快速划过多个表情时复用同一浮窗）
+        FadeInPreview();
+    }
+
+    // 浮窗淡入：取消淡出状态，从 0→1 渐显
+    private void FadeInPreview()
+    {
+        _previewFadingOut = false;
+        if (PreviewBorder == null) return;
+
+        var sb = new Storyboard();
+        var da = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = TimeSpan.FromMilliseconds(PreviewFadeInMs)
+        };
+        Storyboard.SetTarget(da, PreviewBorder);
+        Storyboard.SetTargetProperty(da, "Opacity");
+        sb.Children.Add(da);
+        sb.Begin();
     }
 
     // 取得元素相对【窗口内容根】的矩形（DIP）。Popup 的 Offset 是窗口相对坐标，

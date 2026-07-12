@@ -124,11 +124,13 @@
         <Popup x:Name="PreviewPopup"
                IsLightDismissEnabled="False"
                ShouldConstrainToRootBounds="False">
-            <Border Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}"
+            <Border x:Name="PreviewBorder"
+                    Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}"
                     BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="8">
+                    Padding="8"
+                    Opacity="0">
                 <StackPanel Spacing="6">
                     <TextBlock x:Name="PreviewTitle"
                                FontWeight="SemiBold"
