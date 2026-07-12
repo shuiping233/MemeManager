@@ -24,13 +24,13 @@ jobs:
         run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=true -o "$env:PUBLISH_DIR"
 
       - name: Compress publish output
-        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-runtime.zip" -Force
+        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-runtime-${{ github.ref_name }}.zip" -Force
 
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: MemeManager-win-x64-runtime-zip
-          path: MemeManager-win-x64-runtime.zip
+          path: MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
 
   # 文件系统发布：依赖系统运行时（Framework-Dependent），压缩为不带后缀的 zip
   publish-zip-fd:
@@ -50,13 +50,13 @@ jobs:
         run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=false -o "$env:PUBLISH_DIR"
 
       - name: Compress publish output
-        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64.zip" -Force
+        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-${{ github.ref_name }}.zip" -Force
 
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: MemeManager-win-x64-zip
-          path: MemeManager-win-x64.zip
+          path: MemeManager-win-x64-${{ github.ref_name }}.zip
 
   # 创建 GitHub Release 并附上两个 zip 产物
   release:
@@ -74,8 +74,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime.zip
-            artifacts/MemeManager-win-x64-zip/MemeManager-win-x64.zip
+            artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-x64-zip/MemeManager-win-x64-${{ github.ref_name }}.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
