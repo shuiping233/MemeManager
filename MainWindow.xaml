@@ -59,14 +59,24 @@
                       CanReorderItems="True"
                       DragItemsCompleted="CategoryList_DragItemsCompleted"
                       DragOver="CategoryList_DragOver"
-                      SelectionChanged="CategoryList_SelectionChanged"
-                      ContextRequested="CategoryList_ContextRequested">
+                      SelectionChanged="CategoryList_SelectionChanged">
+                <ListView.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="新建分类" Click="CategoryNew_Click"/>
+                    </MenuFlyout>
+                </ListView.ContextFlyout>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:CategoryViewModel">
                         <Grid Padding="8,6"
                               AllowDrop="True"
                               DragOver="CategoryListItem_DragOver"
                               Drop="CategoryListItem_Drop">
+                            <Grid.ContextFlyout>
+                                <MenuFlyout Opening="CategoryItemContextFlyout_Opening">
+                                    <MenuFlyoutItem Text="重命名" Click="CategoryRename_Click"/>
+                                    <MenuFlyoutItem Text="删除" Click="CategoryDelete_Click"/>
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -108,8 +118,19 @@
                           CornerRadius="6"
                            PointerEntered="MemeItem_PointerEntered"
                            PointerExited="MemeItem_PointerExited"
-                           Tapped="MemeItem_Tapped"
-                           ContextRequested="MemeItem_ContextRequested">
+                           Tapped="MemeItem_Tapped">
+                        <Grid.ContextFlyout>
+                            <MenuFlyout Opening="MemeItemContextFlyout_Opening">
+                                <MenuFlyoutItem Text="打开" Click="MemeOpen_Click"/>
+                                <MenuFlyoutItem Text="重命名" Click="MemeRename_Click"/>
+                                <MenuFlyoutSubItem Text="移动到其他分类"/>
+                                <MenuFlyoutItem Text="删除" Click="MemeDelete_Click"/>
+                            </MenuFlyout>
+                        </Grid.ContextFlyout>
+                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
+                                Stretch="UniformToFill"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
                                 Stretch="UniformToFill"
                                 HorizontalAlignment="Center"

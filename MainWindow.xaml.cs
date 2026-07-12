@@ -242,37 +242,31 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void CategoryList_ContextRequested(object sender, ContextRequestedEventArgs e)
+    // 当前右键所操作的分类（由 ContextFlyout.Opening 写入，供各 Click 使用）
+    private CategoryViewModel? _contextCategory;
+
+    // 右键分类项：记录当前分类，供 删除/重命名 使用
+    private void CategoryItemContextFlyout_Opening(object? sender, object e)
     {
-        // 找到右键所在的分类项
-        var cat = FindCategoryFromSource(e.OriginalSource);
+        if (sender is MenuFlyout flyout && flyout.Target is FrameworkElement fe)
+            _contextCategory = fe.DataContext as CategoryViewModel;
+        if (_contextCategory != null)
+            Log($"右键分类项: {_contextCategory.Name}");
+    }
 
-        // 空白处右键：仅提供“新建分类”
-        if (cat == null)
-        {
-            var blankFlyout = new MenuFlyout();
-            var newItem = new MenuFlyoutItem { Text = "新建分类" };
-            newItem.Click += async (_, __) => await ShowAddCategoryDialog();
-            blankFlyout.Items.Add(newItem);
-            // 空白区域没有合适的 FrameworkElement 锚点，直接显示
-            blankFlyout.ShowAt((FrameworkElement)sender);
-            return;
-        }
+    private async void CategoryNew_Click(object sender, RoutedEventArgs e)
+        => await ShowAddCategoryDialog();
 
-        Log($"右键分类项: {cat.Name}");
+    private async void CategoryDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextCategory != null)
+            await DeleteCategoryConfirmed(_contextCategory);
+    }
 
-        var flyout = new MenuFlyout();
-        var deleteItem = new MenuFlyoutItem { Text = "删除" };
-        deleteItem.Click += async (_, __) => await DeleteCategoryConfirmed(cat);
-        flyout.Items.Add(deleteItem);
-
-        // 重命名分类：同步重命名物理文件夹
-        var renameItem = new MenuFlyoutItem { Text = "重命名" };
-        renameItem.Click += async (_, __) => await ShowRenameCategoryDialog(cat);
-        flyout.Items.Add(renameItem);
-
-        // 不传坐标，避免边界坐标导致 ShowAt 失败
-        flyout.ShowAt((FrameworkElement)e.OriginalSource);
+    private async void CategoryRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextCategory != null)
+            await ShowRenameCategoryDialog(_contextCategory);
     }
 
     // 重命名分类对话框：同步重命名物理文件夹并刷新分类列表
@@ -349,18 +343,6 @@ public sealed partial class MainWindow : Window
             CategoryList.SelectedItem = _categoryList.FirstOrDefault();
         }
         RefreshMemes();
-    }
-
-    private CategoryViewModel? FindCategoryFromSource(object? source)
-    {
-        var element = source as DependencyObject;
-        while (element != null)
-        {
-            if (element is FrameworkElement fe && fe.DataContext is CategoryViewModel vm)
-                return vm;
-            element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element);
-        }
-        return null;
     }
 
     // 拖拽图片到分类列表：仅接受内部移动，并高亮可放置
@@ -1176,116 +1158,124 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    // ---------- 右键菜单 ----------
+    // ---------- 右键菜单（XAML ContextFlyout 绑定）----------
 
-    private void MemeItem_ContextRequested(object sender, ContextRequestedEventArgs e)
+    // 当前右键所操作的表情（由 ContextFlyout.Opening 写入，供各 Click 使用）
+    private MemeViewModel? _contextMeme;
+
+    // 表情右键菜单打开时：记录当前表情，并动态填充“移动到其他分类”子菜单
+    private void MemeItemContextFlyout_Opening(object? sender, object e)
     {
-        if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel vm)
+        if (sender is not MenuFlyout flyout || flyout.Target is not FrameworkElement fe)
+            return;
+        if (fe.DataContext is not MemeViewModel vm)
+            return;
+
+        _contextMeme = vm;
+        Log("右键单击表情项: " + vm.Title);
+
+        // 动态子菜单：列出除当前分类外的所有分类
+        // 注意：DataTemplate 内的 x:Name 不会提升为页面字段，这里从 flyout 里按类型/文本查找。
+        var moveSub = flyout.Items
+            .OfType<MenuFlyoutSubItem>()
+            .FirstOrDefault(s => s.Text == "移动到其他分类");
+        if (moveSub == null) return;
+
+        moveSub.Items.Clear();
+        bool hasTarget = false;
+        foreach (var cat in _categoryList)
         {
-            Log("右键单击表情项: " + vm.Title);
-            var flyout = new MenuFlyout();
-            var deleteItem = new MenuFlyoutItem { Text = "删除" };
-            deleteItem.Click += async (_, __) =>
-            {
-                var dialog = new ContentDialog
-                {
-                    Title = "删除确认",
-                    Content = $"确定要删除「{vm.Title}」吗？",
-                    PrimaryButtonText = "删除",
-                    CloseButtonText = "取消",
-                    XamlRoot = this.Content.XamlRoot
-                };
-                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                {
-                    await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
-                    var item = _memeList.FirstOrDefault(m => m == vm);
-                    if (item != null) _memeList.Remove(item);
-                    UpdateCategoryCounts();
-                }
-            };
-            flyout.Items.Add(deleteItem);
-
-            var openItem = new MenuFlyoutItem { Text = "打开" };
-            openItem.Click += (_, __) =>
-            {
-                try
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = vm.Model.LocalPath,
-                        UseShellExecute = true
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Log($"[打开图片] 失败: {ex.Message}");
-                }
-            };
-            flyout.Items.Add(openItem);
-
-            // 重命名：仅修改 metadata 里的 title（可在搜索栏查到）
-            var renameItem = new MenuFlyoutItem { Text = "重命名" };
-            renameItem.Click += async (_, __) =>
-            {
-                var input = new TextBox
-                {
-                    Text = vm.Title,
-                    PlaceholderText = "输入新的名称"
-                };
-                var dialog = new ContentDialog
-                {
-                    Title = "重命名",
-                    Content = input,
-                    PrimaryButtonText = "确定",
-                    CloseButtonText = "取消",
-                    XamlRoot = this.Content.XamlRoot,
-                    DefaultButton = ContentDialogButton.Primary
-                };
-                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                {
-                    await App.DataEngine.RenameMemeAsync(vm.Model, input.Text);
-                    Log($"重命名「{vm.Title}」-> 「{input.Text}」");
-                    // 仅更新该项的显示标题，不重建整个列表（避免滚动条重置/容器刷新）。
-                    // RenameMemeAsync 已写入 metadata 与内存缓存，这里只通知 UI 刷新 tooltip。
-                    vm.Title = input.Text;
-                }
-            };
-            flyout.Items.Add(renameItem);
-
-            // 移动到其他分类：子菜单列出所有分类（排除当前所在分类）
-            var moveSub = new MenuFlyoutSubItem { Text = "移动到其他分类" };
-            var currentCat = vm.Category;
-            bool hasTarget = false;
-            foreach (var cat in _categoryList)
-            {
-                if (cat.Name.Equals(currentCat, StringComparison.OrdinalIgnoreCase)) continue;
-                hasTarget = true;
-                var targetName = cat.Name;
-                var moveItem = new MenuFlyoutItem { Text = cat.Name };
-                moveItem.Click += async (_, __) =>
-                {
-                    // 编辑模式且有其他选中项则移动所有选中项，否则只移动当前项
-                    List<MemeViewModel> toMove;
-                    var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
-                    if (_editMode && selected.Count > 0)
-                        toMove = selected;
-                    else
-                        toMove = new List<MemeViewModel> { vm };
-
-                    await App.DataEngine.MoveMemesToCategoryAsync(toMove.Select(m => m.Model), targetName);
-                    Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」");
-                    // 内容减少、顺序不变：精准移除被移走的项，保持滚动条位置
-                    RemoveFromCurrentView(toMove.Select(m => m.Model));
-                    UpdateCategoryCounts();
-                };
-                moveSub.Items.Add(moveItem);
-            }
-            if (hasTarget)
-                flyout.Items.Add(moveSub);
-
-            // ContextRequested 的 target 用 fe 自身（不传坐标），避免边界坐标导致 ShowAt 失败
-            flyout.ShowAt(fe);
+            if (cat.Name.Equals(vm.Category, StringComparison.OrdinalIgnoreCase)) continue;
+            hasTarget = true;
+            var targetName = cat.Name;
+            var moveItem = new MenuFlyoutItem { Text = cat.Name };
+            moveItem.Click += async (_, __) => MoveMemeToCategory(vm, targetName);
+            moveSub.Items.Add(moveItem);
         }
+        moveSub.IsEnabled = hasTarget;
+    }
+
+    private async void MemeDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMeme == null) return;
+        var vm = _contextMeme;
+        var dialog = new ContentDialog
+        {
+            Title = "删除确认",
+            Content = $"确定要删除「{vm.Title}」吗？",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
+            var item = _memeList.FirstOrDefault(m => m == vm);
+            if (item != null) _memeList.Remove(item);
+            UpdateCategoryCounts();
+        }
+    }
+
+    private void MemeOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMeme == null) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = _contextMeme.Model.LocalPath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Log($"[打开图片] 失败: {ex.Message}");
+        }
+    }
+
+    private async void MemeRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMeme == null) return;
+        var vm = _contextMeme;
+        var input = new TextBox
+        {
+            Text = vm.Title,
+            PlaceholderText = "输入新的名称"
+        };
+        var dialog = new ContentDialog
+        {
+            Title = "重命名",
+            Content = input,
+            PrimaryButtonText = "确定",
+            CloseButtonText = "取消",
+            XamlRoot = this.Content.XamlRoot,
+            DefaultButton = ContentDialogButton.Primary
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            await App.DataEngine.RenameMemeAsync(vm.Model, input.Text);
+            Log($"重命名「{vm.Title}」-> 「{input.Text}」");
+            // 仅更新该项的显示标题，不重建整个列表（避免滚动条重置/容器刷新）。
+            // RenameMemeAsync 已写入 metadata 与内存缓存，这里只通知 UI 刷新 tooltip。
+            vm.Title = input.Text;
+        }
+    }
+
+    // 移动表情到其他分类（编辑模式且有选中项则移动所有选中项，否则只移动当前项）
+    private async void MoveMemeToCategory(MemeViewModel vm, string targetName)
+    {
+        List<MemeViewModel> toMove;
+        var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+        if (_editMode && selected.Count > 0)
+            toMove = selected;
+        else
+            toMove = new List<MemeViewModel> { vm };
+
+        await App.DataEngine.MoveMemesToCategoryAsync(toMove.Select(m => m.Model), targetName);
+        Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」");
+        // 内容减少、顺序不变：精准移除被移走的项，保持滚动条位置
+        RemoveFromCurrentView(toMove.Select(m => m.Model));
+        UpdateCategoryCounts();
     }
 
     // ---------- 批量操作 ----------
