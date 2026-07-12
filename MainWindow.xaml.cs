@@ -21,6 +21,7 @@ namespace MemeManager;
 public sealed partial class MainWindow : Window
 {
     private readonly IntPtr _hWnd;
+    private Microsoft.UI.Windowing.AppWindow? _appWindow;
     private bool _isVisible = true;
     private const int HOTKEY_ID = 9001;
     private const uint SUBCLASS_ID = 101;
@@ -75,11 +76,14 @@ public sealed partial class MainWindow : Window
         NativeMethods.DragAcceptFiles(_hWnd, true);
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
-        var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new Windows.Graphics.SizeInt32(950, 750));
+        _appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
 
-        if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
+        RestoreWindowSize();
+
+        if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
+        {
             overlappedPresenter.IsAlwaysOnTop = true;
+        }
 
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
@@ -117,6 +121,55 @@ public sealed partial class MainWindow : Window
         }
 
         LoadCategories();
+    }
+
+    // ---------- 窗口尺寸持久化 ----------
+
+    // 启动还原：读 config.json 中上次保存的宽高；无有效值则用默认。最大化状态不持久化。
+    private void RestoreWindowSize()
+    {
+        if (_appWindow == null) return;
+        var cfg = App.DataEngine.Config;
+
+        int w = (int)Math.Max(400, cfg.WindowWidth);
+        int h = (int)Math.Max(300, cfg.WindowHeight);
+        _appWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
+        Log($"[窗口] 还原尺寸 {w}x{h} (预设={cfg.WindowSizePreset})");
+    }
+
+    // 退出/关闭前保存：记录当前尺寸到 config.json。最大化状态下不记录
+    // （最大化置顶窗口会挡住托盘右键菜单，且还原时尺寸无意义），仅打日志跳过。
+    private void SaveWindowSize()
+    {
+        if (_appWindow == null) return;
+        var cfg = App.DataEngine.Config;
+
+        bool maximized = _appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
+        if (maximized)
+        {
+            Log("[窗口] 当前为最大化，跳过尺寸记录");
+            return;
+        }
+
+        var bounds = _appWindow.Size;
+        cfg.WindowWidth = bounds.Width;
+        cfg.WindowHeight = bounds.Height;
+        cfg.WindowMaximized = false;
+        cfg.WindowSizePreset = ClassifySize(bounds.Width, bounds.Height);
+        Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height} (预设={cfg.WindowSizePreset})");
+
+        _ = App.DataEngine.SaveConfigAsync();
+    }
+
+    // 依据宽高映射到最接近的尺寸预设档位（仅用于日志/调试展示）
+    private static WindowSizePreset ClassifySize(int w, int h)
+    {
+        return (w, h) switch
+        {
+            (<= 800, <= 620) => WindowSizePreset.Small,
+            (>= 1150, >= 880) => WindowSizePreset.Large,
+            _ => WindowSizePreset.Medium
+        };
     }
 
     // ---------- 分类 ----------
@@ -1131,6 +1184,7 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
     public void RequestExit()
     {
+        SaveWindowSize();
         _allowClose = true;
         _isClosing = true;
         this.Close();
