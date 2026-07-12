@@ -39,6 +39,9 @@ public sealed partial class MainWindow : Window
     private string _currentCategory = string.Empty;
     private bool _editMode;
 
+    // 当前置顶状态（会话内有效，启动默认置顶，不持久化到 config）
+    private bool _topMost = true;
+
     // 内部拖拽移动：当前拖拽的 meme 模型列表（非空即表示内部拖拽，区别于外部导入）
     private List<MemeModel>? _draggingMemes;
 
@@ -87,16 +90,15 @@ public sealed partial class MainWindow : Window
         _previewTimer.Tick += PreviewTimer_Tick;
         ApplyPreviewDelayFromConfig();
 
-        // 置顶开关：初始态与配置一致（默认置顶）
-        TopMostToggle.IsChecked = App.DataEngine.Config.TopMost;
+        // 置顶开关：启动默认置顶（会话内可手动关闭，不持久化）
+        TopMostToggle.IsChecked = _topMost;
 
 
         SetTaskbarIcon();
 
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
-        // 默认置顶；若配置关闭则不加 TOPMOST 扩展样式
-        if (App.DataEngine.Config.TopMost)
-            NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
+        // 启动默认置顶：始终加 TOPMOST 扩展样式（用户可在会话内手动关闭）
+        NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
         RegisterConfiguredHotKey();
 
@@ -125,8 +127,8 @@ public sealed partial class MainWindow : Window
 
         if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
         {
-            // 与配置/Win32 TOPMOST 保持一致：由用户“置顶”开关控制，不再无条件强制
-            overlappedPresenter.IsAlwaysOnTop = App.DataEngine.Config.TopMost;
+            // 启动默认置顶
+            overlappedPresenter.IsAlwaysOnTop = true;
         }
 
         CategoryList.ItemsSource = _categoryList;
@@ -1480,24 +1482,24 @@ public sealed partial class MainWindow : Window
     {
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
         // 显示后重新断言置顶，避免长期后台/恢复后 Z 序被插队
-        if (App.DataEngine.Config.TopMost)
+        if (_topMost)
             ApplyTopMost(true);
         _isVisible = true;
         SetMemeViewVisible(true);
     }
 
-    // 置顶开关：用户手动切换窗口置顶状态，并持久化到配置
-    private async void TopMostToggle_Checked(object sender, RoutedEventArgs e)
+    // 置顶开关：用户手动切换窗口置顶状态（仅会话内有效，不持久化到 config）
+    private void TopMostToggle_Checked(object sender, RoutedEventArgs e)
     {
+        _topMost = true;
         ApplyTopMost(true);
-        await App.DataEngine.UpdateConfigAsync(cfg => cfg.TopMost = true);
         Log("[置顶] 已开启置顶");
     }
 
-    private async void TopMostToggle_Unchecked(object sender, RoutedEventArgs e)
+    private void TopMostToggle_Unchecked(object sender, RoutedEventArgs e)
     {
+        _topMost = false;
         ApplyTopMost(false);
-        await App.DataEngine.UpdateConfigAsync(cfg => cfg.TopMost = false);
         Log("[置顶] 已关闭置顶");
     }
 
@@ -1870,7 +1872,7 @@ public sealed partial class MainWindow : Window
             {
                 _isVisible = true;
                 // 还原后重新断言置顶，避免最小化恢复后 TopMost 偶发失效（参考 PowerToys）
-                if (App.DataEngine.Config.TopMost)
+                if (_topMost)
                     ApplyTopMost(true);
             }
             Log($"  _isVisible(after)={_isVisible}");
@@ -1924,7 +1926,7 @@ public sealed partial class MainWindow : Window
     private void WinEventCallback(IntPtr hWinEventHook, uint eventType,
         IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        if (hwnd == _hWnd && idObject == 0 && App.DataEngine.Config.TopMost && !_isClosing)
+        if (hwnd == _hWnd && idObject == 0 && _topMost && !_isClosing)
         {
             ApplyTopMost(true);
         }
@@ -1954,7 +1956,7 @@ public sealed partial class MainWindow : Window
             // 这样用户仍能直接点表情粘贴到原来的应用里
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
             // 显示后重新断言置顶（最小化/恢复或长期后台后 Z 序可能被插队）
-            if (App.DataEngine.Config.TopMost)
+            if (_topMost)
                 ApplyTopMost(true);
             SetMemeViewVisible(true);
             ResumeWindowInteractions();
