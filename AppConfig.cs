@@ -41,6 +41,9 @@ public class AppConfig
 
     // 开机自动启动
     public bool AutoStart { get; set; } = false;
+
+    // 窗口是否置顶（默认置顶）
+    public bool TopMost { get; set; } = true;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）

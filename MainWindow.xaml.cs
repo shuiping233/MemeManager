@@ -29,6 +29,10 @@ public sealed partial class MainWindow : Window
 
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
 
+    // 最小化结束事件钩子：窗口从最小化恢复时重新断言置顶（防止 DWM 抽风掉置顶）
+    private readonly NativeMethods.WinEventProc _winEventProc;
+    private IntPtr _winEventHook;
+
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
     private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
 
@@ -83,16 +87,33 @@ public sealed partial class MainWindow : Window
         _previewTimer.Tick += PreviewTimer_Tick;
         ApplyPreviewDelayFromConfig();
 
+        // 置顶开关：初始态与配置一致（默认置顶）
+        TopMostToggle.IsChecked = App.DataEngine.Config.TopMost;
+
 
         SetTaskbarIcon();
 
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
-        NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
+        // 默认置顶；若配置关闭则不加 TOPMOST 扩展样式
+        if (App.DataEngine.Config.TopMost)
+            NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
         RegisterConfiguredHotKey();
 
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
+
+        // 挂钩 EVENT_SYSTEM_MINIMIZEEND：本进程窗口最小化结束后重新断言置顶，
+        // 弥补 WM_SYSCOMMAND 覆盖不到的真实最小化-恢复路径（参考 PowerToys）。
+        _winEventProc = new NativeMethods.WinEventProc(WinEventCallback);
+        _winEventHook = NativeMethods.SetWinEventHook(
+            NativeMethods.EVENT_SYSTEM_MINIMIZEEND,
+            NativeMethods.EVENT_SYSTEM_MINIMIZEEND,
+            IntPtr.Zero,
+            _winEventProc,
+            NativeMethods.GetCurrentProcessId(),
+            0,
+            NativeMethods.WINEVENT_OUTOFCONTEXT | NativeMethods.WINEVENT_SKIPOWNPROCESS);
 
         // 让窗口在 Win32 层面也能接收拖入的文件（QQ 等来源可能只发文件，不走 XAML DataPackage）
         NativeMethods.DragAcceptFiles(_hWnd, true);
@@ -104,7 +125,8 @@ public sealed partial class MainWindow : Window
 
         if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
         {
-            overlappedPresenter.IsAlwaysOnTop = true;
+            // 与配置/Win32 TOPMOST 保持一致：由用户“置顶”开关控制，不再无条件强制
+            overlappedPresenter.IsAlwaysOnTop = App.DataEngine.Config.TopMost;
         }
 
         CategoryList.ItemsSource = _categoryList;
@@ -1457,8 +1479,26 @@ public sealed partial class MainWindow : Window
     public void ShowWithoutActivate()
     {
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
+        // 显示后重新断言置顶，避免长期后台/恢复后 Z 序被插队
+        if (App.DataEngine.Config.TopMost)
+            ApplyTopMost(true);
         _isVisible = true;
         SetMemeViewVisible(true);
+    }
+
+    // 置顶开关：用户手动切换窗口置顶状态，并持久化到配置
+    private async void TopMostToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        ApplyTopMost(true);
+        await App.DataEngine.UpdateConfigAsync(cfg => cfg.TopMost = true);
+        Log("[置顶] 已开启置顶");
+    }
+
+    private async void TopMostToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        ApplyTopMost(false);
+        await App.DataEngine.UpdateConfigAsync(cfg => cfg.TopMost = false);
+        Log("[置顶] 已关闭置顶");
     }
 
     /// <summary>
@@ -1827,7 +1867,12 @@ public sealed partial class MainWindow : Window
             if (cmd == NativeMethods.SC_MINIMIZE)
                 _isVisible = false;
             else if (cmd == NativeMethods.SC_RESTORE)
+            {
                 _isVisible = true;
+                // 还原后重新断言置顶，避免最小化恢复后 TopMost 偶发失效（参考 PowerToys）
+                if (App.DataEngine.Config.TopMost)
+                    ApplyTopMost(true);
+            }
             Log($"  _isVisible(after)={_isVisible}");
             return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
@@ -1864,6 +1909,27 @@ public sealed partial class MainWindow : Window
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
+    // 切换/断言窗口置顶（参考 PowerToys Always On Top）：
+    // 仅用 SetWindowPos 调整 Z 序，不携带 SWP_SHOWWINDOW，与显示/激活逻辑解耦。
+    private void ApplyTopMost(bool topMost)
+    {
+        NativeMethods.SetWindowPos(
+            _hWnd,
+            topMost ? NativeMethods.HWND_TOPMOST : NativeMethods.HWND_NOTOPMOST,
+            0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
+    }
+
+    // 最小化结束事件回调：仅针对本窗口且配置为置顶时，重新 SetWindowPos 置顶一次
+    private void WinEventCallback(IntPtr hWinEventHook, uint eventType,
+        IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    {
+        if (hwnd == _hWnd && idObject == 0 && App.DataEngine.Config.TopMost && !_isClosing)
+        {
+            ApplyTopMost(true);
+        }
+    }
+
     private void ToggleWindowVisibility()
     {
         // 注意：Windows 中“最小化(iconic)”的窗口 IsWindowVisible 仍为 true，
@@ -1887,6 +1953,9 @@ public sealed partial class MainWindow : Window
             // 用 SHOWNOACTIVATE 显示：窗口置顶但不抢焦点，
             // 这样用户仍能直接点表情粘贴到原来的应用里
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
+            // 显示后重新断言置顶（最小化/恢复或长期后台后 Z 序可能被插队）
+            if (App.DataEngine.Config.TopMost)
+                ApplyTopMost(true);
             SetMemeViewVisible(true);
             ResumeWindowInteractions();
             _isVisible = true;
@@ -1939,6 +2008,12 @@ public sealed partial class MainWindow : Window
     {
         SuspendWindowInteractions(closing: true);
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
+        // 注销最小化结束事件钩子，避免泄漏
+        if (_winEventHook != IntPtr.Zero)
+        {
+            NativeMethods.UnhookWinEvent(_winEventHook);
+            _winEventHook = IntPtr.Zero;
+        }
     }
 
     // ---------- 全局快捷键 ----------
