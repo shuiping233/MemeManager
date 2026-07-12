@@ -826,7 +826,7 @@ public sealed partial class MainWindow : Window
             Log("进入多选模式");
             _editMode = true;
             EditButton.Content = "完成";
-            EditButton.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
+            // 背景/前景的蓝色由 XAML 写死常亮，这里不再处理颜色，仅切换文字与模式
             BatchBar.Visibility = Visibility.Visible;
             // 编辑模式开启内置重排：落点由 WinUI 自己算准
             MemeGridView.CanReorderItems = true;
@@ -1695,7 +1695,6 @@ public sealed partial class MainWindow : Window
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
         _lastShiftAnchor = -1;
         SelectAllButton.Content = "全选";
-        EditButton.Style = null;
     }
 
     // ---------- 粘贴图片进窗口 ----------
