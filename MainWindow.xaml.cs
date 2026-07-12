@@ -648,7 +648,6 @@ public sealed partial class MainWindow : Window
         if (_editMode || !_isVisible || _isClosing) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
 
-        Log($"[预览] PointerEntered: {vm.Title} (IsOpen={PreviewPopup.IsOpen}, FadingOut={_previewFadingOut})");
         _lastPointerPos = e.GetCurrentPoint((UIElement)this.Content).Position;
 
         // 若浮窗已开（且未在淡出），直接切换内容/位置并淡入，无需再等延时
@@ -666,7 +665,6 @@ public sealed partial class MainWindow : Window
 
     private void MemeItem_PointerExited(object sender, PointerRoutedEventArgs e)
     {
-        Log($"[预览] PointerExited (IsOpen={PreviewPopup.IsOpen})");
         _previewTimer.Stop();
         _pendingPreviewVm = null;
         _pendingPreviewAnchor = null;
