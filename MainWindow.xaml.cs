@@ -465,7 +465,6 @@ public sealed partial class MainWindow : Window
         _previewTimer.Stop();
         _pendingPreviewVm = null;
         _pendingPreviewAnchor = null;
-        _hoveredElement = null;
 
         if (!PreviewPopup.IsOpen)
         {
@@ -652,14 +651,6 @@ public sealed partial class MainWindow : Window
     private const int PreviewFadeInMs = 95;
     private const int PreviewFadeOutMs = 0;
 
-    // 当前真正悬停的表情项（用于判断是否需要关闭预览）。
-    // 注意：浮窗可能覆盖在项上方，鼠标进入浮窗时会先触发项的 PointerExited，
-    // 因此不能单凭“离开某项”就关闭，还要看是否落在浮窗内（见 Root_PointerMoved）。
-    private FrameworkElement? _hoveredElement;
-
-    // 浮窗在【窗口坐标(DIP)】中的矩形，用于命中测试。
-    private Windows.Foundation.Rect _previewPopupWindowRect;
-
     // 浮窗是否正在淡出中（淡出动画结束前不真正关闭，便于快速划过时复用）
     private bool _previewFadingOut;
 
@@ -669,7 +660,6 @@ public sealed partial class MainWindow : Window
         if (_editMode || !_isVisible || _isClosing) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
 
-        _hoveredElement = fe;
         // 若浮窗已开（且未在淡出），直接切换内容/位置并淡入，无需再等延时
         if (PreviewPopup.IsOpen && !_previewFadingOut)
         {
@@ -686,42 +676,18 @@ public sealed partial class MainWindow : Window
     private void MemeItem_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _previewTimer.Stop();
-        // 仅清空“当前悬停项”，不直接关闭浮窗——
-        // 浮窗覆盖在项上方时也会触发此项退出，真正关闭由 Root_PointerMoved 统一判断。
-        if (ReferenceEquals(_hoveredElement, sender))
-            _hoveredElement = null;
         _pendingPreviewVm = null;
         _pendingPreviewAnchor = null;
+        // 鼠标离开表情项即关闭预览（移动即取消，不依赖命中测试）
+        HidePreviewPopup();
     }
 
-    // 鼠标在项内移动时更新锚点（用项自身矩形即可，无需实时跟手）
-    private void MemeItem_PointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement fe)
-        {
-            _hoveredElement = fe;
-            _pendingPreviewAnchor = fe;
-        }
-    }
-
-    // 窗口范围内统一判断是否需要关闭预览：
-    // 仅当 浮窗已开 且 鼠标既不在浮窗内 也不在任何表情项内 时，才关闭。
+    // 鼠标在窗口内任何位置移动：预览只是临时提示，鼠标一动即取消
     private void Root_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (!PreviewPopup.IsOpen) return;
-
-        var pt = e.GetCurrentPoint((UIElement)this.Content).Position;
-        bool overPopup = PointInRect(pt, _previewPopupWindowRect, 4);
-        bool overItem = _hoveredElement != null;
-        if (!overPopup && !overItem)
-        {
+        if (PreviewPopup.IsOpen)
             HidePreviewPopup();
-        }
     }
-
-    private static bool PointInRect(Windows.Foundation.Point p, Windows.Foundation.Rect r, double inflate)
-        => p.X >= r.X - inflate && p.Y >= r.Y - inflate
-        && p.X <= r.Right + inflate && p.Y <= r.Bottom + inflate;
 
     private void PreviewTimer_Tick(object? sender, object e)
     {
@@ -757,9 +723,6 @@ public sealed partial class MainWindow : Window
 
             PreviewPopup.HorizontalOffset = x;
             PreviewPopup.VerticalOffset = y;
-
-            // 记录浮窗窗口坐标矩形（用于命中测试）
-            _previewPopupWindowRect = new Windows.Foundation.Rect(x, y, pw, ph);
 
             var (nw, nh) = vm.GetPreviewNaturalSize();
             var (ow, oh) = vm.GetPreviewOutputSize();

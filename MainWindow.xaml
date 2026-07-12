@@ -108,7 +108,6 @@
                           CornerRadius="6"
                            PointerEntered="MemeItem_PointerEntered"
                            PointerExited="MemeItem_PointerExited"
-                           PointerMoved="MemeItem_PointerMoved"
                            Tapped="MemeItem_Tapped"
                            ContextRequested="MemeItem_ContextRequested">
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
