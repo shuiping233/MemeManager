@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace MemeManager.Models;
 
@@ -32,11 +32,11 @@ public class AppConfig
     public double WindowHeight { get; set; } = 750;
     public bool WindowMaximized { get; set; } = false;
 
-    // 悬停预览图最大分辨率（超过则等比压缩）。默认 800x600。
-    public double PreviewMaxWidth { get; set; } = 800;
-    public double PreviewMaxHeight { get; set; } = 600;
+    // 悬停预览图最大分辨率（超过则等比压缩）。
+    public double PreviewMaxWidth { get; set; } = 640;
+    public double PreviewMaxHeight { get; set; } = 480;
 
-    // 悬停预览触发延时（毫秒）。默认 400。
+    // 悬停预览触发延时（毫秒）。
     public int PreviewDelayMs { get; set; } = 400;
 }
 
