@@ -150,7 +150,8 @@
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="8"
-                    Opacity="0">
+                    Opacity="0"
+                    IsHitTestVisible="False">
                 <StackPanel Spacing="6">
                     <TextBlock x:Name="PreviewTitle"
                                FontWeight="SemiBold"
