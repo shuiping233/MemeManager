@@ -477,6 +477,7 @@ public sealed partial class MainWindow : Window
         {
             PreviewPopup.IsOpen = false;
             _previewFadingOut = false;
+            _suppressNextMove = false;
             Log($"[预览] 浮窗已关闭");
             return;
         }
@@ -654,11 +655,20 @@ public sealed partial class MainWindow : Window
     // 浮窗是否正在淡出中（淡出动画结束前不真正关闭，便于快速划过时复用）
     private bool _previewFadingOut;
 
+    // 上次鼠标在窗口内的位置（DIP）。用于过滤“静止时 WinUI 仍产生的 PointerMoved 抖动”，
+    // 只有鼠标真正移动超过阈值才关闭预览（避免鼠标没动却反复开关）。
+    private Windows.Foundation.Point _lastPointerPos;
+    private const double PreviewMoveThreshold = 3;
+    // 浮窗刚打开时紧跟的一次 PointerMoved（同位置抖动）忽略，避免误关
+    private bool _suppressNextMove;
+
     private void MemeItem_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         // 编辑模式或窗口隐藏时不显示预览
         if (_editMode || !_isVisible || _isClosing) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
+
+        _lastPointerPos = e.GetCurrentPoint((UIElement)this.Content).Position;
 
         // 若浮窗已开（且未在淡出），直接切换内容/位置并淡入，无需再等延时
         if (PreviewPopup.IsOpen && !_previewFadingOut)
@@ -682,10 +692,25 @@ public sealed partial class MainWindow : Window
         HidePreviewPopup();
     }
 
-    // 鼠标在窗口内任何位置移动：预览只是临时提示，鼠标一动即取消
+    // 鼠标在窗口内移动：预览只是临时提示，鼠标真正移动（超过阈值）即取消。
+    // 用距离阈值过滤“静止时 WinUI 仍会派发的 PointerMoved 抖动”，避免没动却开关。
     private void Root_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (PreviewPopup.IsOpen)
+        if (!PreviewPopup.IsOpen) return;
+
+        var pt = e.GetCurrentPoint((UIElement)this.Content).Position;
+        double dx = pt.X - _lastPointerPos.X;
+        double dy = pt.Y - _lastPointerPos.Y;
+        _lastPointerPos = pt;
+
+        // 忽略浮窗刚打开后那次同位置抖动
+        if (_suppressNextMove)
+        {
+            _suppressNextMove = false;
+            return;
+        }
+
+        if (dx * dx + dy * dy > PreviewMoveThreshold * PreviewMoveThreshold)
             HidePreviewPopup();
     }
 
@@ -710,6 +735,10 @@ public sealed partial class MainWindow : Window
 
         // 先打开以便 Measure 出内容真实尺寸
         PreviewPopup.IsOpen = true;
+
+        // 标记：忽略浮窗刚打开后紧跟的一次 PointerMoved（同位置抖动），
+        // 该次移动不做关闭判定，避免“鼠标没动却立即关闭”。
+        _suppressNextMove = true;
 
         if (PreviewPopup.Child is FrameworkElement child)
         {
