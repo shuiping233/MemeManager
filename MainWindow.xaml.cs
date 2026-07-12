@@ -438,11 +438,11 @@ public sealed partial class MainWindow : Window
         {
             _fgTimer?.Stop();
             MemeGridView.ItemsSource = null;
-            HidePreviewPopup(true);
+            HidePreviewPopup(true, "SetMemeViewVisible");
         }
     }
 
-    private void HidePreviewPopup(bool immediate = false)
+    private void HidePreviewPopup(bool immediate = false, string reason = "")
     {
         _previewTimer.Stop();
         _pendingPreviewVm = null;
@@ -460,7 +460,7 @@ public sealed partial class MainWindow : Window
             PreviewPopup.IsOpen = false;
             _previewFadingOut = false;
             _suppressNextMove = false;
-            Log($"[预览] 浮窗已关闭");
+            Log($"[预览] 浮窗已关闭 (来源=immediate{reason})");
             return;
         }
 
@@ -486,7 +486,7 @@ public sealed partial class MainWindow : Window
                 {
                     _previewFadingOut = false;
                     PreviewPopup.IsOpen = false;
-                    Log($"[预览] 浮窗已关闭");
+                    Log($"[预览] 浮窗已关闭 (来源=fadeout{reason})");
                 }
             };
             sb.Children.Add(da);
@@ -496,7 +496,7 @@ public sealed partial class MainWindow : Window
         {
             PreviewPopup.IsOpen = false;
             _previewFadingOut = false;
-            Log($"[预览] 浮窗已关闭");
+            Log($"[预览] 浮窗已关闭 (来源=direct{reason})");
         }
     }
 
@@ -650,6 +650,7 @@ public sealed partial class MainWindow : Window
         if (_editMode || !_isVisible || _isClosing) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
 
+        Log($"[预览] PointerEntered: {vm.Title} (IsOpen={PreviewPopup.IsOpen}, FadingOut={_previewFadingOut})");
         _lastPointerPos = e.GetCurrentPoint((UIElement)this.Content).Position;
 
         // 若浮窗已开（且未在淡出），直接切换内容/位置并淡入，无需再等延时
@@ -667,11 +668,12 @@ public sealed partial class MainWindow : Window
 
     private void MemeItem_PointerExited(object sender, PointerRoutedEventArgs e)
     {
+        Log($"[预览] PointerExited (IsOpen={PreviewPopup.IsOpen})");
         _previewTimer.Stop();
         _pendingPreviewVm = null;
         _pendingPreviewAnchor = null;
         // 鼠标离开表情项即关闭预览（移动即取消，不依赖命中测试）
-        HidePreviewPopup();
+        HidePreviewPopup(reason: "PointerExited");
     }
 
     // 鼠标在窗口内移动：预览只是临时提示，鼠标真正移动（超过阈值）即取消。
@@ -689,15 +691,20 @@ public sealed partial class MainWindow : Window
         if (_suppressNextMove)
         {
             _suppressNextMove = false;
+            Log($"[预览] PointerMoved 忽略(打开后抖动) pos=({pt.X:F0},{pt.Y:F0})");
             return;
         }
 
         if (dx * dx + dy * dy > PreviewMoveThreshold * PreviewMoveThreshold)
-            HidePreviewPopup();
+        {
+            Log($"[预览] PointerMoved 关闭 (dx={dx:F1}, dy={dy:F1}) pos=({pt.X:F0},{pt.Y:F0})");
+            HidePreviewPopup(reason: "PointerMoved");
+        }
     }
 
     private void PreviewTimer_Tick(object? sender, object e)
     {
+        Log($"[预览] TimerTick -> Show (pending={_pendingPreviewVm?.Title})");
         _previewTimer.Stop();
         if (_pendingPreviewVm == null || _pendingPreviewAnchor == null) return;
         if (_isClosing || !_isVisible) return;
@@ -837,7 +844,7 @@ public sealed partial class MainWindow : Window
 
     private async void MemeItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
-        HidePreviewPopup();
+        HidePreviewPopup(reason: "Tapped");
 
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel clicked)
         {
