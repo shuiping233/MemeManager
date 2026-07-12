@@ -54,6 +54,18 @@ public sealed partial class MainWindow : Window
     private MemeViewModel? _pendingPreviewVm;
     private FrameworkElement? _pendingPreviewAnchor;
 
+    // 从配置应用悬停预览触发延时（配置缺失时用默认 400ms）
+    public void ApplyPreviewDelayFromConfig()
+    {
+        try
+        {
+            var cfg = App.DataEngine.Config;
+            int ms = cfg?.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400;
+            _previewTimer.Interval = TimeSpan.FromMilliseconds(ms);
+        }
+        catch { }
+    }
+
     // 是否允许真正关闭窗口（仅托盘“退出”时置 true；普通点 X 只隐藏）
     private bool _allowClose;
 
@@ -68,6 +80,7 @@ public sealed partial class MainWindow : Window
         _hWnd = WindowNative.GetWindowHandle(this);
 
         _previewTimer.Tick += PreviewTimer_Tick;
+        ApplyPreviewDelayFromConfig();
 
 
         SetTaskbarIcon();

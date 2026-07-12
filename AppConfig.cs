@@ -31,6 +31,13 @@ public class AppConfig
     public double WindowWidth { get; set; } = 950;
     public double WindowHeight { get; set; } = 750;
     public bool WindowMaximized { get; set; } = false;
+
+    // 悬停预览图最大分辨率（超过则等比压缩）。默认 800x600。
+    public double PreviewMaxWidth { get; set; } = 800;
+    public double PreviewMaxHeight { get; set; } = 600;
+
+    // 悬停预览触发延时（毫秒）。默认 400。
+    public int PreviewDelayMs { get; set; } = 400;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）

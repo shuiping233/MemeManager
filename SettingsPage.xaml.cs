@@ -20,6 +20,11 @@ public sealed partial class SettingsPage : Page
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
 
+        // 预览图设置：缺失时用默认 800x600 / 400ms
+        PreviewMaxWidthBox.Text = (cfg.PreviewMaxWidth > 0 ? cfg.PreviewMaxWidth : 800).ToString();
+        PreviewMaxHeightBox.Text = (cfg.PreviewMaxHeight > 0 ? cfg.PreviewMaxHeight : 600).ToString();
+        PreviewDelayBox.Text = (cfg.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400).ToString();
+
         // 进入设置时记录“之前保存的有效路径”，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
 
@@ -113,6 +118,30 @@ public sealed partial class SettingsPage : Page
         {
             Logger.Log($"[Settings] 开机自启已{(AutoStartToggle.IsOn ? "启用" : "关闭")}");
         }
+    }
+
+    private void PreviewResolution_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        // 解析宽高，无效忽略；合法则即时持久化并刷新主窗口（重建 VM 以应用新预览分辨率）
+        if (!double.TryParse(PreviewMaxWidthBox.Text, out double w) || w <= 0) return;
+        if (!double.TryParse(PreviewMaxHeightBox.Text, out double h) || h <= 0) return;
+
+        _ = App.DataEngine.UpdateConfigAsync(cfg =>
+        {
+            cfg.PreviewMaxWidth = w;
+            cfg.PreviewMaxHeight = h;
+        });
+        App.MainWindow.ReloadData();
+        Logger.Log($"[Settings] 预览图最大分辨率已更新: {w}x{h}");
+    }
+
+    private void PreviewDelay_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!int.TryParse(PreviewDelayBox.Text, out int ms) || ms <= 0) return;
+
+        _ = App.DataEngine.UpdateConfigAsync(cfg => cfg.PreviewDelayMs = ms);
+        App.MainWindow.ApplyPreviewDelayFromConfig();
+        Logger.Log($"[Settings] 预览图触发延时已更新: {ms}ms");
     }
 
     private bool _recording;
