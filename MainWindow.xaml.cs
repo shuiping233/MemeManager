@@ -2096,11 +2096,12 @@ public sealed partial class MainWindow : Window
         if (_isClosing) return;
         Log($"[防护] ResumeWindowInteractions: _isVisible={_isVisible}, _editMode={_editMode}");
 
-        // 恢复 WinUI 拖拽能力（编辑模式才需要重排/拖出）
+        // 恢复 WinUI 拖拽能力：CanDragItems 同时承担“普通模式拖出图片到外部输入框”
+        // 与“编辑模式拖拽重排”，故非编辑模式也要恢复；重排仅编辑模式开启。
         CategoryList.CanReorderItems = true;
+        MemeGridView.CanDragItems = true;
         if (_editMode)
         {
-            MemeGridView.CanDragItems = true;
             MemeGridView.CanReorderItems = true;
         }
         MemeGridView.AllowDrop = true;
