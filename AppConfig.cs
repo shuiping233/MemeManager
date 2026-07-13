@@ -17,29 +17,26 @@ public class AppConfig
 
     public string LastCategory { get; set; } = string.Empty;
 
-    // 全局呼出快捷键：修饰键（MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8）与虚拟键码
-    public uint HotKeyModifiers { get; set; } = 3; // 默认 Ctrl(2) + Alt(1)
+    // 快捷键修饰键：MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     public ushort HotKeyVk { get; set; } = 0xBE;   // 默认 . (OEM_PERIOD)
 
-    // 是否将日志写入数据目录下的 log/debug.log（便于排查问题，注意日志文件大小）
+    // 是否将日志写入数据目录下的 log/debug.log
     public bool SaveLogFile { get; set; } = false;
 
-    // 窗口尺寸持久化：关闭/退出前记录，下次启动还原。
-    // 尺寸预设枚举仅用于日志/调试展示，实际还原用具体宽高数值。
+    // 窗口尺寸持久化（关闭/退出前记录，下次启动还原）
     public WindowSizePreset WindowSizePreset { get; set; } = WindowSizePreset.Default;
 
     public double WindowWidth { get; set; } = 950;
     public double WindowHeight { get; set; } = 750;
     public bool WindowMaximized { get; set; } = false;
 
-    // 悬停预览图最大分辨率（超过则等比压缩）。
+    // 悬停预览图最大分辨率（超过则等比压缩）
     public double PreviewMaxWidth { get; set; } = 640;
     public double PreviewMaxHeight { get; set; } = 480;
 
-    // 悬停预览触发延时（毫秒）。
+    // 悬停预览触发延时（毫秒）
     public int PreviewDelayMs { get; set; } = 400;
 
-    // 开机自动启动
     public bool AutoStart { get; set; } = false;
 }
 

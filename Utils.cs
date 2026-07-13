@@ -6,7 +6,6 @@ namespace MemeManager;
 
 /// <summary>
 /// 与坐标 / 尺寸 / 缩放相关的纯几何计算，集中放在这里，避免散落到 XAML 事件回调里。
-/// 所有方法都是静态的、无副作用的，方便单测与复用。
 /// </summary>
 public static class Utils
 {
@@ -16,8 +15,7 @@ public static class Utils
 
     /// <summary>
     /// 计算把一张 originalW x originalH 的图片塞进 maxW x maxH 框内的目标尺寸。
-    /// 若原图任一边都不超过上限，则返回原尺寸（不放大、不缩放）。
-    /// 否则按等比缩放到「恰好不超出」任一上限。
+    /// 若原图任一边都不超过上限则返回原尺寸，否则按等比缩放到「恰好不超出」任一上限。
     /// </summary>
     public static (double width, double height) FitWithin(
         double originalWidth, double originalHeight, double maxWidth, double maxHeight)
@@ -34,8 +32,7 @@ public static class Utils
 
     /// <summary>
     /// 把预览 Popup 放在锚点矩形(anchor)的指定方向，并保证整体不超出屏幕(workArea)。
-    /// preferredPlacement: 优先方向（上方 / 下方 / 右方 / 左方）。
-    /// 返回 Popup 的 (x, y) 以及实际采用的方向。坐标均为相对屏幕（DIP）。
+    /// 返回 Popup 的 (x, y) 以及实际采用的方向（DIP 坐标）。
     /// </summary>
     public static (double x, double y, Placement actual) PlacePopup(
         Rect anchor,
@@ -44,7 +41,6 @@ public static class Utils
         Rect workArea,
         Placement preferredPlacement)
     {
-        // 各方向候选位置（Popup 左上角）
         double above = anchor.Y - popupHeight - 8;
         double below = anchor.Bottom + 8;
         double left = anchor.X;
@@ -71,10 +67,9 @@ public static class Utils
                 break;
         }
 
-        // 边界翻转：若首选方向放不下，依次尝试其它方向。
+        // 首选方向放不下则依次尝试其它方向
         if (!Fits(x, y, popupWidth, popupHeight, workArea))
         {
-            // 上方放不下就尝试下方，反之亦然
             if (actual == Placement.Above && Fits(overlapX, below, popupWidth, popupHeight, workArea))
             {
                 x = overlapX; y = below; actual = Placement.Below;
@@ -83,7 +78,6 @@ public static class Utils
             {
                 x = overlapX; y = above; actual = Placement.Above;
             }
-            // 左右同理
             else if (actual == Placement.Right && Fits(anchor.X - popupWidth - 8, anchor.Y, popupWidth, popupHeight, workArea))
             {
                 x = anchor.X - popupWidth - 8; y = anchor.Y; actual = Placement.Left;

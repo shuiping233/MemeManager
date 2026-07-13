@@ -15,10 +15,8 @@ public static class Logger
 
     public static void Log(string message)
     {
-        // 1) 始终输出到调试通道
         System.Diagnostics.Debug.WriteLine(message);
 
-        // 2) 若启用“保存日志文件”，追加写入文件
         try
         {
             var cfg = App.DataEngine?.Config;

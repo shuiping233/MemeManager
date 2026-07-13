@@ -69,22 +69,18 @@ public static class PasteService
             System.Threading.Thread.Sleep(20);
         }
 
-        // 1. 构造 4 个按键动作：Ctrl按下 -> V按下 -> V弹起 -> Ctrl弹起
+        // 构造 4 个按键动作：Ctrl按下 -> V按下 -> V弹起 -> Ctrl弹起
         var inputs = new NativeMethods.INPUT[4];
 
-        // Ctrl 按下
         inputs[0].type = NativeMethods.INPUT_KEYBOARD;
         inputs[0].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_CONTROL, dwFlags = 0 };
 
-        // V 按下
         inputs[1].type = NativeMethods.INPUT_KEYBOARD;
         inputs[1].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_V, dwFlags = 0 };
 
-        // V 弹起
         inputs[2].type = NativeMethods.INPUT_KEYBOARD;
         inputs[2].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_V, dwFlags = NativeMethods.KEYEVENTF_KEYUP };
 
-        // Ctrl 弹起
         inputs[3].type = NativeMethods.INPUT_KEYBOARD;
         inputs[3].U.ki = new NativeMethods.KEYBDINPUT { wVk = NativeMethods.VK_CONTROL, dwFlags = NativeMethods.KEYEVENTF_KEYUP };
 

@@ -31,8 +31,7 @@ internal static partial class NativeMethods
     public const int SW_SHOWNOACTIVATE = 4;
     public const int SW_RESTORE = 9;
 
-    // SetWindowPos 相关：仅用于切换置顶（HWND_TOPMOST / HWND_NOTOPMOST），
-    // 不携带 SWP_SHOWWINDOW，避免与显示/激活逻辑耦合（参考 PowerToys Always On Top）。
+    // SetWindowPos 仅用于切换置顶，不携带 SWP_SHOWWINDOW，避免与显示/激活逻辑耦合（参考 PowerToys）
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;
     public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
@@ -64,7 +63,7 @@ internal static partial class NativeMethods
     public static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
         int X, int Y, int cx, int cy, uint uFlags);
 
-    // 窗口事件钩子（用于监听最小化结束，重新断言置顶，参考 PowerToys）
+    // 窗口事件钩子：监听最小化结束，重新断言置顶（参考 PowerToys）
     public const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
     public const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
@@ -147,7 +146,7 @@ internal static partial class NativeMethods
         public ushort wScan;
         public uint dwFlags;
         public uint time;
-        public IntPtr dwExtraInfo; // 8 字节
+        public IntPtr dwExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -166,10 +165,10 @@ internal static partial class NativeMethods
         public uint mouseData;
         public uint dwFlags;
         public uint time;
-        public IntPtr dwExtraInfo; // 8 字节
+        public IntPtr dwExtraInfo;
     }
 
-    // 🎯 核心修复 1：明确指定显式布局与偏移量，完美对应 x64 架构
+    // x64 下 union 含 8 字节指针，需显式对齐到偏移 8（type 后 4 字节 padding）
     [StructLayout(LayoutKind.Explicit)]
     public struct InputUnion
     {

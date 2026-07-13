@@ -23,7 +23,6 @@ public static class StartupManager
     private static string DesiredValue =>
         $"\"{CurrentExePath}\" {LaunchArgs}";
 
-    /// <summary>是否已开启开机自启（键值存在且路径匹配当前 exe）</summary>
     public static bool IsEnabled()
     {
         try
@@ -31,21 +30,14 @@ public static class StartupManager
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
             var raw = key?.GetValue(AppName);
             if (raw is not string value)
-            {
-                Logger.Log($"[Startup] 检查注册表开机自启设置: key={RunKey}\\{AppName} 未找到(string)值, raw={raw}, 当前exe={CurrentExePath} => false");
                 return false;
-            }
-            // 仅比对 exe 路径部分（忽略参数差异），确保移动/重命名后状态正确。
-            // 注意：值形如 "\"C:\Program Files\MemeManager\MemeManager.exe\" --hidden"，
-            // 路径可能含空格，不能简单按空格 Split，否则只取到 "C:\Program"。
-            // 改用：去首尾引号后，截取到 ".exe" 为止（忽略后面的参数）。
+            // 仅比对 exe 路径部分（路径可能含空格，不能按空格 Split），
+            // 去首尾引号后截取到 ".exe" 为止，忽略后面的参数。
             var unquoted = value.Trim().Trim('"');
             int exeIdx = unquoted.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
             var path = exeIdx >= 0 ? unquoted.Substring(0, exeIdx + 4) : unquoted;
-            bool matched = !string.IsNullOrEmpty(path) &&
-                           path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
-            Logger.Log($"[Startup] 检查注册表开机自启设置: key={RunKey}\\{AppName}, 读取value=\"{value}\", 解析path=\"{path}\", 当前exe=\"{CurrentExePath}\", matched={matched} => {matched}");
-            return matched;
+            return !string.IsNullOrEmpty(path) &&
+                   path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -54,19 +46,13 @@ public static class StartupManager
         }
     }
 
-    /// <summary>开启开机自启：写入 Run 键值</summary>
     public static bool Enable()
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            if (key == null)
-            {
-                Logger.Log($"[Startup] 写入注册表开机自启设置失败: 无法打开可写注册表键 {RunKey}");
-                return false;
-            }
+            if (key == null) return false;
             key.SetValue(AppName, DesiredValue, RegistryValueKind.String);
-            Logger.Log($"[Startup] 写入注册表开机自启设置: key={RunKey}\\{AppName}, value=\"{DesiredValue}\", 当前exe=\"{CurrentExePath}\"");
             return true;
         }
         catch (Exception ex)
@@ -76,21 +62,14 @@ public static class StartupManager
         }
     }
 
-    /// <summary>关闭开机自启：删除 Run 键值</summary>
     public static bool Disable()
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            if (key == null)
-            {
-                Logger.Log($"[Startup] Disable 失败: 无法打开可写注册表键 {RunKey}");
-                return false;
-            }
-            var existed = key.GetValue(AppName) != null;
-            if (existed)
+            if (key == null) return false;
+            if (key.GetValue(AppName) != null)
                 key.DeleteValue(AppName, throwOnMissingValue: false);
-            Logger.Log($"[Startup] Disable: key={RunKey}\\{AppName}, 删除前存在={existed}");
             return true;
         }
         catch (Exception ex)

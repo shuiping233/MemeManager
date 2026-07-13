@@ -472,13 +472,11 @@ public sealed partial class MainWindow : Window
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
-    // 仅控制前台窗口轮询定时器的启停（与数据刷新解耦）：
-    // - 窗口可见时才轮询前台窗口，保证粘贴目标正确；
-    // - 窗口隐藏(后台常驻)时停止，零 CPU 后台。
-    // 隐藏时把 ItemsSource 置空，卸载 GridView 视觉树与几百张 BitmapImage 的
-    // GPU 纹理，使后台 GPU 占用归零；但 _memeList 中的 MemeViewModel 集合保留、
-    // 不 Clear/不重建，避免频繁呼出/隐藏反复分配导致内存上涨。
-    // 显示时只把 ItemsSource 重新绑回（复用已有 VM），不调用 RefreshMemes。
+    // 控制前台窗口轮询定时器的启停（与数据刷新解耦）：
+    // - 可见时轮询前台窗口，保证粘贴目标正确；
+    // - 隐藏(后台常驻)时停止，零 CPU 后台。
+    // 隐藏时断开所有图像引用并清空集合，彻底释放 BitmapImage/纹理占用，
+    // 重新显示时由 LoadCategories 重新初始化（接受短暂重载以换取后台低内存）。
     private void SetMemeViewVisible(bool visible)
     {
         if (visible)

@@ -53,10 +53,8 @@ public partial class App : Application
             Directory.CreateDirectory(logDir);
             var crashPath = Path.Combine(logDir, "crash.log");
             var msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [CRASH] {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}";
-            // 追加写入，保留历史崩溃记录
             File.AppendAllText(crashPath, msg);
 
-            // 同时走常规日志（若用户开启了保存日志文件）
             Logger.Log("[CRASH] " + ex);
         }
         catch
@@ -136,7 +134,7 @@ public partial class App : Application
         }
         else
         {
-            // 普通启动：显示窗口但不抢前台焦点，让外部应用(QQ 等)保持前台，
+            // 普通启动：显示但抢前台焦点，让外部应用(QQ 等)保持前台，
             // 以便 _fgTimer 记录其窗口句柄，点击表情能精准投回输入框。
             ((MainWindow)_window).ShowWithoutActivate();
         }

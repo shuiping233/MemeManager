@@ -11,14 +11,11 @@ namespace MemeManager.Data;
 
 public class MemeDataEngine
 {
-    // 根目录：MeMeManagerData
     private string _baseDir;
 
-    // 内存缓存
     private readonly List<MemeModel> _memeCache = new();
 
-    // 🎯 标题反查 Map：title(小写) -> 该 title 对应的文件名列表（哈希文件名）
-    // 便于按标题秒级检索
+    // 标题反查 Map：title(小写) -> 该 title 对应的文件名列表
     private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
 
     // 分类顺序：分类名(小写, 即文件夹名) -> 优先级（值越大越靠前）

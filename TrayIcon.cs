@@ -31,7 +31,6 @@ public sealed class TrayIcon : IDisposable
     {
         _hwnd = ownerHwnd;
 
-        // 子类化主窗口以接收托盘回调消息
         _subclassProc = new NativeMethods.SUBCLASSPROC(WndProc);
         NativeMethods.SetWindowSubclass(_hwnd, _subclassProc, TRAY_ICON_ID, IntPtr.Zero);
 
@@ -55,7 +54,6 @@ public sealed class TrayIcon : IDisposable
         };
 
         NativeMethods.Shell_NotifyIcon(NIM_ADD, ref data);
-        // 设置版本以支持新版行为
         data.uVersion = 4;
         NativeMethods.Shell_NotifyIcon(NIM_SETVERSION, ref data);
     }
@@ -64,18 +62,13 @@ public sealed class TrayIcon : IDisposable
     {
         if (uMsg == WM_TRAYICON)
         {
-            // lParam 低位 = 鼠标消息
             var mouseMsg = (uint)lParam & 0xFFFF;
             if (mouseMsg == NativeMethods.WM_LBUTTONUP)
             {
-                // 左键：直接显示主窗口
-                Log("托盘图标左键点击：显示主窗口");
                 ShowMainWindow?.Invoke(this, EventArgs.Empty);
             }
             else if (mouseMsg == NativeMethods.WM_RBUTTONUP)
             {
-                // 右键：弹出菜单
-                Log($"托盘图标右键点击: mouseMsg=0x{mouseMsg:X4}");
                 ShowContextMenu();
             }
             return IntPtr.Zero;
@@ -99,20 +92,10 @@ public sealed class TrayIcon : IDisposable
         NativeMethods.AppendMenu(hMenu, MF_SEPARATOR, 0, string.Empty);
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_EXIT, "退出");
 
-        // 在光标位置弹出
         NativeMethods.GetCursorPos(out var pt);
         NativeMethods.SetForegroundWindow(_hwnd);
         var cmd = NativeMethods.TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.X, pt.Y, 0, _hwnd, IntPtr.Zero);
         NativeMethods.DestroyMenu(hMenu);
-
-        string cmdName = cmd switch
-        {
-            CMD_SHOW => "显示主窗口",
-            CMD_SETTINGS => "设置",
-            CMD_EXIT => "退出",
-            _ => "无(" + cmd + ")"
-        };
-        Log($"托盘菜单点击: {cmdName} (cmd={cmd})");
 
         switch (cmd)
         {

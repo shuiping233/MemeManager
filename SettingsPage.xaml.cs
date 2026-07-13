@@ -25,7 +25,7 @@ public sealed partial class SettingsPage : Page
         PreviewMaxHeightBox.Text = (cfg.PreviewMaxHeight > 0 ? cfg.PreviewMaxHeight : 600).ToString();
         PreviewDelayBox.Text = (cfg.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400).ToString();
 
-        // 进入设置时记录“之前保存的有效路径”，作为手动输入校验失败时的回退基准
+        // 进入设置时记录已有的有效路径，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
 
         this.KeyDown += SettingsPage_KeyDown;
@@ -100,12 +100,12 @@ public sealed partial class SettingsPage : Page
 
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        // 改动延后到点击“完成”时保存（见 SaveAsync），此处不即时生效
+        // 改动延后到点击“完成”时保存
     }
 
     private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        // 改动延后到点击“完成”时保存（见 SaveAsync），此处不即时生效
+        // 改动延后到点击“完成”时保存
     }
 
     // 仅允许输入非负整数（数字 + 空串），非数字内容直接拒绝
@@ -116,14 +116,14 @@ public sealed partial class SettingsPage : Page
 
     private void PreviewResolution_TextChanged(object sender, TextChangedEventArgs e)
     {
-        // 仅做合法性校验，真正保存延后到点击“完成”（见 SaveAsync）
+        // 仅做合法性校验，真正保存延后到点击“完成”
         if (!double.TryParse(PreviewMaxWidthBox.Text, out double w) || w <= 0) return;
         if (!double.TryParse(PreviewMaxHeightBox.Text, out double h) || h <= 0) return;
     }
 
     private void PreviewDelay_TextChanged(object sender, TextChangedEventArgs e)
     {
-        // 仅做合法性校验，真正保存延后到点击“完成”（见 SaveAsync）
+        // 仅做合法性校验，真正保存延后到点击“完成”
         if (!int.TryParse(PreviewDelayBox.Text, out int ms) || ms <= 0) return;
     }
 
@@ -164,8 +164,8 @@ public sealed partial class SettingsPage : Page
                 Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder}");
                 StoragePathBox.Text = folder;
 
-                // 立即把新路径写入引擎并持久化，不依赖关闭时的 SaveAsync 回读
-                // （Flyout 打开文件选择器会失焦，可能导致设置页实例被换，SaveAsync 读到的是旧实例的默认值）
+                // 立即写入并刷新：Flyout 打开文件选择器会失焦，可能导致设置页实例被换，
+                // 若延后到 SaveAsync 会读到旧实例的默认值
                 await App.DataEngine.UpdateConfigAsync(cfg => cfg.StoragePath = folder);
                 App.MainWindow.ReloadData();
                 Logger.Log($"[Settings] BrowseButton_Click: 已立即保存存放路径并刷新: {folder}");
@@ -217,9 +217,7 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    // 用户手动修改路径文本框时校验：
-    //  - 目录存在 → 立即写入 config 并刷新主窗口
-    //  - 目录不存在 → 弹窗提示并回退到进入设置前的有效路径
+    // 用户手动修改路径文本框时校验：目录存在则记录，不存在则提示并回退到进入设置前的有效路径
     private bool _revertingPath;
     private async void StoragePathBox_TextChanged(object sender, TextChangedEventArgs e)
     {
@@ -231,7 +229,7 @@ public sealed partial class SettingsPage : Page
 
         if (System.IO.Directory.Exists(text))
         {
-            // 有效路径：仅记录，真正保存与刷新延后到点击“完成”（见 SaveAsync）
+            // 有效路径：仅记录，真正保存延后到点击“完成”
             return;
         }
 
@@ -266,7 +264,6 @@ public sealed partial class SettingsPage : Page
 
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
 
-        // 除了“主题”在切换时即时预览外，其余配置统一在此（点击“完成”/Enter）才保存并生效
         double.TryParse(PreviewMaxWidthBox.Text, out double pw);
         double.TryParse(PreviewMaxHeightBox.Text, out double ph);
         int.TryParse(PreviewDelayBox.Text, out int delay);
@@ -280,7 +277,6 @@ public sealed partial class SettingsPage : Page
             pathChanged = true;
         }
 
-        // 记录修改前的预览配置，便于打点对比用户改了什么
         var prev = App.DataEngine.Config;
         double prevW = prev.PreviewMaxWidth, prevH = prev.PreviewMaxHeight;
         int prevDelay = prev.PreviewDelayMs;
@@ -296,24 +292,20 @@ public sealed partial class SettingsPage : Page
             if (pathChanged) cfg.StoragePath = newStoragePath!;
         });
 
-        // 预览图配置变更打点
         if (pw > 0 && ph > 0 && (pw != prevW || ph != prevH))
             Logger.Log($"[Settings] 预览图最大分辨率: {prevW}x{prevH} -> {pw}x{ph}");
         if (delay > 0 && delay != prevDelay)
             Logger.Log($"[Settings] 预览图触发延时: {prevDelay}ms -> {delay}ms");
 
-        // 主题（即时切换已处理，这里再确保一次）
         App.ApplyTheme();
 
         // 预览分辨率 / 存放路径变化：重建主窗口数据以生效
         if ((pw > 0 && ph > 0) || pathChanged)
             App.MainWindow.ReloadData();
 
-        // 触发延时即时生效
         if (delay > 0)
             App.MainWindow.ApplyPreviewDelayFromConfig();
 
-        // 开机自启：写/删注册表
         bool ok = AutoStartToggle.IsOn ? StartupManager.Enable() : StartupManager.Disable();
         if (!ok)
             Logger.Log("[Settings] 设置开机自启失败（注册表写入被拒绝）");
