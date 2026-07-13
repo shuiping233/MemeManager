@@ -475,8 +475,6 @@ public sealed partial class MainWindow : Window
     // 控制前台窗口轮询定时器的启停（与数据刷新解耦）：
     // - 可见时轮询前台窗口，保证粘贴目标正确；
     // - 隐藏(后台常驻)时停止，零 CPU 后台。
-    // 隐藏时断开所有图像引用并清空集合，彻底释放 BitmapImage/纹理占用，
-    // 重新显示时由 LoadCategories 重新初始化（接受短暂重载以换取后台低内存）。
     private void SetMemeViewVisible(bool visible)
     {
         if (visible)
@@ -488,9 +486,9 @@ public sealed partial class MainWindow : Window
         else
         {
             _fgTimer?.Stop();
+            HidePreviewPopup(true, "SetMemeViewVisible");
             GC.Collect();
             GC.WaitForPendingFinalizers();
-            HidePreviewPopup(true, "SetMemeViewVisible");
         }
     }
 
