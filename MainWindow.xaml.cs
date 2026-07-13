@@ -489,6 +489,8 @@ public sealed partial class MainWindow : Window
         {
             _fgTimer?.Stop();
             MemeGridView.ItemsSource = null;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             HidePreviewPopup(true, "SetMemeViewVisible");
         }
     }
@@ -2113,6 +2115,8 @@ public sealed partial class MainWindow : Window
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         SuspendWindowInteractions(closing: true);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
         if (_winEventHook != IntPtr.Zero)
