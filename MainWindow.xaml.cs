@@ -488,7 +488,6 @@ public sealed partial class MainWindow : Window
         else
         {
             _fgTimer?.Stop();
-            MemeGridView.ItemsSource = null;
             GC.Collect();
             GC.WaitForPendingFinalizers();
             HidePreviewPopup(true, "SetMemeViewVisible");
