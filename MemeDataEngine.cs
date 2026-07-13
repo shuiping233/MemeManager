@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using MemeManager.Models;
 
@@ -11,6 +13,16 @@ namespace MemeManager.Data;
 
 public class MemeDataEngine
 {
+    // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        IndentCharacter = ' ',
+        IndentSize = 4,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private string _baseDir;
 
     private readonly List<MemeModel> _memeCache = new();
@@ -83,7 +95,7 @@ public class MemeDataEngine
                 var json = File.ReadAllText(ConfigPath);
                 if (!string.IsNullOrWhiteSpace(json))
                 {
-                    var cfg = JsonSerializer.Deserialize(json, MemeJsonContext.Default.AppConfig);
+                    var cfg = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
                     if (cfg != null) Config = cfg;
                 }
             }
@@ -102,7 +114,7 @@ public class MemeDataEngine
         try
         {
             Directory.CreateDirectory(ConfigDir);
-            var json = JsonSerializer.Serialize(Config, MemeJsonContext.Default.AppConfig);
+            var json = JsonSerializer.Serialize(Config, JsonOptions);
             await File.WriteAllTextAsync(ConfigPath, json);
         }
         catch (Exception ex)
@@ -147,7 +159,7 @@ public class MemeDataEngine
                 try
                 {
                     var json = await File.ReadAllTextAsync(metaPath);
-                    meta = JsonSerializer.Deserialize(json, MemeJsonContext.Default.CategoryMetadata)
+                    meta = JsonSerializer.Deserialize<CategoryMetadata>(json, JsonOptions)
                            ?? new CategoryMetadata();
                 }
                 catch
@@ -259,7 +271,7 @@ public class MemeDataEngine
                 var json = await File.ReadAllTextAsync(CategoryOrderPath);
                 if (!string.IsNullOrWhiteSpace(json))
                 {
-                    var meta = JsonSerializer.Deserialize(json, MemeJsonContext.Default.CategoryOrderMetadata);
+                    var meta = JsonSerializer.Deserialize<CategoryOrderMetadata>(json, JsonOptions);
                     if (meta?.Categories != null)
                         foreach (var kv in meta.Categories)
                             _categoryOrder[kv.Key] = kv.Value.Priority;
@@ -283,7 +295,7 @@ public class MemeDataEngine
                     kv => kv.Key,
                     kv => new CategoryOrderEntry { Priority = kv.Value })
             };
-            var json = JsonSerializer.Serialize(meta, MemeJsonContext.Default.CategoryOrderMetadata);
+            var json = JsonSerializer.Serialize(meta, JsonOptions);
             await File.WriteAllTextAsync(CategoryOrderPath, json);
         }
         catch (Exception ex)
@@ -610,7 +622,7 @@ public class MemeDataEngine
             var metaPath = Path.Combine(dir, ".metadata.json");
             if (!File.Exists(metaPath))
                 File.WriteAllTextAsync(metaPath,
-                    JsonSerializer.Serialize(new CategoryMetadata(), MemeJsonContext.Default.CategoryMetadata))
+                    JsonSerializer.Serialize(new CategoryMetadata(), JsonOptions))
                     .GetAwaiter().GetResult();
         }
         catch (Exception ex)
@@ -667,7 +679,7 @@ public class MemeDataEngine
         try
         {
             var json = await File.ReadAllTextAsync(metaPath);
-            return JsonSerializer.Deserialize(json, MemeJsonContext.Default.CategoryMetadata)
+            return JsonSerializer.Deserialize<CategoryMetadata>(json, JsonOptions)
                    ?? new CategoryMetadata();
         }
         catch
@@ -680,7 +692,7 @@ public class MemeDataEngine
     {
         Directory.CreateDirectory(categoryDir);
         var metaPath = Path.Combine(categoryDir, ".metadata.json");
-        var json = JsonSerializer.Serialize(meta, MemeJsonContext.Default.CategoryMetadata);
+        var json = JsonSerializer.Serialize(meta, JsonOptions);
         await File.WriteAllTextAsync(metaPath, json);
     }
 
