@@ -9,10 +9,20 @@ namespace MemeManager.ViewModels
 {
     public class MemeViewModel : INotifyPropertyChanged
     {
-        public MemeModel Model { get; }
+        // 支持复用：切分类/刷新时复用同一 VM 实例仅替换 Model（见 UpdateModel），
+        // 避免每次重建一批 BitmapImage 导致 WinUI 非托管纹理/解码资源累积泄漏。
+        private MemeModel _model;
+        public MemeModel Model
+        {
+            get => _model;
+            private set => _model = value;
+        }
 
-        public string Hash => Model.Hash;
-        public string LocalPath => Model.LocalPath;
+        public string Hash => _model.Hash;
+        public string LocalPath => _model.LocalPath;
+        public string Category => _model.Category;
+        public string FileName => _model.FileName;
+
         private string _title;
         public string Title
         {
@@ -26,9 +36,10 @@ namespace MemeManager.ViewModels
                 }
             }
         }
-        public string Category => Model.Category;
-        public string FileName => Model.FileName;
 
+        // 缩略图：URI 绑定（文档推荐，可跨多处复用同一解码结果，避免重复解码）。
+        // 复用 VM 时 UpdateModel 会清掉 _imageSource 并通知，Image 重新按新 URI
+        // 解码，旧图引用断开后 URI 图像缓存条目可被 LRU 淘汰，避免累积泄漏。
         private BitmapImage? _imageSource;
         public BitmapImage ImageSource
         {
@@ -42,6 +53,22 @@ namespace MemeManager.ViewModels
                 }
                 return _imageSource ?? new BitmapImage();
             }
+        }
+
+        // 复用 VM 替换底层 Model：重置缓存的缩略图/预览图，并通知所有依赖属性变更，
+        // 使绑定的 Image 重新按新 LocalPath 解码（就地换源，旧纹理被替换释放）。
+        public void UpdateModel(MemeModel model)
+        {
+            _model = model;
+            _title = model.Title;
+            _imageSource = null;
+            _previewSource = null;
+            OnPropertyChanged(nameof(Hash));
+            OnPropertyChanged(nameof(LocalPath));
+            OnPropertyChanged(nameof(Category));
+            OnPropertyChanged(nameof(FileName));
+            OnPropertyChanged(nameof(Title));
+            OnPropertyChanged(nameof(ImageSource));
         }
 
         private BitmapImage? _previewSource;
@@ -122,7 +149,7 @@ namespace MemeManager.ViewModels
 
         public MemeViewModel(MemeModel model)
         {
-            Model = model;
+            _model = model;
             _title = model.Title;
         }
 

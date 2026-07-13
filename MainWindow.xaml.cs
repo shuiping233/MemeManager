@@ -39,6 +39,10 @@ public sealed partial class MainWindow : Window
     private string _currentCategory = string.Empty;
     private bool _editMode;
 
+    // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
+    // 用于 DragItemsCompleted 时把“拖起项”对齐到鼠标落点，而非 WinUI 默认的组尾对齐。
+    private string? _dragAnchorFileName;
+
     // 当前置顶状态（会话内有效，启动默认置顶，不持久化到 config）
     private bool _topMost = true;
 
@@ -232,17 +236,44 @@ public sealed partial class MainWindow : Window
             App.DataEngine.EnsureDefaultCategory();
         }
 
-        _categoryList.Clear();
-        foreach (var cat in App.DataEngine.GetCategories())
+        // 增量更新分类列表（复用已有 CategoryViewModel 与 ListView 容器），
+        // 避免 F5/刷新时整体 Clear+重建分类 ListView 导致容器反复新建、内存累积。
+        var cats = App.DataEngine.GetCategories();
+        var newNames = new HashSet<string>(cats, StringComparer.OrdinalIgnoreCase);
+
+        // 移除已不存在的分类（按名匹配，避免位置错位）
+        for (int i = _categoryList.Count - 1; i >= 0; i--)
+            if (!newNames.Contains(_categoryList[i].Name))
+                _categoryList.RemoveAt(i);
+
+        // 按目标顺序：已有的原地复用（仅更新 Count），新增的在正确位置插入
+        int idx = 0;
+        foreach (var cat in cats)
         {
+            var existingVm = _categoryList.FirstOrDefault(c => c.Name.Equals(cat, StringComparison.OrdinalIgnoreCase));
             int count = App.DataEngine.GetMemes(cat).Count;
-            _categoryList.Add(new CategoryViewModel(cat, count));
+            if (existingVm != null)
+            {
+                // 调整到目标顺序位置（若顺序变了），并刷新计数
+                int existing = _categoryList.IndexOf(existingVm);
+                if (existing != idx)
+                {
+                    _categoryList.RemoveAt(existing);
+                    _categoryList.Insert(idx, existingVm);
+                }
+                existingVm.Count = count;
+            }
+            else
+            {
+                _categoryList.Insert(idx, new CategoryViewModel(cat, count));
+            }
+            idx++;
         }
 
-        // 默认选中上次或第一项
+        // 默认选中上次或第一项（仅在分类变化或尚未选中时设置，避免重复触发 SelectionChanged）
         var last = App.DataEngine.Config.LastCategory;
         var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
-        if (target != null)
+        if (target != null && !target.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
         {
             CategoryList.SelectedItem = target;
             _currentCategory = target.Name;
@@ -597,24 +628,63 @@ public sealed partial class MainWindow : Window
 
     private void RefreshMemes()
     {
-        // 先卸载旧 ItemsSource，让 GridView 旧 Item 容器与已解码的 BitmapImage
-        // 纹理立即释放（不依赖 GC 节奏），再重建 VM 并重新绑回。
-        MemeGridView.ItemsSource = null;
-
-        _memeList.Clear();
+        // 增量更新（复用 VM 与 GridView 容器），而非整体 Clear+重建：
+        // 每次刷新/切分类只更新内容变化的项、按需要增删尾部 VM，
+        // 避免“每次重建一批 BitmapImage”导致 WinUI 非托管纹理/解码资源累积泄漏。
+        // 复用按位置进行——顺序变化也只是就地换源，不会整体销毁容器。
         var keyword = SearchBox.Text?.Trim();
         var memes = App.DataEngine.GetMemes(
             string.IsNullOrWhiteSpace(_currentCategory) ? null : _currentCategory,
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
-        foreach (var m in memes)
+        int newCount = memes.Count;
+        int oldCount = _memeList.Count;
+        int updated = 0;
+        int added = 0;
+        int removed = 0;
+
+        if (oldCount == 0)
         {
-            _memeList.Add(new MemeViewModel(m));
+            // 首次加载或集合为空：直接全量添加（尚无容器可复用）。
+            foreach (var m in memes)
+                _memeList.Add(new MemeViewModel(m));
+            added = newCount;
+        }
+        else
+        {
+            int common = Math.Min(oldCount, newCount);
+            // 复用已有 VM：仅当同一位置的文件名不同才替换 Model（触发换源），
+            // 相同则跳过——F5 同内容刷新时几乎零开销、不重建任何纹理。
+            for (int i = 0; i < common; i++)
+            {
+                if (!_memeList[i].FileName.Equals(memes[i].FileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _memeList[i].UpdateModel(memes[i]);
+                    updated++;
+                }
+            }
+
+            if (newCount > oldCount)
+            {
+                for (int i = oldCount; i < newCount; i++)
+                {
+                    _memeList.Add(new MemeViewModel(memes[i]));
+                    added++;
+                }
+            }
+            else if (newCount < oldCount)
+            {
+                for (int i = oldCount - 1; i >= newCount; i--)
+                {
+                    _memeList.RemoveAt(i);
+                    removed++;
+                }
+            }
         }
 
-        MemeGridView.ItemsSource = _memeList;
-
         UpdateCategoryCounts();
+
+        Log($"[诊断] RefreshMemes VM数={_memeList.Count} 新项数={newCount} updated={updated} added={added} removed={removed}");
     }
 
     // 新导入的表情包优先级最高(DateAdded 最新)，按现有排序规则(Priority 降序、
@@ -946,7 +1016,9 @@ public sealed partial class MainWindow : Window
             group = draggedVms;
 
         _draggingMemes = group.Select(m => m.Model).ToList();
-        Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title})");
+        // 锚点 = 实际拖起的那一张（e.Items[0]），用于重排时让它对齐鼠标落点。
+        _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
+        Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
 
         // 设文件以便拖到外部时复制
         try
@@ -976,16 +1048,50 @@ public sealed partial class MainWindow : Window
             // 记录整组被拖项（多选拖拽时是整组），重排后据此恢复多选状态
             var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
 
-            // WinUI 内置重排在 DropResult==Move 时已移动 ItemsSource(_memeList)。
-            var currentOrder = _memeList.Select(m => m.FileName).ToList();
-            Log($"DragItemsCompleted: DropResult={e.DropResult}, 当前_memeList顺序=[{string.Join(",", currentOrder)}]");
+            // WinUI 内置重排已移动 _memeList，但其锚定在“组尾”。改为以“拖起的那一张”
+            // （_dragAnchorFileName）对齐鼠标落点：把整组平移到锚点项落在落点处。
+            var groupNames = new HashSet<string>(
+                draggedGroup.Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
+            int anchorIdx = _dragAnchorFileName != null
+                ? (_memeList
+                    .Select((m, i) => new { m, i })
+                    .FirstOrDefault(x => x.m.FileName.Equals(_dragAnchorFileName, StringComparison.OrdinalIgnoreCase))?.i ?? -1)
+                : -1;
 
-            var itemsOrder = new List<string>();
-            for (int i = 0; i < MemeGridView.Items.Count; i++)
-                if (MemeGridView.Items[i] is MemeViewModel vm) itemsOrder.Add(vm.FileName);
-            Log($"DragItemsCompleted: GridView.Items顺序=[{string.Join(",", itemsOrder)}]");
+            List<string> orderedFileNames = _memeList.Select(m => m.FileName).ToList();
 
-            var ordered = itemsOrder.Count == currentOrder.Count && itemsOrder.Count > 0 ? itemsOrder : currentOrder;
+            if (anchorIdx >= 0 && draggedGroup.Count > 0)
+            {
+                // 落点插入位置 = 锚点项之前、且不属于被拖组的元素个数
+                int insertAt = 0;
+                for (int i = 0; i < anchorIdx; i++)
+                    if (!groupNames.Contains(_memeList[i].FileName)) insertAt++;
+
+                var others = _memeList.Where(m => !groupNames.Contains(m.FileName)).ToList();
+                var groupVms = draggedGroup
+                    .Select(n => _memeList.FirstOrDefault(m => m.FileName.Equals(n.FileName, StringComparison.OrdinalIgnoreCase)))
+                    .OfType<MemeViewModel>()
+                    .ToList();
+
+                var newOrder = new List<MemeViewModel>();
+                newOrder.AddRange(others.Take(insertAt));
+                newOrder.AddRange(groupVms);
+                newOrder.AddRange(others.Skip(insertAt));
+
+                // 就地替换元素（保持长度一致，避免容器重建/滚动跳动）。
+                // 元素引用本身未变（组与 others 都来自 _memeList），仅顺序调整。
+                for (int i = 0; i < newOrder.Count && i < _memeList.Count; i++)
+                    _memeList[i] = newOrder[i];
+
+                orderedFileNames = newOrder.Select(m => m.FileName).ToList();
+                Log($"DragItemsCompleted: 锚点重排后顺序=[{string.Join(",", orderedFileNames)}]");
+            }
+            else
+            {
+                Log($"DragItemsCompleted: DropResult={e.DropResult}, 顺序=[{string.Join(",", orderedFileNames)}]");
+            }
+
+            var ordered = orderedFileNames;
 
             try
             {
@@ -996,7 +1102,7 @@ public sealed partial class MainWindow : Window
             {
                 Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
             }
-            // 场景A：仅顺序变、内容不变。WinUI 已排好 _memeList，不重建集合以保持滚动条位置。
+            // 场景A：仅顺序变、内容不变。已就地调整 _memeList，不重建集合以保持滚动条位置。
 
             // 重排时 WinUI 会把选中重置为仅被拖动的那一张，导致多选变单选；
             // 这里按拖拽开始时记录的整组(_draggingMemes/draggedGroup)恢复多选高亮。
@@ -1021,6 +1127,7 @@ public sealed partial class MainWindow : Window
         }
 
         _draggingMemes = null;
+        _dragAnchorFileName = null;
     }
 
     private async void MemeGridView_Drop(object sender, DragEventArgs e)
@@ -1053,9 +1160,9 @@ public sealed partial class MainWindow : Window
                     RefreshMemes();
                     UpdateCategoryCounts();
                 }
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+                return;
             }
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-            return;
         }
 
         // 列出所有可用的数据格式，便于排查 QQ 等特殊来源
@@ -1418,8 +1525,7 @@ public sealed partial class MainWindow : Window
     {
         Log("刷新：重新读取数据目录");
         await App.DataEngine.InitializeAsync();
-        LoadCategories();
-        RefreshMemes();
+        LoadCategories(); // 内部末尾已调用 RefreshMemes，无需再调一次
     }
 
     /// <summary>托盘菜单“设置”：先呼出窗口，再弹设置页</summary>
