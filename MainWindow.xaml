@@ -135,10 +135,6 @@
                                 Stretch="UniformToFill"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"/>
-                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
-                                Stretch="UniformToFill"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>
