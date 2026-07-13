@@ -1041,86 +1041,83 @@ public sealed partial class MainWindow : Window
         Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, _editMode={_editMode}, DropResult={e.DropResult}");
         if (_draggingMemes == null) return;
 
-        if (_editMode)
+        // 记录整组被拖项（编辑模式多选拖拽时是整组），重排后据此恢复多选状态
+        var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
+
+        // WinUI 内置重排已移动 _memeList，但其锚定在“组尾”。改为以“拖起的那一张”
+        // （_dragAnchorFileName）对齐鼠标落点：把整组平移到锚点项落在落点处。
+        var groupNames = new HashSet<string>(
+            draggedGroup.Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
+        int anchorIdx = _dragAnchorFileName != null
+            ? (_memeList
+                .Select((m, i) => new { m, i })
+                .FirstOrDefault(x => x.m.FileName.Equals(_dragAnchorFileName, StringComparison.OrdinalIgnoreCase))?.i ?? -1)
+            : -1;
+
+        List<string> orderedFileNames = _memeList.Select(m => m.FileName).ToList();
+
+        if (anchorIdx >= 0 && draggedGroup.Count > 0)
         {
-            // 记录整组被拖项（多选拖拽时是整组），重排后据此恢复多选状态
-            var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
+            // 落点插入位置 = 锚点项之前、且不属于被拖组的元素个数
+            int insertAt = 0;
+            for (int i = 0; i < anchorIdx; i++)
+                if (!groupNames.Contains(_memeList[i].FileName)) insertAt++;
 
-            // WinUI 内置重排已移动 _memeList，但其锚定在“组尾”。改为以“拖起的那一张”
-            // （_dragAnchorFileName）对齐鼠标落点：把整组平移到锚点项落在落点处。
-            var groupNames = new HashSet<string>(
-                draggedGroup.Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
-            int anchorIdx = _dragAnchorFileName != null
-                ? (_memeList
-                    .Select((m, i) => new { m, i })
-                    .FirstOrDefault(x => x.m.FileName.Equals(_dragAnchorFileName, StringComparison.OrdinalIgnoreCase))?.i ?? -1)
-                : -1;
+            var others = _memeList.Where(m => !groupNames.Contains(m.FileName)).ToList();
+            var groupVms = draggedGroup
+                .Select(n => _memeList.FirstOrDefault(m => m.FileName.Equals(n.FileName, StringComparison.OrdinalIgnoreCase)))
+                .OfType<MemeViewModel>()
+                .ToList();
 
-            List<string> orderedFileNames = _memeList.Select(m => m.FileName).ToList();
+            var newOrder = new List<MemeViewModel>();
+            newOrder.AddRange(others.Take(insertAt));
+            newOrder.AddRange(groupVms);
+            newOrder.AddRange(others.Skip(insertAt));
 
-            if (anchorIdx >= 0 && draggedGroup.Count > 0)
-            {
-                // 落点插入位置 = 锚点项之前、且不属于被拖组的元素个数
-                int insertAt = 0;
-                for (int i = 0; i < anchorIdx; i++)
-                    if (!groupNames.Contains(_memeList[i].FileName)) insertAt++;
+            // 就地替换元素（保持长度一致，避免容器重建/滚动跳动）。
+            // 元素引用本身未变（组与 others 都来自 _memeList），仅顺序调整。
+            for (int i = 0; i < newOrder.Count && i < _memeList.Count; i++)
+                _memeList[i] = newOrder[i];
 
-                var others = _memeList.Where(m => !groupNames.Contains(m.FileName)).ToList();
-                var groupVms = draggedGroup
-                    .Select(n => _memeList.FirstOrDefault(m => m.FileName.Equals(n.FileName, StringComparison.OrdinalIgnoreCase)))
-                    .OfType<MemeViewModel>()
-                    .ToList();
+            orderedFileNames = newOrder.Select(m => m.FileName).ToList();
+            Log($"DragItemsCompleted: 锚点重排后顺序=[{string.Join(",", orderedFileNames)}]");
+        }
+        else
+        {
+            Log($"DragItemsCompleted: DropResult={e.DropResult}, 顺序=[{string.Join(",", orderedFileNames)}]");
+        }
 
-                var newOrder = new List<MemeViewModel>();
-                newOrder.AddRange(others.Take(insertAt));
-                newOrder.AddRange(groupVms);
-                newOrder.AddRange(others.Skip(insertAt));
+        var ordered = orderedFileNames;
 
-                // 就地替换元素（保持长度一致，避免容器重建/滚动跳动）。
-                // 元素引用本身未变（组与 others 都来自 _memeList），仅顺序调整。
-                for (int i = 0; i < newOrder.Count && i < _memeList.Count; i++)
-                    _memeList[i] = newOrder[i];
+        try
+        {
+            await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
+            Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+        }
+        catch (Exception ex)
+        {
+            Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
+        }
+        // 场景A：仅顺序变、内容不变。已就地调整 _memeList，不重建集合以保持滚动条位置。
 
-                orderedFileNames = newOrder.Select(m => m.FileName).ToList();
-                Log($"DragItemsCompleted: 锚点重排后顺序=[{string.Join(",", orderedFileNames)}]");
-            }
-            else
-            {
-                Log($"DragItemsCompleted: DropResult={e.DropResult}, 顺序=[{string.Join(",", orderedFileNames)}]");
-            }
-
-            var ordered = orderedFileNames;
-
+        // 编辑模式下：重排时 WinUI 会把选中重置为仅被拖动的那一张，导致多选变单选；
+        // 这里按拖拽开始时记录的整组(_draggingMemes/draggedGroup)恢复多选高亮。
+        if (_editMode && draggedGroup.Count > 0 && !_isClosing)
+        {
             try
             {
-                await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
-                Log($"DragItemsCompleted: 编辑模式重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+                var vms = draggedGroup
+                    .Select(m => _memeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
+                    .Where(v => v != null)
+                    .ToList()!;
+                MemeGridView.SelectedItems.Clear();
+                foreach (var vm in vms)
+                    MemeGridView.SelectedItems.Add(vm);
+                UpdateBatchButtons();
             }
             catch (Exception ex)
             {
-                Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
-            }
-            // 场景A：仅顺序变、内容不变。已就地调整 _memeList，不重建集合以保持滚动条位置。
-
-            // 重排时 WinUI 会把选中重置为仅被拖动的那一张，导致多选变单选；
-            // 这里按拖拽开始时记录的整组(_draggingMemes/draggedGroup)恢复多选高亮。
-            if (draggedGroup.Count > 0 && !_isClosing)
-            {
-                try
-                {
-                    var vms = draggedGroup
-                        .Select(m => _memeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
-                        .Where(v => v != null)
-                        .ToList()!;
-                    MemeGridView.SelectedItems.Clear();
-                    foreach (var vm in vms)
-                        MemeGridView.SelectedItems.Add(vm);
-                    UpdateBatchButtons();
-                }
-                catch (Exception ex)
-                {
-                    Log($"[拖拽] 恢复多选选中失败: {ex}");
-                }
+                Log($"[拖拽] 恢复多选选中失败: {ex}");
             }
         }
 
@@ -1529,31 +1526,53 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘菜单“设置”：先呼出窗口，再弹设置页</summary>
     public void OpenSettings()
     {
-        RestoreAndShow();
+        ShowMainWindow(activate: true);
         SettingsButton_Click(this, new RoutedEventArgs());
     }
 
     /// <summary>托盘菜单“显示主窗口”：显示并激活窗口（兼容最小化状态）</summary>
     public void ShowAndActivate()
     {
-        RestoreAndShow();
-        NativeMethods.SetForegroundWindow(_hWnd);
+        ShowMainWindow(activate: true);
     }
 
     /// <summary>
-    /// 把窗口从最小化/隐藏状态恢复到可见前台。
-    /// 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）。
+    /// 统一“显示主窗口”入口：所有呼出窗口的路径都必须走这里，
+    /// 以保证隐藏时停用的拖拽/交互能力被一并恢复（避免从托盘呼出后无法拖拽）。
+    /// activate=true 时抢前台焦点（托盘/设置呼出），false 时不抢焦点（快捷键/普通启动，
+    /// 保留外部输入框为前台，便于点表情精准投回）。
     /// </summary>
-    private void RestoreAndShow()
+    public void ShowMainWindow(bool activate)
     {
+        // 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）
         if (NativeMethods.IsIconic(_hWnd))
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_RESTORE);
-        else
+        else if (activate)
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOW);
+        else
+            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
 
-        NativeMethods.SetForegroundWindow(_hWnd);
+        if (activate)
+            NativeMethods.SetForegroundWindow(_hWnd);
+        // 显示后重新断言置顶，避免最小化/恢复或长期后台后 Z 序被插队
+        if (_topMost)
+            ApplyTopMost(true);
+
         _isVisible = true;
         SetMemeViewVisible(true);
+        ResumeWindowInteractions();
+    }
+
+    /// <summary>
+    /// 统一“隐藏主窗口”入口：所有隐藏窗口的路径都必须走这里，
+    /// 以保证拖拽/剪贴板/轮询等回调在隐藏期间被停用，避免触发 native AV。
+    /// </summary>
+    private void HideMainWindow()
+    {
+        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
+        _isVisible = false;
+        SetMemeViewVisible(false);
+        SuspendWindowInteractions(closing: false);
     }
 
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
@@ -1571,9 +1590,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void StartHidden()
     {
-        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
-        _isVisible = false;
-        SetMemeViewVisible(false);
+        HideMainWindow();
     }
 
     /// <summary>
@@ -1584,12 +1601,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void ShowWithoutActivate()
     {
-        NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
-        // 显示后重新断言置顶，避免长期后台/恢复后 Z 序被插队
-        if (_topMost)
-            ApplyTopMost(true);
-        _isVisible = true;
-        SetMemeViewVisible(true);
+        ShowMainWindow(activate: false);
     }
 
     // 置顶开关：用户手动切换窗口置顶状态（仅会话内有效，不持久化到 config）
@@ -1835,8 +1847,7 @@ public sealed partial class MainWindow : Window
         _editMode = false;
         EditButton.Content = "修改";
         BatchBar.Visibility = Visibility.Collapsed;
-        // 退出编辑模式：关闭内置重排与原生多选
-        MemeGridView.CanReorderItems = false;
+        // 退出编辑模式：仅关闭原生多选；拖拽重排保持开启（普通模式也允许排序）
         MemeGridView.SelectedItems.Clear();
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
         _lastShiftAnchor = -1;
@@ -1996,10 +2007,7 @@ public sealed partial class MainWindow : Window
             if (!_allowClose)
             {
                 Log("WM_CLOSE: 仅隐藏窗口（后台保留）");
-                NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
-                _isVisible = false;
-                SetMemeViewVisible(false);
-                SuspendWindowInteractions(closing: false);
+                HideMainWindow();
                 return IntPtr.Zero;
             }
             // _allowClose=true（托盘退出）时放行，交给默认处理真正关闭
@@ -2047,24 +2055,13 @@ public sealed partial class MainWindow : Window
 
         if (visible)
         {
-            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
-            _isVisible = false;
-            SetMemeViewVisible(false);
-            // 隐藏后即停用拖拽/剪贴板/轮询，避免隐藏期间这些回调触发 XAML 操作
-            SuspendWindowInteractions(closing: false);
+            HideMainWindow();
             Log("  执行 SW_HIDE");
         }
         else
         {
-            // 用 SHOWNOACTIVATE 显示：窗口置顶但不抢焦点，
-            // 这样用户仍能直接点表情粘贴到原来的应用里
-            NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_SHOWNOACTIVATE);
-            // 显示后重新断言置顶（最小化/恢复或长期后台后 Z 序可能被插队）
-            if (_topMost)
-                ApplyTopMost(true);
-            SetMemeViewVisible(true);
-            ResumeWindowInteractions();
-            _isVisible = true;
+            // 快捷键呼出：不抢前台焦点，保留外部输入框为前台，便于点表情精准投回
+            ShowMainWindow(activate: false);
             Log("  执行 SW_SHOWNOACTIVATE");
         }
     }
@@ -2096,14 +2093,11 @@ public sealed partial class MainWindow : Window
         if (_isClosing) return;
         Log($"[防护] ResumeWindowInteractions: _isVisible={_isVisible}, _editMode={_editMode}");
 
-        // 恢复 WinUI 拖拽能力：CanDragItems 同时承担“普通模式拖出图片到外部输入框”
-        // 与“编辑模式拖拽重排”，故非编辑模式也要恢复；重排仅编辑模式开启。
+        // 恢复 WinUI 拖拽能力：拖出(CanDragItems)与拖拽重排(CanReorderItems)在
+        // 普通模式和编辑模式都需要（普通模式也能在窗口内拖动排序并落库）。
         CategoryList.CanReorderItems = true;
         MemeGridView.CanDragItems = true;
-        if (_editMode)
-        {
-            MemeGridView.CanReorderItems = true;
-        }
+        MemeGridView.CanReorderItems = true;
         MemeGridView.AllowDrop = true;
         CategoryList.CanDragItems = true;
         CategoryList.AllowDrop = true;
