@@ -684,6 +684,13 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateCategoryCounts();
+
+        // 编辑模式下列表重建(如搜索/刷新)后，重新显示复选框并把原生选中态镜像回新 VM
+        if (_editMode)
+        {
+            SetSelectionBoxVisible(true);
+            SyncSelectionToViewModels();
+        }
     }
 
     // 新导入的表情包优先级最高(DateAdded 最新)，按现有排序规则(Priority 降序、
@@ -927,6 +934,8 @@ public sealed partial class MainWindow : Window
             MemeGridView.CanReorderItems = true;
             // 多选拖拽重排需要 GridView 原生选中(SelectedItems)，否则 WinUI 只重排被按下的单个项
             MemeGridView.SelectionMode = ListViewSelectionMode.Extended;
+            // 显示每个 item 右上角的复选框指示器
+            SetSelectionBoxVisible(true);
         }
     }
 
@@ -981,10 +990,35 @@ public sealed partial class MainWindow : Window
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
     }
 
-    // GridView 原生选中变化 → 更新批量操作按钮可用状态
+    // 容器(项)为数据生成时：若处于编辑模式，立即把复选框设为可见，
+    // 解决虚拟化下滚动后新出现的 item 默认 Collapsed 的问题。
+    private void MemeGridView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (_editMode && args.Phase == 0 && args.ItemContainer != null)
+        {
+            var box = FindCheckBox(args.ItemContainer);
+            if (box != null)
+                box.Visibility = Visibility.Visible;
+        }
+    }
+
+    // GridView 原生选中变化 → 更新批量操作按钮可用状态，并镜像到 VM(驱动右上角复选框)
     private void MemeGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        SyncSelectionToViewModels();
         UpdateBatchButtons();
+    }
+
+    // 把 GridView 原生选中态单向镜像到各 MemeViewModel.IsSelected，
+    // 供 ItemTemplate 里的 CheckBox 显示勾选(纯指示，不反向写回)。
+    // 先整体清一遍再按 SelectedItems 置位，覆盖“反选/全清”等场景。
+    private void SyncSelectionToViewModels()
+    {
+        if (_isClosing) return;
+        var selected = new HashSet<MemeViewModel>(
+            MemeGridView.SelectedItems.Cast<MemeViewModel>());
+        foreach (var vm in _memeList)
+            vm.IsSelected = selected.Contains(vm);
     }
 
     // ---------- 拖拽：拖入导入 / 拖出到外部输入框 ----------
@@ -1865,6 +1899,46 @@ public sealed partial class MainWindow : Window
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
         _lastShiftAnchor = -1;
         SelectAllButton.Content = "全选";
+        // 隐藏并清空复选框指示器
+        SetSelectionBoxVisible(false);
+        foreach (var vm in _memeList) vm.IsSelected = false;
+    }
+
+    // 编辑模式进出时，统一切换所有 item 容器内复选框的可见性。
+    // 复选框本身 IsHitTestVisible=False，仅作选中指示，不拦截 Tapped/拖拽。
+    // 由于 GridView 虚拟化，容器可能尚未实现，故在下一帧(Dispatcher)再遍历，
+    // 并通过可视化树查找 CheckBox（DataTemplate 内 x:Name 不会提升为页面字段）。
+    private void SetSelectionBoxVisible(bool visible)
+    {
+        if (_isClosing) return;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isClosing) return;
+            foreach (var item in MemeGridView.Items)
+            {
+                if (MemeGridView.ContainerFromItem(item) is GridViewItem container)
+                {
+                    var box = FindCheckBox(container);
+                    if (box != null)
+                        box.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                }
+            }
+        });
+    }
+
+    // 在容器可视化树中查找复选框（模板根 Grid 内的 SelectionCheckBox）
+    private static CheckBox? FindCheckBox(DependencyObject parent)
+    {
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is CheckBox cb && cb.Name == "SelectionCheckBox")
+                return cb;
+            var found = FindCheckBox(child);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     // ---------- 粘贴图片进窗口 ----------

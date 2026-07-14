@@ -109,7 +109,8 @@
                    DragItemsCompleted="MemeGridView_DragItemsCompleted"
                    DragOver="MemeGridView_DragOver"
                    Drop="MemeGridView_Drop"
-                   SelectionChanged="MemeGridView_SelectionChanged">
+                   SelectionChanged="MemeGridView_SelectionChanged"
+                   ContainerContentChanging="MemeGridView_ContainerContentChanging">
             <GridView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="-1"/>
@@ -135,6 +136,16 @@
                                 Stretch="UniformToFill"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"/>
+                        <!-- 多选模式指示：右上角 WinUI 风格复选框，纯显示(不响应点击) -->
+                        <CheckBox x:Name="SelectionCheckBox"
+                                  IsChecked="{x:Bind IsSelected, Mode=OneWay}"
+                                  IsHitTestVisible="False"
+                                  Visibility="Collapsed"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Top"
+                                  Margin="0,-4,2,0"
+                                  MinWidth="0"
+                                  Padding="0"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>

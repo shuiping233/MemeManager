@@ -157,6 +157,23 @@ namespace MemeManager.ViewModels
             _title = model.Title;
         }
 
+        // 多选模式(Extended)下的选中镜像：仅作视觉指示（右上角复选框），
+        // 单向由 GridView.SelectedItems 同步而来，不反向写回控件选中逻辑，
+        // 避免与 WinUI 原生 shift 多选/反选冲突（见 MemeItem_Tapped 注释）。
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    OnPropertyChanged(nameof(IsSelected));
+                }
+            }
+        }
+
         // 标记位：显式清除后，getter 必须返回 null 而不重建 BitmapImage。
         // 否则 ClearImages 触发 PropertyChanged 会让绑定重新求值 getter，
         // getter 里又会 new 出一个全新的 BitmapImage（旧纹理未释放、新的又来），
