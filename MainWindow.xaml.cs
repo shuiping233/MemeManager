@@ -1472,14 +1472,14 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘菜单“设置”：先呼出窗口，再弹设置页</summary>
     public void OpenSettings()
     {
-        ShowMainWindow(activate: true);
+        ShowWindow(activate: true);
         SettingsButton_Click(this, new RoutedEventArgs());
     }
 
     /// <summary>托盘菜单“显示主窗口”：显示并激活窗口（兼容最小化状态）</summary>
     public void ShowAndActivate()
     {
-        ShowMainWindow(activate: true);
+        ShowWindow(activate: true);
     }
 
     /// <summary>
@@ -1487,9 +1487,19 @@ public sealed partial class MainWindow : Window
     /// 以保证隐藏时停用的拖拽/交互能力被一并恢复（避免从托盘呼出后无法拖拽）。
     /// activate=true 时抢前台焦点（托盘/设置呼出），false 时不抢焦点（快捷键/普通启动，
     /// 保留外部输入框为前台，便于点表情精准投回）。
+    /// 幂等：窗口已可见时直接返回，不重复 SW_SHOW / 不重复恢复交互。
+    /// flag 与 win32 调用只在本方法内发生，入口回调不得自行 set flag。
     /// </summary>
-    public void ShowMainWindow(bool activate)
+    public void ShowWindow(bool activate)
     {
+        // 已可见（且非最小化）则跳过，避免重复显示导致的状态/清理错位
+        if (NativeMethods.IsWindowVisible(_hWnd) && !NativeMethods.IsIconic(_hWnd))
+        {
+            Log("[窗口] 显示：已可见，跳过");
+            _isVisible = true;
+            return;
+        }
+
         // 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）
         if (NativeMethods.IsIconic(_hWnd))
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_RESTORE);
@@ -1507,18 +1517,46 @@ public sealed partial class MainWindow : Window
         _isVisible = true;
         SetMemeViewVisible(true);
         ResumeWindowInteractions();
+        Log($"[窗口] 显示完成 (activate={activate})");
     }
 
     /// <summary>
     /// 统一“隐藏主窗口”入口：所有隐藏窗口的路径都必须走这里，
     /// 以保证拖拽/剪贴板/轮询等回调在隐藏期间被停用，避免触发 native AV。
+    /// 幂等：窗口已隐藏时直接返回，不重复 SW_HIDE / 不重复清理。
+    /// flag 与 win32 调用只在本方法内发生，入口回调不得自行 set flag。
     /// </summary>
-    private void HideMainWindow()
+    private void HideWindow()
     {
+        // 已隐藏（不可见且非最小化）则跳过，避免重复隐藏导致的清理错位
+        if (!NativeMethods.IsWindowVisible(_hWnd) && !NativeMethods.IsIconic(_hWnd))
+        {
+            Log("[窗口] 隐藏：已隐藏，跳过");
+            _isVisible = false;
+            return;
+        }
+
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
         SetMemeViewVisible(false);
         SuspendWindowInteractions(closing: false);
+        Log("[窗口] 隐藏完成 (SW_HIDE)");
+    }
+
+    /// <summary>
+    /// 切换窗口可见性（供全局快捷键等“呼出/关闭二合一”入口使用）。
+    /// 只依据 Win32 真实状态决策，再委托 ShowWindow/HideWindow 执行；
+    /// 自身不写 _isVisible，避免与别的入口状态错位。
+    /// </summary>
+    private void ToggleWindow()
+    {
+        bool iconic = NativeMethods.IsIconic(_hWnd);
+        bool visible = NativeMethods.IsWindowVisible(_hWnd) && !iconic;
+        Log($"[窗口] 切换：当前可见={visible} (IsWindowVisible={NativeMethods.IsWindowVisible(_hWnd)}, Iconic={iconic})");
+        if (visible)
+            HideWindow();
+        else
+            ShowWindow(activate: false);
     }
 
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
@@ -1536,7 +1574,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void StartHidden()
     {
-        HideMainWindow();
+        HideWindow();
     }
 
     /// <summary>
@@ -1547,7 +1585,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void ShowWithoutActivate()
     {
-        ShowMainWindow(activate: false);
+        ShowWindow(activate: false);
     }
 
     // 置顶开关：用户手动切换窗口置顶状态（仅会话内有效，不持久化到 config）
@@ -1923,27 +1961,34 @@ public sealed partial class MainWindow : Window
 
         if (uMsg == NativeMethods.WM_SYSCOMMAND)
         {
-            // 最小化/还原会改变真实可见性，保持 _isVisible 与实际一致，
-            // 否则全局快捷键会因状态错位而需要按两次
+            // 最小化/还原会改变真实可见性，统一走 Hide/Show 入口，
+            // 由它们维护 _isVisible 与执行清理/恢复，避免状态机旁路错位。
+            // 入口只描述意图，不自行 set flag。
             int cmd = (int)wParam & 0xFFF0;
             Log($"WM_SYSCOMMAND: cmd={cmd:X4} (MINIMIZE={NativeMethods.SC_MINIMIZE:X4}, RESTORE={NativeMethods.SC_RESTORE:X4}), _isVisible(before)={_isVisible}");
             if (cmd == NativeMethods.SC_MINIMIZE)
-                _isVisible = false;
+            {
+                // 托盘应用：最小化即视为“隐藏”，走统一隐藏入口（SW_HIDE + 清理），
+                // 不再走系统最小化（避免任务栏残留）。自行处理故不转交默认过程。
+                HideWindow();
+                Log($"  _isVisible(after)={_isVisible}");
+                return IntPtr.Zero;
+            }
             else if (cmd == NativeMethods.SC_RESTORE)
             {
-                _isVisible = true;
                 // 还原后重新断言置顶，避免最小化恢复后 TopMost 偶发失效（参考 PowerToys）
                 if (_topMost)
                     ApplyTopMost(true);
+                ShowWindow(activate: false);
+                Log($"  _isVisible(after)={_isVisible}");
+                return IntPtr.Zero;
             }
-            Log($"  _isVisible(after)={_isVisible}");
             return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
         if (uMsg == NativeMethods.WM_HOTKEY && (int)wParam == HOTKEY_ID)
         {
-            Log($"WM_HOTKEY 触发, _isVisible={_isVisible}, IsWindowVisible={NativeMethods.IsWindowVisible(_hWnd)}");
-            ToggleWindowVisibility();
+            ToggleWindow();
             return IntPtr.Zero;
         }
 
@@ -1953,7 +1998,7 @@ public sealed partial class MainWindow : Window
             if (!_allowClose)
             {
                 Log("WM_CLOSE: 仅隐藏窗口（后台保留）");
-                HideMainWindow();
+                HideWindow();
                 return IntPtr.Zero;
             }
             // _allowClose=true（托盘退出）时放行，交给默认处理真正关闭
@@ -1987,28 +2032,6 @@ public sealed partial class MainWindow : Window
         if (hwnd == _hWnd && idObject == 0 && _topMost && !_isClosing)
         {
             ApplyTopMost(true);
-        }
-    }
-
-    private void ToggleWindowVisibility()
-    {
-        // 注意：Windows 中“最小化(iconic)”的窗口 IsWindowVisible 仍为 true，
-        // 所以必须用 IsIconic 判断最小化，否则会误判为“可见”而执行隐藏。
-        bool iconic = NativeMethods.IsIconic(_hWnd);
-        bool visible = NativeMethods.IsWindowVisible(_hWnd) && !iconic;
-        _isVisible = visible;
-        Log($"ToggleWindowVisibility: IsWindowVisible={NativeMethods.IsWindowVisible(_hWnd)}, IsIconic={iconic}, _isVisible→{_isVisible}");
-
-        if (visible)
-        {
-            HideMainWindow();
-            Log("  执行 SW_HIDE");
-        }
-        else
-        {
-            // 快捷键呼出：不抢前台焦点，保留外部输入框为前台，便于点表情精准投回
-            ShowMainWindow(activate: false);
-            Log("  执行 SW_SHOWNOACTIVATE");
         }
     }
 
