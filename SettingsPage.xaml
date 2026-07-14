@@ -64,6 +64,12 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+                <TextBlock Text="效率模式 (EcoQoS)" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="EcoModeToggle" Toggled="EcoModeToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">对后台工作线程启用 Windows 效率模式，降低后台扫描/导入时的 CPU 与能耗，不影响界面响应</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
                 <TextBlock Text="开机自动启动" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6">登录系统后自动在后台运行（仅托盘，不弹主窗口）</TextBlock>

@@ -249,6 +249,11 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
 
+    // ---------- 线程级效率模式（EcoQoS）----------
+
+    [LibraryImport("kernel32.dll")]
+    public static partial IntPtr GetCurrentThread();
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct TrayNotifyIconData
     {

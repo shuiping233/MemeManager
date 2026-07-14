@@ -117,6 +117,9 @@ public partial class App : Application
 
         await DataEngine.InitializeAsync();
 
+        Logger.Log($"[EcoQos] 效率模式配置: {(DataEngine.Config.EcoMode ? "启用" : "关闭")}");
+        EcoQos.ApplyProcessLevelFromConfig();
+
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
         if (DataEngine.GetCategories().Count == 0)
         {
@@ -153,6 +156,7 @@ public partial class App : Application
 
     private void ExitApp()
     {
+        Logger.Log("[EcoQos] 应用程序退出，线程级效率模式随后台线程结束而失效");
         _trayIcon?.Dispose();
         _trayIcon = null;
         MainWindow.RequestExit();

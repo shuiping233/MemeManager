@@ -24,6 +24,10 @@ public class AppConfig
     // 是否将日志写入数据目录下的 log/debug.log
     public bool SaveLogFile { get; set; } = false;
 
+    // 是否对后台工作线程启用 EcoQoS（Windows 线程级效率模式），降低后台 CPU/能耗。
+    // 仅作用于后台线程，不影响 UI 响应；老版本 Windows 上会被忽略。
+    public bool EcoMode { get; set; } = true;
+
     // 窗口尺寸持久化（关闭/退出前记录，下次启动还原）
     public WindowSizePreset WindowSizePreset { get; set; } = WindowSizePreset.Default;
 

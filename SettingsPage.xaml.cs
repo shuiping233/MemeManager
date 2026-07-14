@@ -18,6 +18,7 @@ public sealed partial class SettingsPage : Page
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         SaveLogToggle.IsOn = cfg.SaveLogFile;
+        EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
         DragOutputAsImageToggle.IsOn = cfg.DragOutputAsImage;
@@ -103,6 +104,12 @@ public sealed partial class SettingsPage : Page
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
+    }
+
+    private void EcoModeToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 即时生效：切换进程级效率模式（保存延后到点击“完成”）
+        EcoQos.ApplyProcessLevel(EcoModeToggle.IsOn);
     }
 
     private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
@@ -297,6 +304,7 @@ public sealed partial class SettingsPage : Page
         {
             cfg.Theme = theme;
             cfg.SaveLogFile = SaveLogToggle.IsOn;
+            cfg.EcoMode = EcoModeToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
             cfg.DragOutputAsImage = DragOutputAsImageToggle.IsOn;

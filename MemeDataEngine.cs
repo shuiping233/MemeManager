@@ -145,6 +145,15 @@ public class MemeDataEngine
 
     private async Task LoadAllMetadataAsync()
     {
+        // 在后台线程（带 EcoQoS 节流）执行目录扫描与元数据加载，避免阻塞 UI。
+        await EcoQos.RunAsync(() =>
+        {
+            LoadAllMetadataCore();
+        });
+    }
+
+    private void LoadAllMetadataCore()
+    {
         _memeCache.Clear();
         _titleReverseMap.Clear();
 
@@ -158,7 +167,7 @@ public class MemeDataEngine
             {
                 try
                 {
-                    var json = await File.ReadAllTextAsync(metaPath);
+                    var json = File.ReadAllText(metaPath);
                     meta = JsonSerializer.Deserialize<CategoryMetadata>(json, JsonOptions)
                            ?? new CategoryMetadata();
                 }
@@ -346,7 +355,7 @@ public class MemeDataEngine
             }
 
             Directory.CreateDirectory(categoryDir);
-            await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true));
+            await EcoQos.RunAsync(() => File.Copy(sourcePath, targetPath, overwrite: true));
 
             var meta = await LoadCategoryMetadataAsync(categoryDir);
 
@@ -396,7 +405,7 @@ public class MemeDataEngine
         {
             if (!File.Exists(meme.LocalPath)) continue;
             var dest = Path.Combine(targetDir, meme.FileName);
-            await Task.Run(() => File.Copy(meme.LocalPath, dest, overwrite: true));
+            await EcoQos.RunAsync(() => File.Copy(meme.LocalPath, dest, overwrite: true));
         }
     }
 
