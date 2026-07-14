@@ -1,4 +1,6 @@
+﻿using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Windows.Gaming.Input;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
@@ -67,6 +69,14 @@ public static class PickerHelper
 
         var files = await picker.PickMultipleFilesAsync();
         return files?.Select(f => f.Path).ToList() ?? new List<string>();
+    }
+
+    private static WindowId GetAppWindowId(Window? owner)
+    {
+        var window = owner ?? App.MainWindow;
+        var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+        var winId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
+        return winId;
     }
 
     private static void Initialize(object picker, Window? owner)
