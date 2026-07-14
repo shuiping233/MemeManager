@@ -932,10 +932,15 @@ public sealed partial class MainWindow : Window
             BatchBar.Visibility = Visibility.Visible;
             // 编辑模式开启内置重排：落点由 WinUI 自己算准
             MemeGridView.CanReorderItems = true;
-            // 多选拖拽重排需要 GridView 原生选中(SelectedItems)，否则 WinUI 只重排被按下的单个项
-            MemeGridView.SelectionMode = ListViewSelectionMode.Extended;
-            // 显示每个 item 右上角的复选框指示器
-            SetSelectionBoxVisible(true);
+            // 多选模式由配置决定：
+            //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
+            //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
+            bool explorerStyle = App.DataEngine.Config.ExplorerStyleMultiSelect;
+            MemeGridView.SelectionMode = explorerStyle
+                ? ListViewSelectionMode.Extended
+                : ListViewSelectionMode.Multiple;
+            // 仅 Extended 模式显示我们自绘的复选框
+            SetSelectionBoxVisible(explorerStyle);
         }
     }
 
@@ -990,15 +995,18 @@ public sealed partial class MainWindow : Window
         await App.DataEngine.IncrementUsageAsync(clicked.Hash);
     }
 
-    // 容器(项)为数据生成时：若处于编辑模式，立即把复选框设为可见，
+    // 容器(项)为数据生成时：若处于编辑模式且为 Extended 风格，立即把复选框设为可见，
     // 解决虚拟化下滚动后新出现的 item 默认 Collapsed 的问题。
+    // Explorer 风格(Multiple)下不显示自绘复选框（用系统自带）。
     private void MemeGridView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
         if (_editMode && args.Phase == 0 && args.ItemContainer != null)
         {
             var box = FindCheckBox(args.ItemContainer);
             if (box != null)
-                box.Visibility = Visibility.Visible;
+                box.Visibility = App.DataEngine.Config.ExplorerStyleMultiSelect
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
     }
 

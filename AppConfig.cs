@@ -53,6 +53,12 @@ public class AppConfig
     // 关闭（默认）：只写文件格式，老版本 QQ 会显示成文件。
     // 开启：单张拖出时额外写入图片格式，老版本 QQ 识别为图片；多张仍走文件格式。
     public bool DragOutputAsImage { get; set; } = false;
+
+    // 多选操作模式：
+    // false（默认）：资源管理器风格，使用 ListViewSelectionMode.Multiple（系统自带复选框），
+    //                 隐藏我们自绘的右上角复选框。
+    // true：使用 ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选。
+    public bool ExplorerStyleMultiSelect { get; set; } = false;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）
