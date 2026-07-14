@@ -153,6 +153,18 @@ namespace MemeManager.ViewModels
             _title = model.Title;
         }
 
+        // 主窗口隐藏/关闭时调用：断开所有图像解码资源引用。
+        // 置 null 后，配合 GridView 的 ItemsSource=null 卸载容器，
+        // WinUI 才能把对应的 BitmapImage 从图像缓存移除并释放非托管纹理/解码内存，
+        // 否则常驻的 VM 集合会一直持有这些资源导致后台进程内存无法回落。
+        public void ClearImages()
+        {
+            _imageSource = null;
+            _previewSource = null;
+            OnPropertyChanged(nameof(ImageSource));
+            OnPropertyChanged(nameof(PreviewSource));
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

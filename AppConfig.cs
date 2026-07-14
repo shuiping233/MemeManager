@@ -39,6 +39,11 @@ public class AppConfig
     public int PreviewDelayMs { get; set; } = 400;
 
     public bool AutoStart { get; set; } = false;
+
+    // 关闭主窗口后是否释放图像控件与缓存（清空 ItemsSource 并强制 GC）。
+    // 启用：后台内存占用长时间不用后降到极低，代价是每次唤起需重新渲染图片与控件，
+    // 且过于频繁开关会因 WinUI 图像缓存产生轻微内存泄漏；关闭：图像与控件常驻后台，内存占用更高。
+    public bool ReleaseImagesOnHide { get; set; } = true;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）

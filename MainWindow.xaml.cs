@@ -479,17 +479,53 @@ public sealed partial class MainWindow : Window
     {
         if (visible)
         {
-            if (MemeGridView.ItemsSource != _memeList)
+            if (App.DataEngine.Config.ReleaseImagesOnHide)
+            {
+                // 隐藏时曾清空集合以释放所有图像解码资源（见 else 分支），
+                // 重新显示时若集合已空则重新初始化分类与表情，恢复数据。
+                if (_memeList.Count == 0 && _categoryList.Count == 0)
+                {
+                    CategoryList.ItemsSource = _categoryList;
+                    MemeGridView.ItemsSource = _memeList;
+                    LoadCategories();
+                }
+                else if (MemeGridView.ItemsSource != _memeList)
+                {
+                    MemeGridView.ItemsSource = _memeList;
+                }
+            }
+            else if (MemeGridView.ItemsSource != _memeList)
+            {
                 MemeGridView.ItemsSource = _memeList;
+            }
             _fgTimer?.Start();
         }
         else
         {
             _fgTimer?.Stop();
-            MemeGridView.ItemsSource = null;
+            if (App.DataEngine.Config.ReleaseImagesOnHide)
+            {
+                // 断开每个 VM 持有的 BitmapImage 引用，配合下面 ItemsSource=null
+                // 卸载 GridView 容器，让 WinUI 把图像从缓存移除、释放非托管纹理/解码内存，
+                // 使后台常驻进程内存回落（而非常驻几百张解码纹理）。
+                foreach (var vm in _memeList)
+                    vm.ClearImages();
+                // 彻底清空集合：VM 不再被 _memeList 引用，GC 可回收，
+                // 下次显示由 LoadCategories 重新初始化。避免为“秒开”常驻大量内存。
+                _memeList.Clear();
+                _categoryList.Clear();
+                MemeGridView.ItemsSource = null;
+                CategoryList.ItemsSource = null;
+                // 引用已断开、容器已卸载，立即回收 BitmapImage/纹理等非托管资源，
+                // 让后台常驻进程内存尽快回落（不等 GC 自发触发）。
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+            else
+            {
+                MemeGridView.ItemsSource = null;
+            }
             HidePreviewPopup(true, "SetMemeViewVisible");
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
         }
     }
 
@@ -2108,8 +2144,17 @@ public sealed partial class MainWindow : Window
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         SuspendWindowInteractions(closing: true);
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
+        if (App.DataEngine.Config.ReleaseImagesOnHide)
+        {
+            // 真正销毁窗口：彻底释放所有 VM 的图像解码资源与集合引用，
+            // 确保进程退出前不残留对 BitmapImage/纹理的引用。
+            foreach (var vm in _memeList)
+                vm.ClearImages();
+            _memeList.Clear();
+            _categoryList.Clear();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
         if (_winEventHook != IntPtr.Zero)
