@@ -119,8 +119,8 @@
             <StackPanel Spacing="6">
                 <TextBlock Text="资源管理器风格多选操作模式" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="ExplorerStyleMultiSelectToggle" Toggled="ExplorerStyleMultiSelectToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">关闭（默认）：复选框风格的多选逻辑, 鼠标单击即可多选图片, ctrl+鼠标左键反选图片, Shift多选/反选有些限制</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">开启：类似Windows资源管理器风格的单击和shift多选逻辑, 需要ctrl+鼠标左键才能单独多选, 允许Shift灵活多选/反选</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">关闭（默认）：复选框风格的多选逻辑, 鼠标单击即可多选图片, Ctrl+鼠标左键反选图片, Shift多选/反选有些限制</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">开启：类似Windows资源管理器风格的单击和shift多选逻辑, 需要Ctrl+鼠标左键才能单独多选, 允许Shift灵活多选/反选</TextBlock>
             </StackPanel>
 
         </StackPanel>
