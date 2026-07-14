@@ -540,6 +540,9 @@ public sealed partial class MainWindow : Window
         if (immediate || _isClosing)
         {
             PreviewPopup.IsOpen = false;
+            // 断开预览图源：Popup 子树一直存活于可视化树，不清空会导致
+            // 高分辨率预览纹理常驻（与列表重建模式无关的独立泄漏路径）。
+            PreviewImage.Source = null;
             _previewFadingOut = false;
             _suppressNextMove = false;
             Log($"[预览] 浮窗已关闭 (来源=immediate{reason})");
@@ -568,6 +571,7 @@ public sealed partial class MainWindow : Window
                 {
                     _previewFadingOut = false;
                     PreviewPopup.IsOpen = false;
+                    PreviewImage.Source = null;
                     Log($"[预览] 浮窗已关闭 (来源=fadeout{reason})");
                 }
             };
@@ -577,6 +581,7 @@ public sealed partial class MainWindow : Window
         else
         {
             PreviewPopup.IsOpen = false;
+            PreviewImage.Source = null;
             _previewFadingOut = false;
             Log($"[预览] 浮窗已关闭 (来源=direct{reason})");
         }
