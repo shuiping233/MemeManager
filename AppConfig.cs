@@ -36,7 +36,7 @@ public class AppConfig
     public double PreviewMaxHeight { get; set; } = 480;
 
     // 悬停预览触发延时（毫秒）
-    public int PreviewDelayMs { get; set; } = 400;
+    public int PreviewDelayMs { get; set; } = 500;
 
     public bool AutoStart { get; set; } = false;
 
