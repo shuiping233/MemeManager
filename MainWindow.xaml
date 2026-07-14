@@ -158,7 +158,8 @@
                                TextTrimming="CharacterEllipsis"
                                TextAlignment="Center"
                                HorizontalAlignment="Center"
-                               MaxWidth="800"/>
+                               TextWrapping="Wrap"
+                               MaxWidth="600"/>
                     <Image x:Name="PreviewImage"
                            Stretch="Uniform"
                            HorizontalAlignment="Center"/>
