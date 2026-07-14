@@ -44,6 +44,11 @@ public class AppConfig
     // 关闭（默认）：每次刷新/切分类整体重建 VM，旧 Image 控件从树消失后框架自动释放
     // GPU 纹理，后台内存能显著回落；代价是每次重建需重新解码图片。
     public bool UseControlReuse { get; set; } = false;
+
+    // 拖出图片时是否以图片格式输出（仅单张生效）：
+    // 关闭（默认）：只写文件格式，老版本 QQ 会显示成文件。
+    // 开启：单张拖出时额外写入图片格式，老版本 QQ 识别为图片；多张仍走文件格式。
+    public bool DragOutputAsImage { get; set; } = false;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）

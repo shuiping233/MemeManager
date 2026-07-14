@@ -20,6 +20,7 @@ public sealed partial class SettingsPage : Page
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
+        DragOutputAsImageToggle.IsOn = cfg.DragOutputAsImage;
 
         // 预览图设置：缺失时用默认 800x600 / 400ms
         PreviewMaxWidthBox.Text = (cfg.PreviewMaxWidth > 0 ? cfg.PreviewMaxWidth : 800).ToString();
@@ -110,6 +111,11 @@ public sealed partial class SettingsPage : Page
     }
 
     private void UseControlReuseToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 改动延后到点击“完成”时保存
+    }
+
+    private void DragOutputAsImageToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
     }
@@ -293,6 +299,7 @@ public sealed partial class SettingsPage : Page
             cfg.SaveLogFile = SaveLogToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
+            cfg.DragOutputAsImage = DragOutputAsImageToggle.IsOn;
             if (pw > 0) cfg.PreviewMaxWidth = pw;
             if (ph > 0) cfg.PreviewMaxHeight = ph;
             if (delay > 0) cfg.PreviewDelayMs = delay;

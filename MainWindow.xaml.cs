@@ -999,6 +999,12 @@ public sealed partial class MainWindow : Window
                 .Select(v => StorageFile.GetFileFromPathAsync(v.LocalPath).AsTask().Result)
                 .ToArray();
             e.Data.SetStorageItems(files);
+            // 拖出图片时以图片格式输出：仅单张生效（图片剪贴板格式只能承载一张位图，
+            // 多张只能靠文件格式）。开启后老版本 QQ 才会把单张拖出识别为图片而非文件。
+            if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1)
+            {
+                e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(files[0]));
+            }
             // 内置重排(CanReorderItems)需要 Move 语义才会真正移动集合；
             // 拖到外部(文件管理器/输入框)时 WinUI 会按目标能力自动回退成 Copy。
             e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
