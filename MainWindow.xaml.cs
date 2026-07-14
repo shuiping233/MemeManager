@@ -926,7 +926,7 @@ public sealed partial class MainWindow : Window
             // 编辑模式开启内置重排：落点由 WinUI 自己算准
             MemeGridView.CanReorderItems = true;
             // 多选拖拽重排需要 GridView 原生选中(SelectedItems)，否则 WinUI 只重排被按下的单个项
-            MemeGridView.SelectionMode = ListViewSelectionMode.Multiple;
+            MemeGridView.SelectionMode = ListViewSelectionMode.Extended;
         }
     }
 
