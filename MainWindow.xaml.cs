@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
@@ -66,6 +67,10 @@ public sealed partial class MainWindow : Window
 
     // 防止粘贴导入的分类对话框重入
     private bool _pasteDialogOpen;
+
+    // 文件选择器（FolderPicker/FileOpenPicker）打开期间：屏蔽悬停预览浮窗，
+    // 避免对话框抢焦点后背后图片误弹浮窗。
+    public bool IsFilePickerOpen { get; internal set; }
 
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
@@ -734,6 +739,8 @@ public sealed partial class MainWindow : Window
     {
         // 编辑模式或窗口隐藏时不显示预览
         if (_editMode || !_isVisible || _isClosing) return;
+        // 文件选择器打开期间不弹预览浮窗（避免对话框抢焦点后误触发）
+        if (IsFilePickerOpen) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
 
         _lastPointerPos = e.GetCurrentPoint((UIElement)this.Content).Position;

@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using MemeManager.Data;
 using MemeManager.Models;
 using Windows.Storage.Pickers;
@@ -79,14 +81,6 @@ public sealed partial class SettingsPage : Page
             App.MainWindow.ApplyHotKeyConfig(mods, vk);
             HotKeyBox.Text = MainWindow.HotKeyText(mods, vk);
             return;
-        }
-
-        if (e.Key == Windows.System.VirtualKey.Enter)
-        {
-            // 焦点已在“完成”按钮上时由按钮自身处理，避免重复触发保存
-            if (ReferenceEquals(e.OriginalSource, CloseButton)) return;
-            CloseButton_Click(this, new RoutedEventArgs());
-            e.Handled = true;
         }
     }
 
@@ -175,6 +169,8 @@ public sealed partial class SettingsPage : Page
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
+        // 打开系统文件选择器期间屏蔽背后图片的悬停预览浮窗，选完再恢复。
+        App.MainWindow.IsFilePickerOpen = true;
         try
         {
             var folder = await PickerHelper.PickFolderAsync();
@@ -198,6 +194,11 @@ public sealed partial class SettingsPage : Page
         {
             Logger.Log($"[Settings] BrowseButton_Click 异常: {ex}");
             await ShowErrorAsync("打开文件夹选择器失败", ex.ToString());
+        }
+        finally
+        {
+            // 选择器结束：解除预览浮窗屏蔽，背后图片恢复可触发浮窗。
+            App.MainWindow.IsFilePickerOpen = false;
         }
     }
 
@@ -347,6 +348,12 @@ public sealed partial class SettingsPage : Page
     public bool IsSaved => _saved;
 
     private async void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SaveAndCloseAsync();
+    }
+
+    // 保存并关闭设置页（供“完成”按钮与 Flyout 内 Enter 共用）
+    public async Task SaveAndCloseAsync()
     {
         await SaveAsync();
         RequestClose?.Invoke(this, EventArgs.Empty);
