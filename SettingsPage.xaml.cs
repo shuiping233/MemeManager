@@ -19,7 +19,7 @@ public sealed partial class SettingsPage : Page
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
-        ReleaseImagesToggle.IsOn = cfg.ReleaseImagesOnHide;
+        UseControlReuseToggle.IsOn = cfg.UseControlReuse;
 
         // 预览图设置：缺失时用默认 800x600 / 400ms
         PreviewMaxWidthBox.Text = (cfg.PreviewMaxWidth > 0 ? cfg.PreviewMaxWidth : 800).ToString();
@@ -109,7 +109,7 @@ public sealed partial class SettingsPage : Page
         // 改动延后到点击“完成”时保存
     }
 
-    private void ReleaseImagesToggle_Toggled(object sender, RoutedEventArgs e)
+    private void UseControlReuseToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
     }
@@ -292,7 +292,7 @@ public sealed partial class SettingsPage : Page
             cfg.Theme = theme;
             cfg.SaveLogFile = SaveLogToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;
-            cfg.ReleaseImagesOnHide = ReleaseImagesToggle.IsOn;
+            cfg.UseControlReuse = UseControlReuseToggle.IsOn;
             if (pw > 0) cfg.PreviewMaxWidth = pw;
             if (ph > 0) cfg.PreviewMaxHeight = ph;
             if (delay > 0) cfg.PreviewDelayMs = delay;
@@ -312,6 +312,10 @@ public sealed partial class SettingsPage : Page
 
         if (delay > 0)
             App.MainWindow.ApplyPreviewDelayFromConfig();
+
+        // 复用策略切换：应用新策略并刷新当前列表使其立即生效
+        App.MainWindow.ApplyListStrategyFromConfig();
+        App.MainWindow.ReloadData();
 
         bool ok = AutoStartToggle.IsOn ? StartupManager.Enable() : StartupManager.Disable();
         if (!ok)

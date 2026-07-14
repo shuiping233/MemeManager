@@ -70,11 +70,11 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="关闭窗口后不再缓存图片控件" FontWeight="SemiBold"/>
-                <ToggleSwitch x:Name="ReleaseImagesToggle" Toggled="ReleaseImagesToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后后台专用工作集内存占用会长时间不使用主窗口后降到极低值，代价是每次唤起主窗口需要重新渲染图片和控件</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">注意启用后请勿过于频繁开关主窗口，因为会有轻微的图像缓存导致的内存泄漏（WinUI3 框架行为），正常频率呼出主窗口则无须担心此问题。</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6">关闭后图像缓存和控件会常驻后台，代价是后台内存占用变高。</TextBlock>
+                <TextBlock Text="启用控件复用策略" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="UseControlReuseToggle" Toggled="UseControlReuseToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 图片控件将尽可能的少创建而是复用, 以减少创建图片控件的内存消耗, 会影响 刷新/切换分支/开关窗口 时的行为</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">此功能会导致关闭主窗口后后台仍保留图片缓存（WinUI3局限所致）</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">且后台进程专用工作集会有几十MB的图片缓存内容常驻不会释放</TextBlock>
             </StackPanel>
 
             <StackPanel Spacing="6">

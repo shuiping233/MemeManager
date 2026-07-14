@@ -36,11 +36,17 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
     private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
 
+    // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
+    // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
+    // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
+    private IMemeListStrategy _listStrategy = new RebuildStrategy();
+
     private string _currentCategory = string.Empty;
     private bool _editMode;
 
     // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
-    // 用于 DragItemsCompleted 时把“拖起项”对齐到鼠标落点，而非 WinUI 默认的组尾对齐。
+    // 仅复用策略(ReuseStrategy.ComputeDragOrder)使用，用于把“拖起项”对齐到
+    // 鼠标落点，而非 WinUI 默认的组尾对齐；重建策略忽略此值。
     private string? _dragAnchorFileName;
 
     // 当前置顶状态（会话内有效，启动默认置顶，不持久化到 config）
@@ -88,6 +94,9 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // 按配置选择列表构建策略（复用 / 重建）。切换在设置页保存后即时应用。
+        ApplyListStrategyFromConfig();
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
@@ -228,6 +237,23 @@ public sealed partial class MainWindow : Window
         LoadCategories();
     }
 
+    // 按配置创建对应的列表策略实例。
+    private static IMemeListStrategy CreateStrategy(bool reuse) =>
+        reuse ? new ReuseStrategy() : new RebuildStrategy();
+
+    // 从配置读取并应用列表策略；首次启动与“设置”保存后均会调用。
+    // 复用模式切换会打日志，便于观察内存/行为变化。
+    public void ApplyListStrategyFromConfig()
+    {
+        bool reuse = App.DataEngine.Config.UseControlReuse;
+        var prev = _listStrategy;
+        _listStrategy = CreateStrategy(reuse);
+        if (prev != null)
+            Log($"[策略] 列表策略切换为: {(reuse ? "复用(Reuse)" : "重建(Rebuild)")}");
+        else
+            Log($"[策略] 列表策略初始化为: {(reuse ? "复用(Reuse)" : "重建(Rebuild)")}");
+    }
+
     private void LoadCategories()
     {
         // 若没有任何分类文件夹，默认创建一个 "Default"
@@ -236,39 +262,12 @@ public sealed partial class MainWindow : Window
             App.DataEngine.EnsureDefaultCategory();
         }
 
-        // 增量更新分类列表（复用已有 CategoryViewModel 与 ListView 容器），
-        // 避免 F5/刷新时整体 Clear+重建分类 ListView 导致容器反复新建、内存累积。
-        var cats = App.DataEngine.GetCategories();
-        var newNames = new HashSet<string>(cats, StringComparer.OrdinalIgnoreCase);
-
-        // 移除已不存在的分类（按名匹配，避免位置错位）
-        for (int i = _categoryList.Count - 1; i >= 0; i--)
-            if (!newNames.Contains(_categoryList[i].Name))
-                _categoryList.RemoveAt(i);
-
-        // 按目标顺序：已有的原地复用（仅更新 Count），新增的在正确位置插入
-        int idx = 0;
-        foreach (var cat in cats)
-        {
-            var existingVm = _categoryList.FirstOrDefault(c => c.Name.Equals(cat, StringComparison.OrdinalIgnoreCase));
-            int count = App.DataEngine.GetMemes(cat).Count;
-            if (existingVm != null)
-            {
-                // 调整到目标顺序位置（若顺序变了），并刷新计数
-                int existing = _categoryList.IndexOf(existingVm);
-                if (existing != idx)
-                {
-                    _categoryList.RemoveAt(existing);
-                    _categoryList.Insert(idx, existingVm);
-                }
-                existingVm.Count = count;
-            }
-            else
-            {
-                _categoryList.Insert(idx, new CategoryViewModel(cat, count));
-            }
-            idx++;
-        }
+        // 用当前策略同步分类列表（复用=增量复用容器，重建=整体重建）。
+        // 具体算法封装在 IMemeListStrategy.SyncCategories 内。
+        _listStrategy.SyncCategories(
+            _categoryList,
+            App.DataEngine.GetCategories(),
+            cat => App.DataEngine.GetMemes(cat).Count);
 
         // 默认选中上次或第一项（仅在分类变化或尚未选中时设置，避免重复触发 SelectionChanged）
         var last = App.DataEngine.Config.LastCategory;
@@ -479,23 +478,9 @@ public sealed partial class MainWindow : Window
     {
         if (visible)
         {
-            if (App.DataEngine.Config.ReleaseImagesOnHide)
+            if (MemeGridView.ItemsSource != _memeList)
             {
-                // 隐藏时曾清空集合以释放所有图像解码资源（见 else 分支），
-                // 重新显示时若集合已空则重新初始化分类与表情，恢复数据。
-                if (_memeList.Count == 0 && _categoryList.Count == 0)
-                {
-                    CategoryList.ItemsSource = _categoryList;
-                    MemeGridView.ItemsSource = _memeList;
-                    LoadCategories();
-                }
-                else if (MemeGridView.ItemsSource != _memeList)
-                {
-                    MemeGridView.ItemsSource = _memeList;
-                }
-            }
-            else if (MemeGridView.ItemsSource != _memeList)
-            {
+                CategoryList.ItemsSource = _categoryList;
                 MemeGridView.ItemsSource = _memeList;
             }
             _fgTimer?.Start();
@@ -503,27 +488,20 @@ public sealed partial class MainWindow : Window
         else
         {
             _fgTimer?.Stop();
-            if (App.DataEngine.Config.ReleaseImagesOnHide)
+            // 隐藏时仅断开 ItemsSource，让 GridView 的 Item 容器（含 Image 控件）
+            // 从可视化树移除，WinUI 框架会在下一帧自动释放其 GPU 纹理；
+            // 再强制 GC 回收非托管资源。两种列表策略共用此极简逻辑，不额外摘树。
+            MemeGridView.ItemsSource = null;
+            CategoryList.ItemsSource = null;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
+            if (App.DataEngine.Config.UseControlReuse)
             {
-                // 断开每个 VM 持有的 BitmapImage 引用，配合下面 ItemsSource=null
-                // 卸载 GridView 容器，让 WinUI 把图像从缓存移除、释放非托管纹理/解码内存，
-                // 使后台常驻进程内存回落（而非常驻几百张解码纹理）。
-                foreach (var vm in _memeList)
-                    vm.ClearImages();
-                // 彻底清空集合：VM 不再被 _memeList 引用，GC 可回收，
-                // 下次显示由 LoadCategories 重新初始化。避免为“秒开”常驻大量内存。
-                _memeList.Clear();
-                _categoryList.Clear();
-                MemeGridView.ItemsSource = null;
-                CategoryList.ItemsSource = null;
-                // 引用已断开、容器已卸载，立即回收 BitmapImage/纹理等非托管资源，
-                // 让后台常驻进程内存尽快回落（不等 GC 自发触发）。
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
-            else
-            {
-                MemeGridView.ItemsSource = null;
+                Log($"[内存诊断] 隐藏释放(复用模式): _memeList={_memeList.Count} _categoryList={_categoryList.Count} " +
+                    $"VM存活BitmapImage={MemeViewModel.LiveBitmapImageCount} " +
+                    $"托管堆={GC.GetTotalMemory(false) / 1024}KB GC代数0/1/2={GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
             }
             HidePreviewPopup(true, "SetMemeViewVisible");
         }
@@ -662,63 +640,23 @@ public sealed partial class MainWindow : Window
 
     private void RefreshMemes()
     {
-        // 增量更新（复用 VM 与 GridView 容器），而非整体 Clear+重建：
-        // 每次刷新/切分类只更新内容变化的项、按需要增删尾部 VM，
-        // 避免“每次重建一批 BitmapImage”导致 WinUI 非托管纹理/解码资源累积泄漏。
-        // 复用按位置进行——顺序变化也只是就地换源，不会整体销毁容器。
         var keyword = SearchBox.Text?.Trim();
         var memes = App.DataEngine.GetMemes(
             string.IsNullOrWhiteSpace(_currentCategory) ? null : _currentCategory,
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
-        int newCount = memes.Count;
-        int oldCount = _memeList.Count;
-        int updated = 0;
-        int added = 0;
-        int removed = 0;
+        // 用当前策略刷新表情列表（复用=增量复用 VM，重建=整体 Clear+重建）。
+        _listStrategy.RefreshMemes(_memeList, memes);
 
-        if (oldCount == 0)
+        // 复用语义下记录增量统计，便于诊断（重建模式为全量重建，无增量可记）。
+        if (_listStrategy is ReuseStrategy)
         {
-            // 首次加载或集合为空：直接全量添加（尚无容器可复用）。
-            foreach (var m in memes)
-                _memeList.Add(new MemeViewModel(m));
-            added = newCount;
-        }
-        else
-        {
-            int common = Math.Min(oldCount, newCount);
-            // 复用已有 VM：仅当同一位置的文件名不同才替换 Model（触发换源），
-            // 相同则跳过——F5 同内容刷新时几乎零开销、不重建任何纹理。
-            for (int i = 0; i < common; i++)
-            {
-                if (!_memeList[i].FileName.Equals(memes[i].FileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    _memeList[i].UpdateModel(memes[i]);
-                    updated++;
-                }
-            }
-
-            if (newCount > oldCount)
-            {
-                for (int i = oldCount; i < newCount; i++)
-                {
-                    _memeList.Add(new MemeViewModel(memes[i]));
-                    added++;
-                }
-            }
-            else if (newCount < oldCount)
-            {
-                for (int i = oldCount - 1; i >= newCount; i--)
-                {
-                    _memeList.RemoveAt(i);
-                    removed++;
-                }
-            }
+            int newCount = memes.Count;
+            int oldCount = _memeList.Count;
+            Log($"[诊断] RefreshMemes VM数={_memeList.Count} 新项数={newCount}");
         }
 
         UpdateCategoryCounts();
-
-        Log($"[诊断] RefreshMemes VM数={_memeList.Count} 新项数={newCount} updated={updated} added={added} removed={removed}");
     }
 
     // 新导入的表情包优先级最高(DateAdded 最新)，按现有排序规则(Priority 降序、
@@ -1080,48 +1018,14 @@ public sealed partial class MainWindow : Window
         // 记录整组被拖项（编辑模式多选拖拽时是整组），重排后据此恢复多选状态
         var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
 
-        // WinUI 内置重排已移动 _memeList，但其锚定在“组尾”。改为以“拖起的那一张”
-        // （_dragAnchorFileName）对齐鼠标落点：把整组平移到锚点项落在落点处。
-        var groupNames = new HashSet<string>(
-            draggedGroup.Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
-        int anchorIdx = _dragAnchorFileName != null
-            ? (_memeList
-                .Select((m, i) => new { m, i })
-                .FirstOrDefault(x => x.m.FileName.Equals(_dragAnchorFileName, StringComparison.OrdinalIgnoreCase))?.i ?? -1)
-            : -1;
+        // 用当前策略计算写回顺序：复用策略做“锚点对齐”，重建策略沿用 WinUI 默认顺序。
+        var orderedFileNames = _listStrategy.ComputeDragOrder(_memeList, draggedGroup, _dragAnchorFileName)
+            ?? _memeList.Select(m => m.FileName).ToList();
 
-        List<string> orderedFileNames = _memeList.Select(m => m.FileName).ToList();
-
-        if (anchorIdx >= 0 && draggedGroup.Count > 0)
-        {
-            // 落点插入位置 = 锚点项之前、且不属于被拖组的元素个数
-            int insertAt = 0;
-            for (int i = 0; i < anchorIdx; i++)
-                if (!groupNames.Contains(_memeList[i].FileName)) insertAt++;
-
-            var others = _memeList.Where(m => !groupNames.Contains(m.FileName)).ToList();
-            var groupVms = draggedGroup
-                .Select(n => _memeList.FirstOrDefault(m => m.FileName.Equals(n.FileName, StringComparison.OrdinalIgnoreCase)))
-                .OfType<MemeViewModel>()
-                .ToList();
-
-            var newOrder = new List<MemeViewModel>();
-            newOrder.AddRange(others.Take(insertAt));
-            newOrder.AddRange(groupVms);
-            newOrder.AddRange(others.Skip(insertAt));
-
-            // 就地替换元素（保持长度一致，避免容器重建/滚动跳动）。
-            // 元素引用本身未变（组与 others 都来自 _memeList），仅顺序调整。
-            for (int i = 0; i < newOrder.Count && i < _memeList.Count; i++)
-                _memeList[i] = newOrder[i];
-
-            orderedFileNames = newOrder.Select(m => m.FileName).ToList();
+        if (_listStrategy is ReuseStrategy)
             Log($"DragItemsCompleted: 锚点重排后顺序=[{string.Join(",", orderedFileNames)}]");
-        }
         else
-        {
             Log($"DragItemsCompleted: DropResult={e.DropResult}, 顺序=[{string.Join(",", orderedFileNames)}]");
-        }
 
         var ordered = orderedFileNames;
 
@@ -2144,17 +2048,6 @@ public sealed partial class MainWindow : Window
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         SuspendWindowInteractions(closing: true);
-        if (App.DataEngine.Config.ReleaseImagesOnHide)
-        {
-            // 真正销毁窗口：彻底释放所有 VM 的图像解码资源与集合引用，
-            // 确保进程退出前不残留对 BitmapImage/纹理的引用。
-            foreach (var vm in _memeList)
-                vm.ClearImages();
-            _memeList.Clear();
-            _categoryList.Clear();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-        }
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
         if (_winEventHook != IntPtr.Zero)

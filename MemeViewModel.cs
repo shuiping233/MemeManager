@@ -45,11 +45,13 @@ namespace MemeManager.ViewModels
         {
             get
             {
+                if (_imagesCleared) return new BitmapImage();
                 if (_imageSource == null && File.Exists(LocalPath))
                 {
                     _imageSource = new BitmapImage();
                     _imageSource.DecodePixelWidth = 120;
                     _imageSource.UriSource = new Uri(LocalPath);
+                    LiveBitmapImageCount++;
                 }
                 return _imageSource ?? new BitmapImage();
             }
@@ -61,8 +63,8 @@ namespace MemeManager.ViewModels
         {
             _model = model;
             _title = model.Title;
-            _imageSource = null;
-            _previewSource = null;
+            if (_imageSource != null) { LiveBitmapImageCount--; _imageSource = null; }
+            if (_previewSource != null) { LiveBitmapImageCount--; _previewSource = null; }
             OnPropertyChanged(nameof(Hash));
             OnPropertyChanged(nameof(LocalPath));
             OnPropertyChanged(nameof(Category));
@@ -77,9 +79,11 @@ namespace MemeManager.ViewModels
         {
             get
             {
+                if (_imagesCleared) return new BitmapImage();
                 if (_previewSource == null && File.Exists(LocalPath))
                 {
                     _previewSource = new BitmapImage();
+                    LiveBitmapImageCount++;
                     var max = GetPreviewMaxSize();
                     var (w, h) = Utils.FitWithin(
                         GetNativePixelSize().width, GetNativePixelSize().height,
@@ -153,16 +157,30 @@ namespace MemeManager.ViewModels
             _title = model.Title;
         }
 
-        // 主窗口隐藏/关闭时调用：断开所有图像解码资源引用。
-        // 置 null 后，配合 GridView 的 ItemsSource=null 卸载容器，
-        // WinUI 才能把对应的 BitmapImage 从图像缓存移除并释放非托管纹理/解码内存，
-        // 否则常驻的 VM 集合会一直持有这些资源导致后台进程内存无法回落。
+        // 标记位：显式清除后，getter 必须返回 null 而不重建 BitmapImage。
+        // 否则 ClearImages 触发 PropertyChanged 会让绑定重新求值 getter，
+        // getter 里又会 new 出一个全新的 BitmapImage（旧纹理未释放、新的又来），
+        // 导致“清空”反而重新解码，内存永远下不去。
+        private bool _imagesCleared;
+
+        // 诊断用：当前进程内 MemeViewModel 还持有（已创建且未清除）的 BitmapImage 数量。
+        // 隐藏/清空后应趋近于 0，否则说明仍有根引用未断开。
+        public static int LiveBitmapImageCount { get; private set; }
+
+        // 显式断开 VM 持有的图像解码资源引用（BitmapImage）。
+        // 用途与注意：
+        //  - 调用后必须把 _imagesCleared 置 true，且**不要触发 PropertyChanged**：
+        //    否则绑定重新求值 ImageSource getter 时会再次 new 出 BitmapImage，
+        //    旧纹理未释放、新的又来，等于“清空反而重建”，内存永远下不去。
+        //  - 当前隐藏路径统一走极简的 ItemsSource=null + GC（框架自动释放纹理），
+        //    非复用模式不调用本方法；本方法保留供复用模式在需要手动释放时调用。
+        //  - 注意：仅把 VM 字段置 null 不足以释放纹理，真正让 WinUI 回收 GPU 纹理的
+        //    是“Image 控件从可视化树移除”（即 GridView.ItemsSource=null 后容器被卸载）。
         public void ClearImages()
         {
-            _imageSource = null;
-            _previewSource = null;
-            OnPropertyChanged(nameof(ImageSource));
-            OnPropertyChanged(nameof(PreviewSource));
+            _imagesCleared = true;
+            if (_imageSource != null) { LiveBitmapImageCount--; _imageSource = null; }
+            if (_previewSource != null) { LiveBitmapImageCount--; _previewSource = null; }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

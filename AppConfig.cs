@@ -40,10 +40,10 @@ public class AppConfig
 
     public bool AutoStart { get; set; } = false;
 
-    // 关闭主窗口后是否释放图像控件与缓存（清空 ItemsSource 并强制 GC）。
-    // 启用：后台内存占用长时间不用后降到极低，代价是每次唤起需重新渲染图片与控件，
-    // 且过于频繁开关会因 WinUI 图像缓存产生轻微内存泄漏；关闭：图像与控件常驻后台，内存占用更高。
-    public bool ReleaseImagesOnHide { get; set; } = true;
+    // 是否启用“控件复用策略”：复用 VM 与列表容器（秒开、不抖动，但后台内存常驻较高）。
+    // 关闭（默认）：每次刷新/切分类整体重建 VM，旧 Image 控件从树消失后框架自动释放
+    // GPU 纹理，后台内存能显著回落；代价是每次重建需重新解码图片。
+    public bool UseControlReuse { get; set; } = false;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）
