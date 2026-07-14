@@ -269,13 +269,21 @@ public sealed partial class MainWindow : Window
             App.DataEngine.GetCategories(),
             cat => App.DataEngine.GetMemes(cat).Count);
 
-        // 默认选中上次或第一项（仅在分类变化或尚未选中时设置，避免重复触发 SelectionChanged）
+        // 默认选中上次或第一项。
+        // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
+        // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
+        // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
         var last = App.DataEngine.Config.LastCategory;
         var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
         if (target != null && !target.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
         {
             CategoryList.SelectedItem = target;
             _currentCategory = target.Name;
+        }
+        else if (target != null)
+        {
+            // 重建模式下分类名没变但容器已重建：重新设回同一项以恢复选中视觉。
+            CategoryList.SelectedItem = target;
         }
 
         RefreshMemes();
@@ -482,6 +490,15 @@ public sealed partial class MainWindow : Window
             {
                 CategoryList.ItemsSource = _categoryList;
                 MemeGridView.ItemsSource = _memeList;
+            }
+            // 隐藏时 CategoryList.ItemsSource 被置空导致选中容器销毁、蓝条/高亮丢失；
+            // 重新绑回后必须重新断言选中，待容器生成后再设回以恢复视觉。
+            var sel = _categoryList.FirstOrDefault(c => c.Name == _currentCategory)
+                      ?? _categoryList.FirstOrDefault();
+            if (sel != null)
+            {
+                CategoryList.SelectedItem = null;
+                DispatcherQueue.TryEnqueue(() => { CategoryList.SelectedItem = sel; });
             }
             _fgTimer?.Start();
         }
