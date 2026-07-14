@@ -93,7 +93,7 @@
                     <TextBox x:Name="PreviewMaxHeightBox" Grid.Column="3" Width="80"
                              InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
                 </Grid>
-                <TextBlock FontSize="11" Opacity="0.6">超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 800*600）</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.6">超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 640*480）</TextBlock>
             </StackPanel>
 
             <StackPanel Spacing="6">
