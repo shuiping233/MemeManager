@@ -85,7 +85,11 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Row="0" Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                                <ToolTipService.ToolTip>
+                                    <ToolTip Content="{x:Bind Name}"/>
+                                </ToolTipService.ToolTip>
+                            </TextBlock>
                             <TextBlock Grid.Row="1" Text="{x:Bind Count, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
                         </Grid>
                     </DataTemplate>
