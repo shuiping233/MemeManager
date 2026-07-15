@@ -745,7 +745,9 @@ public sealed partial class MainWindow : Window
     private void MemeItem_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         // 编辑模式或窗口隐藏时不显示预览
-        if (_editMode || !_isVisible || _isClosing) return;
+        // 正在拖拽（内部拖出/重排）时不显示预览：避免遮挡鼠标，并杜绝拖拽会话
+        // 与预览浮窗异步回调在 native 层交错访问可视化树。
+        if (_editMode || !_isVisible || _isClosing || _draggingMemes != null) return;
         // 文件选择器打开期间不弹预览浮窗（避免对话框抢焦点后误触发）
         if (IsFilePickerOpen) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
@@ -1046,6 +1048,11 @@ public sealed partial class MainWindow : Window
     // 记录被拖项 + 设 StorageItems（供拖到文件管理器/输入框时复制）。
     private void MemeGridView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
+        // 拖拽会话开始即彻底关闭预览浮窗：避免浮窗淡出 Storyboard 异步回调
+        // 与 GridView 拖拽重排会话在 native 层交错访问同一容器树导致 failfast；
+        // 同时拖拽时不再弹浮窗，避免遮挡鼠标视野。
+        HidePreviewPopup(immediate: true, "拖拽开始");
+
         var draggedVms = e.Items.Cast<MemeViewModel>().ToList();
         if (draggedVms.Count == 0) return;
 
@@ -2153,6 +2160,8 @@ public sealed partial class MainWindow : Window
     private void SuspendWindowInteractions(bool closing)
     {
         if (closing) _isClosing = true;
+        // 立即停止预览浮窗（不淡出），避免隐藏/销毁期间其异步回调访问已卸载的可视化树
+        HidePreviewPopup(immediate: true, "SuspendWindowInteractions");
         Log($"[防护] SuspendWindowInteractions: closing={closing}, _isVisible={_isVisible}");
 
         // 停止 WinUI 内置拖拽/重排，让进行中的拖拽会话安全结束
