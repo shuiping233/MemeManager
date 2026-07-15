@@ -1106,10 +1106,7 @@ public sealed partial class MainWindow : Window
         var orderedFileNames = _listStrategy.ComputeDragOrder(_memeList, draggedGroup, _dragAnchorFileName)
             ?? _memeList.Select(m => m.FileName).ToList();
 
-        if (_listStrategy is ReuseStrategy)
-            Log($"DragItemsCompleted: 锚点重排后顺序=[{string.Join(",", orderedFileNames)}]");
-        else
-            Log($"DragItemsCompleted: DropResult={e.DropResult}, 顺序=[{string.Join(",", orderedFileNames)}]");
+        Log($"DragItemsCompleted: 重排完成, 项数={orderedFileNames.Count}");
 
         var ordered = orderedFileNames;
 
