@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # 文件系统发布：自包含（自带 .NET 运行时）exe 文件夹，压缩为带 -runtime 后缀的 zip
+  publish-zip-runtime:
+    runs-on: windows-latest
+    env:
+      PUBLISH_DIR: ${{ github.workspace }}\publish-runtime
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish (FileSystem, Self-Contained)
+        run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=true -o "$env:PUBLISH_DIR"
+
+      - name: Compress publish output
+        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-runtime-${{ github.ref_name }}.zip" -Force
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemeManager-win-x64-runtime-zip
+          path: MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
+
+  # 文件系统发布：依赖系统运行时（Framework-Dependent），压缩为不带后缀的 zip
+  publish-zip-fd:
+    runs-on: windows-latest
+    env:
+      PUBLISH_DIR: ${{ github.workspace }}\publish-fd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish (FileSystem, Framework-Dependent)
+        run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=false -o "$env:PUBLISH_DIR"
+
+      - name: Compress publish output
+        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-${{ github.ref_name }}.zip" -Force
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemeManager-win-x64-zip
+          path: MemeManager-win-x64-${{ github.ref_name }}.zip
+
+  # 创建 GitHub Release 并附上两个 zip 产物
+  release:
+    needs: [publish-zip-runtime, publish-zip-fd]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-x64-zip/MemeManager-win-x64-${{ github.ref_name }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =========================================================================
+  # MSIX 打包（未签名，需旁加载/开发者模式安装）—— 暂时停用，需要时解除注释
+  # =========================================================================
+  # pack-msix:
+  #   runs-on: windows-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup .NET
+  #       uses: actions/setup-dotnet@v4
+  #       with:
+  #         dotnet-version: '10.0.x'
+  #
+  #     - name: Generate MSIX package
+  #       run: dotnet build MemeManager.csproj -c Release -p:Platform=x64 -p:GenerateAppxPackageOnBuild=true
+  #
+  #     - name: Upload msix artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: MemeManager-win-x64-msix
+  #         path: AppPackages/**/*.msix

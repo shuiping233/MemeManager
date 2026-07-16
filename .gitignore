@@ -1,4 +1,4 @@
-## .NET / Visual Studio
+﻿## .NET / Visual Studio
 [Bb]in/
 [Oo]bj/
 [Dd]ebug/
@@ -55,3 +55,6 @@ _ReSharper*/
 # Generated files
 Generated\ Files/
 *_wpftmp.csproj
+
+
+backup/
