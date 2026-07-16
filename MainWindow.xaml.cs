@@ -349,23 +349,8 @@ public sealed partial class MainWindow : Window
     // 重命名分类对话框：同步重命名物理文件夹并刷新分类列表
     private async Task ShowRenameCategoryDialog(CategoryViewModel cat)
     {
-        var input = new TextBox
-        {
-            Text = cat.Name,
-            PlaceholderText = "输入新的分类名称",
-        };
-        var dialog = new ContentDialog
-        {
-            Title = "重命名分类",
-            Content = input,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot,
-            DefaultButton = ContentDialogButton.Primary
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-        var newName = input.Text?.Trim() ?? string.Empty;
+        var newName = await DialogHelper.PromptTextAsync(
+            this.Content.XamlRoot, "重命名分类", "输入新的分类名称", cat.Name);
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
@@ -1385,27 +1370,15 @@ public sealed partial class MainWindow : Window
     {
         if (_contextMeme == null) return;
         var vm = _contextMeme;
-        var input = new TextBox
+        var input = await DialogHelper.PromptTextAsync(
+            this.Content.XamlRoot, "重命名", "输入新的名称", vm.Title);
+        if (!string.IsNullOrWhiteSpace(input))
         {
-            Text = vm.Title,
-            PlaceholderText = "输入新的名称"
-        };
-        var dialog = new ContentDialog
-        {
-            Title = "重命名",
-            Content = input,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot,
-            DefaultButton = ContentDialogButton.Primary
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            await App.DataEngine.RenameMemeAsync(vm.Model, input.Text);
-            Log($"重命名「{vm.Title}」-> 「{input.Text}」");
+            await App.DataEngine.RenameMemeAsync(vm.Model, input);
+            Log($"重命名「{vm.Title}」-> 「{input}」");
             // 仅更新该项的显示标题，不重建整个列表（避免滚动条重置/容器刷新）。
             // RenameMemeAsync 已写入 metadata 与内存缓存，这里只通知 UI 刷新 tooltip。
-            vm.Title = input.Text;
+            vm.Title = input;
         }
     }
 
