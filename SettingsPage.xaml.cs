@@ -244,8 +244,7 @@ public sealed partial class SettingsPage : Page
         }
 
         // 目录不存在：弹窗提示并回退到进入设置前保存的有效路径
-        await DialogHelper.ShowMessageAsync(this.XamlRoot, "路径不存在",
-            $"指定的存放路径不存在：\n{text}\n\n已恢复为之前的有效路径。");
+        await DialogHelper.ShowPathNotFoundAsync(this.XamlRoot, text);
 
         var fallback = _originalStoragePath ?? MemeDataEngine.DefaultStoragePath();
         _revertingPath = true;

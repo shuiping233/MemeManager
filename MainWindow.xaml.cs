@@ -29,7 +29,6 @@ public sealed partial class MainWindow : Window
     private const uint SUBCLASS_ID = 101;
 
     // 拖拽到分类列表报错时的显示Title或者文件名的最大长度，过长则截断显示
-    private const int MoveConflictLabelMaxLen = 32; // 已迁移至 DialogHelper.TruncateLabel，保留以防遗漏引用
     
 
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
@@ -349,15 +348,20 @@ public sealed partial class MainWindow : Window
     // 重命名分类对话框：同步重命名物理文件夹并刷新分类列表
     private async Task ShowRenameCategoryDialog(CategoryViewModel cat)
     {
-        var newName = await DialogHelper.PromptTextAsync(
-            this.Content.XamlRoot, "重命名分类", "输入新的分类名称", cat.Name);
+        var newName = await DialogHelper.PromptRenameCategoryAsync(this.Content.XamlRoot, cat.Name);
         if (string.IsNullOrWhiteSpace(newName)) return;
+        // 同名（不区分大小写）或目标分类已存在都阻止重命名
+        if (newName.Equals(cat.Name, StringComparison.OrdinalIgnoreCase)
+            || _categoryList.Any(c => c.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            await DialogHelper.ShowCategoryExistsAsync(this.Content.XamlRoot, newName);
+            return;
+        }
 
         bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
         if (!ok)
         {
-            await DialogHelper.ShowMessageAsync(this.Content.XamlRoot, "重命名失败",
-                "分类重命名失败（可能名称已存在或文件夹无法访问）。");
+            await DialogHelper.ShowRenameCategoryFailedAsync(this.Content.XamlRoot);
             return;
         }
 
@@ -370,8 +374,7 @@ public sealed partial class MainWindow : Window
     // 删除分类（含确认对话框与 UI 更新）
     private async Task DeleteCategoryConfirmed(CategoryViewModel cat)
     {
-        if (await DialogHelper.ConfirmAsync(this.Content.XamlRoot, "删除分类",
-                $"确定要删除分类「{cat.Name}」吗？\n该分类下的所有表情与文件夹都会被删除。", "删除") != ContentDialogResult.Primary)
+        if (await DialogHelper.ConfirmDeleteCategoryAsync(this.Content.XamlRoot, cat.Name) != ContentDialogResult.Primary)
             return;
 
         bool ok = await App.DataEngine.DeleteCategoryAsync(cat.Name);
@@ -622,9 +625,13 @@ public sealed partial class MainWindow : Window
     // 新增分类对话框：成功后在列表末尾追加并选中
     private async Task ShowAddCategoryDialog()
     {
-        var name = await DialogHelper.PromptTextAsync(
-            this.Content.XamlRoot, "新增分类", "输入新分类名称");
+        var name = await DialogHelper.PromptNewCategoryAsync(this.Content.XamlRoot);
         if (string.IsNullOrWhiteSpace(name)) return;
+        if (_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            await DialogHelper.ShowCategoryExistsAsync(this.Content.XamlRoot, name);
+            return;
+        }
         bool added = await App.DataEngine.AddCategoryAsync(name);
         if (added)
         {
@@ -1333,7 +1340,7 @@ public sealed partial class MainWindow : Window
     {
         if (_contextMeme == null) return;
         var vm = _contextMeme;
-        if (await DialogHelper.ConfirmAsync(this.Content.XamlRoot, "删除确认", $"确定要删除「{vm.Title}」吗？", "删除") == ContentDialogResult.Primary)
+        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) == ContentDialogResult.Primary)
         {
             await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
             var item = _memeList.FirstOrDefault(m => m == vm);
@@ -1370,8 +1377,7 @@ public sealed partial class MainWindow : Window
     {
         if (_contextMeme == null) return;
         var vm = _contextMeme;
-        var input = await DialogHelper.PromptTextAsync(
-            this.Content.XamlRoot, "重命名", "输入新的名称", vm.Title);
+        var input = await DialogHelper.PromptRenameMemeAsync(this.Content.XamlRoot, vm.Title);
         if (!string.IsNullOrWhiteSpace(input))
         {
             await App.DataEngine.RenameMemeAsync(vm.Model, input);
@@ -1479,8 +1485,7 @@ public sealed partial class MainWindow : Window
         var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
 
-        if (await DialogHelper.ConfirmAsync(this.Content.XamlRoot, "删除确认",
-                $"确定要删除选中的 {selected.Count} 个表情吗？", "删除") != ContentDialogResult.Primary)
+        if (await DialogHelper.ConfirmDeleteMemesAsync(this.Content.XamlRoot, selected.Count) != ContentDialogResult.Primary)
             return;
 
         await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
@@ -1880,7 +1885,7 @@ public sealed partial class MainWindow : Window
             if (!hasBitmap && !hasStorageItems)
             {
                 Log("[粘贴] 剪贴板非图片/图片路径类内容");
-                await DialogHelper.ShowNotImageAsync(this.Content.XamlRoot);
+                await DialogHelper.ShowClipboardNotImageAsync(this.Content.XamlRoot);
                 return;
             }
 
@@ -1893,7 +1898,9 @@ public sealed partial class MainWindow : Window
             else if (duplicate)
             {
                 Log($"[粘贴] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
-                await DialogHelper.ShowDuplicateAsync(this.Content.XamlRoot, category);
+                var label = DialogHelper.TruncateLabel(
+                    string.IsNullOrWhiteSpace(imported.Title) ? imported.FileName : imported.Title);
+                await DialogHelper.ShowImageDuplicateAsync(this.Content.XamlRoot, category, label);
             }
             else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
             {
@@ -1976,9 +1983,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var name = await DialogHelper.PromptTextAsync(
-                this.Content.XamlRoot, "粘贴图片到分类",
-                "输入分类名称（不存在则新建）", _currentCategory);
+            var name = await DialogHelper.PromptPasteCategoryAsync(this.Content.XamlRoot, _currentCategory);
             if (string.IsNullOrWhiteSpace(name))
             {
                 Log("[剪贴板] 取消粘贴");
