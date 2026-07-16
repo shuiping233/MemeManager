@@ -1,0 +1,114 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MemeManager"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+        x:Class="MemeManager.SettingsWindow"
+        Title="设置"
+        Width="460" Height="640"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False">
+    <ScrollViewer>
+        <StackPanel Spacing="16" Margin="24">
+            <TextBlock Text="设置" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="主题" FontWeight="SemiBold"/>
+                <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">
+                    <ComboBoxItem>跟随系统</ComboBoxItem>
+                    <ComboBoxItem>浅色</ComboBoxItem>
+                    <ComboBoxItem>深色</ComboBoxItem>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="表情包存放路径" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="StoragePathBox" Grid.Column="0" VerticalAlignment="Center" MaxWidth="220" TextChanged="StoragePathBox_TextChanged"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" Spacing="4">
+                        <Button x:Name="BrowseButton" Content="浏览..." Click="BrowseButton_Click"/>
+                        <Button x:Name="OpenFolderButton" Content="打开存放文件夹" Click="OpenFolderButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="呼出快捷键" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="HotKeyBox" Grid.Column="0" IsReadOnly="True" VerticalAlignment="Center" Text="Alt+E"/>
+                    <Button x:Name="RecordHotKeyButton" Grid.Column="1" Content="录制..." Margin="8,0,0,0" Click="RecordHotKeyButton_Click"/>
+                </Grid>
+                <TextBlock FontSize="11" Opacity="0.6">点击“录制”后，按下想要的组合键（如 Alt+E）</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="预览图最大分辨率" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="宽" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="PreviewMaxWidthBox" Grid.Column="1" Width="80" TextChanged="PreviewResolution_TextChanged"/>
+                    <TextBlock Grid.Column="2" Text="高" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                    <TextBox x:Name="PreviewMaxHeightBox" Grid.Column="3" Width="80" TextChanged="PreviewResolution_TextChanged"/>
+                </Grid>
+                <TextBlock FontSize="11" Opacity="0.6">超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 640*480）</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="预览图触发延时（毫秒）" FontWeight="SemiBold"/>
+                <TextBox x:Name="PreviewDelayBox" Width="80" HorizontalAlignment="Left" TextChanged="PreviewDelay_TextChanged"/>
+                <TextBlock FontSize="11" Opacity="0.6">鼠标悬停后等待多久才弹出预览（默认 500）</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="保存日志文件" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="SaveLogToggle" IsCheckedChanged="SaveLogToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6">日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="效率模式 (EcoQoS)" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="EcoModeToggle" IsCheckedChanged="EcoModeToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">对后台工作线程启用 Windows 效率模式，降低后台扫描/导入时的 CPU 与能耗，不影响界面响应</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="开机自动启动" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="AutoStartToggle" IsCheckedChanged="AutoStartToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6">登录系统后自动在后台运行（仅托盘，不弹主窗口）</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="拖出图片时以图片格式输出" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="DragOutputAsImageToggle" IsCheckedChanged="DragOutputAsImageToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 拖出单张图片时额外转换成图片格式, 兼容老版本 QQ</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="启用控件复用策略" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="UseControlReuseToggle" IsCheckedChanged="UseControlReuseToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 图片控件将尽可能的少创建而是复用, 以减少创建图片控件的内存消耗</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="资源管理器风格多选操作模式" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="ExplorerStyleMultiSelectToggle" IsCheckedChanged="ExplorerStyleMultiSelectToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">关闭（默认）：复选框风格多选；开启：类似资源管理器风格，需Ctrl+左键才能单独多选</TextBlock>
+            </StackPanel>
+
+            <Button x:Name="CloseButton" Content="完成" HorizontalAlignment="Right" Margin="0,16,0,0" Click="CloseButton_Click"/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

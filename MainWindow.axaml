@@ -2,8 +2,168 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MemeManager"
+        xmlns:vm="clr-namespace:MemeManager.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="MeMeManager.MainWindow"
-        Title="MeMeManager">
-    Welcome to Avalonia!
+        x:Class="MemeManager.MainWindow"
+        Title="MemeManager">
+    <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="160"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 顶部栏 -->
+        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="12,10,12,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Grid.Column="0" Watermark="搜索表情..."
+                     Margin="0,0,8,0" TextChanged="SearchBox_TextChanged"/>
+            <ToggleButton x:Name="TopMostToggle" Grid.Column="1" Content="置顶" Margin="0,0,8,0"
+                          IsChecked="True" IsCheckedChanged="TopMostToggle_IsCheckedChanged"/>
+            <Button x:Name="EditButton" Grid.Column="2" Content="修改" Margin="0,0,8,0"
+                    Click="EditButton_Click"/>
+            <Button x:Name="RefreshButton" Grid.Column="3" Content="刷新" Margin="0,0,8,0" Click="RefreshButton_Click"/>
+            <Button x:Name="SettingsButton" Grid.Column="4" Content="设置" Click="SettingsButton_Click"/>
+        </Grid>
+
+        <!-- 左侧分类栏 -->
+        <Grid Grid.Row="1" Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ListBox x:Name="CategoryList"
+                     Grid.Row="0"
+                     SelectionMode="Single"
+                     SelectionChanged="CategoryList_SelectionChanged">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CategoryViewModel">
+                        <Grid Margin="8,6" Tag="{Binding}">
+                            <Grid.ContextMenu>
+                                <ContextMenu Opening="CategoryItemContextFlyout_Opening">
+                                    <MenuItem Header="打开所在文件夹" Click="CategoryOpenFolder_Click"/>
+                                    <MenuItem Header="重命名" Click="CategoryRename_Click"/>
+                                    <MenuItem Header="删除" Click="CategoryDelete_Click"/>
+                                </ContextMenu>
+                            </Grid.ContextMenu>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                            <TextBlock Grid.Row="1" Text="{Binding Count}" FontSize="11" Opacity="0.6"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="新建分类" Click="CategoryNew_Click"/>
+                    </ContextMenu>
+                </ListBox.ContextMenu>
+            </ListBox>
+            <Button x:Name="AddCategoryButton" Grid.Row="1" Content="+" FontSize="20"
+                    HorizontalAlignment="Stretch" Margin="8" Click="AddCategoryButton_Click"/>
+        </Grid>
+
+        <!-- 右侧表情网格 -->
+        <ListBox x:Name="MemeGridView"
+                 Grid.Row="1" Grid.Column="1"
+                 Margin="12"
+                 HorizontalAlignment="Stretch"
+                 SelectionMode="Single"
+                 DragDrop.AllowDrop="True"
+                 SelectionChanged="MemeGridView_SelectionChanged">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MemeViewModel">
+                    <Border Width="90" Height="90" Margin="4"
+                            Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                            CornerRadius="6"
+                            PointerEntered="MemeItem_PointerEntered"
+                            PointerExited="MemeItem_PointerExited"
+                            PointerPressed="MemeItem_PointerPressed"
+                            Tag="{Binding}">
+                        <Border.ContextMenu>
+                            <ContextMenu Opening="MemeItemContextFlyout_Opening">
+                                <MenuItem Header="打开" Click="MemeOpen_Click"/>
+                                <MenuItem Header="打开所在文件夹" Click="MemeOpenFolder_Click"/>
+                                <MenuItem Header="重命名" Click="MemeRename_Click"/>
+                                <MenuItem Header="移动到其他分类" x:Name="MoveSubMenuHost">
+                                    <MenuItem Header="（暂无其他分类）" IsEnabled="False"/>
+                                </MenuItem>
+                                <MenuItem Header="删除" Click="MemeDelete_Click"/>
+                            </ContextMenu>
+                        </Border.ContextMenu>
+                        <Grid>
+                            <Image Source="{Binding ImageSource}" Stretch="UniformToFill"/>
+                            <CheckBox x:Name="SelectionCheckBox"
+                                      IsChecked="{Binding IsSelected}"
+                                      IsHitTestVisible="False"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Top"
+                                      Margin="0,-6,0,0"
+                                      IsVisible="False"/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- 鼠标悬停表情时的放大预览 Popup -->
+        <Popup x:Name="PreviewPopup"
+               Placement="TopEdgeAlignedLeft"
+               IsLightDismissEnabled="False">
+            <Border x:Name="PreviewBorder"
+                    Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8"
+                    Opacity="0"
+                    IsHitTestVisible="False">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="PreviewTitle"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxWidth="600"/>
+                    <Image x:Name="PreviewImage"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <!-- 修改模式底部批量操作栏 -->
+        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+              x:Name="BatchBar"
+              IsVisible="False"
+              Padding="12"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="SelectAllButton" Content="全选" Click="SelectAllButton_Click"/>
+                <Button x:Name="BatchImportButton" Content="批量导入" Click="BatchImportButton_Click"/>
+                <Button x:Name="BatchExportButton" Content="批量导出" IsEnabled="False" Click="BatchExportButton_Click"/>
+                <Button x:Name="BatchMoveButton" Content="批量移动" IsEnabled="False" Click="BatchMoveButton_Click"/>
+                <Button x:Name="DeleteButton" Content="删除" IsEnabled="False" Click="DeleteButton_Click"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>

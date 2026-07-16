@@ -71,8 +71,8 @@ internal static partial class NativeMethods
     public delegate void WinEventProc(IntPtr hWinEventHook, uint eventType,
         IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
-    [LibraryImport("user32.dll", SetLastError = true)]
-    public static partial IntPtr SetWinEventHook(uint eventMin, uint eventMax,
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax,
         IntPtr hmodWinEventProc, WinEventProc pfnWinEventProc,
         uint idProcess, uint idThread, uint dwFlags);
 
@@ -126,12 +126,12 @@ internal static partial class NativeMethods
     public static extern int GetKeyNameTextW(int lParam, System.Text.StringBuilder lpString, int cchSize);
 
     // 引入窗口子类化 API
-    [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
+    [DllImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, IntPtr dwRefData);
+    public static extern bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, IntPtr dwRefData);
 
-    [LibraryImport("comctl32.dll", EntryPoint = "DefSubclassProc")]
-    public static partial IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+    [DllImport("comctl32.dll", EntryPoint = "DefSubclassProc")]
+    public static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
 
     // --- 键盘输入模拟相关定义 ---
     public const int INPUT_KEYBOARD = 1;
@@ -245,9 +245,9 @@ internal static partial class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool DestroyIcon(IntPtr hIcon);
 
-    [LibraryImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
+    [DllImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
+    public static extern bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
 
     // ---------- 线程级效率模式（EcoQoS）----------
 

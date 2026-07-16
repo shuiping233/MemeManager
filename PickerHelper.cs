@@ -1,89 +1,65 @@
-﻿using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Windows.Gaming.Input;
-using Windows.Storage.Pickers;
-using WinRT.Interop;
+﻿using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MemeManager;
 
 /// <summary>
-/// 封装 WinUI 的文件/文件夹选择器，统一处理 Win32 窗口句柄绑定与
-/// Win10 兼容性（必须指定 FileTypeFilter 否则 PickSingleFolderAsync 抛 E_FAIL）。
+/// 封装 Avalonia 的文件/文件夹选择器（基于 StorageProvider）。
 /// </summary>
 public static class PickerHelper
 {
-    /// <summary>
-    /// 弹出文件夹选择对话框，返回用户选择的文件夹路径；用户取消则返回 null。
-    /// </summary>
-    public static async Task<string?> PickFolderAsync(
-        Window? owner = null,
-        PickerLocationId suggestedLocation = PickerLocationId.PicturesLibrary)
+    public static async Task<string?> PickFolderAsync(Window? owner = null)
     {
-        var picker = new FolderPicker();
-        Initialize(picker, owner);
-        picker.SuggestedStartLocation = suggestedLocation;
-        // Win10 要求至少指定一个文件类型筛选器，否则 PickSingleFolderAsync 抛 E_FAIL
-        picker.FileTypeFilter.Add("*");
-
-        var folder = await picker.PickSingleFolderAsync();
-        return folder?.Path;
+        if (owner?.StorageProvider == null) return null;
+        var folders = await owner.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "选择表情包存放文件夹",
+            AllowMultiple = false
+        });
+        return folders.Count > 0 ? folders[0].Path.LocalPath : null;
     }
 
-    /// <summary>
-    /// 弹出单文件选择对话框，返回选中文件的路径；用户取消则返回 null。
-    /// </summary>
     public static async Task<string?> PickSingleFileAsync(
         Window? owner = null,
-        PickerLocationId suggestedLocation = PickerLocationId.PicturesLibrary,
         params (string Name, string Extension)[] fileTypes)
     {
-        var picker = new FileOpenPicker();
-        Initialize(picker, owner);
-        picker.SuggestedStartLocation = suggestedLocation;
-        if (fileTypes.Length == 0)
-            picker.FileTypeFilter.Add("*");
-        else
-            foreach (var (_, ext) in fileTypes)
-                picker.FileTypeFilter.Add(ext);
-
-        var file = await picker.PickSingleFileAsync();
-        return file?.Path;
+        var files = await PickFiles(owner, false, fileTypes);
+        return files.Count > 0 ? files[0] : null;
     }
 
-    /// <summary>
-    /// 弹出多文件选择对话框，返回选中文件的路径列表；用户取消则返回空列表。
-    /// </summary>
     public static async Task<IReadOnlyList<string>> PickMultipleFilesAsync(
         Window? owner = null,
-        PickerLocationId suggestedLocation = PickerLocationId.PicturesLibrary,
         params (string Name, string Extension)[] fileTypes)
     {
-        var picker = new FileOpenPicker();
-        Initialize(picker, owner);
-        picker.SuggestedStartLocation = suggestedLocation;
+        return await PickFiles(owner, true, fileTypes);
+    }
+
+    private static async Task<IReadOnlyList<string>> PickFiles(
+        Window? owner, bool multiple, params (string Name, string Extension)[] fileTypes)
+    {
+        if (owner?.StorageProvider == null) return new List<string>();
+        var options = new FilePickerOpenOptions
+        {
+            Title = "选择图片",
+            AllowMultiple = multiple,
+            FileTypeFilter = BuildFilter(fileTypes)
+        };
+        var files = await owner.StorageProvider.OpenFilePickerAsync(options);
+        return files.Select(f => f.Path.LocalPath).ToList();
+    }
+
+    private static List<FilePickerFileType> BuildFilter((string Name, string Extension)[] fileTypes)
+    {
         if (fileTypes.Length == 0)
-            picker.FileTypeFilter.Add("*");
-        else
-            foreach (var (_, ext) in fileTypes)
-                picker.FileTypeFilter.Add(ext);
+            return new List<FilePickerFileType> { new("图片") { Patterns = new[] { "*.*" } } };
 
-        var files = await picker.PickMultipleFilesAsync();
-        return files?.Select(f => f.Path).ToList() ?? new List<string>();
-    }
-
-    private static WindowId GetAppWindowId(Window? owner)
-    {
-        var window = owner ?? App.MainWindow;
-        var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-        var winId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
-        return winId;
-    }
-
-    private static void Initialize(object picker, Window? owner)
-    {
-        var hWnd = owner is null
-            ? WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow)
-            : WinRT.Interop.WindowNative.GetWindowHandle(owner);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
+        var type = new FilePickerFileType("图片")
+        {
+            Patterns = fileTypes.Select(f => "*" + f.Extension).ToArray()
+        };
+        return new List<FilePickerFileType> { type };
     }
 }

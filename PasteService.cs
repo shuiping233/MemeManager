@@ -3,43 +3,45 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage;
-using Windows.Storage.Streams;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
+using MemeManager.Models;
 
 namespace MemeManager;
 
 public static class PasteService
 {
     /// <summary>
-    /// 异步将指定路径的表情包输出到当前光标所在的文本框
+    /// 异步将指定路径的表情包输出到当前光标所在的文本框（通过剪贴板 + 模拟 Ctrl+V）。
     /// </summary>
-    /// <param name="targetWindow">可选：指定接收 Ctrl+V 的目标窗口；为空则发送到当前前台窗口</param>
     public static async Task OutputMemeToCursorAsync(string filePath, IntPtr? targetWindow = null)
     {
         if (!File.Exists(filePath)) return;
 
         try
         {
-            var file = await StorageFile.GetFileFromPathAsync(Path.GetFullPath(filePath));
+            var win = App.MainWindow as TopLevel;
+            if (win?.Clipboard != null)
+            {
+                var data = new DataTransfer();
+                var file = await win.StorageProvider.TryGetFileFromPathAsync(filePath);
+                if (file != null)
+                    data.Add(DataTransferItem.CreateFile(file));
+                try
+                {
+                    var bmp = new Bitmap(filePath);
+                    data.Add(DataTransferItem.Create(DataFormat.Bitmap, bmp));
+                }
+                catch { }
 
-            var package = new DataPackage();
-
-            System.Collections.Generic.List<Windows.Storage.IStorageItem> storageItems =
-                new System.Collections.Generic.List<Windows.Storage.IStorageItem> { file };
-            package.SetStorageItems(storageItems);
-
-            var streamRef = RandomAccessStreamReference.CreateFromFile(file);
-            package.SetBitmap(streamRef);
-
-            Clipboard.SetContent(package);
-            // Flush 在剪贴板被其他进程占用时可能抛 COMException，这里忽略，
-            // SetContent 已足够让随后的 Ctrl+V 使用数据
-            try { Clipboard.Flush(); } catch { }
+                await win.Clipboard.SetDataAsync(data);
+            }
 
             await Task.Delay(10);
 
-            // 若未显式指定目标，则取当前前台窗口（通常是用户正在输入的应用）
             IntPtr target = targetWindow.HasValue && targetWindow.Value != IntPtr.Zero
                 ? targetWindow.Value
                 : NativeMethods.GetForegroundWindow();
@@ -62,14 +64,12 @@ public static class PasteService
 
     private static void TriggerCtrlV(IntPtr? targetWindow = null)
     {
-        // 若指定了目标窗口，先把前台焦点切过去，确保 Ctrl+V 落在正确的应用里
         if (targetWindow.HasValue && targetWindow.Value != IntPtr.Zero)
         {
             NativeMethods.SetForegroundWindow(targetWindow.Value);
             System.Threading.Thread.Sleep(20);
         }
 
-        // 构造 4 个按键动作：Ctrl按下 -> V按下 -> V弹起 -> Ctrl弹起
         var inputs = new NativeMethods.INPUT[4];
 
         inputs[0].type = NativeMethods.INPUT_KEYBOARD;
