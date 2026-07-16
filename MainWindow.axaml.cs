@@ -652,7 +652,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateBatchButtons()
     {
-        bool anySelected = MemeGridView.SelectedItems.Count > 0;
+        if (MemeGridView == null) return;
+        bool anySelected = MemeGridView.SelectedItems!.Count > 0;
         if (BatchExportButton != null) BatchExportButton.IsEnabled = anySelected;
         if (BatchMoveButton != null) BatchMoveButton.IsEnabled = anySelected;
         if (DeleteButton != null) DeleteButton.IsEnabled = anySelected;
@@ -692,7 +693,7 @@ public sealed partial class MainWindow : Window
         {
             if (_draggingMemes == null)
             {
-                var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+                var selected = (MemeGridView.SelectedItems?.Cast<MemeViewModel>() ?? []).ToList();
                 List<MemeViewModel> group;
                 if (_editMode && selected.Count > 0 && selected.Contains(clicked))
                     group = selected;
@@ -761,7 +762,7 @@ public sealed partial class MainWindow : Window
     private void SyncSelectionToViewModels()
     {
         if (_isClosing) return;
-        var selected = new HashSet<MemeViewModel>(MemeGridView.SelectedItems.Cast<MemeViewModel>());
+        var selected = new HashSet<MemeViewModel>(MemeGridView.SelectedItems?.Cast<MemeViewModel>() ?? []);
         foreach (var vm in _memeList)
             vm.IsSelected = selected.Contains(vm);
     }
@@ -1003,7 +1004,7 @@ public sealed partial class MainWindow : Window
     private async void MoveMemeToCategory(MemeViewModel vm, string targetName)
     {
         List<MemeViewModel> toMove;
-        var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+        var selected = (MemeGridView.SelectedItems?.Cast<MemeViewModel>() ?? []).ToList();
         if (_editMode && selected.Count > 0)
             toMove = selected;
         else
@@ -1039,7 +1040,7 @@ public sealed partial class MainWindow : Window
     }
 
     private List<MemeViewModel> SelectedMemeViewModels()
-        => MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
+        => (MemeGridView.SelectedItems?.Cast<MemeViewModel>() ?? []).ToList();
 
     private async void BatchExportButton_Click(object? sender, RoutedEventArgs e)
     {
@@ -1059,7 +1060,7 @@ public sealed partial class MainWindow : Window
 
         await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
         RemoveFromCurrentView(selected.Select(m => m.Model));
-        MemeGridView.SelectedItems.Clear();
+        MemeGridView?.SelectedItems?.Clear();
         UpdateCategoryCounts();
     }
 
@@ -1072,7 +1073,6 @@ public sealed partial class MainWindow : Window
         {
             if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase)) continue;
             var targetName = cat.Name;
-            var _ = (object?)null;
             Task.Run(async () =>
             {
                 if (!await GuardMoveConflictAsync(models, targetName)) return;
@@ -1296,11 +1296,12 @@ public sealed partial class MainWindow : Window
     private void ToggleSelectAll()
     {
         if (!_editMode) return;
-        bool allSelected = MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
+        if (MemeGridView == null) return;
+        bool allSelected = MemeGridView.SelectedItems!.Count == _memeList.Count && _memeList.Count > 0;
         if (allSelected)
-            MemeGridView.SelectedItems.Clear();
+            MemeGridView.SelectedItems!.Clear();
         else
-            foreach (var m in _memeList) if (!MemeGridView.SelectedItems.Contains(m)) MemeGridView.SelectedItems.Add(m);
+            foreach (var m in _memeList) if (!MemeGridView.SelectedItems!.Contains(m)) MemeGridView.SelectedItems!.Add(m);
         if (SelectAllButton != null)
             SelectAllButton.Content = allSelected ? "全选" : "取消全选";
     }
@@ -1352,7 +1353,7 @@ public sealed partial class MainWindow : Window
                     try
                     {
                         using var ms = new MemoryStream();
-                        bmp.Save(ms);
+                        bmp.Save(ms, new PngBitmapEncoderOptions());
                         File.WriteAllBytes(tempPath, ms.ToArray());
                         var (imported, dup) = await App.DataEngine.ImportMemeAsync(tempPath, category);
                         if (imported != null && category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
@@ -1372,8 +1373,8 @@ public sealed partial class MainWindow : Window
         _editMode = false;
         EditButton.Content = "修改";
         BatchBar.IsVisible = false;
-        MemeGridView.SelectedItems.Clear();
-        MemeGridView.SelectionMode = SelectionMode.Single;
+        MemeGridView?.SelectedItems?.Clear();
+        MemeGridView!.SelectionMode = SelectionMode.Single;
         _lastShiftAnchor = -1;
         SelectAllButton.Content = "全选";
         SetSelectionBoxVisible(false);
@@ -1388,7 +1389,7 @@ public sealed partial class MainWindow : Window
             if (_isClosing) return;
             foreach (var item in MemeGridView.Items)
             {
-                if (MemeGridView.ContainerFromItem(item) is ListBoxItem container)
+                if (MemeGridView.ContainerFromItem(item!) is ListBoxItem container)
                 {
                     var box = container.FindControl<CheckBox>("SelectionCheckBox");
                     if (box != null) box.IsVisible = visible;
