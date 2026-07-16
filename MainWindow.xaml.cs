@@ -1060,6 +1060,11 @@ public sealed partial class MainWindow : Window
         // 与 GridView 拖拽重排会话在 native 层交错访问同一容器树导致 failfast；
         // 同时拖拽时不再弹浮窗，避免遮挡鼠标视野。
         HidePreviewPopup(immediate: true, "拖拽开始");
+        // 停止预览定时器：dump 显示崩溃发生在 DispatcherTimer Tick 的
+        // UIAffinityReleaseQueue::DoCleanup 里销毁 DragItemsStartingEventArgs 时，
+        // 与渲染 Tick 重入撞车触发 framework 层 reentrancy failfast。
+        // 拖拽期间停掉定时器，消除这个竞态窗口。
+        _previewTimer.Stop();
 
         var draggedVms = e.Items.Cast<MemeViewModel>().ToList();
         if (draggedVms.Count == 0) return;
@@ -1087,7 +1092,12 @@ public sealed partial class MainWindow : Window
             e.Data.SetStorageItems(files);
             // 拖出图片时以图片格式输出：仅单张生效（图片剪贴板格式只能承载一张位图，
             // 多张只能靠文件格式）。开启后老版本 QQ 才会把单张拖出识别为图片而非文件。
-            if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1)
+            // 硬保险：GIF 永不走 SetBitmap —— dump 证实 DragItemsStartingEventArgs 内部
+            // 的 DataPackage 在延迟释放时会因 Bitmap/StorageFile 跨线程清理触发 framework
+            // 层 reentrancy failfast(0xc000027b)，GIF 本就靠文件路径被 QQ 识别，无需 Bitmap。
+            bool isGif = files.Length == 1 &&
+                string.Equals(Path.GetExtension(files[0].Path), ".gif", StringComparison.OrdinalIgnoreCase);
+            if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1 && !isGif)
             {
                 e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(files[0]));
             }
@@ -1106,6 +1116,11 @@ public sealed partial class MainWindow : Window
     {
         Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, _editMode={_editMode}, DropResult={e.DropResult}");
         if (_draggingMemes == null) return;
+
+        // 拖拽结束：恢复预览定时器（仅当窗口可见）。与 DragItemsStarting 里的
+        // _previewTimer.Stop() 成对，避免拖拽期间停定时器导致预览功能永久失效。
+        if (_isVisible && !_isClosing)
+            _previewTimer.Start();
 
         // 记录整组被拖项（编辑模式多选拖拽时是整组），重排后据此恢复多选状态
         var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
