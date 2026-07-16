@@ -1052,13 +1052,28 @@ public sealed partial class MainWindow : Window
         _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
         Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
 
-        // 设文件以便拖到外部时复制
+        // 设文件以便拖到外部时复制。
+        // 注意：DragItemsStarting 在 UI 线程触发，必须避免阻塞式 .Result 与任何可能抛出
+        // 的 DataPackage 写入——一旦 SetStorageItems/SetBitmap 部分成功又抛异常，
+        // DragItemsStartingEventArgs 内部的 DataPackage 会处于非法状态，后续 native 清理
+        // 会触发 framework 层 reentrancy failfast(0xc000027b) 直接崩溃进程。
+        // 因此先同步校验文件都存在，缺失则整组放弃设置（仅失去拖出能力，不会崩）。
         try
         {
-            var files = group
+            var valid = group
+                .Where(v => !string.IsNullOrEmpty(v.LocalPath) && File.Exists(v.LocalPath))
+                .ToList();
+            if (valid.Count == 0)
+            {
+                Log("DragItemsStarting: 无可拖出文件（本地路径不存在），跳过设置 DataPackage");
+                return;
+            }
+
+            var files = valid
                 .Select(v => StorageFile.GetFileFromPathAsync(v.LocalPath).AsTask().Result)
                 .ToArray();
             e.Data.SetStorageItems(files);
+
             // 拖出图片时以图片格式输出：仅单张生效（图片剪贴板格式只能承载一张位图，
             // 多张只能靠文件格式）。开启后老版本 QQ 才会把单张拖出识别为图片而非文件。
             // 硬保险：GIF 永不走 SetBitmap —— dump 证实 DragItemsStartingEventArgs 内部
@@ -1076,7 +1091,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Log("DragItemsStarting: 设 StorageItems 失败: " + ex.Message);
+            Log("DragItemsStarting: 设 StorageItems 失败（已放弃拖出，避免崩溃）: " + ex.Message);
         }
     }
 
