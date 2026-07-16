@@ -131,4 +131,41 @@ public static class DialogHelper
         s = string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
         return s.Length > ConflictLabelMaxLen ? s.Substring(0, ConflictLabelMaxLen) + "..." : s;
     }
+
+    // 带输入框的提示弹窗：返回用户输入的文本（已 Trim）。
+    // 用户点"取消"或关闭则返回 null；点"确定"即使为空/空白也返回对应字符串。
+    // 确定按钮统一蓝色高亮（Primary + DefaultButton=Primary）。
+    public static async Task<string?> PromptTextAsync(
+        XamlRoot xamlRoot,
+        string title,
+        string placeholder,
+        string? defaultText = null)
+    {
+        if (xamlRoot == null) return null;
+        try
+        {
+            var box = new TextBox
+            {
+                PlaceholderText = placeholder,
+                Text = defaultText ?? string.Empty,
+            };
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = box,
+                PrimaryButtonText = "确定",
+                CloseButtonText = "取消",
+                XamlRoot = xamlRoot,
+                DefaultButton = ContentDialogButton.Primary
+            };
+            return await dialog.ShowAsync() == ContentDialogResult.Primary
+                ? box.Text?.Trim()
+                : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[DialogHelper] 输入弹窗失败(title={title}): {ex.Message}");
+            return null;
+        }
+    }
 }

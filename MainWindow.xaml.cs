@@ -637,27 +637,14 @@ public sealed partial class MainWindow : Window
     // 新增分类对话框：成功后在列表末尾追加并选中
     private async Task ShowAddCategoryDialog()
     {
-        var box = new TextBox { PlaceholderText = "输入新分类名称" };
-        var dialog = new ContentDialog
+        var name = await DialogHelper.PromptTextAsync(
+            this.Content.XamlRoot, "新增分类", "输入新分类名称");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        bool added = await App.DataEngine.AddCategoryAsync(name);
+        if (added)
         {
-            Title = "新增分类",
-            Content = box,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot,
-            DefaultButton = ContentDialogButton.Primary
-        };
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
-        {
-            var name = box.Text.Trim();
-            if (string.IsNullOrWhiteSpace(name)) return;
-            bool added = await App.DataEngine.AddCategoryAsync(name);
-            if (added)
-            {
-                _categoryList.Add(new CategoryViewModel(name, 0));
-                CategoryList.SelectedItem = _categoryList.Last();
-            }
+            _categoryList.Add(new CategoryViewModel(name, 0));
+            CategoryList.SelectedItem = _categoryList.Last();
         }
     }
 
@@ -2016,29 +2003,12 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var box = new TextBox
-            {
-                PlaceholderText = "输入分类名称（不存在则新建）",
-                Text = _currentCategory
-            };
-            var dialog = new ContentDialog
-            {
-                Title = "粘贴图片到分类",
-                Content = box,
-                PrimaryButtonText = "确定",
-                CloseButtonText = "取消",
-                XamlRoot = this.Content.XamlRoot
-            };
-            var result = await dialog.ShowAsync();
-            if (result != ContentDialogResult.Primary)
-            {
-                Log("[剪贴板] 取消粘贴");
-                return null;
-            }
-            var name = box.Text.Trim();
+            var name = await DialogHelper.PromptTextAsync(
+                this.Content.XamlRoot, "粘贴图片到分类",
+                "输入分类名称（不存在则新建）", _currentCategory);
             if (string.IsNullOrWhiteSpace(name))
             {
-                Log("[剪贴板] 分类名为空，取消粘贴");
+                Log("[剪贴板] 取消粘贴");
                 return null;
             }
 
