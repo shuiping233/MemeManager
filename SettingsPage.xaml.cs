@@ -208,24 +208,8 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private async Task ShowErrorAsync(string title, string detail)
-    {
-        try
-        {
-            var dialog = new ContentDialog
-            {
-                Title = title,
-                Content = detail,
-                CloseButtonText = "确定",
-                XamlRoot = this.XamlRoot
-            };
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[Settings] 弹出错误对话框也失败: {ex}");
-        }
-    }
+    private Task ShowErrorAsync(string title, string detail) =>
+        DialogHelper.ShowErrorAsync(this.XamlRoot, title, detail);
 
     private async void OpenFolderButton_Click(object sender, RoutedEventArgs e)
     {
@@ -260,21 +244,8 @@ public sealed partial class SettingsPage : Page
         }
 
         // 目录不存在：弹窗提示并回退到进入设置前保存的有效路径
-        try
-        {
-            var dialog = new ContentDialog
-            {
-                Title = "路径不存在",
-                Content = $"指定的存放路径不存在：\n{text}\n\n已恢复为之前的有效路径。",
-                CloseButtonText = "确定",
-                XamlRoot = this.XamlRoot
-            };
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[Settings] 路径校验弹窗失败: {ex.Message}");
-        }
+        await DialogHelper.ShowMessageAsync(this.XamlRoot, "路径不存在",
+            $"指定的存放路径不存在：\n{text}\n\n已恢复为之前的有效路径。");
 
         var fallback = _originalStoragePath ?? MemeDataEngine.DefaultStoragePath();
         _revertingPath = true;

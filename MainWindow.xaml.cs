@@ -29,7 +29,7 @@ public sealed partial class MainWindow : Window
     private const uint SUBCLASS_ID = 101;
 
     // 拖拽到分类列表报错时的显示Title或者文件名的最大长度，过长则截断显示
-    private const int MoveConflictLabelMaxLen = 32;
+    private const int MoveConflictLabelMaxLen = 32; // 已迁移至 DialogHelper.TruncateLabel，保留以防遗漏引用
     
 
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
@@ -371,18 +371,8 @@ public sealed partial class MainWindow : Window
         bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
         if (!ok)
         {
-            try
-            {
-                var err = new ContentDialog
-                {
-                    Title = "重命名失败",
-                    Content = "分类重命名失败（可能名称已存在或文件夹无法访问）。",
-                    CloseButtonText = "确定",
-                    XamlRoot = this.Content.XamlRoot
-                };
-                await err.ShowAsync();
-            }
-            catch (Exception ex) { Logger.Log($"[分类重命名] 错误弹窗失败: {ex.Message}"); }
+            await DialogHelper.ShowMessageAsync(this.Content.XamlRoot, "重命名失败",
+                "分类重命名失败（可能名称已存在或文件夹无法访问）。");
             return;
         }
 
@@ -395,15 +385,9 @@ public sealed partial class MainWindow : Window
     // 删除分类（含确认对话框与 UI 更新）
     private async Task DeleteCategoryConfirmed(CategoryViewModel cat)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "删除分类",
-            Content = $"确定要删除分类「{cat.Name}」吗？\n该分类下的所有表情与文件夹都会被删除。",
-            PrimaryButtonText = "删除",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (await DialogHelper.ConfirmAsync(this.Content.XamlRoot, "删除分类",
+                $"确定要删除分类「{cat.Name}」吗？\n该分类下的所有表情与文件夹都会被删除。", "删除") != ContentDialogResult.Primary)
+            return;
 
         bool ok = await App.DataEngine.DeleteCategoryAsync(cat.Name);
         if (!ok) return;
@@ -1377,15 +1361,7 @@ public sealed partial class MainWindow : Window
     {
         if (_contextMeme == null) return;
         var vm = _contextMeme;
-        var dialog = new ContentDialog
-        {
-            Title = "删除确认",
-            Content = $"确定要删除「{vm.Title}」吗？",
-            PrimaryButtonText = "删除",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        if (await DialogHelper.ConfirmAsync(this.Content.XamlRoot, "删除确认", $"确定要删除「{vm.Title}」吗？", "删除") == ContentDialogResult.Primary)
         {
             await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
             var item = _memeList.FirstOrDefault(m => m == vm);
@@ -1466,42 +1442,13 @@ public sealed partial class MainWindow : Window
         static string Label(MemeModel m)
         {
             var s = string.IsNullOrWhiteSpace(m.Title) ? m.FileName : m.Title;
-            return s.Length > MoveConflictLabelMaxLen ? s.Substring(0, MoveConflictLabelMaxLen) + "..." : s;
+            return DialogHelper.TruncateLabel(s);
         }
         foreach (var (src, dst) in conflicts)
             Log($"[移动冲突] 阻止移动: \"{Label(src)}\"({src.FileName}, 源分类=\"{src.Category}\") -> \"{Label(dst)}\"({dst.FileName}, 目标分类=\"{conflict}\")");
 
-        // 弹窗正文：先说明，再逐行列出冲突对 "源 -> 目标"
-        var lines = new List<string>
-        {
-            $"分类\"{conflict}\"已经存在相同的图片",
-            "",
-            "冲突明细:"
-        };
-        foreach (var (src, dst) in conflicts)
-            lines.Add($"\"{Label(src)}\" -> \"{Label(dst)}\"");
-
-        try
-        {
-            var textBlock = new TextBlock
-            {
-                Text = string.Join("\n", lines),
-                TextWrapping = TextWrapping.Wrap,
-                IsTextSelectionEnabled = true,
-            };
-            var dlg = new ContentDialog
-            {
-                Title = "移动图片失败",
-                Content = textBlock,
-                CloseButtonText = "确定",
-                XamlRoot = this.Content.XamlRoot,
-            };
-            await dlg.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            Log($"[移动冲突] 提示窗失败: {ex.Message}");
-        }
+        var pairs = conflicts.Select(c => (Label(c.src), Label(c.dst)));
+        await DialogHelper.ShowMoveConflictAsync(this.Content.XamlRoot, conflict, pairs);
         return false;
     }
 
@@ -1572,15 +1519,9 @@ public sealed partial class MainWindow : Window
         var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
 
-        var dialog = new ContentDialog
-        {
-            Title = "删除确认",
-            Content = $"确定要删除选中的 {selected.Count} 个表情吗？",
-            PrimaryButtonText = "删除",
-            CloseButtonText = "取消",
-            XamlRoot = this.Content.XamlRoot
-        };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (await DialogHelper.ConfirmAsync(this.Content.XamlRoot, "删除确认",
+                $"确定要删除选中的 {selected.Count} 个表情吗？", "删除") != ContentDialogResult.Primary)
+            return;
 
         await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
         RemoveFromCurrentView(selected.Select(m => m.Model));
@@ -1978,7 +1919,8 @@ public sealed partial class MainWindow : Window
             bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
             if (!hasBitmap && !hasStorageItems)
             {
-                Log("[粘贴] 剪贴板非图片/图片路径类内容，已忽略（仅接受 Bitmap / StorageItems）");
+                Log("[粘贴] 剪贴板非图片/图片路径类内容");
+                await DialogHelper.ShowNotImageAsync(this.Content.XamlRoot);
                 return;
             }
 
@@ -1989,7 +1931,10 @@ public sealed partial class MainWindow : Window
             if (imported == null)
                 Log("[粘贴] 导入失败或内容为空");
             else if (duplicate)
+            {
                 Log($"[粘贴] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
+                await DialogHelper.ShowDuplicateAsync(this.Content.XamlRoot, category);
+            }
             else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
             {
                 Log($"[粘贴] 导入成功: {imported.Title} (分类={category})");
