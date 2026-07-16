@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -36,6 +36,7 @@ public static class DialogHelper
                 Title = title,
                 Content = content,
                 CloseButtonText = "确定",
+                DefaultButton = ContentDialogButton.Close,
                 XamlRoot = xamlRoot,
             };
             await dialog.ShowAsync();
