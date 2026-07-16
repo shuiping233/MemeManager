@@ -62,14 +62,18 @@ public sealed partial class MainWindow : Window
 
     public void ApplyPreviewDelayFromConfig()
     {
-        // 用配置里的悬停延迟覆盖全局 ToolTip 显示延迟（毫秒）。
+        // 把配置里的悬停延迟应用到每个表情项的 ToolTip（覆盖默认 400ms）。
+        // 注意：ToolTip.ShowDelayProperty.OverrideMetadata 在 Control 上不可靠，
+        // 需逐个容器用 ToolTip.SetShowDelay 设置才能生效。
         try
         {
             var cfg = App.DataEngine.Config;
             int ms = cfg?.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400;
-            ToolTip.ShowDelayProperty.OverrideMetadata(
-                typeof(Control),
-                new StyledPropertyMetadata<int>(ms));
+            for (int i = 0; i < MemeGridView.Items.Count; i++)
+            {
+                if (MemeGridView.ContainerFromIndex(i) is Control container)
+                    ToolTip.SetShowDelay(container, ms);
+            }
         }
         catch { }
     }
@@ -441,6 +445,9 @@ public sealed partial class MainWindow : Window
             SetSelectionBoxVisible(true);
             SyncSelectionToViewModels();
         }
+
+        // 每次重建列表项后，把悬停预览延迟应用到各 ToolTip 容器。
+        ApplyPreviewDelayFromConfig();
     }
 
     private void InsertMemeAtFront(MemeViewModel vm) => _memeList.Insert(0, vm);

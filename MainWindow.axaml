@@ -111,10 +111,9 @@
                                            TextWrapping="Wrap"
                                            TextAlignment="Center"
                                            HorizontalAlignment="Center"
-                                           MaxWidth="640"/>
+                                           MaxWidth="600"/>
                                 <Image Source="{Binding PreviewSource}"
                                        Stretch="Uniform"
-                                       MaxWidth="800" MaxHeight="600"
                                        HorizontalAlignment="Center"/>
                             </StackPanel>
                         </ToolTip.Tip>
