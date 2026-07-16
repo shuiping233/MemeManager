@@ -15,6 +15,11 @@ public static class DialogHelper
 {
     private const int ConflictLabelMaxLen = 32;
 
+    // 弹窗统一强制主题。默认 Default（跟随其 XamlRoot 所在可视化树）。
+    // 在 App.ApplyTheme 中按配置设置：System 时解析为当前系统实际主题，
+    // 避免 Win10/Win11 下弹窗主题表现不一致（Win10 默认浅色、Win11 跟随系统）。
+    public static ElementTheme DialogTheme { get; set; } = ElementTheme.Default;
+
     // ---------- 基础方法（不直接对外暴露文案，仅内部复用） ----------
 
     // 标题 + 描述文本。wrap + 可选选中，便于用户复制冲突明细。
@@ -37,6 +42,7 @@ public static class DialogHelper
                 CloseButtonText = "确定",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = xamlRoot,
+                RequestedTheme = DialogTheme,
             };
             await dialog.ShowAsync();
         }
@@ -82,6 +88,7 @@ public static class DialogHelper
                 CloseButtonText = closeText,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = xamlRoot,
+                RequestedTheme = DialogTheme,
             };
             return await dialog.ShowAsync();
         }
@@ -113,7 +120,8 @@ public static class DialogHelper
                 PrimaryButtonText = "确定",
                 CloseButtonText = "取消",
                 XamlRoot = xamlRoot,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = ContentDialogButton.Primary,
+                RequestedTheme = DialogTheme,
             };
             return await dialog.ShowAsync() == ContentDialogResult.Primary
                 ? box.Text?.Trim()

@@ -173,7 +173,14 @@ public partial class App : Application
             ThemeMode.Dark => ElementTheme.Dark,
             _ => ElementTheme.Default
         };
-        if (MainWindow.Content is FrameworkElement root)
+        FrameworkElement? root = MainWindow.Content as FrameworkElement;
+        if (root != null)
             root.RequestedTheme = applied;
+
+        // 弹窗统一强制主题：System 时解析为当前系统实际主题（root.ActualTheme），
+        // 避免 Win10/Win11 下模态弹窗主题表现不一致。
+        DialogHelper.DialogTheme = theme == ThemeMode.System
+            ? (root?.ActualTheme ?? ElementTheme.Default)
+            : applied;
     }
 }
