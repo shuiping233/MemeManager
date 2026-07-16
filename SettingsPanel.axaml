@@ -1,15 +1,10 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MemeManager"
-        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
-        x:Class="MemeManager.SettingsWindow"
-        Title="设置"
-        Width="460" Height="640"
-        WindowStartupLocation="CenterOwner"
-        CanResize="False"
-        ShowInTaskbar="False">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:MemeManager"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+             x:Class="MemeManager.SettingsPanel">
     <ScrollViewer>
         <StackPanel Spacing="16" Margin="24">
             <TextBlock Text="设置" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -111,4 +106,4 @@
             <Button x:Name="CloseButton" Content="完成" HorizontalAlignment="Right" Margin="0,16,0,0" Click="CloseButton_Click"/>
         </StackPanel>
     </ScrollViewer>
-</Window>
+</UserControl>

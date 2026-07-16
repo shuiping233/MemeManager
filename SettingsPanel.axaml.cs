@@ -10,13 +10,15 @@ using MemeManager.Models;
 
 namespace MemeManager;
 
-public sealed partial class SettingsWindow : Window
+public sealed partial class SettingsPanel : UserControl
 {
     private string? _originalStoragePath;
     private bool _recording;
     private bool _saved;
 
-    public SettingsWindow()
+    public event EventHandler? Finished;
+
+    public SettingsPanel()
     {
         InitializeComponent();
 
@@ -117,7 +119,7 @@ public sealed partial class SettingsWindow : Window
         App.MainWindow.IsFilePickerOpen = true;
         try
         {
-            var folder = await PickerHelper.PickFolderAsync(this);
+            var folder = await PickerHelper.PickFolderAsync(App.MainWindow);
             if (folder != null)
             {
                 Logger.Log($"[Settings] BrowseButton_Click: 成功选择文件夹: {folder}");
@@ -129,7 +131,7 @@ public sealed partial class SettingsWindow : Window
         catch (Exception ex)
         {
             Logger.Log($"[Settings] BrowseButton_Click 异常: {ex}");
-            await Dialogs.ShowMessageAsync(this, "打开文件夹选择器失败", ex.ToString());
+            await Dialogs.ShowMessageAsync(App.MainWindow, "打开文件夹选择器失败", ex.ToString());
         }
         finally { App.MainWindow.IsFilePickerOpen = false; }
     }
@@ -155,7 +157,7 @@ public sealed partial class SettingsWindow : Window
 
         if (Directory.Exists(text)) return;
 
-        await Dialogs.ShowMessageAsync(this, "路径不存在", $"指定的存放路径不存在：\n{text}\n\n已恢复为之前的有效路径。");
+        await Dialogs.ShowMessageAsync(App.MainWindow, "路径不存在", $"指定的存放路径不存在：\n{text}\n\n已恢复为之前的有效路径。");
         var fallback = _originalStoragePath ?? MemeDataEngine.DefaultStoragePath();
         _revertingPath = true;
         StoragePathBox.Text = fallback;
@@ -227,6 +229,6 @@ public sealed partial class SettingsWindow : Window
     public async Task SaveAndCloseAsync()
     {
         await SaveAsync();
-        Close();
+        Finished?.Invoke(this, EventArgs.Empty);
     }
 }

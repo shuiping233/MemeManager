@@ -12,7 +12,7 @@ namespace MemeManager;
 /// </summary>
 public static class Dialogs
 {
-    public static async Task ShowMessageAsync(Window? owner, string title, string content)
+    public static async Task ShowMessageAsync(Window owner, string title, string content)
     {
         var dlg = new Window
         {
@@ -32,7 +32,7 @@ public static class Dialogs
         await dlg.ShowDialog(owner);
     }
 
-    public static async Task<bool> ShowConfirmAsync(Window? owner, string title, string content)
+    public static async Task<bool> ShowConfirmAsync(Window owner, string title, string content)
     {
         var dlg = new Window
         {
@@ -67,7 +67,7 @@ public static class Dialogs
     /// <summary>
     /// 文本输入对话框。返回用户输入的文本；用户取消则返回 null。
     /// </summary>
-    public static async Task<string?> ShowInputAsync(Window? owner, string title, string? placeholder = null, string? initialText = null)
+    public static async Task<string?> ShowInputAsync(Window owner, string title, string? placeholder = null, string? initialText = null)
     {
         var dlg = new Window
         {
@@ -81,7 +81,7 @@ public static class Dialogs
         var input = new TextBox
         {
             Text = initialText ?? string.Empty,
-            Watermark = placeholder ?? string.Empty
+            PlaceholderText = placeholder ?? string.Empty
         };
         var result = (string?)null;
         var panel = new StackPanel { Spacing = 12, Margin = new Thickness(16) };

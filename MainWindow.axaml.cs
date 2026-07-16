@@ -86,6 +86,8 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
+        ((App)Application.Current!).RegisterMainWindow(this);
+
         InitializeComponent();
 
         ApplyListStrategyFromConfig();
@@ -1087,10 +1089,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void SettingsButton_Click(object? sender, RoutedEventArgs e)
+    private void SettingsPanel_Finished(object? sender, EventArgs e)
     {
-        var page = new SettingsWindow();
-        page.ShowDialog(this);
+        if (SettingsButton.Flyout is Flyout flyout)
+            flyout.Hide();
     }
 
     private async void RefreshButton_Click(object? sender, RoutedEventArgs e)
@@ -1106,7 +1108,8 @@ public sealed partial class MainWindow : Window
     public void OpenSettings()
     {
         ShowWindow(activate: true);
-        SettingsButton_Click(this, new RoutedEventArgs());
+        if (SettingsButton.Flyout is Flyout flyout)
+            flyout.ShowAt(SettingsButton);
     }
 
     public void ShowAndActivate() => ShowWindow(activate: true);

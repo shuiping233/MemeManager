@@ -21,6 +21,12 @@ namespace MemeManager
             ((App)Current!)._window ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
         private MainWindow? _window;
 
+        /// <summary>
+        /// 在 MainWindow 构造函数（InitializeComponent 之前）调用，使 App.MainWindow 在窗口自身
+        /// 构造期间（含 XAML 内嵌的 SettingsPanel 等子控件）即可用，避免“尚未初始化”异常。
+        /// </summary>
+        internal void RegisterMainWindow(MainWindow window) => _window = window;
+
         public override void Initialize()
         {
             AvaloniaXamlLoader.Load(this);
