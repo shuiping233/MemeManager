@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using Microsoft.UI.Xaml;
 using Windows.Foundation;
 
@@ -101,6 +103,28 @@ public static class Utils
 
     private static double Clamp(double v, double min, double max)
         => v < min ? min : (v > max ? max : v);
+
+    /// <summary>
+    /// 在文件资源管理器中打开指定路径：
+    /// select=true 时定位并选中该文件(/select,"路径")，否则直接打开所在文件夹。
+    /// </summary>
+    public static void OpenInExplorer(string path, bool select, string logTag)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = select ? $"/select,\"{path}\"" : $"\"{path}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[{logTag}] 打开资源管理器失败: {ex.Message}");
+        }
+    }
 }
 
 /// <summary>Popup 相对锚点的摆放方向。</summary>

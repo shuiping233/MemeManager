@@ -319,6 +319,14 @@ public sealed partial class MainWindow : Window
             Log($"右键分类项: {_contextCategory.Name}");
     }
 
+    // 在文件资源管理器中打开该分类对应的文件夹
+    private void CategoryOpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextCategory == null) return;
+        var dir = System.IO.Path.Combine(App.DataEngine.BaseDir, _contextCategory.Name);
+        Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
+    }
+
     private async void CategoryNew_Click(object sender, RoutedEventArgs e)
         => await ShowAddCategoryDialog();
 
@@ -1380,6 +1388,13 @@ public sealed partial class MainWindow : Window
         {
             Log($"[打开图片] 失败: {ex.Message}");
         }
+    }
+
+    // 在文件资源管理器中定位并选中该图片（explorer /select,"路径"）
+    private void MemeOpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMeme == null) return;
+        Utils.OpenInExplorer(_contextMeme.Model.LocalPath, select: true, logTag: "打开所在文件夹");
     }
 
     private async void MemeRename_Click(object sender, RoutedEventArgs e)

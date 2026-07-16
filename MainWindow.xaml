@@ -77,6 +77,7 @@
                               Drop="CategoryListItem_Drop">
                             <Grid.ContextFlyout>
                                 <MenuFlyout Opening="CategoryItemContextFlyout_Opening">
+                                    <MenuFlyoutItem Text="打开所在文件夹" Click="CategoryOpenFolder_Click"/>
                                     <MenuFlyoutItem Text="重命名" Click="CategoryRename_Click"/>
                                     <MenuFlyoutItem Text="删除" Click="CategoryDelete_Click"/>
                                 </MenuFlyout>
@@ -131,6 +132,7 @@
                         <Grid.ContextFlyout>
                             <MenuFlyout Opening="MemeItemContextFlyout_Opening">
                                 <MenuFlyoutItem Text="打开" Click="MemeOpen_Click"/>
+                                <MenuFlyoutItem Text="打开所在文件夹" Click="MemeOpenFolder_Click"/>
                                 <MenuFlyoutItem Text="重命名" Click="MemeRename_Click"/>
                                 <MenuFlyoutSubItem Text="移动到其他分类"/>
                                 <MenuFlyoutItem Text="删除" Click="MemeDelete_Click"/>
