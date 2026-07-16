@@ -36,7 +36,9 @@
             <Button x:Name="RefreshButton" Grid.Column="3" Content="刷新" Margin="0,0,8,0" Click="RefreshButton_Click"/>
             <Button x:Name="SettingsButton" Grid.Column="4" Content="设置">
                 <Button.Flyout>
-                    <Flyout Placement="BottomEdgeAlignedRight">
+                    <Flyout Placement="BottomEdgeAlignedRight"
+                            Opened="SettingsFlyout_Opened"
+                            Closed="SettingsFlyout_Closed">
                         <local:SettingsPanel x:Name="SettingsPanelInstance" Finished="SettingsPanel_Finished"/>
                     </Flyout>
                 </Button.Flyout>

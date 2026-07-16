@@ -901,6 +901,18 @@ public sealed partial class MainWindow : Window
             flyout.Hide();
     }
 
+    private void SettingsFlyout_Opened(object? sender, EventArgs e)
+    {
+        // 每次打开重新填充控件并重置保存标志（Flyout 复用同一 SettingsPanel 实例）。
+        SettingsPanelInstance.PrepareShow();
+    }
+
+    private async void SettingsFlyout_Closed(object? sender, EventArgs e)
+    {
+        // 无论以何种方式关闭，统一在此保存配置，避免遗漏且规避卸载竞态。
+        await SettingsPanelInstance.SaveAsync();
+    }
+
     private async void RefreshButton_Click(object? sender, RoutedEventArgs e)
         => await RefreshDataAsync();
 

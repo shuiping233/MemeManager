@@ -14,7 +14,8 @@ public sealed partial class SettingsPanel : UserControl
 {
     private string? _originalStoragePath;
     private bool _recording;
-    private bool _saved;
+    // 防止 SaveAsync 并发/重复执行；每次打开面板时由 PrepareShow 重置。
+    private bool _saveStarted;
 
     public event EventHandler? Finished;
 
@@ -22,6 +23,16 @@ public sealed partial class SettingsPanel : UserControl
     {
         InitializeComponent();
 
+        PrepareShow();
+        this.KeyDown += SettingsPage_KeyDown;
+    }
+
+    /// <summary>
+    /// 每次 Flyout 打开时调用：从最新配置重新填充控件，并重置保存标志。
+    /// 因为 Flyout 会复用同一个 SettingsPanel 实例，必须重置，否则二次打开无法再次保存。
+    /// </summary>
+    public void PrepareShow()
+    {
         var cfg = App.DataEngine.Config;
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
@@ -38,8 +49,7 @@ public sealed partial class SettingsPanel : UserControl
         PreviewDelayBox.Text = (cfg.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 500).ToString();
 
         _originalStoragePath = cfg.StoragePath;
-
-        this.KeyDown += SettingsPage_KeyDown;
+        _saveStarted = false;
     }
 
     private async void ThemeComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -166,8 +176,8 @@ public sealed partial class SettingsPanel : UserControl
 
     public async Task SaveAsync()
     {
-        if (_saved) return;
-        _saved = true;
+        if (_saveStarted) return;
+        _saveStarted = true;
 
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
         double.TryParse(PreviewMaxWidthBox.Text, out double pw);
@@ -223,12 +233,8 @@ public sealed partial class SettingsPanel : UserControl
         Logger.Log("[Settings] 配置已保存");
     }
 
-    private async void CloseButton_Click(object? sender, RoutedEventArgs e)
-        => await SaveAndCloseAsync();
-
-    public async Task SaveAndCloseAsync()
-    {
-        await SaveAsync();
-        Finished?.Invoke(this, EventArgs.Empty);
-    }
+    // “完成”按钮只负责请求关闭 Flyout；真正的保存统一在 Flyout 的 Closed 事件里执行，
+    // 这样无论以何种方式关闭（完成按钮 / 代码 Hide）都能保证保存，且避免 Flyout 卸载竞态。
+    private void CloseButton_Click(object? sender, RoutedEventArgs e)
+        => Finished?.Invoke(this, EventArgs.Empty);
 }
