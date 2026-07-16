@@ -60,29 +60,22 @@ public sealed partial class MainWindow : Window
 
     public bool IsFilePickerOpen { get; internal set; }
 
-    private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
-    private MemeViewModel? _pendingPreviewVm;
-    private Control? _pendingPreviewAnchor;
-
     public void ApplyPreviewDelayFromConfig()
     {
+        // 用配置里的悬停延迟覆盖全局 ToolTip 显示延迟（毫秒）。
         try
         {
             var cfg = App.DataEngine.Config;
             int ms = cfg?.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400;
-            _previewTimer.Interval = TimeSpan.FromMilliseconds(ms);
+            ToolTip.ShowDelayProperty.OverrideMetadata(
+                typeof(Control),
+                new StyledPropertyMetadata<int>(ms));
         }
         catch { }
     }
 
     private bool _allowClose;
     private bool _isClosing;
-    private bool _suppressNextMove;
-    private bool _previewFadingOut;
-    private Point _lastPointerPos;
-    private const double PreviewMoveThreshold = 3;
-    private const int PreviewFadeInMs = 95;
-    private const int PreviewFadeOutMs = 0;
 
     public MainWindow()
     {
@@ -94,7 +87,6 @@ public sealed partial class MainWindow : Window
 
         _hWnd = GetHwnd();
 
-        _previewTimer.Tick += PreviewTimer_Tick;
         ApplyPreviewDelayFromConfig();
 
         TopMostToggle.IsChecked = _topMost;
@@ -380,63 +372,6 @@ public sealed partial class MainWindow : Window
                     $"VM存活Bitmap={MemeViewModel.LiveBitmapImageCount} " +
                     $"托管堆={GC.GetTotalMemory(false) / 1024}KB GC代数0/1/2={GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
             }
-            HidePreviewPopup(true, "SetMemeViewVisible");
-        }
-    }
-
-    private void HidePreviewPopup(bool immediate = false, string reason = "")
-    {
-        _previewTimer.Stop();
-        _pendingPreviewVm = null;
-        _pendingPreviewAnchor = null;
-
-        if (!PreviewPopup.IsOpen)
-        {
-            _previewFadingOut = false;
-            return;
-        }
-
-        if (immediate || _isClosing)
-        {
-            PreviewPopup.IsOpen = false;
-            PreviewImage.Source = null;
-            _previewFadingOut = false;
-            _suppressNextMove = false;
-            Log($"[预览] 浮窗已关闭 (来源=immediate{reason})");
-            return;
-        }
-
-        if (_previewFadingOut) return;
-        _previewFadingOut = true;
-
-        if (PreviewBorder != null)
-        {
-            var animation = new Avalonia.Animation.Animation
-            {
-                Duration = TimeSpan.FromMilliseconds(PreviewFadeOutMs),
-                Children = { new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(1d),
-                    Setters = { new Setter(Control.OpacityProperty, 0.0) }
-                } }
-            };
-            _ = animation.RunAsync(PreviewBorder).ContinueWith(_ =>
-            {
-                if (_previewFadingOut)
-                {
-                    _previewFadingOut = false;
-                    PreviewPopup.IsOpen = false;
-                    PreviewImage.Source = null;
-                    Log($"[预览] 浮窗已关闭 (来源=fadeout{reason})");
-                }
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-        }
-        else
-        {
-            PreviewPopup.IsOpen = false;
-            PreviewImage.Source = null;
-            _previewFadingOut = false;
-            Log($"[预览] 浮窗已关闭 (来源=direct{reason})");
         }
     }
 
@@ -525,133 +460,6 @@ public sealed partial class MainWindow : Window
             c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void MemeItem_PointerEntered(object? sender, PointerEventArgs e)
-    {
-        if (_editMode || !_isVisible || _isClosing || _draggingMemes != null) return;
-        if (IsFilePickerOpen) return;
-        if (sender is not Control fe || fe.DataContext is not MemeViewModel vm) return;
-
-        _lastPointerPos = e.GetPosition(this);
-
-        if (PreviewPopup.IsOpen && !_previewFadingOut)
-            ShowPreviewPopup(vm, fe);
-        else
-        {
-            _pendingPreviewVm = vm;
-            _pendingPreviewAnchor = fe;
-            _previewTimer.Start();
-        }
-    }
-
-    private void MemeItem_PointerExited(object? sender, PointerEventArgs e)
-    {
-        _previewTimer.Stop();
-        _pendingPreviewVm = null;
-        _pendingPreviewAnchor = null;
-        HidePreviewPopup(reason: "PointerExited");
-    }
-
-    private void Root_PointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (!PreviewPopup.IsOpen) return;
-        var pt = e.GetPosition(this);
-        double dx = pt.X - _lastPointerPos.X;
-        double dy = pt.Y - _lastPointerPos.Y;
-        _lastPointerPos = pt;
-
-        if (_suppressNextMove)
-        {
-            _suppressNextMove = false;
-            Log($"[预览] PointerMoved 忽略(打开后抖动) pos=({pt.X:F0},{pt.Y:F0})");
-            return;
-        }
-
-        if (dx * dx + dy * dy > PreviewMoveThreshold * PreviewMoveThreshold)
-        {
-            Log($"[预览] PointerMoved 关闭 (dx={dx:F1}, dy={dy:F1}) pos=({pt.X:F0},{pt.Y:F0})");
-            HidePreviewPopup(reason: "PointerMoved");
-        }
-    }
-
-    private void PreviewTimer_Tick(object? sender, EventArgs e)
-    {
-        Log($"[预览] TimerTick -> Show (pending={_pendingPreviewVm?.Title})");
-        _previewTimer.Stop();
-        if (_pendingPreviewVm == null || _pendingPreviewAnchor == null) return;
-        if (_isClosing || !_isVisible) return;
-        ShowPreviewPopup(_pendingPreviewVm, _pendingPreviewAnchor);
-    }
-
-    private void ShowPreviewPopup(MemeViewModel vm, Control anchor)
-    {
-        PreviewTitle.Text = vm.Title;
-        PreviewImage.Source = vm.PreviewSource;
-
-        var anchorRect = GetElementWindowRect(anchor);
-
-        PreviewPopup.IsOpen = true;
-        _suppressNextMove = true;
-
-        if (PreviewBorder != null)
-        {
-            PreviewBorder.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double pw = PreviewBorder.DesiredSize.Width;
-            double ph = PreviewBorder.DesiredSize.Height;
-
-            var workArea = GetWindowWorkArea();
-            var (x, y, placement) = Utils.PlacePopup(
-                anchorRect, pw, ph, workArea, Placement.Above);
-
-            PreviewPopup.HorizontalOffset = this.Position.X + x;
-            PreviewPopup.VerticalOffset = this.Position.Y + y;
-
-            var (nw, nh) = vm.GetPreviewNaturalSize();
-            var (ow, oh) = vm.GetPreviewOutputSize();
-            Log($"[预览] 显示: 标题={vm.Title} | 原图={nw}x{nh} | 实际输出图={ow}x{oh} | " +
-                $"浮窗={pw:F0}x{ph:F0} | 坐标=({x:F0},{y:F0}) | 方位={placement}");
-        }
-
-        FadeInPreview();
-    }
-
-    private void FadeInPreview()
-    {
-        _previewFadingOut = false;
-        var animation = new Avalonia.Animation.Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(PreviewFadeInMs),
-            Children = { new Avalonia.Animation.KeyFrame
-            {
-                Cue = new Avalonia.Animation.Cue(1d),
-                Setters = { new Setter(Control.OpacityProperty, 1.0) }
-            } }
-        };
-        _ = animation.RunAsync(PreviewBorder);
-    }
-
-    private Rect GetElementWindowRect(Control element)
-    {
-        var topLeft = element.TranslatePoint(new Point(0, 0), this) ?? new Point(0, 0);
-        return new Rect(topLeft.X, topLeft.Y, element.Bounds.Width, element.Bounds.Height);
-    }
-
-    private Rect GetWindowWorkArea()
-    {
-        var fallback = new Rect(-this.Position.X, -this.Position.Y, double.PositiveInfinity, double.PositiveInfinity);
-        try
-        {
-            var screen = this.Screens.ScreenFromVisual(this);
-            if (screen != null)
-            {
-                var r = screen.WorkingArea;
-                var pos = this.Position;
-                return new Rect(r.X - pos.X, r.Y - pos.Y, r.Width, r.Height);
-            }
-        }
-        catch { }
-        return fallback;
-    }
-
     private void UpdateBatchButtons()
     {
         if (MemeGridView == null) return;
@@ -682,8 +490,6 @@ public sealed partial class MainWindow : Window
 
     private async void MemeItem_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        HidePreviewPopup(reason: "Pressed");
-
         if (sender is not Control fe || fe.DataContext is not MemeViewModel clicked)
         {
             Log("MemeItem_Pressed: 取不到 MemeViewModel, sender=" + sender?.GetType().Name);
@@ -1500,7 +1306,6 @@ public sealed partial class MainWindow : Window
     private void SuspendWindowInteractions(bool closing)
     {
         if (closing) _isClosing = true;
-        HidePreviewPopup(immediate: true, "SuspendWindowInteractions");
         Log($"[防护] SuspendWindowInteractions: closing={closing}, _isVisible={_isVisible}");
         _fgTimer?.Stop();
     }

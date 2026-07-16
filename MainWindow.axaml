@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="MemeManager.MainWindow"
         Title="MemeManager">
-    <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
+        <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -27,7 +27,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="SearchBox" Grid.Column="0" Watermark="搜索表情..."
+            <TextBox x:Name="SearchBox" Grid.Column="0" PlaceholderText="搜索表情..."
                      Margin="0,0,8,0" TextChanged="SearchBox_TextChanged"/>
             <ToggleButton x:Name="TopMostToggle" Grid.Column="1" Content="置顶" Margin="0,0,8,0"
                           IsChecked="True" IsCheckedChanged="TopMostToggle_IsCheckedChanged"/>
@@ -100,10 +100,22 @@
                     <Border Width="90" Height="90" Margin="4"
                             Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                             CornerRadius="6"
-                            PointerEntered="MemeItem_PointerEntered"
-                            PointerExited="MemeItem_PointerExited"
                             PointerPressed="MemeItem_PointerPressed"
                             Tag="{Binding}">
+                        <ToolTip.Tip>
+                            <StackPanel Spacing="6" Margin="4">
+                                <TextBlock Text="{Binding Title}"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           MaxWidth="640"/>
+                                <Image Source="{Binding PreviewSource}"
+                                       Stretch="Uniform"
+                                       MaxWidth="800" MaxHeight="600"
+                                       HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </ToolTip.Tip>
                         <Border.ContextMenu>
                             <ContextMenu Opening="MemeItemContextFlyout_Opening">
                                 <MenuItem Header="打开" Click="MemeOpen_Click"/>
@@ -128,34 +140,7 @@
                     </Border>
                 </DataTemplate>
             </ListBox.ItemTemplate>
-        </ListBox>
-
-        <!-- 鼠标悬停表情时的放大预览 Popup -->
-        <Popup x:Name="PreviewPopup"
-               Placement="TopEdgeAlignedLeft"
-               IsLightDismissEnabled="False">
-            <Border x:Name="PreviewBorder"
-                    Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="8"
-                    Opacity="0"
-                    IsHitTestVisible="False">
-                <StackPanel Spacing="6">
-                    <TextBlock x:Name="PreviewTitle"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               TextAlignment="Center"
-                               HorizontalAlignment="Center"
-                               TextWrapping="Wrap"
-                               MaxWidth="600"/>
-                    <Image x:Name="PreviewImage"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-        </Popup>
+            </ListBox>
 
         <!-- 修改模式底部批量操作栏 -->
         <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
