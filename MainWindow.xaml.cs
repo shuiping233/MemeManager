@@ -1276,16 +1276,17 @@ public sealed partial class MainWindow : Window
         if (paths.Count == 0) return;
         int importedCount = 0;
         int duplicateCount = 0;
+        MemeModel? duplicateModel = null;
         foreach (var path in paths)
         {
             var (imported, dup) = await App.DataEngine.ImportMemeAsync(path, _currentCategory);
             if (imported == null) continue;
-            if (dup) duplicateCount++;
+            if (dup) { duplicateCount++; duplicateModel = imported; }
             else importedCount++;
         }
 
         // 回到 UI 线程刷新
-        DispatcherQueue.TryEnqueue(() =>
+        DispatcherQueue.TryEnqueue(async () =>
         {
             // 窗口已隐藏/销毁则放弃，避免操作已不存在的 XAML 导致 native AV
             if (_isClosing || !_isVisible)
@@ -1296,8 +1297,20 @@ public sealed partial class MainWindow : Window
             RefreshMemes();
             UpdateCategoryCounts();
             Log($"拖入完成: 新增 {importedCount} 个, 重复跳过 {duplicateCount} 个");
+
+            // 仅当只拖入 1 张且为重复时才弹窗提示；多张重复刻意静默，交由去重逻辑处理，
+            // 避免批量导入时反复弹窗打扰用户体验。
+            if (paths.Count == 1 && duplicateCount == 1 && duplicateModel != null)
+                await ShowSingleImportDuplicateAsync(duplicateModel);
         });
     }
+
+    // 单张导入重复时，弹窗告知用户与哪张已有图片冲突（展示 title，无则文件名）。
+    private Task ShowSingleImportDuplicateAsync(MemeModel existing) =>
+        DialogHelper.ShowImageDuplicateAsync(
+            this.Content.XamlRoot,
+            _currentCategory,
+            DialogHelper.TruncateLabel(string.IsNullOrWhiteSpace(existing.Title) ? existing.FileName : existing.Title));
 
     // ---------- 右键菜单（XAML ContextFlyout 绑定）----------
 
@@ -1456,13 +1469,20 @@ public sealed partial class MainWindow : Window
 
         if (files.Count == 0) return;
 
+        MemeModel? duplicateModel = null;
         foreach (var file in files)
         {
-            var (imported, _) = await App.DataEngine.ImportMemeAsync(file, _currentCategory);
-            if (imported != null)
-                InsertMemeAtFront(new MemeViewModel(imported));
+            var (imported, dup) = await App.DataEngine.ImportMemeAsync(file, _currentCategory);
+            if (imported == null) continue;
+            if (dup) duplicateModel = imported;
+            else InsertMemeAtFront(new MemeViewModel(imported));
         }
         UpdateCategoryCounts();
+
+        // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默，交由去重逻辑处理，
+        // 避免批量导入时反复弹窗打扰用户体验。
+        if (files.Count == 1 && duplicateModel != null)
+            await ShowSingleImportDuplicateAsync(duplicateModel);
     }
 
     // 当前 GridView 原生选中的项
