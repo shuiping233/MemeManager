@@ -351,6 +351,7 @@ public class MemeDataEngine
                 m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
+                Logger.Log($"[Engine] 导入重复跳过: 文件={fileName} 源路径={sourcePath} 目标分类={category} (已存在于分类「{existing.Category}」)");
                 return (existing, true);
             }
 
@@ -412,6 +413,37 @@ public class MemeDataEngine
     // ---------- 移动到其他分类 ----------
 
     /// <summary>
+    /// 检测移动冲突：若待移动的任意表情（排除本就在目标分类的项）其 hash 已存在于
+    /// 目标分类，则返回该分类名；否则返回 null。用于在真正移动前提示用户，避免
+    /// 同名(hash)文件被静默覆盖导致目标分类原有图片丢失。
+    /// </summary>
+    public async Task<string?> FindMoveConflictAsync(IEnumerable<MemeModel> memes, string targetCategory)
+    {
+        var safeTarget = SanitizeCategory(targetCategory);
+        try
+        {
+            // 目标分类已有的所有 hash（无需按 Category 过滤：GetMemes(target) 返回项本就属于 target）
+            var existingHashes = GetMemes(safeTarget)
+                .Select(m => m.Hash)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var m in memes)
+            {
+                // 本就在目标分类的项移动给自己，不算冲突（MoveMemesToCategoryAsync 也会跳过）
+                if (m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (existingHashes.Contains(m.Hash))
+                    return safeTarget;
+            }
+        }
+        catch (Exception ex)
+        {
+            MemeManager.Logger.Log($"[Engine] 检测移动冲突失败: {ex.Message}");
+        }
+        return null;
+    }
+
+    /// <summary>
     /// 将一批表情移动到目标分类：移动物理文件、更新两分类的 metadata 与内存缓存。
     /// 若目标分类不存在会自动创建。
     /// </summary>
@@ -431,10 +463,17 @@ public class MemeDataEngine
             var sourceMeta = await LoadCategoryMetadataAsync(sourceDir);
 
             var destPath = Path.Combine(targetDir, meme.FileName);
+            // 目标已存在同名(hash)文件：跳过移动，不覆盖（同名=同内容，原文件保留，
+            // 避免即使守卫被绕过也静默丢失目标分类原有图片）。
+            if (File.Exists(destPath))
+            {
+                MemeManager.Logger.Log($"[Engine] 移动跳过(目标已存在): 文件={meme.FileName} 源分类=\"{meme.Category}\" -> 目标=\"{safeTarget}\"");
+                continue;
+            }
             try
             {
                 if (File.Exists(meme.LocalPath))
-                    File.Move(meme.LocalPath, destPath, overwrite: true);
+                    File.Move(meme.LocalPath, destPath, overwrite: false);
             }
             catch (Exception ex)
             {

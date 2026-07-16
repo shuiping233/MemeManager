@@ -28,6 +28,10 @@ public sealed partial class MainWindow : Window
     private const int HOTKEY_ID = 9001;
     private const uint SUBCLASS_ID = 101;
 
+    // 拖拽到分类列表报错时的显示Title或者文件名的最大长度，过长则截断显示
+    private const int MoveConflictLabelMaxLen = 32;
+    
+
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
 
     // 最小化结束事件钩子：窗口从最小化恢复时重新断言置顶（防止 DWM 抽风掉置顶）
@@ -483,6 +487,8 @@ public sealed partial class MainWindow : Window
         int moved = memes.Count(m => !m.Category.Equals(targetCat.Name, StringComparison.OrdinalIgnoreCase));
         if (moved > 0)
         {
+            if (!await GuardMoveConflictAsync(memes, targetCat.Name))
+                return;
             await App.DataEngine.MoveMemesToCategoryAsync(memes, targetCat.Name);
             Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」");
             // 场景B：内容减少但顺序不变。精准移除被移走的项，保持滚动条位置。
@@ -1440,6 +1446,65 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // 移动前的 hash 冲突守卫：若目标分类已存在相同图片则弹模态提示并阻止移动，
+    // 避免同名(hash)文件被静默覆盖导致目标分类原有图片丢失。返回 true 表示可继续移动。
+    private async Task<bool> GuardMoveConflictAsync(IEnumerable<MemeModel> memes, string targetCategory)
+    {
+        var conflict = await App.DataEngine.FindMoveConflictAsync(memes, targetCategory);
+        if (conflict == null) return true;
+
+        // 收集每个冲突项：源图片 + 目标分类中同 hash 的已有图片
+        var targetMemes = App.DataEngine.GetMemes(conflict).ToList();
+        var conflicts = new List<(MemeModel src, MemeModel dst)>();
+        foreach (var m in memes)
+        {
+            if (m.Category.Equals(conflict, StringComparison.OrdinalIgnoreCase)) continue;
+            var dst = targetMemes.FirstOrDefault(x => x.Hash.Equals(m.Hash, StringComparison.OrdinalIgnoreCase));
+            if (dst != null) conflicts.Add((m, dst));
+        }
+
+        static string Label(MemeModel m)
+        {
+            var s = string.IsNullOrWhiteSpace(m.Title) ? m.FileName : m.Title;
+            return s.Length > MoveConflictLabelMaxLen ? s.Substring(0, MoveConflictLabelMaxLen) + "..." : s;
+        }
+        foreach (var (src, dst) in conflicts)
+            Log($"[移动冲突] 阻止移动: \"{Label(src)}\"({src.FileName}, 源分类=\"{src.Category}\") -> \"{Label(dst)}\"({dst.FileName}, 目标分类=\"{conflict}\")");
+
+        // 弹窗正文：先说明，再逐行列出冲突对 "源 -> 目标"
+        var lines = new List<string>
+        {
+            $"分类\"{conflict}\"已经存在相同的图片",
+            "",
+            "冲突明细:"
+        };
+        foreach (var (src, dst) in conflicts)
+            lines.Add($"\"{Label(src)}\" -> \"{Label(dst)}\"");
+
+        try
+        {
+            var textBlock = new TextBlock
+            {
+                Text = string.Join("\n", lines),
+                TextWrapping = TextWrapping.Wrap,
+                IsTextSelectionEnabled = true,
+            };
+            var dlg = new ContentDialog
+            {
+                Title = "移动图片失败",
+                Content = textBlock,
+                CloseButtonText = "确定",
+                XamlRoot = this.Content.XamlRoot,
+            };
+            await dlg.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Log($"[移动冲突] 提示窗失败: {ex.Message}");
+        }
+        return false;
+    }
+
     // 移动表情到其他分类（编辑模式且有选中项则移动所有选中项，否则只移动当前项）
     private async void MoveMemeToCategory(MemeViewModel vm, string targetName)
     {
@@ -1450,10 +1515,14 @@ public sealed partial class MainWindow : Window
         else
             toMove = new List<MemeViewModel> { vm };
 
-        await App.DataEngine.MoveMemesToCategoryAsync(toMove.Select(m => m.Model), targetName);
+        var models = toMove.Select(m => m.Model).ToList();
+        if (!await GuardMoveConflictAsync(models, targetName))
+            return;
+
+        await App.DataEngine.MoveMemesToCategoryAsync(models, targetName);
         Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」");
         // 内容减少、顺序不变：精准移除被移走的项，保持滚动条位置
-        RemoveFromCurrentView(toMove.Select(m => m.Model));
+        RemoveFromCurrentView(models);
         UpdateCategoryCounts();
     }
 
@@ -1539,9 +1608,12 @@ public sealed partial class MainWindow : Window
             var item = new MenuFlyoutItem { Text = cat.Name };
             item.Click += async (_, __) =>
             {
-                await App.DataEngine.MoveMemesToCategoryAsync(selected.Select(m => m.Model), targetName);
+                var models = selected.Select(m => m.Model).ToList();
+                if (!await GuardMoveConflictAsync(models, targetName))
+                    return;
+                await App.DataEngine.MoveMemesToCategoryAsync(models, targetName);
                 Log($"批量移动 {selected.Count} 张图片到分类「{targetName}」");
-                RemoveFromCurrentView(selected.Select(m => m.Model));
+                RemoveFromCurrentView(models);
                 UpdateCategoryCounts();
             };
             BatchMoveFlyout.Items.Add(item);
