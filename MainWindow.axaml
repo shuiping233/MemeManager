@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -79,7 +79,7 @@
                 </ListBox.ContextMenu>
             </ListBox>
             <Button x:Name="AddCategoryButton" Grid.Row="1" Content="+" FontSize="20"
-                    HorizontalAlignment="Stretch" Margin="8" Click="AddCategoryButton_Click"/>
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="8" Click="AddCategoryButton_Click"/>
         </Grid>
 
         <!-- 右侧表情网格 -->
