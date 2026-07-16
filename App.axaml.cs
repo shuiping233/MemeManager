@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using MemeManager.Data;
 using MemeManager.Models;
 using System.Linq;
@@ -17,7 +18,7 @@ namespace MemeManager
         public static MemeDataEngine DataEngine { get; } = new();
 
         public static MainWindow MainWindow =>
-            ((App)Current)._window ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
+            ((App)Current!)._window ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
         private MainWindow? _window;
 
         public override void Initialize()
@@ -65,12 +66,8 @@ namespace MemeManager
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                _ = DataEngine.InitializeAsync().ContinueWith(_ =>
-                {
-                    if (DataEngine.GetCategories().Count == 0)
-                        _ = DataEngine.AddCategoryAsync("Default");
-                });
-
+                // 数据加载已在 Program.Main 中同步完成（早于 Avalonia 调度循环启动，纯 IO 不会死锁），
+                // 此处可安全地同步创建并显示窗口（渲染管线正常激活）。
                 _window = new MainWindow();
                 desktop.MainWindow = _window;
 
