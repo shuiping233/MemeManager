@@ -670,6 +670,21 @@ public class MemeDataEngine
         }
     }
 
+    // 仅从内存缓存移除（文件已消失、metadata 由监听刷新负责），供文件监听回调使用
+    public void RemoveMemesFromCache(IEnumerable<MemeModel> memes)
+    {
+        foreach (var meme in memes)
+        {
+            _memeCache.Remove(meme);
+            if (!string.IsNullOrWhiteSpace(meme.Title) &&
+                _titleReverseMap.TryGetValue(meme.Title, out var list))
+            {
+                list.Remove(meme.FileName);
+                if (list.Count == 0) _titleReverseMap.Remove(meme.Title);
+            }
+        }
+    }
+
     // ---------- 分类管理 ----------
 
     public async Task<bool> AddCategoryAsync(string category)

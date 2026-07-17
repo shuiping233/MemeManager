@@ -2377,7 +2377,9 @@ public sealed partial class MainWindow : Window
             if (toRemove.Count == 0) return;
 
             Log($"[文件监听] 移除 {toRemove.Count} 个已从库消失的图片控件 (分类={focus})");
-            RemoveFromCurrentView(toRemove.Select(vm => vm.Model));
+            var models = toRemove.Select(vm => vm.Model).ToList();
+            App.DataEngine.RemoveMemesFromCache(models);
+            RemoveFromCurrentView(models);
             UpdateCategoryCounts();
             await DialogHelper.ShowImageMovedOutAsync(this.Content.XamlRoot);
         });

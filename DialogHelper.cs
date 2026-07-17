@@ -72,10 +72,13 @@ public static class DialogHelper
     // 图片被拖出数据目录（拖到资源管理器等外部目标且为 Move）后提醒：
     // 受系统限制文件已被剪切走，告知用户可重新导入恢复，或按住 Ctrl 拖拽以复制。
     public static Task ShowImageMovedOutAsync(XamlRoot xamlRoot) =>
-        ShowMessageAsync(xamlRoot, "警告",
-            "受限于系统限制，图片文件已被剪切到了新的文件夹。\n" +
-            "如果需要恢复，请重新导入该图片；" +
-            "若想复制图片到目标文件夹，请按住 Ctrl 再进行拖拽。");
+        ShowMessageAsync(xamlRoot, 
+            "图片被移出",
+            """
+            图片文件已被移出的数据目录, 这可能是您将图片拖拽到资源管理器中导致的
+            若您的目的是复制图片到目标文件夹，请按住 Ctrl 再进行拖拽
+            如果需要恢复，请重新导入该图片
+            """);
 
     // 确认对话框：带"主按钮 + 取消"，返回用户选择。主按钮文案由 primaryText 指定
     // （如"删除""确定"），用于删除确认等需要二选一的场景。
