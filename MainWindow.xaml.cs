@@ -1078,69 +1078,16 @@ public sealed partial class MainWindow : Window
         _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
         Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
 
-        // 设文件以便拖到外部时复制。
-        // 注意：DragItemsStarting 在 UI 线程触发，必须避免阻塞式 .Result 与任何可能抛出
-        // 的 DataPackage 写入——一旦 SetStorageItems/SetBitmap 部分成功又抛异常，
-        // DragItemsStartingEventArgs 内部的 DataPackage 会处于非法状态，后续 native 清理
-        // 会触发 framework 层 reentrancy failfast(0xc000027b) 直接崩溃进程。
-        // 因此先同步校验文件都存在，缺失则整组放弃设置（仅失去拖出能力，不会崩）。
-        try
-        {
-            var valid = group
-                .Where(v => !string.IsNullOrEmpty(v.LocalPath) && File.Exists(v.LocalPath))
-                .ToList();
-            if (valid.Count == 0)
-            {
-                Log("DragItemsStarting: 无可拖出文件（本地路径不存在），跳过设置 DataPackage");
-                return;
-            }
-
-            var files = valid
-                .Select(v => StorageFile.GetFileFromPathAsync(v.LocalPath).AsTask().Result)
-                .ToArray();
-            e.Data.SetStorageItems(files);
-
-            // 拖出图片时以图片格式输出：仅单张生效（图片剪贴板格式只能承载一张位图，
-            // 多张只能靠文件格式）。开启后老版本 QQ 才会把单张拖出识别为图片而非文件。
-            // 硬保险：GIF 永不走 SetBitmap —— dump 证实 DragItemsStartingEventArgs 内部
-            // 的 DataPackage 在延迟释放时会因 Bitmap/StorageFile 跨线程清理触发 framework
-            // 层 reentrancy failfast(0xc000027b)，GIF 本就靠文件路径被 QQ 识别，无需 Bitmap。
-            // 非 GIF 单张：位图源改为 UI 线程内由 byte[] 构造的 InMemoryRandomAccessStream，
-            // 不再使用 CreateFromFile(StorageFile)，避免 DataPackage 持有跨公寓 StorageFile，
-            // 从而在延迟释放时触发同样的 failfast。
-            bool isGif = files.Length == 1 &&
-                string.Equals(Path.GetExtension(files[0].Path), ".gif", StringComparison.OrdinalIgnoreCase);
-            if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1 && !isGif)
-            {
-                try
-                {
-                    var bytes = File.ReadAllBytes(valid[0].LocalPath);
-                    // 注意：ms 不能在此 using 后释放——RandomAccessStreamReference 在拖拽期间
-                    // 才真正读取它，提前释放会导致位图为空白。交由 DataPackage 引用、GC 回收。
-                    var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                    using (var dw = ms.GetOutputStreamAt(0))
-                    using (var dwStream = dw.AsStreamForWrite())
-                    {
-                        dwStream.Write(bytes, 0, bytes.Length);
-                        dwStream.Flush();
-                    }
-                    ms.Seek(0);
-                    e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
-                }
-                catch (Exception ex)
-                {
-                    Log("DragItemsStarting: 构造位图流失败（已放弃图片格式，仅保留文件拖出）: " + ex.Message);
-                }
-            }
-            // 同时声明 Move 与 Copy：内置重排(CanReorderItems)需要 Move 语义才会真正重排集合；
-            // 拖到外部时用户按住 Ctrl 即可触发 Copy（复制而非剪切），避免图片被移出数据目录。
-            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
-                                         Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-        }
-        catch (Exception ex)
-        {
-            Log("DragItemsStarting: 设 StorageItems 失败（已放弃拖出，避免崩溃）: " + ex.Message);
-        }
+        // 不再往 DataPackage 写入任何 StorageFile / Bitmap / RandomAccessStream。
+        // 原因：dump 证实 DragItemsStartingEventArgs 内部的 DataPackage 在 UI Tick 的
+        // 延迟释放队列(UIAffinityReleaseQueue)里析构时，会对其中持有的跨公寓 COM 对象
+        // （StorageFile / Bitmap 的 RandomAccessStreamReference）做跨公寓 Release，
+        // 阻塞在 CCliModalLoop 里与 WinUI 的重入保护(OnReentrancyProtectedWindowMessage)
+        // 撞车，触发 0x40080201 / 0xc000027b 崩溃。快速连续拖拽（尤其 GIF）必崩。
+        //
+        // 稳定性优先：牺牲“拖到 QQ/资源管理器复制文件”的能力，交还给 WinUI 原生处理。
+        // 内部重排(CanReorderItems)完全不依赖 DataPackage 内容，仅需要 Move 语义。
+        e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
