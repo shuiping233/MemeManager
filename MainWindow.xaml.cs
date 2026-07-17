@@ -1078,17 +1078,53 @@ public sealed partial class MainWindow : Window
         _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
         Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
 
-        // 不再往 DataPackage 写入任何 StorageFile / Bitmap / RandomAccessStream。
-        // 原因：dump 证实 DragItemsStartingEventArgs 内部的 DataPackage 在 UI Tick 的
-        // 延迟释放队列(UIAffinityReleaseQueue)里析构时，会对其中持有的跨公寓 COM 对象
-        // （StorageFile / Bitmap 的 RandomAccessStreamReference）做跨公寓 Release，
-        // 阻塞在 CCliModalLoop 里与 WinUI 的重入保护(OnReentrancyProtectedWindowMessage)
-        // 撞车，触发 0x40080201 / 0xc000027b 崩溃。快速连续拖拽（尤其 GIF）必崩。
-        //
-        // 稳定性优先：牺牲“拖到 QQ/资源管理器复制文件”的能力，交还给 WinUI 原生处理。
-        // 内部重排(CanReorderItems)完全不依赖 DataPackage 内容，仅需要 Move 语义。
-        e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        // 拖出格式：仅用 SetBitmap + in-mem 流（进程内、同公寓，释放无跨公寓 COM 开销，安全），
+        // 彻底不碰 StorageFile / SetStorageItems（dump 证实其跨公寓释放会撞 WinUI 重入保护崩溃）。
+        // 单张任意类型（含 GIF）都设 Bitmap 流：老 QQ 认 Bitmap 格式，静态图已验证可拖入，
+        // GIF 字节塞同格式多数客户端也能识别，至少“有反应”。多张时 WinUI 单 Bitmap 仅承载首张，
+        // 故仅单张设 Bitmap；多张拖出外部能力受 WinUI 限制（无 StorageFile 即无多文件拖出）。
+        // 内部重排(CanReorderItems)不读 DataPackage 内容，仅靠 Move 语义生效，互不影响。
+        try
+        {
+            var valid = group
+                .Where(v => !string.IsNullOrEmpty(v.LocalPath) && File.Exists(v.LocalPath))
+                .Select(v => v.LocalPath!)
+                .ToList();
+            if (valid.Count == 1 && App.DataEngine.Config.DragOutputAsImage)
+            {
+                try
+                {
+                    var bytes = File.ReadAllBytes(valid[0]);
+                    // ms 不能 using 后释放：RandomAccessStreamReference 在拖拽期间才读取，
+                    // 提前释放会让位图变空白。交由 DataPackage 引用、GC 回收（进程内，安全）。
+                    var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    using (var dw = ms.GetOutputStreamAt(0))
+                    using (var dwStream = dw.AsStreamForWrite())
+                    {
+                        dwStream.Write(bytes, 0, bytes.Length);
+                        dwStream.Flush();
+                    }
+                    ms.Seek(0);
+                    e.Data.SetBitmap(
+                        Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                }
+                catch (Exception ex)
+                {
+                    Log("DragItemsStarting: 构造位图流失败（已放弃图片格式）: " + ex.Message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("DragItemsStarting: 设 Bitmap 失败（已放弃，不影响重排）: " + ex.Message);
+        }
+
+        // Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收，
+        // 仅声明 Copy 不会真的移走文件——外部按 Copy 取数据，文件仍留在数据目录。
+        e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
+                                     Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
     }
+
 
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
     private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
