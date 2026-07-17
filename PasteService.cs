@@ -12,10 +12,10 @@ namespace MemeManager;
 public static class PasteService
 {
     /// <summary>
-    /// 异步将指定路径的表情包输出到当前光标所在的文本框
+    /// 将指定路径的图片复制到系统剪贴板（仅写入，不模拟粘贴）。
+    /// 同时写入 Bitmap 与 StorageItem，使目标程序既可粘贴为图片也可粘贴为文件。
     /// </summary>
-    /// <param name="targetWindow">可选：指定接收 Ctrl+V 的目标窗口；为空则发送到当前前台窗口</param>
-    public static async Task OutputMemeToCursorAsync(string filePath, IntPtr? targetWindow = null)
+    public static async Task CopyImageToClipboardAsync(string filePath)
     {
         if (!File.Exists(filePath)) return;
 
@@ -36,6 +36,33 @@ public static class PasteService
             // Flush 在剪贴板被其他进程占用时可能抛 COMException，这里忽略，
             // SetContent 已足够让随后的 Ctrl+V 使用数据
             try { Clipboard.Flush(); } catch { }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log("================ 复制到剪贴板失败 ================");
+            Logger.Log($"异常类型: {ex.GetType().FullName}");
+            Logger.Log($"错误原因: {ex.Message}");
+            Logger.Log($"堆栈轨迹:\n{ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Logger.Log($"内部异常: {ex.InnerException.Message}");
+            }
+            Logger.Log("=================================================");
+        }
+    }
+
+    /// <summary>
+    /// 异步将指定路径的表情包输出到当前光标所在的文本框
+    /// </summary>
+    /// <param name="targetWindow">可选：指定接收 Ctrl+V 的目标窗口；为空则发送到当前前台窗口</param>
+    public static async Task OutputMemeToCursorAsync(string filePath, IntPtr? targetWindow = null)
+    {
+        if (!File.Exists(filePath)) return;
+
+        try
+        {
+            // 复用“仅复制到剪贴板”的逻辑，随后模拟 Ctrl+V 粘贴到前台窗口
+            await CopyImageToClipboardAsync(filePath);
 
             await Task.Delay(10);
 

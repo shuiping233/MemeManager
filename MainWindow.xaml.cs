@@ -1438,6 +1438,14 @@ public sealed partial class MainWindow : Window
         moveSub.IsEnabled = hasTarget;
     }
 
+    private async void MemeCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMeme == null) return;
+        var vm = _contextMeme;
+        await PasteService.CopyImageToClipboardAsync(vm.Model.LocalPath);
+        Log($"已复制「{vm.Title}」到剪贴板");
+    }
+
     private async void MemeDelete_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMeme == null) return;
