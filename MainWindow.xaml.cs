@@ -406,9 +406,8 @@ public sealed partial class MainWindow : Window
             // 拖入表情图片：仅关闭 CanReorderItems 的插入占位，避免分类列表被撑开；
             // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
             CategoryList.CanReorderItems = false;
-            // 与 DragItemsStarting 的 RequestedOperation=Copy 保持一致，否则 WinUI 认为不兼容显示禁止符号。
-            // 拖到分类的“移动”语义由 CategoryListItem_Drop 里的 MoveMemesToCategoryAsync 保证，不依赖此值。
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = "移动到该分类";
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
@@ -472,7 +471,7 @@ public sealed partial class MainWindow : Window
             RemoveFromCurrentView(memes);
             UpdateCategoryCounts();
         }
-        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
     // 控制前台窗口轮询定时器的启停（与数据刷新解耦）：
@@ -610,8 +609,8 @@ public sealed partial class MainWindow : Window
     {
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
-            // 与 DragItemsStarting 的 RequestedOperation=Copy 保持一致
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = "移动到该分类";
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
@@ -1090,11 +1089,9 @@ public sealed partial class MainWindow : Window
             {
                 e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(files[0]));
             }
-            // 拖出声明为 Copy：拖到资源管理器等外部目标时执行“复制”而非“剪切”，
-            // 避免源图片被移动出图片库导致丢失。
-            // 注意：网格内部重排(CanReorderItems)由 WinUI 自身集合机制驱动，不依赖此
-            // RequestedOperation 来移动文件，故改成 Copy 不影响内部排序。
-            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            // 内置重排(CanReorderItems)需要 Move 语义才会真正移动集合；
+            // 拖到外部(文件管理器/输入框)时 WinUI 会按目标能力自动回退成 Copy。
+            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
         }
         catch (Exception ex)
         {
