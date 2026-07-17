@@ -1,27 +1,9 @@
-# MemeManager 待办清单
+## FileWatcher 分类事件（尚未实现，需在 FileWatcher.cs 中新增并分发）
+- [ ] `CategoryRemoved`：分类文件夹被删除（整个分类消失）时的事件，供 MainWindow 移除左侧分类项并清理计数
+- [ ] `CategoryAdded`：新建分类文件夹时的事件，供 MainWindow 在左侧分类栏追加新分类项
+- [ ] `CategoryRenamed`：分类文件夹改名（重命名）时的事件，供 MainWindow 同步更新分类名（含内部顺序/metadata 关联）
 
-## 数据模型重构（核心）
-- [ ] 改为「分类即文件夹」存储：`<MeMeManagerData>/<分类名>/` 下存放表情图片
-- [ ] 每个分类文件夹内含 `.metadata.json`，格式为 `{ "哈希.后缀": { "title": "...", "tags": [...] } }`
-- [ ] `<MeMeManagerData>/config.json` 保存设置（主题、存放路径）
-- [ ] 启动时读取 `config.json` 与所有分类的 `.metadata.json` 生成内存缓存
-- [ ] 构建 `title -> 哈希文件名` 的反查 Map，加速标题检索
-
-## 主题设置
-- [ ] 主题下拉：跟随系统 / 浅色 / 深色，写入 config.json，启动时应用
-
-## 主窗口 UI（仿 win+.）
-- [ ] 左侧分类 Item 栏 + 底部「+」按钮新增分类
-- [ ] 右侧 GridView 从左往右排列表情图片
-- [ ] 右上角「修改」按钮 +「设置」按钮
-- [ ] 修改模式：图片右上角显示复选框，右下角显示「批量导入/批量导出/删除」
-
-## 交互功能
-- [ ] 点击表情 → 粘贴到光标（沿用 PasteService）
-- [ ] 用户粘贴图片进窗口 → 弹窗选择分类（输入新分类则新建）后导入
-- [ ] 批量导入：从文件夹/多选文件导入到当前分类
-- [ ] 批量导出：导出选中表情到指定目录
-- [ ] 删除：删除选中表情（文件 + metadata）
-
-## 配置项
-- [ ] 表情包存放路径文本框，默认 `图片/MeMeManagerData`
+## FileWatcher 文件级事件（MainWindow 已订阅/处理）
+- [x] `FilesRemoved`：图片从库中消失（外部拖出/被删），移除焦点分类对应控件并刷新分类数量（`OnWatchedFilesRemoved`，MainWindow.xaml.cs:2377）
+- [x] `FilesAdded`：图片新增（手动往分类文件夹塞图等兜底），追加焦点分类对应控件（`OnWatchedFilesAdded`，MainWindow.xaml.cs:2405）
+- [x] `FilesMoved`：库内移动（如移动到其他分类），按焦点分类移除源控件/追加目标控件（`OnWatchedFilesMoved`，MainWindow.xaml.cs:2444）
