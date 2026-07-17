@@ -182,5 +182,8 @@ public partial class App : Application
         DialogHelper.DialogTheme = theme == ThemeMode.System
             ? (root?.ActualTheme ?? ElementTheme.Default)
             : applied;
+
+        // 自定义标题栏（含系统最小/最大/关闭按钮）同步按主题上色。
+        try { MainWindow.ApplyTitleBarTheme(); } catch { }
     }
 }

@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -151,6 +152,9 @@ public sealed partial class MainWindow : Window
             // 启动默认置顶
             overlappedPresenter.IsAlwaysOnTop = true;
         }
+
+        // 标题栏主题色（简单自定义）：按主题给系统默认标题栏上色。
+        ApplyTitleBarTheme();
 
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
@@ -2311,5 +2315,29 @@ public sealed partial class MainWindow : Window
             0xDD => "]", 0xDC => "\\", 0xE2 => "\\",
             _ => "0x" + vk.ToString("X2")
         };
+    }
+
+    // ---------- 标题栏主题（简单自定义） ----------
+
+    // 让系统默认标题栏跟随 App 配置的主题：
+    //  - Light/Dark 显式指定标题栏明暗，使主动切主题时标题栏同步变化；
+    //  - System 则使用 UseDefaultAppMode，由系统按当前明暗渲染。
+    public void ApplyTitleBarTheme()
+    {
+        if (_appWindow == null) return;
+        try
+        {
+            var theme = App.DataEngine.Config.Theme;
+            _appWindow.TitleBar.PreferredTheme = theme switch
+            {
+                ThemeMode.Dark => Microsoft.UI.Windowing.TitleBarTheme.Dark,
+                ThemeMode.Light => Microsoft.UI.Windowing.TitleBarTheme.Light,
+                _ => Microsoft.UI.Windowing.TitleBarTheme.UseDefaultAppMode
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[标题栏] 设置 PreferredTheme 失败: {ex.Message}");
+        }
     }
 }
