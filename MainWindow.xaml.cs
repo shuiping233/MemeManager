@@ -156,6 +156,15 @@ public sealed partial class MainWindow : Window
         // 标题栏主题色（简单自定义）：按主题给系统默认标题栏上色。
         ApplyTitleBarTheme();
 
+        // 订阅数据目录文件监听：图片从库中消失/新增（外部拖出/被删/手动加图）时，
+        // 就地更新对应分类控件并提示用户（与引擎解耦，逻辑全在 MainWindow）。
+        if (App.DataEngine.Watcher != null)
+        {
+            App.DataEngine.Watcher.FilesRemoved += OnWatchedFilesRemoved;
+            App.DataEngine.Watcher.FilesAdded += OnWatchedFilesAdded;
+            App.DataEngine.Watcher.FilesMoved += OnWatchedFilesMoved;
+        }
+
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
 
@@ -1089,9 +1098,10 @@ public sealed partial class MainWindow : Window
             {
                 e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(files[0]));
             }
-            // 内置重排(CanReorderItems)需要 Move 语义才会真正移动集合；
-            // 拖到外部(文件管理器/输入框)时 WinUI 会按目标能力自动回退成 Copy。
-            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+            // 同时声明 Move 与 Copy：内置重排(CanReorderItems)需要 Move 语义才会真正重排集合；
+            // 拖到外部时用户按住 Ctrl 即可触发 Copy（复制而非剪切），避免图片被移出数据目录。
+            e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
+                                         Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
         }
         catch (Exception ex)
         {
@@ -1152,6 +1162,9 @@ public sealed partial class MainWindow : Window
                 Log($"[拖拽] 恢复多选选中失败: {ex}");
             }
         }
+
+        // 图片被拖出数据目录(外部)导致文件消失，由 FileWatcher 监听并统一处理
+        // （差集识别库内移动 vs 库外移出，就地移除失效控件+弹窗），此处无需额外逻辑。
 
         _draggingMemes = null;
         _dragAnchorFileName = null;
@@ -2228,6 +2241,7 @@ public sealed partial class MainWindow : Window
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         SuspendWindowInteractions(closing: true);
+        App.DataEngine.Watcher?.Stop();
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
         if (_winEventHook != IntPtr.Zero)
@@ -2339,5 +2353,132 @@ public sealed partial class MainWindow : Window
         {
             Logger.Log($"[标题栏] 设置 PreferredTheme 失败: {ex.Message}");
         }
+    }
+
+    // ---------- 数据目录文件监听 ----------
+
+    // 引擎层 FileWatcher 探测到图片文件从库中消失（外部拖出/被删）后回调。
+    // 事件可能在非 UI 线程触发，统一回 UI 线程处理。
+    // 仅当变化的分类 == 当前焦点分类时才改控件；其他分类的控件不在内存里，
+    // 跳过即可，下次切到该分类时 RefreshMemes 自然反映。
+    private void OnWatchedFilesRemoved(IReadOnlyList<FileWatcher.Change> changes)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_isClosing) return;
+            var focus = _currentCategory;
+            var names = changes
+                .Where(c => string.Equals(c.Category, focus, StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.FileName)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (names.Count == 0) return; // 非焦点分类，跳过
+
+            var toRemove = _memeList
+                .Where(vm => !string.IsNullOrEmpty(vm.LocalPath) && names.Contains(Path.GetFileName(vm.LocalPath)))
+                .ToList();
+            if (toRemove.Count == 0) return;
+
+            Log($"[文件监听] 移除 {toRemove.Count} 个已从库消失的图片控件 (分类={focus})");
+            RemoveFromCurrentView(toRemove.Select(vm => vm.Model));
+            UpdateCategoryCounts();
+            await DialogHelper.ShowImageMovedOutAsync(this.Content.XamlRoot);
+        });
+    }
+
+    // 引擎层 FileWatcher 探测到图片文件新增（手动往分类文件夹塞图等兜底）后回调。
+    // 仅当新增分类 == 当前焦点分类时才就地追加控件；否则跳过（切到该分类时自会刷新）。
+    private void OnWatchedFilesAdded(IReadOnlyList<FileWatcher.Change> changes)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_isClosing) return;
+            var focus = _currentCategory;
+            var added = changes
+                .Where(c => string.Equals(c.Category, focus, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (added.Count == 0) return; // 非焦点分类，跳过
+
+            int imported = 0;
+            foreach (var c in added)
+            {
+                // 防御：当前列表已存在同名 VM（程序内导入已加过）则跳过，避免重复追加
+                if (_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
+                        string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                // 复用现有导入流程：按全路径重新导入到当前分类（ImportMemeAsync 会去重）
+                var fullPath = Path.Combine(App.DataEngine.BaseDir, c.Category, c.FileName);
+                if (!File.Exists(fullPath)) continue;
+                var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
+                if (model != null)
+                {
+                    InsertMemeAtFront(new MemeViewModel(model));
+                    imported++;
+                }
+            }
+            if (imported > 0)
+            {
+                UpdateCategoryCounts();
+                Log($"[文件监听] 新增 {imported} 个图片到分类「{focus}」");
+            }
+        });
+    }
+
+    // 引擎层 FileWatcher 探测到图片在分类间移动（如手动在资源管理器里拖动文件）后回调。
+    // 仅当移动涉及当前焦点分类时才就地更新：源为焦点则移除、目标为焦点则追加。
+    // 不弹窗（与软件内移动/导入行为一致），切到其他分类时自会刷新。
+    private void OnWatchedFilesMoved(IReadOnlyList<FileWatcher.Move> moves)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_isClosing) return;
+            var focus = _currentCategory;
+
+            // 源为焦点分类：移除对应控件
+            var fromNames = moves
+                .Where(m => string.Equals(m.From.Category, focus, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.From.FileName)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (fromNames.Count > 0)
+            {
+                var toRemove = _memeList
+                    .Where(vm => !string.IsNullOrEmpty(vm.LocalPath) && fromNames.Contains(Path.GetFileName(vm.LocalPath)))
+                    .ToList();
+                if (toRemove.Count > 0)
+                {
+                    RemoveFromCurrentView(toRemove.Select(vm => vm.Model));
+                    UpdateCategoryCounts();
+                    Log($"[文件监听] 移出 {toRemove.Count} 个图片 (分类={focus})");
+                }
+            }
+
+            // 目标为焦点分类：追加对应控件（复用导入流程，ImportMemeAsync 会去重）
+            var toAdded = moves
+                .Where(m => string.Equals(m.To.Category, focus, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (toAdded.Count > 0)
+            {
+                int imported = 0;
+                foreach (var m in toAdded)
+                {
+                    // 防御：当前列表已存在同名 VM 则跳过，避免重复追加
+                    if (_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
+                            string.Equals(Path.GetFileName(vm.LocalPath), m.To.FileName, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    var fullPath = Path.Combine(App.DataEngine.BaseDir, m.To.Category, m.To.FileName);
+                    if (!File.Exists(fullPath)) continue;
+                    var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
+                    if (model != null)
+                    {
+                        InsertMemeAtFront(new MemeViewModel(model));
+                        imported++;
+                    }
+                }
+                if (imported > 0)
+                {
+                    UpdateCategoryCounts();
+                    Log($"[文件监听] 移入 {imported} 个图片到分类「{focus}」");
+                }
+            }
+        });
     }
 }

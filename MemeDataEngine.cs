@@ -27,6 +27,11 @@ public class MemeDataEngine
 
     private readonly List<MemeModel> _memeCache = new();
 
+    // 数据目录文件监听：探测图片文件从库中消失（外部拖出/被删），
+    // 通过事件把结果交给 UI 层处理（与 UI 解耦）。
+    public FileWatcher? Watcher { get; private set; }
+
+
     // 标题反查 Map：title(小写) -> 该 title 对应的文件名列表
     private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
 
@@ -59,6 +64,10 @@ public class MemeDataEngine
 
         await LoadCategoryOrderAsync();
         await LoadAllMetadataAsync();
+
+        // 初始化完成、目录就绪后再启动文件监听，避免启动期事件风暴
+        Watcher = new FileWatcher(_baseDir);
+        Watcher.Start();
     }
 
     // 配置文件固定保存在 %LOCALAPPDATA% 下（与数据目录解耦），否则迁移数据目录后二次启动读不到配置
@@ -344,15 +353,32 @@ public class MemeDataEngine
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            // 去重：同分类下文件名已存在则视为重复
+            // 去重：同分类下文件名已存在则视为重复。
+            // 注意：缓存命中但磁盘文件已不存在（如曾被拖出到外部文件夹被移走）的，
+            // 不当作重复——否则重新导入同一张图会被误判“已存在”。此时先清除该僵尸缓存
+            // 记录，再按新导入流程覆盖写入，保证库与磁盘一致。
             var categoryDir = Path.Combine(_baseDir, SanitizeCategory(category));
             var targetPath = Path.Combine(categoryDir, fileName);
             var existing = _memeCache.FirstOrDefault(m =>
                 m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
-                Logger.Log($"[Engine] 导入重复跳过: 文件={fileName} 源路径={sourcePath} 目标分类={category} (已存在于分类「{existing.Category}」)");
-                return (existing, true);
+                if (!File.Exists(existing.LocalPath))
+                {
+                    Logger.Log($"[Engine] 缓存命中但磁盘文件已缺失(可能曾被移出): 文件={fileName} 分类={category}，清除僵尸缓存后重新导入");
+                    _memeCache.Remove(existing);
+                    if (!string.IsNullOrWhiteSpace(existing.Title) &&
+                        _titleReverseMap.TryGetValue(existing.Title, out var rev))
+                    {
+                        rev.Remove(existing.FileName);
+                        if (rev.Count == 0) _titleReverseMap.Remove(existing.Title);
+                    }
+                }
+                else
+                {
+                    Logger.Log($"[Engine] 导入重复跳过: 文件={fileName} 源路径={sourcePath} 目标分类={category} (已存在于分类「{existing.Category}」)");
+                    return (existing, true);
+                }
             }
 
             Directory.CreateDirectory(categoryDir);
