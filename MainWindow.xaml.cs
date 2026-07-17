@@ -1105,11 +1105,32 @@ public sealed partial class MainWindow : Window
             // 硬保险：GIF 永不走 SetBitmap —— dump 证实 DragItemsStartingEventArgs 内部
             // 的 DataPackage 在延迟释放时会因 Bitmap/StorageFile 跨线程清理触发 framework
             // 层 reentrancy failfast(0xc000027b)，GIF 本就靠文件路径被 QQ 识别，无需 Bitmap。
+            // 非 GIF 单张：位图源改为 UI 线程内由 byte[] 构造的 InMemoryRandomAccessStream，
+            // 不再使用 CreateFromFile(StorageFile)，避免 DataPackage 持有跨公寓 StorageFile，
+            // 从而在延迟释放时触发同样的 failfast。
             bool isGif = files.Length == 1 &&
                 string.Equals(Path.GetExtension(files[0].Path), ".gif", StringComparison.OrdinalIgnoreCase);
             if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1 && !isGif)
             {
-                e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(files[0]));
+                try
+                {
+                    var bytes = File.ReadAllBytes(valid[0].LocalPath);
+                    // 注意：ms 不能在此 using 后释放——RandomAccessStreamReference 在拖拽期间
+                    // 才真正读取它，提前释放会导致位图为空白。交由 DataPackage 引用、GC 回收。
+                    var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    using (var dw = ms.GetOutputStreamAt(0))
+                    using (var dwStream = dw.AsStreamForWrite())
+                    {
+                        dwStream.Write(bytes, 0, bytes.Length);
+                        dwStream.Flush();
+                    }
+                    ms.Seek(0);
+                    e.Data.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                }
+                catch (Exception ex)
+                {
+                    Log("DragItemsStarting: 构造位图流失败（已放弃图片格式，仅保留文件拖出）: " + ex.Message);
+                }
             }
             // 同时声明 Move 与 Copy：内置重排(CanReorderItems)需要 Move 语义才会真正重排集合；
             // 拖到外部时用户按住 Ctrl 即可触发 Copy（复制而非剪切），避免图片被移出数据目录。
