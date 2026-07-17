@@ -65,6 +65,18 @@ public static class DialogHelper
     public static Task ShowErrorAsync(XamlRoot xamlRoot, string title, string detail) =>
         ShowMessageAsync(xamlRoot, title, detail, selectable: true);
 
+    // 通用提示（标题 + 描述），供各业务场景自由使用。
+    public static Task ShowInfoAsync(XamlRoot xamlRoot, string title, string message) =>
+        ShowMessageAsync(xamlRoot, title, message);
+
+    // 图片被拖出数据目录（拖到资源管理器等外部目标且为 Move）后提醒：
+    // 受系统限制文件已被剪切走，告知用户可重新导入恢复，或按住 Ctrl 拖拽以复制。
+    public static Task ShowImageMovedOutAsync(XamlRoot xamlRoot) =>
+        ShowMessageAsync(xamlRoot, "警告",
+            "受限于系统限制，图片文件已被剪切到了新的文件夹。\n" +
+            "如果需要恢复，请重新导入该图片；" +
+            "若想复制图片到目标文件夹，请按住 Ctrl 再进行拖拽。");
+
     // 确认对话框：带"主按钮 + 取消"，返回用户选择。主按钮文案由 primaryText 指定
     // （如"删除""确定"），用于删除确认等需要二选一的场景。
     public static async Task<ContentDialogResult> ConfirmAsync(
