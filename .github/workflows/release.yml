@@ -21,7 +21,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish (FileSystem, Self-Contained)
-        run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=true -o "$env:PUBLISH_DIR"
+        run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=true -p:AppVersion=${{ github.ref_name }} -o "$env:PUBLISH_DIR"
 
       - name: Compress publish output
         run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-runtime-${{ github.ref_name }}.zip" -Force
@@ -47,7 +47,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish (FileSystem, Framework-Dependent)
-        run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=false -o "$env:PUBLISH_DIR"
+        run: dotnet publish MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -o "$env:PUBLISH_DIR"
 
       - name: Compress publish output
         run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-${{ github.ref_name }}.zip" -Force

@@ -104,6 +104,8 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
+        Title = "MemeManager " + GetInformationalVersion();
+
         // 按配置选择列表构建策略（复用 / 重建）。切换在设置页保存后即时应用。
         ApplyListStrategyFromConfig();
 
@@ -199,6 +201,19 @@ public sealed partial class MainWindow : Window
         }
 
         LoadCategories();
+    }
+
+    private static string GetInformationalVersion()
+    {
+        var attr = (System.Reflection.AssemblyInformationalVersionAttribute?)System.Reflection
+            .Assembly
+            .GetExecutingAssembly()
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .Cast<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault();
+        var v = attr?.InformationalVersion ?? string.Empty;
+        var plus = v.IndexOf('+');
+        return plus >= 0 ? v[..plus] : v;
     }
 
     // ---------- 窗口尺寸持久化 ----------
