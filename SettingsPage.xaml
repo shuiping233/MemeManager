@@ -102,13 +102,6 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="拖出图片时以图片格式输出" FontWeight="SemiBold"/>
-                <ToggleSwitch x:Name="DragOutputAsImageToggle" Toggled="DragOutputAsImageToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 拖出单张图片时额外转换成图片格式, 兼容老版本 QQ</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">受系统剪贴板格式限制, 仅拖出单张时生效; 一次拖出多张仍以文件形式发送</TextBlock>
-            </StackPanel>
-
-            <StackPanel Spacing="6">
                 <TextBlock Text="StorageFile 拖拽支持（拖出为文件）" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 拖出表情将作为文件发送, 动态 GIF 等可正常拖到 QQ 等外部程序</TextBlock>

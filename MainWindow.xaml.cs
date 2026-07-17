@@ -1106,7 +1106,7 @@ public sealed partial class MainWindow : Window
 
                 bool isGif = files.Length == 1 &&
                     string.Equals(Path.GetExtension(files[0].Path), ".gif", StringComparison.OrdinalIgnoreCase);
-                if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1 && !isGif)
+                if (files.Length == 1 && !isGif)
                 {
                     try
                     {
@@ -1131,7 +1131,7 @@ public sealed partial class MainWindow : Window
             else
             {
                 // 稳定路径：仅单张任意类型设 in-mem Bitmap 流（无 StorageFile）。
-                if (valid.Count == 1 && App.DataEngine.Config.DragOutputAsImage)
+                if (valid.Count == 1)
                 {
                     try
                     {

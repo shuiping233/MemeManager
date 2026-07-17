@@ -23,7 +23,6 @@ public sealed partial class SettingsPage : Page
         EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
-        DragOutputAsImageToggle.IsOn = cfg.DragOutputAsImage;
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
         StorageFileDragToggle.IsOn = cfg.StorageFileDrag;
 
@@ -114,11 +113,6 @@ public sealed partial class SettingsPage : Page
     }
 
     private void UseControlReuseToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        // 改动延后到点击“完成”时保存
-    }
-
-    private void DragOutputAsImageToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
     }
@@ -290,7 +284,6 @@ public sealed partial class SettingsPage : Page
             cfg.EcoMode = EcoModeToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
-            cfg.DragOutputAsImage = DragOutputAsImageToggle.IsOn;
             cfg.ExplorerStyleMultiSelect = ExplorerStyleMultiSelectToggle.IsOn;
             cfg.StorageFileDrag = StorageFileDragToggle.IsOn;
             if (pw > 0) cfg.PreviewMaxWidth = pw;

@@ -49,11 +49,6 @@ public class AppConfig
     // GPU 纹理，后台内存能显著回落；代价是每次重建需重新解码图片。
     public bool UseControlReuse { get; set; } = false;
 
-    // 拖出图片时是否以图片格式输出（仅单张生效）：
-    // 关闭（默认）：只写文件格式，老版本 QQ 会显示成文件。
-    // 开启：单张拖出时额外写入图片格式，老版本 QQ 识别为图片；多张仍走文件格式。
-    public bool DragOutputAsImage { get; set; } = false;
-
     // 多选操作模式：
     // false（默认）：资源管理器风格，使用 ListViewSelectionMode.Multiple（系统自带复选框），
     //                 隐藏我们自绘的右上角复选框。
@@ -63,7 +58,7 @@ public class AppConfig
     // StorageFile 拖拽支持（拖出为文件，恢复动态 GIF 等到 QQ 的能力）：
     // false（默认）：禁用。拖出仅用进程内 Bitmap 流（稳定，但 GIF 拖到 QQ 会变静态图）。
     // true：启用。拖出时写入 StorageFile，支持作为文件拖出（动态 GIF 正常），
-    //       但在部分系统上快速连续拖拽可能触发跨公寓 COM 释放导致程序闪退。
+    //       但快速连续拖拽可能触发跨公寓 COM 释放导致程序闪退。
     public bool StorageFileDrag { get; set; } = false;
 }
 
