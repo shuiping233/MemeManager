@@ -377,8 +377,6 @@ public sealed partial class MainWindow : Window
             await DialogHelper.ShowRenameCategoryFailedAsync(this.Content.XamlRoot);
             return;
         }
-
-        Log($"重命名分类「{cat.Name}」-> 「{newName}」");
         // 重建分类列表（x:Bind 默认 OneTime，需重建以刷新分类名显示），
         // LoadCategories 内部会按 LastCategory 恢复当前分类并 RefreshMemes
         LoadCategories();
