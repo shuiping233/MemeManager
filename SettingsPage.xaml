@@ -109,6 +109,14 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+                <TextBlock Text="StorageFile 拖拽支持（拖出为文件）" FontWeight="SemiBold"/>
+                <ToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 拖出表情将作为文件发送, 动态 GIF 等可正常拖到 QQ 等外部程序</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">默认关闭（稳定优先）: 关闭时仅以图片流拖出, GIF 拖到 QQ 会变为静态图</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.9" Foreground="Red" TextWrapping="Wrap">警告: 开启后, 在部分系统上快速连续拖拽可能触发程序闪退, 请知悉风险</TextBlock>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
                 <TextBlock Text="启用控件复用策略" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="UseControlReuseToggle" Toggled="UseControlReuseToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 图片控件将尽可能的少创建而是复用, 以减少创建图片控件的内存消耗, 会影响 刷新/切换分支/开关窗口 时的行为</TextBlock>

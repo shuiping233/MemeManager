@@ -1078,45 +1078,85 @@ public sealed partial class MainWindow : Window
         _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
         Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
 
-        // 拖出格式：仅用 SetBitmap + in-mem 流（进程内、同公寓，释放无跨公寓 COM 开销，安全），
-        // 彻底不碰 StorageFile / SetStorageItems（dump 证实其跨公寓释放会撞 WinUI 重入保护崩溃）。
-        // 单张任意类型（含 GIF）都设 Bitmap 流：老 QQ 认 Bitmap 格式，静态图已验证可拖入，
-        // GIF 字节塞同格式多数客户端也能识别，至少“有反应”。多张时 WinUI 单 Bitmap 仅承载首张，
-        // 故仅单张设 Bitmap；多张拖出外部能力受 WinUI 限制（无 StorageFile 即无多文件拖出）。
+        // 拖出格式按配置分支：
+        //  - StorageFileDrag 关闭（默认，稳定优先）：仅用 SetBitmap + in-mem 流
+        //    （进程内、同公寓，释放无跨公寓 COM 开销，安全）。单张任意类型（含 GIF）都设 Bitmap 流，
+        //    老 QQ 认 Bitmap 格式（静态图可拖入；GIF 会变为静态图，已知代价）。
+        //  - StorageFileDrag 开启（恢复文件拖出）：写入 StorageFile（SetStorageItems）+ 单张非 GIF
+        //    额外 SetBitmap。可让动态 GIF 等作为文件拖到 QQ；但 dump 证实 StorageFile 跨公寓释放
+        //    会撞 WinUI 重入保护(0x40080201 / 0xc000027b)，高手连续拖拽操作可能会导致FastFail闪退。
+        //    Win10对于此问题尤为严重
         // 内部重排(CanReorderItems)不读 DataPackage 内容，仅靠 Move 语义生效，互不影响。
         try
         {
             var valid = group
                 .Where(v => !string.IsNullOrEmpty(v.LocalPath) && File.Exists(v.LocalPath))
-                .Select(v => v.LocalPath!)
                 .ToList();
-            if (valid.Count == 1 && App.DataEngine.Config.DragOutputAsImage)
+            if (valid.Count == 0)
             {
-                try
+                Log("DragItemsStarting: 无可拖出文件（本地路径不存在），跳过设置拖出格式");
+            }
+            else if (App.DataEngine.Config.StorageFileDrag)
+            {
+                // 恢复文件拖出能力：写入 StorageFile（含 GIF 走文件路径）。
+                var files = valid
+                    .Select(v => StorageFile.GetFileFromPathAsync(v.LocalPath!).AsTask().Result)
+                    .ToArray();
+                e.Data.SetStorageItems(files);
+
+                bool isGif = files.Length == 1 &&
+                    string.Equals(Path.GetExtension(files[0].Path), ".gif", StringComparison.OrdinalIgnoreCase);
+                if (App.DataEngine.Config.DragOutputAsImage && files.Length == 1 && !isGif)
                 {
-                    var bytes = File.ReadAllBytes(valid[0]);
-                    // ms 不能 using 后释放：RandomAccessStreamReference 在拖拽期间才读取，
-                    // 提前释放会让位图变空白。交由 DataPackage 引用、GC 回收（进程内，安全）。
-                    var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                    using (var dw = ms.GetOutputStreamAt(0))
-                    using (var dwStream = dw.AsStreamForWrite())
+                    try
                     {
-                        dwStream.Write(bytes, 0, bytes.Length);
-                        dwStream.Flush();
+                        var bytes = File.ReadAllBytes(valid[0].LocalPath!);
+                        var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                        using (var dw = ms.GetOutputStreamAt(0))
+                        using (var dwStream = dw.AsStreamForWrite())
+                        {
+                            dwStream.Write(bytes, 0, bytes.Length);
+                            dwStream.Flush();
+                        }
+                        ms.Seek(0);
+                        e.Data.SetBitmap(
+                            Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
                     }
-                    ms.Seek(0);
-                    e.Data.SetBitmap(
-                        Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                    catch (Exception ex)
+                    {
+                        Log("DragItemsStarting: 构造位图流失败（已放弃图片格式）: " + ex.Message);
+                    }
                 }
-                catch (Exception ex)
+            }
+            else
+            {
+                // 稳定路径：仅单张任意类型设 in-mem Bitmap 流（无 StorageFile）。
+                if (valid.Count == 1 && App.DataEngine.Config.DragOutputAsImage)
                 {
-                    Log("DragItemsStarting: 构造位图流失败（已放弃图片格式）: " + ex.Message);
+                    try
+                    {
+                        var bytes = File.ReadAllBytes(valid[0].LocalPath!);
+                        var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                        using (var dw = ms.GetOutputStreamAt(0))
+                        using (var dwStream = dw.AsStreamForWrite())
+                        {
+                            dwStream.Write(bytes, 0, bytes.Length);
+                            dwStream.Flush();
+                        }
+                        ms.Seek(0);
+                        e.Data.SetBitmap(
+                            Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("DragItemsStarting: 构造位图流失败（已放弃图片格式）: " + ex.Message);
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            Log("DragItemsStarting: 设 Bitmap 失败（已放弃，不影响重排）: " + ex.Message);
+            Log("DragItemsStarting: 设拖出格式失败（已放弃，不影响重排）: " + ex.Message);
         }
 
         // Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收，

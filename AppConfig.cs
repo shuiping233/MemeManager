@@ -59,6 +59,12 @@ public class AppConfig
     //                 隐藏我们自绘的右上角复选框。
     // true：使用 ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选。
     public bool ExplorerStyleMultiSelect { get; set; } = false;
+
+    // StorageFile 拖拽支持（拖出为文件，恢复动态 GIF 等到 QQ 的能力）：
+    // false（默认）：禁用。拖出仅用进程内 Bitmap 流（稳定，但 GIF 拖到 QQ 会变静态图）。
+    // true：启用。拖出时写入 StorageFile，支持作为文件拖出（动态 GIF 正常），
+    //       但在部分系统上快速连续拖拽可能触发跨公寓 COM 释放导致程序闪退。
+    public bool StorageFileDrag { get; set; } = false;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）
