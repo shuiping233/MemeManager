@@ -2188,28 +2188,8 @@ public sealed partial class MainWindow : Window
 
         if (uMsg == NativeMethods.WM_SYSCOMMAND)
         {
-            // 最小化/还原会改变真实可见性，统一走 Hide/Show 入口，
-            // 由它们维护 _isVisible 与执行清理/恢复，避免状态机旁路错位。
-            // 入口只描述意图，不自行 set flag。
-            int cmd = (int)wParam & 0xFFF0;
-            Log($"WM_SYSCOMMAND: cmd={cmd:X4} (MINIMIZE={NativeMethods.SC_MINIMIZE:X4}, RESTORE={NativeMethods.SC_RESTORE:X4}), _isVisible(before)={_isVisible}");
-            if (cmd == NativeMethods.SC_MINIMIZE)
-            {
-                // 托盘应用：最小化即视为“隐藏”，走统一隐藏入口（SW_HIDE + 清理），
-                // 不再走系统最小化（避免任务栏残留）。自行处理故不转交默认过程。
-                HideWindow();
-                Log($"  _isVisible(after)={_isVisible}");
-                return IntPtr.Zero;
-            }
-            else if (cmd == NativeMethods.SC_RESTORE)
-            {
-                // 还原后重新断言置顶，避免最小化恢复后 TopMost 偶发失效（参考 PowerToys）
-                if (_topMost)
-                    ApplyTopMost(true);
-                ShowWindow(activate: false);
-                Log($"  _isVisible(after)={_isVisible}");
-                return IntPtr.Zero;
-            }
+            // 最大化 / 最小化 / 取消最大化 等系统命令统一交给默认过程处理，
+            // 不再拦截（此前拦截 SC_RESTORE 会导致最大化后第二次点击无反应）。
             return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
