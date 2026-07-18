@@ -96,20 +96,23 @@ public partial class App : Application
 
         if (!createdNew)
         {
-            // 已有实例：弹窗提示，并尝试把已有窗口激活到前台
-            IntPtr existing = NativeMethods.FindWindowW(null, "MemeManager");
-            if (existing != IntPtr.Zero)
+            // 已有实例：读取本进程写入的实例锁文件（含旧窗口 HWND + PID），
+            // 向旧窗口投递“呼出”消息，由旧实例自己激活自身（绕过前台锁定），随后静默退出。
+            // 重复判断不依赖该文件（靠 mutex），文件仅用于精准定位旧窗口；
+            // 即使进程被强杀导致文件残留/失效，也只会影响本次呼出，不会误判或无法启动。
+            var (hwnd, pid) = ReadInstanceLock();
+            if (hwnd != IntPtr.Zero)
             {
-                if (NativeMethods.IsIconic(existing))
-                    NativeMethods.ShowWindow(existing, 9); // SW_RESTORE
-                NativeMethods.SetForegroundWindow(existing);
+                // PID 校验：避免 HWND 被系统复用给无关窗口时误唤醒
+                uint ownerPid;
+                NativeMethods.GetWindowThreadProcessId(hwnd, out ownerPid);
+                if (ownerPid == pid && NativeMethods.IsWindow(hwnd))
+                {
+                    uint showMsg = NativeMethods.RegisterWindowMessageW("MemeManager_ShowExisting");
+                    NativeMethods.PostMessage(hwnd, showMsg, IntPtr.Zero, IntPtr.Zero);
+                }
             }
-            NativeMethods.MessageBoxW(
-                IntPtr.Zero,
-                "MemeManager 已经在运行中。",
-                "提示",
-                0x0); // MB_OK
-            Logger.Log("[MemeManager] 检测到重复实例并退出");
+            Logger.Log("[MemeManager] 检测到重复实例，已请求旧实例呼出并退出");
             _singleInstanceMutex?.Close();
             Current.Exit();
             return;
@@ -152,6 +155,29 @@ public partial class App : Application
     private static IntPtr WindowNativeHwnd()
     {
         return WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
+    }
+
+    // 实例锁文件：记录当前运行实例的主窗口 HWND 与 PID，供重复启动的新实例精准呼出旧窗口。
+    // 与 config.json 同目录（%LOCALAPPDATA%\MemeManager）。
+    private static string InstanceLockPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager", "instance.lock");
+
+    // 读取实例锁文件，返回 (HWND, PID)。文件不存在/格式错误时返回 (Zero, 0)。
+    private static (IntPtr hwnd, uint pid) ReadInstanceLock()
+    {
+        try
+        {
+            if (!File.Exists(InstanceLockPath)) return (IntPtr.Zero, 0);
+            var lines = File.ReadAllLines(InstanceLockPath);
+            if (lines.Length < 2) return (IntPtr.Zero, 0);
+            if (!long.TryParse(lines[0], out long hwndVal)) return (IntPtr.Zero, 0);
+            if (!uint.TryParse(lines[1], out uint pid)) return (IntPtr.Zero, 0);
+            return ((IntPtr)hwndVal, pid);
+        }
+        catch
+        {
+            return (IntPtr.Zero, 0);
+        }
     }
 
     private void ExitApp()

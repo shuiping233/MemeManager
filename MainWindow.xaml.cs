@@ -111,6 +111,9 @@ public sealed partial class MainWindow : Window
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
+        // 写入实例锁文件（HWND + PID），供重复启动的新实例精准呼出旧窗口
+        PersistInstanceLock();
+
         _previewTimer.Tick += PreviewTimer_Tick;
         ApplyPreviewDelayFromConfig();
 
@@ -1721,6 +1724,35 @@ public sealed partial class MainWindow : Window
         ShowWindow(activate: true);
     }
 
+    // 将当前主窗口 HWND + PID 写入实例锁文件，供重复启动的新实例精准呼出。
+    // 每次拿到（新）HWND 都覆盖写入，窗口重建后也能保持最新。
+    private void PersistInstanceLock()
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager");
+            Directory.CreateDirectory(dir);
+            var pid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+            File.WriteAllText(Path.Combine(dir, "instance.lock"),
+                $"{(long)_hWnd}\n{pid}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[实例锁] 写入失败: {ex.Message}");
+        }
+    }
+
+    // 退出时删除实例锁文件（强杀残留也无妨，重复判断不依赖它）
+    private static void DeleteInstanceLock()
+    {
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager", "instance.lock");
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch { }
+    }
+
     /// <summary>
     /// 统一“显示主窗口”入口：所有呼出窗口的路径都必须走这里，
     /// 以保证隐藏时停用的拖拽/交互能力被一并恢复（避免从托盘呼出后无法拖拽）。
@@ -1802,6 +1834,7 @@ public sealed partial class MainWindow : Window
     public void RequestExit()
     {
         SaveWindowSize();
+        DeleteInstanceLock();
         _allowClose = true;
         _isClosing = true;
         this.Close();
@@ -2211,8 +2244,18 @@ public sealed partial class MainWindow : Window
 
     // ---------- 热键 / 窗口过程 ----------
 
+    // 跨进程“呼出已有实例”消息 ID（由字符串注册，系统保证全局唯一）
+    private static readonly uint _showExistingMsg = NativeMethods.RegisterWindowMessageW("MemeManager_ShowExisting");
+
     private IntPtr NewWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, uint uIdSubclass, IntPtr dwRefData)
     {
+        // 重复启动的新实例请求呼出：抛回 UI 线程激活自身（绕过前台锁定）
+        if (uMsg == _showExistingMsg)
+        {
+            DispatcherQueue.TryEnqueue(() => ShowAndActivate());
+            return IntPtr.Zero;
+        }
+
         if (uMsg == NativeMethods.WM_MOUSEACTIVATE)
         {
             // 允许点击窗口时正常激活（这样文本框可以输入），
