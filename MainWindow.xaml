@@ -36,18 +36,25 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox x:Name="SearchBox" Grid.Column="0" PlaceholderText="搜索表情..."
-                      Margin="0,0,8,0" TextChanged="SearchBox_TextChanged"/>
+                      Margin="0,0,8,0" TextChanged="SearchBox_TextChanged">
+                <ToolTipService.ToolTip>模糊查询当前分类的表情 (Ctrl+F)</ToolTipService.ToolTip>
+            </TextBox>
             <ToggleButton x:Name="TopMostToggle" Grid.Column="1" Content="置顶" Margin="0,0,8,0"
-                          IsChecked="True" Checked="TopMostToggle_Checked" Unchecked="TopMostToggle_Unchecked"/>
+                          IsChecked="True" Checked="TopMostToggle_Checked" Unchecked="TopMostToggle_Unchecked">
+                <ToolTipService.ToolTip>启用/关闭主窗口置顶</ToolTipService.ToolTip>
+            </ToggleButton>
             <Button x:Name="EditButton" Grid.Column="2" Content="修改" Margin="0,0,8,0"
                     Style="{StaticResource AccentButtonStyle}" Click="EditButton_Click">
                 <ToolTipService.ToolTip>进入/退出多选模式 (Ctrl+E)</ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="RefreshButton" Grid.Column="3" Content="刷新" Margin="0,0,8,0" Click="RefreshButton_Click"/>
+            <Button x:Name="RefreshButton" Grid.Column="3" Content="刷新" Margin="0,0,8,0" Click="RefreshButton_Click">
+                <ToolTipService.ToolTip>刷新当前页面 (F5)</ToolTipService.ToolTip>
+            </Button>
             <Button x:Name="SettingsButton" Grid.Column="4" Content="设置" Click="SettingsButton_Click">
                 <Button.Flyout>
                     <Flyout x:Name="SettingsFlyout"/>
                 </Button.Flyout>
+                <ToolTipService.ToolTip>打开/关闭设置页面</ToolTipService.ToolTip>
             </Button>
         </Grid>
 
@@ -99,7 +106,9 @@
                 </ListView.ItemTemplate>
             </ListView>
             <Button x:Name="AddCategoryButton" Grid.Row="1" Content="+" FontSize="20"
-                    HorizontalAlignment="Stretch" Margin="8" Click="AddCategoryButton_Click"/>
+                    HorizontalAlignment="Stretch" Margin="8" Click="AddCategoryButton_Click">
+                <ToolTipService.ToolTip>添加分类 (Ctrl+N)</ToolTipService.ToolTip>
+            </Button>
         </Grid>
 
         <!-- 右侧表情网格 -->
