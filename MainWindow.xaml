@@ -134,6 +134,7 @@
                                 <MenuFlyoutItem Text="打开" Click="MemeOpen_Click"/>
                                 <MenuFlyoutItem Text="打开所在文件夹" Click="MemeOpenFolder_Click"/>
                                 <MenuFlyoutItem Text="复制" Click="MemeCopy_Click"/>
+                                <MenuFlyoutItem Text="多选" Click="MemeMultiSelect_Click"/>
                                 <MenuFlyoutItem Text="重命名" Click="MemeRename_Click"/>
                                 <MenuFlyoutSubItem Text="移动到其他分类"/>
                                 <MenuFlyoutItem Text="删除" Click="MemeDelete_Click"/>

@@ -930,23 +930,46 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            Log("进入多选模式");
-            _editMode = true;
-            EditButton.Content = "完成";
-            // 背景/前景的蓝色由 XAML 写死常亮，这里不再处理颜色，仅切换文字与模式
-            BatchBar.Visibility = Visibility.Visible;
-            // 编辑模式开启内置重排：落点由 WinUI 自己算准
-            MemeGridView.CanReorderItems = true;
-            // 多选模式由配置决定：
-            //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
-            //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
-            bool explorerStyle = App.DataEngine.Config.ExplorerStyleMultiSelect;
-            MemeGridView.SelectionMode = explorerStyle
-                ? ListViewSelectionMode.Extended
-                : ListViewSelectionMode.Multiple;
-            // 仅 Extended 模式显示我们自绘的复选框
-            SetSelectionBoxVisible(explorerStyle);
+            EnterEditMode();
         }
+    }
+
+    // 统一进入编辑（多选）模式：所有入口（修改按钮 / Shift+点击 / 右键多选 / Ctrl+A）都走这里，
+    // 不再散落设置 _editMode 与各 UI 状态，避免多处野 flag 设置错位。
+    private void EnterEditMode()
+    {
+        if (_editMode) return;
+        Log("进入多选模式");
+        _editMode = true;
+        EditButton.Content = "完成";
+        // 背景/前景的蓝色由 XAML 写死常亮，这里不再处理颜色，仅切换文字与模式
+        BatchBar.Visibility = Visibility.Visible;
+        // 编辑模式开启内置重排：落点由 WinUI 自己算准
+        MemeGridView.CanReorderItems = true;
+        // 多选模式由配置决定：
+        //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
+        //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
+        bool explorerStyle = App.DataEngine.Config.ExplorerStyleMultiSelect;
+        MemeGridView.SelectionMode = explorerStyle
+            ? ListViewSelectionMode.Extended
+            : ListViewSelectionMode.Multiple;
+        // 仅 Extended 模式显示我们自绘的复选框
+        SetSelectionBoxVisible(explorerStyle);
+    }
+
+    // 进编辑模式并选中指定图片（Shift+点击 / 右键“多选”共用）
+    private void EnterEditModeAndSelect(MemeViewModel vm)
+    {
+        EnterEditMode();
+        MemeGridView.SelectedItems.Clear();
+        MemeGridView.SelectedItems.Add(vm);
+    }
+
+    // 进编辑模式并全选（Ctrl+A 在非编辑模式时触发）
+    private void EnterEditModeAndSelectAll()
+    {
+        EnterEditMode();
+        ToggleSelectAll();
     }
 
     // ---------- 点击表情（非修改模式 = 粘贴；多选模式 = 切换选中） ----------
@@ -963,6 +986,16 @@ public sealed partial class MainWindow : Window
         }
 
         int index = _memeList.IndexOf(clicked);
+
+        // ---- 非编辑模式下按住 Shift 点击：直接进编辑模式并选中当前图片，
+        //      后续点击/Shift 连续选交给编辑模式原生逻辑托管。
+        bool shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        if (!_editMode && shiftDown)
+        {
+            EnterEditModeAndSelect(clicked);
+            return;
+        }
 
         // ---- 编辑模式：选中完全交给 GridView 原生(SelectionMode=Multiple)处理，
         //      Tapped 不再手动切换，避免与控件自带选中逻辑冲突导致要双击。
@@ -1446,6 +1479,12 @@ public sealed partial class MainWindow : Window
         Log($"已复制「{vm.Title}」到剪贴板");
     }
 
+    // 右键菜单“多选”：进编辑模式并选中当前图片
+    private void MemeMultiSelect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMeme != null) EnterEditModeAndSelect(_contextMeme);
+    }
+
     private async void MemeDelete_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMeme == null) return;
@@ -1924,10 +1963,11 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Ctrl+A：编辑模式下全选/取消全选
+        // Ctrl+A：编辑模式下全选/取消全选；非编辑模式下自动进编辑模式并全选
         if (ctrl && e.Key == Windows.System.VirtualKey.A)
         {
-            ToggleSelectAll();
+            if (!_editMode) EnterEditModeAndSelectAll();
+            else ToggleSelectAll();
             e.Handled = true;
             return;
         }
