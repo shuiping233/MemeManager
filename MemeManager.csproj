@@ -90,4 +90,20 @@
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
 
-  </Project>
+  <!--
+    构建/发布后删除 Windows App SDK 带入的冗余 AI/ML 运行时（OnnxRuntime / DirectML / Windows.AI.*）。
+    本项目仅用 WinUI，未引用任何 AI/ML API，已验证删除后 exe 正常运行。
+    TreatErrorsAsWarnings 确保某些构建未生成这些文件时也不报错。
+  -->
+  <Target Name="RemoveUnusedAiDlls" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <_AiDlls Include="$(OutDir)onnxruntime.dll" />
+      <_AiDlls Include="$(OutDir)DirectML.dll" />
+      <_AiDlls Include="$(OutDir)Microsoft.ML.OnnxRuntime.dll" />
+      <_AiDlls Include="$(OutDir)Microsoft.Windows.AI.MachineLearning.dll" />
+      <_AiDlls Include="$(OutDir)Microsoft.Windows.AI.*.dll" />
+    </ItemGroup>
+    <Delete Files="@(_AiDlls)" TreatErrorsAsWarnings="true" />
+  </Target>
+
+</Project>
