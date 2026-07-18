@@ -921,11 +921,11 @@ public sealed partial class MainWindow : Window
 
     // ---------- 修改模式 ----------
 
-    private void EditButton_Click(object sender, RoutedEventArgs e)
+    private void EditButton_Click(object? sender, RoutedEventArgs? e)
     {
         if (_editMode)
         {
-            Log("退出多选模式(点击修改/完成按钮)");
+            Log("退出多选模式");
             ExitEditMode();
         }
         else
@@ -1968,6 +1968,14 @@ public sealed partial class MainWindow : Window
         {
             if (!_editMode) EnterEditModeAndSelectAll();
             else ToggleSelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+E：切换编辑（多选）模式，与“修改”按钮语义一致
+        if (ctrl && e.Key == Windows.System.VirtualKey.E)
+        {
+            EditButton_Click(null, null);
             e.Handled = true;
             return;
         }
