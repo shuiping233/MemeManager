@@ -8,12 +8,16 @@ using Microsoft.UI.Xaml.Media;
 
 namespace MemeManager;
 
-// 统一模态弹窗 helper：所有弹窗的"标题 + 描述文本"等业务文案都集中在此处，
-// 对外只暴露语义化静态方法（如 ShowMoveConflictAsync / ShowCategoryExistsAsync），
-// 调用方不再出现硬编码文案，避免各处重复 new ContentDialog 的样板。
-public static class DialogHelper
-{
-    private const int ConflictLabelMaxLen = 32;
+    // 统一模态弹窗 helper：所有弹窗的"标题 + 描述文本"等业务文案都集中在此处，
+    // 对外只暴露语义化静态方法（如 ShowMoveConflictAsync / ShowCategoryExistsAsync），
+    // 调用方不再出现硬编码文案，避免各处重复 new ContentDialog 的样板。
+    public static class DialogHelper
+    {
+        // 弹窗打开/关闭时通知外部（如 MainWindow），使其在模态期间放行 Esc/Enter 给 ContentDialog 自身处理。
+        public static event Action<bool>? DialogOpenChanged;
+
+        private const int ConflictLabelMaxLen = 32;
+
 
     // 弹窗统一强制主题。默认 Default（跟随其 XamlRoot 所在可视化树）。
     // 在 App.ApplyTheme 中按配置设置：System 时解析为当前系统实际主题，
@@ -21,6 +25,20 @@ public static class DialogHelper
     public static ElementTheme DialogTheme { get; set; } = ElementTheme.Default;
 
     // ---------- 基础方法（不直接对外暴露文案，仅内部复用） ----------
+
+    // 统一包裹 ShowAsync：在打开/关闭时通知外部（模态期间不应拦截 Esc/Enter）。
+    private static async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
+    {
+        DialogOpenChanged?.Invoke(true);
+        try
+        {
+            return await dialog.ShowAsync();
+        }
+        finally
+        {
+            DialogOpenChanged?.Invoke(false);
+        }
+    }
 
     // 标题 + 描述文本。wrap + 可选选中，便于用户复制冲突明细。
     private static async Task ShowMessageAsync(
@@ -44,7 +62,7 @@ public static class DialogHelper
                 XamlRoot = xamlRoot,
                 RequestedTheme = DialogTheme,
             };
-            await dialog.ShowAsync();
+            await ShowDialogAsync(dialog);
         }
         catch (Exception ex)
         {
@@ -105,7 +123,7 @@ public static class DialogHelper
                 XamlRoot = xamlRoot,
                 RequestedTheme = DialogTheme,
             };
-            return await dialog.ShowAsync();
+            return await ShowDialogAsync(dialog);
         }
         catch (Exception ex)
         {
@@ -138,7 +156,7 @@ public static class DialogHelper
                 DefaultButton = ContentDialogButton.Primary,
                 RequestedTheme = DialogTheme,
             };
-            return await dialog.ShowAsync() == ContentDialogResult.Primary
+            return await ShowDialogAsync(dialog) == ContentDialogResult.Primary
                 ? box.Text?.Trim()
                 : null;
         }

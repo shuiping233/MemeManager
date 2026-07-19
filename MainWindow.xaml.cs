@@ -44,6 +44,9 @@ public sealed partial class MainWindow : Window
     // 键盘导航当前所在的图片下标（-1 表示不在图片网格内）。方向键移动/复制均以此为基准。
     private int _focusedMemeIndex = -1;
 
+    // 是否有模态对话框（ContentDialog）正在显示；打开期间不拦截 Esc/Enter，交给对话框自身处理。
+    private bool _dialogOpen;
+
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
@@ -175,6 +178,8 @@ public sealed partial class MainWindow : Window
 
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
+
+        DialogHelper.DialogOpenChanged += open => _dialogOpen = open;
 
         MemeGridView.KeyDown += (_, ke) =>
             Log($"[KeyDbg] MemeGridView KeyDown Key={ke.Key} Ctrl={(Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))} Handled={ke.Handled}");
@@ -2079,6 +2084,10 @@ public sealed partial class MainWindow : Window
     // 隧道（Preview）阶段处理方向键：先于 GridView/ListView 内部导航，确保能拦住。
     private void Root_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // 模态对话框打开期间：完全放行所有按键，让 ContentDialog 独占键盘
+        // （Esc 取消 / Enter 确认 / 输入框打字），避免根级拦截干扰其焦点与取消逻辑。
+        if (_dialogOpen) return;
+
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
@@ -2152,6 +2161,9 @@ public sealed partial class MainWindow : Window
 
     private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // 模态对话框打开期间完全放行（与 Preview 一致），不记录、不拦截。
+        if (_dialogOpen) return;
+
         var _dbgCtrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         Log($"[KeyDbg] Key={e.Key} Ctrl={_dbgCtrl} Handled={e.Handled} Focus={FocusManager.GetFocusedElement()?.GetType().Name} MemeIdx={_focusedMemeIndex}");
@@ -2238,7 +2250,9 @@ public sealed partial class MainWindow : Window
         // Esc / Enter 在搜索框时的处理：
         // - Esc：只失焦并把焦点交回图片网格（不清空文本），让方向键/Ctrl 方向恢复可用。
         // - Enter：立即失焦回图片网格（搜索为实时过滤，无需再触发）。
-        if (IsSearchBoxFocused() && (e.Key == Windows.System.VirtualKey.Escape || e.Key == Windows.System.VirtualKey.Enter))
+        // （对话框打开期间已在入口 return，不会走到这里，故 ContentDialog 的 Esc/Enter 不受影响。）
+        if (IsSearchBoxFocused()
+            && (e.Key == Windows.System.VirtualKey.Escape || e.Key == Windows.System.VirtualKey.Enter))
         {
             e.Handled = true;
             if (!FocusFirstMeme())
