@@ -2083,6 +2083,9 @@ public sealed partial class MainWindow : Window
         int target = next ? Math.Min(count - 1, i + 1) : Math.Max(0, i - 1);
         if (target == i) return;
         CategoryList.SelectedIndex = target;
+        // 选中项变更后，把分类列表滚动到该项（列表有滚动条时让选中项进入视野）。
+        if (CategoryList.Items[target] is CategoryViewModel cat)
+            CategoryList.ScrollIntoView(cat, ScrollIntoViewAlignment.Leading);
         FocusFirstMeme();
     }
 
