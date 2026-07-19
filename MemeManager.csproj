@@ -99,13 +99,17 @@
   -->
   <Target Name="RemoveUnusedAiDlls" AfterTargets="Publish">
     <ItemGroup>
-      <_AiDlls Include="$(PublishDir)onnxruntime.dll" />
-      <_AiDlls Include="$(PublishDir)DirectML.dll" />
-      <_AiDlls Include="$(PublishDir)Microsoft.ML.OnnxRuntime.dll" />
-      <_AiDlls Include="$(PublishDir)Microsoft.Windows.AI.MachineLearning.dll" />
-      <_AiDlls Include="$(PublishDir)Microsoft.Windows.AI.*.dll" />
+      <_UselessDlls Include="$(PublishDir)onnxruntime.dll" />
+      <_UselessDlls Include="$(PublishDir)DirectML.dll" />
+      <_UselessDlls Include="$(PublishDir)System.Numerics.Tensors.dll" />
+      <_UselessDlls Include="$(PublishDir)Microsoft.ML.OnnxRuntime.dll" />
+      <_UselessDlls Include="$(PublishDir)Microsoft.Windows.AI.MachineLearning.dll" />
+      <_UselessDlls Include="$(PublishDir)Microsoft.Windows.AI.*.dll" />
+      <_UselessDlls Include="$(PublishDir)WebView2Loader.dll" />
+      <_UselessDlls Include="$(PublishDir)Microsoft.Web.WebView2.*.dll" />
+      <_UselessDlls Include="$(PublishDir)Microsoft.Security.Authentication.OAuth.Projection.dll" />
     </ItemGroup>
-    <Delete Files="@(_AiDlls)" TreatErrorsAsWarnings="true" />
+    <Delete Files="@(_UselessDlls)" TreatErrorsAsWarnings="true" />
   </Target>
 
 </Project>
