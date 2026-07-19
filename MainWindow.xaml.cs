@@ -1522,14 +1522,19 @@ public sealed partial class MainWindow : Window
     private async void MemeDelete_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMeme == null) return;
-        var vm = _contextMeme;
-        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) == ContentDialogResult.Primary)
-        {
-            await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
-            var item = _memeList.FirstOrDefault(m => m == vm);
-            if (item != null) _memeList.Remove(item);
-            UpdateCategoryCounts();
-        }
+        await DeleteMemeAsync(_contextMeme);
+    }
+
+    // 删除单张图片（带确认弹窗），删除成功后从列表移除并刷新分类计数。
+    private async Task DeleteMemeAsync(MemeViewModel vm)
+    {
+        if (vm == null) return;
+        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) != ContentDialogResult.Primary)
+            return;
+        await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
+        var item = _memeList.FirstOrDefault(m => m == vm);
+        if (item != null) _memeList.Remove(item);
+        UpdateCategoryCounts();
     }
 
     private void MemeOpen_Click(object sender, RoutedEventArgs e)
@@ -2236,13 +2241,31 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Delete：删除当前选中的分类（聚焦分类控件时）
+        // Delete / Ctrl+Delete：
+        // - 普通 Delete：仅当导航焦点在图片上时，删除当前焦点所在图片；否则忽略。
+        // - Ctrl+Delete：删除当前分类（与焦点位置无关）。
         if (e.Key == Windows.System.VirtualKey.Delete)
         {
-            if (CategoryList.SelectedItem is CategoryViewModel selCat)
+            if (ctrl)
+            {
+                if (CategoryList.SelectedItem is CategoryViewModel selCat)
+                {
+                    e.Handled = true;
+                    await DeleteCategoryConfirmed(selCat);
+                }
+            }
+            else if (_focusedMemeIndex >= 0 && _focusedMemeIndex < _memeList.Count)
             {
                 e.Handled = true;
-                await DeleteCategoryConfirmed(selCat);
+                int removed = _focusedMemeIndex;
+                await DeleteMemeAsync(_memeList[removed]);
+                // 删除后下标越界则钳到末尾，并尽量把焦点重新落到相邻图片，保持键盘导航连续。
+                if (_focusedMemeIndex >= _memeList.Count)
+                    _focusedMemeIndex = _memeList.Count - 1;
+                if (_focusedMemeIndex >= 0)
+                    FocusMemeAt(_focusedMemeIndex);
+                else
+                    MemeGridView.Focus(FocusState.Programmatic);
             }
             return;
         }
