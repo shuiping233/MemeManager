@@ -1824,8 +1824,9 @@ public sealed partial class MainWindow : Window
         _isVisible = true;
         SetMemeViewVisible(true);
         // 恢复窗口后把键盘导航焦点交回图片网格（有图落第一张，无图落容器），而非默认落到搜索框。
-        // 容器可能尚未生成，延迟到下一帧执行。
-        DispatcherQueue.TryEnqueue(() =>
+        // 框架默认会把初始焦点给视觉树第一个可聚焦控件(搜索框)，故用 Low 优先级延后到默认焦点分配之后，
+        // 再强制把焦点抢到图片网格；若项容器尚未生成则直接聚焦 GridView 自身。
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             if (!FocusFirstMeme())
                 MemeGridView.Focus(FocusState.Programmatic);
