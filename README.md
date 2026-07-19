@@ -1,6 +1,17 @@
+<div align="center">
+
 # MemeManager (表情包管理器)
 
+<img src="https://img.shields.io/github/v/release/shuiping233/MemeManager?color=76bad9" href="https://github.com/shuiping233/MemeManager/releases/latest">
+<img src="https://img.shields.io/badge/dotnet-10-purple.svg" alt="dotnet">
+<img src="https://img.shields.io/badge/Windows-WinUI3-0ba2f3">
+<img src="https://img.shields.io/badge/WindowsAppSDK-2.2.0-0ba2f3">
+
+
 这是一款高效管理和使用表情包的管理工具, 基于`dotnet10` + `WinUI3`开发
+
+</div>
+
 
 ![](image/avif-main-window.avif)
 ![](image/avif-500-image-import.avif)
@@ -144,3 +155,11 @@
     └── fa779d7d485fae8366d53e102ded5258131378eb02b95175c813b018748a570c.jpg
 ```
 
+## 鸣谢
+- [NightSkyTS] : 测试人员, 提供了win10测试机器, 提供和反馈了超过半数Bug和优化建议
+
+- [SuzuEmojy] : 优秀的同类项目, 基于Python和Qt开发的表情管理器
+
+
+[NightSkyTS]: https://github.com/NightSkyTS
+[SuzuEmojy]: https://github.com/IxinorTyan/SuzuEmojy
