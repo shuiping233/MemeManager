@@ -2090,6 +2090,20 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // Ctrl+C：复制“当前键盘导航焦点”所在图片（以 _focusedMemeIndex 为准，比查询焦点元素可靠）。
+        // 置于隧道阶段，任何焦点下都能触发；设置打开时不复制。
+        if (ctrl && e.Key == Windows.System.VirtualKey.C)
+        {
+            if (!SettingsFlyout.IsOpen && _focusedMemeIndex >= 0 && _focusedMemeIndex < _memeList.Count)
+            {
+                var focused = _memeList[_focusedMemeIndex];
+                e.Handled = true;
+                _ = PasteService.CopyImageToClipboardAsync(focused.Model.LocalPath);
+                Log($"已复制「{focused.Title}」到剪贴板");
+            }
+            return;
+        }
+
         // 普通方向键 / Home / End：无论当前焦点在图片/分类/标题栏/其它控件，
         // 只要不在“需保留焦点”的场景（搜索框打字、设置打开、编辑模式），都先把键盘导航焦点
         // 拉回图片网格（恢复到上次停留的下标），再移动。这样鼠标点别处也不会丢失导航。
@@ -2126,8 +2140,14 @@ public sealed partial class MainWindow : Window
     {
         if (_editMode) return true;
         if (SettingsFlyout.IsOpen) return true;
-        if (ReferenceEquals(FocusManager.GetFocusedElement(), SearchBox)) return true;
+        if (IsSearchBoxFocused()) return true;
         return false;
+    }
+
+    // 搜索框是否持有键盘焦点（含其内部的文本编辑元素），用于 Esc/Enter 判定。
+    private bool IsSearchBoxFocused()
+    {
+        return SearchBox.FocusState != FocusState.Unfocused;
     }
 
     private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -2215,28 +2235,15 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Ctrl+C：复制当前键盘焦点的图片到剪贴板（仅当焦点在图片网格内时）
-        if (ctrl && e.Key == Windows.System.VirtualKey.C)
+        // Esc / Enter 在搜索框时的处理：
+        // - Esc：只失焦并把焦点交回图片网格（不清空文本），让方向键/Ctrl 方向恢复可用。
+        // - Enter：立即失焦回图片网格（搜索为实时过滤，无需再触发）。
+        if (IsSearchBoxFocused() && (e.Key == Windows.System.VirtualKey.Escape || e.Key == Windows.System.VirtualKey.Enter))
         {
-            if (FocusManager.GetFocusedElement() is GridViewItem gi && gi.Content is MemeViewModel focused)
-            {
-                e.Handled = true;
-                _ = PasteService.CopyImageToClipboardAsync(focused.Model.LocalPath);
-                Log($"已复制「{focused.Title}」到剪贴板");
-            }
+            e.Handled = true;
+            if (!FocusFirstMeme())
+                MemeGridView.Focus(FocusState.Programmatic);
             return;
-        }
-
-        // Esc：焦点在搜索框时只失焦并把焦点交回图片网格（不清空文本），让方向键/Ctrl 方向恢复可用。
-        if (e.Key == Windows.System.VirtualKey.Escape)
-        {
-            if (ReferenceEquals(FocusManager.GetFocusedElement(), SearchBox))
-            {
-                e.Handled = true;
-                if (!FocusFirstMeme())
-                    MemeGridView.Focus(FocusState.Programmatic);
-                return;
-            }
         }
 
         if (!_editMode) return;
