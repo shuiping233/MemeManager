@@ -41,6 +41,12 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
     private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
 
+    // 键盘导航当前所在的图片下标（-1 表示不在图片网格内）。方向键移动/复制均以此为基准。
+    private int _focusedMemeIndex = -1;
+
+    // 是否有模态对话框（ContentDialog）正在显示；打开期间不拦截 Esc/Enter，交给对话框自身处理。
+    private bool _dialogOpen;
+
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
@@ -173,6 +179,11 @@ public sealed partial class MainWindow : Window
         CategoryList.ItemsSource = _categoryList;
         MemeGridView.ItemsSource = _memeList;
 
+        DialogHelper.DialogOpenChanged += open => _dialogOpen = open;
+
+        //MemeGridView.KeyDown += (_, ke) =>
+        //    Log($"[KeyDbg] MemeGridView KeyDown Key={ke.Key} Ctrl={(Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))} Handled={ke.Handled}");
+
         // 粘贴图片进窗口：改为仅在本窗口激活时由 Ctrl+V 触发（见 Root_KeyDown），
         // 不再监听剪贴板变化，避免截图等写入剪贴板时误触发“粘贴到分类”。
 
@@ -200,7 +211,19 @@ public sealed partial class MainWindow : Window
         if (this.Content is FrameworkElement root)
         {
             root.KeyDown += Root_KeyDown;
-            root.Loaded += (_, _) => { if (this.Content is FrameworkElement r) r.Focus(FocusState.Programmatic); };
+            // 方向键 / Ctrl+方向 / Home / End 必须在 Preview（隧道）阶段处理：
+            // GridView/ListView 内部会在普通 KeyDown 路由之前消费方向键移动焦点，
+            // 冒泡阶段再 Handled 也拦不住；只有 Preview 能在它之前截住。
+            RootGrid.PreviewKeyDown += Root_PreviewKeyDown;
+            root.Loaded += (_, _) =>
+            {
+                // 启动默认焦点落在图片网格（有图落第一张，无图落容器，再不行落主窗口），
+                // 这样方向键/Ctrl+方向 一开始就可用，而不是停在搜索框。
+                if (MemeGridView.Items.Count > 0)
+                    FocusFirstMeme();
+                else if (!MemeGridView.Focus(FocusState.Programmatic))
+                    root.Focus(FocusState.Programmatic);
+            };
         }
 
         LoadCategories();
@@ -990,6 +1013,14 @@ public sealed partial class MainWindow : Window
 
         int index = _memeList.IndexOf(clicked);
 
+        // 鼠标点击图片时同步键盘导航下标（并给该项焦点），使随后方向键从被点项继续移动。
+        if (index >= 0)
+        {
+            _focusedMemeIndex = index;
+            if (MemeGridView.ContainerFromIndex(index) is GridViewItem gi)
+                gi.Focus(FocusState.Pointer);
+        }
+
         // ---- 非编辑模式下按住 Shift 点击：直接进编辑模式并选中当前图片，
         //      后续点击/Shift 连续选交给编辑模式原生逻辑托管。
         bool shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
@@ -1491,14 +1522,19 @@ public sealed partial class MainWindow : Window
     private async void MemeDelete_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMeme == null) return;
-        var vm = _contextMeme;
-        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) == ContentDialogResult.Primary)
-        {
-            await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
-            var item = _memeList.FirstOrDefault(m => m == vm);
-            if (item != null) _memeList.Remove(item);
-            UpdateCategoryCounts();
-        }
+        await DeleteMemeAsync(_contextMeme);
+    }
+
+    // 删除单张图片（带确认弹窗），删除成功后从列表移除并刷新分类计数。
+    private async Task DeleteMemeAsync(MemeViewModel vm)
+    {
+        if (vm == null) return;
+        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) != ContentDialogResult.Primary)
+            return;
+        await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
+        var item = _memeList.FirstOrDefault(m => m == vm);
+        if (item != null) _memeList.Remove(item);
+        UpdateCategoryCounts();
     }
 
     private void MemeOpen_Click(object sender, RoutedEventArgs e)
@@ -1787,6 +1823,14 @@ public sealed partial class MainWindow : Window
 
         _isVisible = true;
         SetMemeViewVisible(true);
+        // 恢复窗口后把键盘导航焦点交回图片网格（有图落第一张，无图落容器），而非默认落到搜索框。
+        // 框架默认会把初始焦点给视觉树第一个可聚焦控件(搜索框)，故用 Low 优先级延后到默认焦点分配之后，
+        // 再强制把焦点抢到图片网格；若项容器尚未生成则直接聚焦 GridView 自身。
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            if (!FocusFirstMeme())
+                MemeGridView.Focus(FocusState.Programmatic);
+        });
         ResumeWindowInteractions();
         Log($"[窗口] 显示完成 (activate={activate})");
     }
@@ -1809,9 +1853,21 @@ public sealed partial class MainWindow : Window
 
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
+        // 隐藏前先把键盘导航焦点从图片项上移开并清空下标：否则隐藏时 ItemsSource 置空会销毁
+        // 这些 GridViewItem 容器，WinUI 在恢复窗口时尝试把焦点还原到已销毁项，会用越界索引
+        // (index=-1 当 uint 传入) 调用 GetAt 崩溃。
+        ResetMemeFocus();
         SetMemeViewVisible(false);
         SuspendWindowInteractions(closing: false);
         Log("[窗口] 隐藏完成 (SW_HIDE)");
+    }
+
+    // 清空图片导航下标并把焦点从任何 GridViewItem 上移开，避免隐藏/重建时焦点悬挂到已销毁容器。
+    private void ResetMemeFocus()
+    {
+        _focusedMemeIndex = -1;
+        if (FocusManager.GetFocusedElement() is GridViewItem)
+            RootGrid.Focus(FocusState.Programmatic);
     }
 
     /// <summary>
@@ -1952,10 +2008,194 @@ public sealed partial class MainWindow : Window
                 LoadCategories();
             }
         }
+
+        // 设置关闭后把键盘导航焦点交回图片网格（有图落第一张，无图落容器）。
+        if (!FocusFirstMeme())
+            MemeGridView.Focus(FocusState.Programmatic);
+    }
+
+    // 将键盘焦点落到图片网格的第一张图片上，并记录当前导航下标。
+    // 返回是否成功把焦点落到某张图片（无图时返回 false）。
+    private bool FocusFirstMeme()
+    {
+        if (MemeGridView.Items.Count == 0)
+        {
+            _focusedMemeIndex = -1;
+            return false;
+        }
+        if (MemeGridView.ContainerFromIndex(0) is GridViewItem container && container.Focus(FocusState.Keyboard))
+        {
+            _focusedMemeIndex = 0;
+            return true;
+        }
+        return false;
+    }
+
+    // 把焦点移到指定下标的图片并更新导航下标；下标越界则失败。
+    private bool FocusMemeAt(int index)
+    {
+        int count = MemeGridView.Items.Count;
+        if (index < 0 || index >= count) return false;
+        if (MemeGridView.ContainerFromIndex(index) is GridViewItem container && container.Focus(FocusState.Keyboard))
+        {
+            _focusedMemeIndex = index;
+            return true;
+        }
+        return false;
+    }
+
+    // 当前按格子宽度(90)与间距(8)估算每行可容纳的列数；至少 1 列。
+    private int MemeColumns()
+    {
+        double cell = 90 + 8;
+        int cols = (int)Math.Floor((MemeGridView.ActualWidth - 12) / cell);
+        return Math.Max(1, cols);
+    }
+
+    // 方向键在图片网格内移动焦点：dx 左右、dy 上下（按整行跳跃）。
+    // 仅在“焦点已经在某个图片项上”时（_focusedMemeIndex>=0）才消费方向键。
+    private void MoveMemeFocus(int dx, int dy)
+    {
+        int count = MemeGridView.Items.Count;
+        if (count == 0) return;
+        int cols = MemeColumns();
+        int cur = _focusedMemeIndex >= 0 ? _focusedMemeIndex : 0;
+        int row = cur / cols;
+        int col = cur % cols;
+        int target;
+        if (dx != 0)
+        {
+            int tcol = col + dx;
+            if (tcol < 0 || tcol >= cols) return; // 同行边界内才左右移动
+            target = row * cols + tcol;
+        }
+        else
+        {
+            int trow = row + dy;
+            if (trow < 0) return;
+            target = trow * cols + col;
+        }
+        if (target >= count) return; // 末行可能不足一列，越界则不动
+        FocusMemeAt(target);
+    }
+
+    // Home/End：跳到第一行第一张 / 最后一张。
+    private void MoveMemeFocusToEdge(bool first)
+    {
+        int count = MemeGridView.Items.Count;
+        if (count == 0) return;
+        if (first) FocusMemeAt(0);
+        else FocusMemeAt(count - 1);
+    }
+
+    // 当前键盘焦点是否落在图片网格内的某个图片项上（用于判断是否消费方向键）。
+    private bool IsMemeFocusWithin()
+    {
+        return FocusManager.GetFocusedElement() is GridViewItem;
+    }
+
+    // 切到上一个/下一个分类，并把焦点落到图片网格第一张。
+    private void SwitchCategory(bool next)
+    {
+        int count = CategoryList.Items.Count;
+        if (count == 0) return;
+        int i = CategoryList.SelectedIndex;
+        int target = next ? Math.Min(count - 1, i + 1) : Math.Max(0, i - 1);
+        if (target == i) return;
+        CategoryList.SelectedIndex = target;
+        // 选中项变更后，把分类列表滚动到该项（列表有滚动条时让选中项进入视野）。
+        if (CategoryList.Items[target] is CategoryViewModel cat)
+            CategoryList.ScrollIntoView(cat, ScrollIntoViewAlignment.Leading);
+        FocusFirstMeme();
+    }
+
+    // 隧道（Preview）阶段处理方向键：先于 GridView/ListView 内部导航，确保能拦住。
+    private void Root_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        // 模态对话框打开期间：完全放行所有按键，让 ContentDialog 独占键盘
+        // （Esc 取消 / Enter 确认 / 输入框打字），避免根级拦截干扰其焦点与取消逻辑。
+        if (_dialogOpen) return;
+
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        // Ctrl+↑ / Ctrl+↓：任何焦点下都切分类（隧道阶段拦下，避免被图片/分类控件吞掉）。
+        if (ctrl && (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.Down))
+        {
+            e.Handled = true;
+            SwitchCategory(e.Key == Windows.System.VirtualKey.Down);
+            return;
+        }
+
+        // Ctrl+C：复制“当前键盘导航焦点”所在图片（以 _focusedMemeIndex 为准，比查询焦点元素可靠）。
+        // 置于隧道阶段，任何焦点下都能触发；设置打开时不复制。
+        if (ctrl && e.Key == Windows.System.VirtualKey.C)
+        {
+            if (!SettingsFlyout.IsOpen && _focusedMemeIndex >= 0 && _focusedMemeIndex < _memeList.Count)
+            {
+                var focused = _memeList[_focusedMemeIndex];
+                e.Handled = true;
+                _ = PasteService.CopyImageToClipboardAsync(focused.Model.LocalPath);
+                Log($"已复制「{focused.Title}」到剪贴板");
+            }
+            return;
+        }
+
+        // 普通方向键 / Home / End：无论当前焦点在图片/分类/标题栏/其它控件，
+        // 只要不在“需保留焦点”的场景（搜索框打字、设置打开、编辑模式），都先把键盘导航焦点
+        // 拉回图片网格（恢复到上次停留的下标），再移动。这样鼠标点别处也不会丢失导航。
+        if (ShouldDeferArrowNavigation())
+            return;
+
+        if (!IsMemeFocusWithin())
+        {
+            // 焦点不在图片网格内（如在分类列表）：方向键的语义是“回到图片切焦点”，而非切分类。
+            int restore = _focusedMemeIndex >= 0 ? _focusedMemeIndex : 0;
+            if (!FocusMemeAt(restore))
+                return; // 无图可聚焦，不消费方向键
+        }
+
+        switch (e.Key)
+        {
+            case Windows.System.VirtualKey.Left:
+                e.Handled = true; MoveMemeFocus(-1, 0); return;
+            case Windows.System.VirtualKey.Right:
+                e.Handled = true; MoveMemeFocus(1, 0); return;
+            case Windows.System.VirtualKey.Up:
+                e.Handled = true; MoveMemeFocus(0, -1); return;
+            case Windows.System.VirtualKey.Down:
+                e.Handled = true; MoveMemeFocus(0, 1); return;
+            case Windows.System.VirtualKey.Home:
+                e.Handled = true; MoveMemeFocusToEdge(true); return;
+            case Windows.System.VirtualKey.End:
+                e.Handled = true; MoveMemeFocusToEdge(false); return;
+        }
+    }
+
+    // 这些场景下方向键不应被我们抢去导航图片（让控件/输入框正常使用方向键）。
+    private bool ShouldDeferArrowNavigation()
+    {
+        if (_editMode) return true;
+        if (SettingsFlyout.IsOpen) return true;
+        if (IsSearchBoxFocused()) return true;
+        return false;
+    }
+
+    // 搜索框是否持有键盘焦点（含其内部的文本编辑元素），用于 Esc/Enter 判定。
+    private bool IsSearchBoxFocused()
+    {
+        return SearchBox.FocusState != FocusState.Unfocused;
     }
 
     private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // 模态对话框打开期间完全放行（与 Preview 一致），不记录、不拦截。
+        if (_dialogOpen) return;
+
+        var _dbgCtrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        // Log($"[KeyDbg] Key={e.Key} Ctrl={_dbgCtrl} Handled={e.Handled} Focus={FocusManager.GetFocusedElement()?.GetType().Name} MemeIdx={_focusedMemeIndex}");
+
         // Ctrl+V：仅在本窗口激活（焦点在主窗口）时，才把剪贴板里的图片导入到分类。
         // 这样截图等写剪贴板的行为不会误触发“粘贴到分类”；无焦点时的 Ctrl+V 仍走投回外部逻辑。
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
@@ -2024,14 +2264,45 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Delete：删除当前选中的分类（聚焦分类控件时）
+        // Delete / Ctrl+Delete：
+        // - 普通 Delete：仅当导航焦点在图片上时，删除当前焦点所在图片；否则忽略。
+        // - Ctrl+Delete：删除当前分类（与焦点位置无关）。
         if (e.Key == Windows.System.VirtualKey.Delete)
         {
-            if (CategoryList.SelectedItem is CategoryViewModel selCat)
+            if (ctrl)
+            {
+                if (CategoryList.SelectedItem is CategoryViewModel selCat)
+                {
+                    e.Handled = true;
+                    await DeleteCategoryConfirmed(selCat);
+                }
+            }
+            else if (_focusedMemeIndex >= 0 && _focusedMemeIndex < _memeList.Count)
             {
                 e.Handled = true;
-                await DeleteCategoryConfirmed(selCat);
+                int removed = _focusedMemeIndex;
+                await DeleteMemeAsync(_memeList[removed]);
+                // 删除后下标越界则钳到末尾，并尽量把焦点重新落到相邻图片，保持键盘导航连续。
+                if (_focusedMemeIndex >= _memeList.Count)
+                    _focusedMemeIndex = _memeList.Count - 1;
+                if (_focusedMemeIndex >= 0)
+                    FocusMemeAt(_focusedMemeIndex);
+                else
+                    MemeGridView.Focus(FocusState.Programmatic);
             }
+            return;
+        }
+
+        // Esc / Enter 在搜索框时的处理：
+        // - Esc：只失焦并把焦点交回图片网格（不清空文本），让方向键/Ctrl 方向恢复可用。
+        // - Enter：立即失焦回图片网格（搜索为实时过滤，无需再触发）。
+        // （对话框打开期间已在入口 return，不会走到这里，故 ContentDialog 的 Esc/Enter 不受影响。）
+        if (IsSearchBoxFocused()
+            && (e.Key == Windows.System.VirtualKey.Escape || e.Key == Windows.System.VirtualKey.Enter))
+        {
+            e.Handled = true;
+            if (!FocusFirstMeme())
+                MemeGridView.Focus(FocusState.Programmatic);
             return;
         }
 
