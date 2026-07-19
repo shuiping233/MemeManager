@@ -1823,6 +1823,13 @@ public sealed partial class MainWindow : Window
 
         _isVisible = true;
         SetMemeViewVisible(true);
+        // 恢复窗口后把键盘导航焦点交回图片网格（有图落第一张，无图落容器），而非默认落到搜索框。
+        // 容器可能尚未生成，延迟到下一帧执行。
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!FocusFirstMeme())
+                MemeGridView.Focus(FocusState.Programmatic);
+        });
         ResumeWindowInteractions();
         Log($"[窗口] 显示完成 (activate={activate})");
     }
@@ -1845,9 +1852,21 @@ public sealed partial class MainWindow : Window
 
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
+        // 隐藏前先把键盘导航焦点从图片项上移开并清空下标：否则隐藏时 ItemsSource 置空会销毁
+        // 这些 GridViewItem 容器，WinUI 在恢复窗口时尝试把焦点还原到已销毁项，会用越界索引
+        // (index=-1 当 uint 传入) 调用 GetAt 崩溃。
+        ResetMemeFocus();
         SetMemeViewVisible(false);
         SuspendWindowInteractions(closing: false);
         Log("[窗口] 隐藏完成 (SW_HIDE)");
+    }
+
+    // 清空图片导航下标并把焦点从任何 GridViewItem 上移开，避免隐藏/重建时焦点悬挂到已销毁容器。
+    private void ResetMemeFocus()
+    {
+        _focusedMemeIndex = -1;
+        if (FocusManager.GetFocusedElement() is GridViewItem)
+            RootGrid.Focus(FocusState.Programmatic);
     }
 
     /// <summary>
