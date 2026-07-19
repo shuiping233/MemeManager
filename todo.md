@@ -7,3 +7,8 @@
 - [x] `FilesRemoved`：图片从库中消失（外部拖出/被删），移除焦点分类对应控件并刷新分类数量（`OnWatchedFilesRemoved`，MainWindow.xaml.cs:2377）
 - [x] `FilesAdded`：图片新增（手动往分类文件夹塞图等兜底），追加焦点分类对应控件（`OnWatchedFilesAdded`，MainWindow.xaml.cs:2405）
 - [x] `FilesMoved`：库内移动（如移动到其他分类），按焦点分类移除源控件/追加目标控件（`OnWatchedFilesMoved`，MainWindow.xaml.cs:2444）
+
+## 键盘操作
+
+- [ ] 需要修复Tab键的焦点只在搜索框和`置顶`按钮之间反复横跳的bug
+- [ ] 多选模式的键盘操作支持, 虽然进入多选现在能用方向键+Enter多选图片了, 但是很多其他快捷键的配合依然不正确也操作手感差, 需要优化
