@@ -181,8 +181,8 @@ public sealed partial class MainWindow : Window
 
         DialogHelper.DialogOpenChanged += open => _dialogOpen = open;
 
-        MemeGridView.KeyDown += (_, ke) =>
-            Log($"[KeyDbg] MemeGridView KeyDown Key={ke.Key} Ctrl={(Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))} Handled={ke.Handled}");
+        //MemeGridView.KeyDown += (_, ke) =>
+        //    Log($"[KeyDbg] MemeGridView KeyDown Key={ke.Key} Ctrl={(Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))} Handled={ke.Handled}");
 
         // 粘贴图片进窗口：改为仅在本窗口激活时由 Ctrl+V 触发（见 Root_KeyDown），
         // 不再监听剪贴板变化，避免截图等写入剪贴板时误触发“粘贴到分类”。
@@ -2194,7 +2194,7 @@ public sealed partial class MainWindow : Window
 
         var _dbgCtrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        Log($"[KeyDbg] Key={e.Key} Ctrl={_dbgCtrl} Handled={e.Handled} Focus={FocusManager.GetFocusedElement()?.GetType().Name} MemeIdx={_focusedMemeIndex}");
+        // Log($"[KeyDbg] Key={e.Key} Ctrl={_dbgCtrl} Handled={e.Handled} Focus={FocusManager.GetFocusedElement()?.GetType().Name} MemeIdx={_focusedMemeIndex}");
 
         // Ctrl+V：仅在本窗口激活（焦点在主窗口）时，才把剪贴板里的图片导入到分类。
         // 这样截图等写剪贴板的行为不会误触发“粘贴到分类”；无焦点时的 Ctrl+V 仍走投回外部逻辑。
