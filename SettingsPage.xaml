@@ -106,7 +106,7 @@
                 <ToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
                 <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 拖出表情将作为文件发送, 动态 GIF 等可正常拖到 QQ 等外部程序</TextBlock>
                 <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">默认关闭（稳定优先）: 关闭时仅以图片流拖出, GIF 拖到 QQ 会变为静态图, 不支持拖拽到NTQQ</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.9" Foreground="Red" TextWrapping="Wrap">警告: 开启后, 在快速连续拖拽可能触发程序闪退, 且Win10系统中此问题会更严重, 请知悉风险</TextBlock>
+                <TextBlock FontSize="11" Opacity="0.9" Foreground="{ThemeResource SystemErrorTextColor}" TextWrapping="Wrap">警告: 开启后, 在快速连续拖拽可能触发程序闪退, 且Win10系统中此问题会更严重, 请知悉风险</TextBlock>
             </StackPanel>
 
             <StackPanel Spacing="6">
