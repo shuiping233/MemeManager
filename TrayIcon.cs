@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using MemeManager.Data;
+using MemeManager.Helpers;
 
 namespace MemeManager;
 
@@ -50,7 +51,7 @@ public sealed class TrayIcon : IDisposable
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_TRAYICON,
             hIcon = hIcon,
-            szTip = "MemeManager 表情包管理器"
+            szTip = Localization.Get("Tray_Tooltip")
         };
 
         NativeMethods.Shell_NotifyIcon(NIM_ADD, ref data);
@@ -87,10 +88,10 @@ public sealed class TrayIcon : IDisposable
         var hMenu = NativeMethods.CreatePopupMenu();
         if (hMenu == IntPtr.Zero) return;
 
-        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SHOW, "显示主窗口");
-        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SETTINGS, "设置");
+        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SHOW, Localization.Get("Tray_Show"));
+        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SETTINGS, Localization.Get("Tray_Settings"));
         NativeMethods.AppendMenu(hMenu, MF_SEPARATOR, 0, string.Empty);
-        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_EXIT, "退出");
+        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_EXIT, Localization.Get("Tray_Exit"));
 
         NativeMethods.GetCursorPos(out var pt);
         NativeMethods.SetForegroundWindow(_hwnd);

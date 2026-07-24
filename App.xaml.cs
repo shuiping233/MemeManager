@@ -2,6 +2,7 @@
 using MemeManager.Models;
 using Microsoft.UI.Xaml.Controls;
 using MemeManager.Data;
+using MemeManager.Helpers;
 using WinRT.Interop;
 using System.IO;
 using System.Threading.Tasks;
@@ -117,6 +118,8 @@ public partial class App : Application
             Current.Exit();
             return;
         }
+
+        await Localization.InitializeAsync();
 
         await DataEngine.InitializeAsync();
 
