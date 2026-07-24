@@ -22,18 +22,18 @@
             <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_Theme" FontWeight="SemiBold"/>
                 <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">
-                    <x:String>跟随系统</x:String>
-                    <x:String>浅色</x:String>
-                    <x:String>深色</x:String>
+                    <ComboBoxItem l:Uids.Uid="Settings_Theme_System"/>
+                    <ComboBoxItem l:Uids.Uid="Settings_Theme_Light"/>
+                    <ComboBoxItem l:Uids.Uid="Settings_Theme_Dark"/>
                 </ComboBox>
             </StackPanel>
 
             <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_Language" FontWeight="SemiBold"/>
                 <ComboBox x:Name="LanguageComboBox" Width="125" SelectionChanged="LanguageComboBox_SelectionChanged">
-                    <x:String>跟随系统</x:String>
-                    <x:String>中文</x:String>
-                    <x:String>English</x:String>
+                    <ComboBoxItem l:Uids.Uid="Settings_Language_System"/>
+                    <ComboBoxItem l:Uids.Uid="Settings_Language_Chinese"/>
+                    <ComboBoxItem l:Uids.Uid="Settings_Language_English"/>
                 </ComboBox>
                 <TextBlock x:Name="LanguageStatusText" FontSize="12" Opacity="0.6"/>
             </StackPanel>

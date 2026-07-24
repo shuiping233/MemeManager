@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -52,19 +52,9 @@ public sealed partial class SettingsPage : Page
     // 进入设置时已有的有效路径（校验失败回退用，而非默认路径）
     private string? _originalStoragePath;
 
-    // 填充 ComboBox 选项与默认快捷键提示等无法用 Uid 直接绑定的静态文本。
+    // 填充默认快捷键提示等无法用 Uid 直接绑定的静态文本（ComboBox 选项已通过 XAML Uid 本地化）。
     private void LocalizeStaticStrings()
     {
-        ThemeComboBox.Items.Clear();
-        ThemeComboBox.Items.Add(Localization.Get("Settings_Theme_System"));
-        ThemeComboBox.Items.Add(Localization.Get("Settings_Theme_Light"));
-        ThemeComboBox.Items.Add(Localization.Get("Settings_Theme_Dark"));
-
-        LanguageComboBox.Items.Clear();
-        LanguageComboBox.Items.Add(Localization.Get("Settings_Language_System"));
-        LanguageComboBox.Items.Add(Localization.Get("Settings_Language_Chinese"));
-        LanguageComboBox.Items.Add(Localization.Get("Settings_Language_English"));
-
         HotKeyBox.Text = Localization.Get("Settings_HotKey_Default");
     }
 
@@ -88,13 +78,7 @@ public sealed partial class SettingsPage : Page
     {
         // 实时展示：切换后 Localization.Get 应随当前语言返回对应文本（证明不重启即生效）
         LanguageStatusText.Text = Localization.Get("Language_Status_Switched");
-        // 手动填充的 ComboBox 选项需在语言切换后重新本地化（不重置正在录制的快捷键提示）。
-        ThemeComboBox.Items[0] = Localization.Get("Settings_Theme_System");
-        ThemeComboBox.Items[1] = Localization.Get("Settings_Theme_Light");
-        ThemeComboBox.Items[2] = Localization.Get("Settings_Theme_Dark");
-        LanguageComboBox.Items[0] = Localization.Get("Settings_Language_System");
-        LanguageComboBox.Items[1] = Localization.Get("Settings_Language_Chinese");
-        LanguageComboBox.Items[2] = Localization.Get("Settings_Language_English");
+        // ComboBox 选项通过 XAML Uid 自动刷新，无需手动重填。
     }
 
     private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -106,7 +90,7 @@ public sealed partial class SettingsPage : Page
         try
         {
             if (Localization.Instance != null)
-                Localization.Instance.SetLanguage(code ?? "zh-CN");
+                await Localization.Instance.SetLanguage(code ?? "zh-CN");
         }
         catch (Exception ex)
         {
