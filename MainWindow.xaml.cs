@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -2059,7 +2059,7 @@ public sealed partial class MainWindow : Window
         else
             foreach (var m in _memeList) if (!MemeGridView.SelectedItems.Contains(m)) MemeGridView.SelectedItems.Add(m);
         if (SelectAllButton != null)
-            SelectAllButton.Content = allSelected ? Localization.Get("Meme_SelectAll.Content") : Localization.Get("Meme_CancelSelectAll");
+            SelectAllButton.Content = allSelected ? Localization.Get("Meme_SelectAll") : Localization.Get("Meme_CancelSelectAll");
     }
 
     // 由 Ctrl+V 主动触发的剪贴板图片导入：先记录内容类型，仅当为图片/位图/文件时才继续，
