@@ -8,7 +8,7 @@ public class MemeMetaEntry
     public string Title { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
 
-    // 排序优先级：值越小越靠前；导入时赋为“当前分类已有最大优先级 + 1”
+    // 排序优先级：值越大越靠前（开头）；导入时赋为“当前分类已有最大优先级 + 1”
     public uint Priority { get; set; } = 0;
 }
 
