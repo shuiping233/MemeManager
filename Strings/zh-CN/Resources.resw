@@ -1,5 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -28,7 +87,7 @@
                 <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
                 <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
               <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
               <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
               <xsd:attribute ref="xml:space" />
@@ -39,7 +98,7 @@
               <xsd:sequence>
                 <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required" />
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -76,10 +135,10 @@
   <data name="Language_Status_Switched" xml:space="preserve">
     <value>语言已切换（无需重启）</value>
   </data>
-  <data name="Settings_Title" xml:space="preserve">
+  <data name="Settings_Title.Content" xml:space="preserve">
     <value>设置</value>
   </data>
-  <data name="Settings_Theme" xml:space="preserve">
+  <data name="Settings_Theme.Content" xml:space="preserve">
     <value>主题</value>
   </data>
   <data name="Settings_Theme_System" xml:space="preserve">
@@ -91,7 +150,7 @@
   <data name="Settings_Theme_Dark" xml:space="preserve">
     <value>深色</value>
   </data>
-  <data name="Settings_Language" xml:space="preserve">
+  <data name="Settings_Language.Content" xml:space="preserve">
     <value>语言</value>
   </data>
   <data name="Settings_Language_System" xml:space="preserve">
@@ -103,19 +162,19 @@
   <data name="Settings_Language_English" xml:space="preserve">
     <value>English</value>
   </data>
-  <data name="Settings_StoragePath" xml:space="preserve">
+  <data name="Settings_StoragePath.Content" xml:space="preserve">
     <value>表情包存放路径</value>
   </data>
-  <data name="Settings_Browse" xml:space="preserve">
+  <data name="Settings_Browse.Content" xml:space="preserve">
     <value>浏览...</value>
   </data>
-  <data name="Settings_OpenFolder" xml:space="preserve">
+  <data name="Settings_OpenFolder.Content" xml:space="preserve">
     <value>打开存放文件夹</value>
   </data>
-  <data name="Settings_HotKey" xml:space="preserve">
+  <data name="Settings_HotKey.Content" xml:space="preserve">
     <value>呼出快捷键</value>
   </data>
-  <data name="Settings_HotKeyHint" xml:space="preserve">
+  <data name="Settings_HotKeyHint.Content" xml:space="preserve">
     <value>点击“录制”后，按下想要的组合键（如 Alt+E）</value>
   </data>
   <data name="Settings_HotKey_Default" xml:space="preserve">
@@ -130,76 +189,76 @@
   <data name="Settings_Cancel" xml:space="preserve">
     <value>取消</value>
   </data>
-  <data name="Settings_PreviewMaxResolution" xml:space="preserve">
+  <data name="Settings_PreviewMaxResolution.Content" xml:space="preserve">
     <value>预览图最大分辨率</value>
   </data>
-  <data name="Settings_Width" xml:space="preserve">
+  <data name="Settings_Width.Content" xml:space="preserve">
     <value>宽</value>
   </data>
-  <data name="Settings_Height" xml:space="preserve">
+  <data name="Settings_Height.Content" xml:space="preserve">
     <value>高</value>
   </data>
-  <data name="Settings_PreviewMaxResolutionHint" xml:space="preserve">
+  <data name="Settings_PreviewMaxResolutionHint.Content" xml:space="preserve">
     <value>超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 640*480）</value>
   </data>
-  <data name="Settings_PreviewDelay" xml:space="preserve">
+  <data name="Settings_PreviewDelay.Content" xml:space="preserve">
     <value>预览图触发延时（毫秒）</value>
   </data>
-  <data name="Settings_PreviewDelayHint" xml:space="preserve">
+  <data name="Settings_PreviewDelayHint.Content" xml:space="preserve">
     <value>鼠标悬停后等待多久才弹出预览（默认 500）</value>
   </data>
-  <data name="Settings_SaveLog" xml:space="preserve">
+  <data name="Settings_SaveLog.Content" xml:space="preserve">
     <value>保存日志文件</value>
   </data>
-  <data name="Settings_SaveLogHint" xml:space="preserve">
+  <data name="Settings_SaveLogHint.Content" xml:space="preserve">
     <value>日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</value>
   </data>
-  <data name="Settings_EcoMode" xml:space="preserve">
+  <data name="Settings_EcoMode.Content" xml:space="preserve">
     <value>效率模式 (EcoQoS)</value>
   </data>
-  <data name="Settings_EcoModeHint" xml:space="preserve">
+  <data name="Settings_EcoModeHint.Content" xml:space="preserve">
     <value>对后台工作线程启用 Windows 效率模式，降低后台扫描/导入时的 CPU 与能耗，不影响界面响应</value>
   </data>
-  <data name="Settings_AutoStart" xml:space="preserve">
+  <data name="Settings_AutoStart.Content" xml:space="preserve">
     <value>开机自动启动</value>
   </data>
-  <data name="Settings_AutoStartHint" xml:space="preserve">
+  <data name="Settings_AutoStartHint.Content" xml:space="preserve">
     <value>登录系统后自动在后台运行（仅托盘，不弹主窗口）</value>
   </data>
-  <data name="Settings_StorageFileDrag" xml:space="preserve">
+  <data name="Settings_StorageFileDrag.Content" xml:space="preserve">
     <value>StorageFile 拖拽支持（拖出为文件）</value>
   </data>
-  <data name="Settings_StorageFileDragHint1" xml:space="preserve">
+  <data name="Settings_StorageFileDragHint1.Content" xml:space="preserve">
     <value>启用后, 拖出表情将作为文件发送, 动态 GIF 等可正常拖到 QQ 等外部程序</value>
   </data>
-  <data name="Settings_StorageFileDragHint2" xml:space="preserve">
+  <data name="Settings_StorageFileDragHint2.Content" xml:space="preserve">
     <value>默认关闭（稳定优先）: 关闭时仅以图片流拖出, GIF 拖到 QQ 会变为静态图, 不支持拖拽到NTQQ</value>
   </data>
-  <data name="Settings_StorageFileDragWarning" xml:space="preserve">
+  <data name="Settings_StorageFileDragWarning.Content" xml:space="preserve">
     <value>警告: 开启后, 在快速连续拖拽可能触发程序闪退, 且Win10系统中此问题会更严重, 请知悉风险</value>
   </data>
-  <data name="Settings_ControlReuse" xml:space="preserve">
+  <data name="Settings_ControlReuse.Content" xml:space="preserve">
     <value>启用控件复用策略</value>
   </data>
-  <data name="Settings_ControlReuseHint1" xml:space="preserve">
+  <data name="Settings_ControlReuseHint1.Content" xml:space="preserve">
     <value>启用后, 图片控件将尽可能的少创建而是复用, 以减少创建图片控件的内存消耗, 会影响 刷新/切换分支/开关窗口 时的行为</value>
   </data>
-  <data name="Settings_ControlReuseHint2" xml:space="preserve">
+  <data name="Settings_ControlReuseHint2.Content" xml:space="preserve">
     <value>此功能会导致关闭主窗口后后台仍保留图片缓存（WinUI3局限所致）</value>
   </data>
-  <data name="Settings_ControlReuseHint3" xml:space="preserve">
+  <data name="Settings_ControlReuseHint3.Content" xml:space="preserve">
     <value>且后台进程专用工作集会有几十MB的图片缓存内容常驻不会释放</value>
   </data>
-  <data name="Settings_ExplorerMultiSelect" xml:space="preserve">
+  <data name="Settings_ExplorerMultiSelect.Content" xml:space="preserve">
     <value>资源管理器风格多选操作模式</value>
   </data>
-  <data name="Settings_ExplorerMultiSelectHint1" xml:space="preserve">
+  <data name="Settings_ExplorerMultiSelectHint1.Content" xml:space="preserve">
     <value>关闭（默认）：复选框风格的多选逻辑, 鼠标单击即可多选图片, Ctrl+鼠标左键反选图片, Shift多选/反选有些限制</value>
   </data>
-  <data name="Settings_ExplorerMultiSelectHint2" xml:space="preserve">
+  <data name="Settings_ExplorerMultiSelectHint2.Content" xml:space="preserve">
     <value>开启：类似Windows资源管理器风格的单击和shift多选逻辑, 需要Ctrl+鼠标左键才能单独多选, 允许Shift灵活多选/反选</value>
   </data>
-  <data name="Settings_Done" xml:space="preserve">
+  <data name="Settings_Done.Content" xml:space="preserve">
     <value>完成</value>
   </data>
   <data name="Settings_OpenFolderPickerFailed" xml:space="preserve">
@@ -305,31 +364,31 @@
   <data name="Main_Search.PlaceholderText" xml:space="preserve">
     <value>搜索表情...</value>
   </data>
-  <data name="Main_SearchToolTip" xml:space="preserve">
+  <data name="Main_SearchToolTip.Content" xml:space="preserve">
     <value>模糊查询当前分类的表情 (Ctrl+F)</value>
   </data>
   <data name="Main_TopMost.Content" xml:space="preserve">
     <value>置顶</value>
   </data>
-  <data name="Main_TopMostToolTip" xml:space="preserve">
+  <data name="Main_TopMostToolTip.Content" xml:space="preserve">
     <value>启用/关闭主窗口置顶</value>
   </data>
   <data name="Main_Edit.Content" xml:space="preserve">
     <value>修改</value>
   </data>
-  <data name="Main_EditToolTip" xml:space="preserve">
+  <data name="Main_EditToolTip.Content" xml:space="preserve">
     <value>进入/退出多选模式 (Ctrl+E)</value>
   </data>
   <data name="Main_Refresh.Content" xml:space="preserve">
     <value>刷新</value>
   </data>
-  <data name="Main_RefreshToolTip" xml:space="preserve">
+  <data name="Main_RefreshToolTip.Content" xml:space="preserve">
     <value>刷新当前页面 (F5)</value>
   </data>
   <data name="Main_Settings.Content" xml:space="preserve">
     <value>设置</value>
   </data>
-  <data name="Main_SettingsToolTip" xml:space="preserve">
+  <data name="Main_SettingsToolTip.Content" xml:space="preserve">
     <value>打开/关闭设置页面</value>
   </data>
   <data name="Category_New.Content" xml:space="preserve">
@@ -374,7 +433,7 @@
   <data name="Meme_Edit" xml:space="preserve">
     <value>修改</value>
   </data>
-  <data name="Meme_SelectAll" xml:space="preserve">
+  <data name="Meme_SelectAll.Content" xml:space="preserve">
     <value>全选</value>
   </data>
   <data name="Meme_CancelSelectAll" xml:space="preserve">
@@ -386,13 +445,13 @@
   <data name="Meme_ImageFileType" xml:space="preserve">
     <value>图片</value>
   </data>
-  <data name="Meme_BatchImport" xml:space="preserve">
+  <data name="Meme_BatchImport.Content" xml:space="preserve">
     <value>批量导入</value>
   </data>
-  <data name="Meme_BatchExport" xml:space="preserve">
+  <data name="Meme_BatchExport.Content" xml:space="preserve">
     <value>批量导出</value>
   </data>
-  <data name="Meme_BatchMove" xml:space="preserve">
+  <data name="Meme_BatchMove.Content" xml:space="preserve">
     <value>批量移动</value>
   </data>
 </root>
