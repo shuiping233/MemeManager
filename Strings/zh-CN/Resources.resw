@@ -73,4 +73,7 @@
   <data name="Tray_Exit" xml:space="preserve">
     <value>退出</value>
   </data>
+  <data name="Language_Status_Switched" xml:space="preserve">
+    <value>语言已切换（无需重启）</value>
+  </data>
 </root>

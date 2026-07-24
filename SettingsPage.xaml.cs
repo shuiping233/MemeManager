@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using MemeManager.Data;
+using MemeManager.Helpers;
 using MemeManager.Models;
 using Windows.Storage.Pickers;
 using System.Diagnostics;
@@ -34,6 +35,15 @@ public sealed partial class SettingsPage : Page
         // 进入设置时记录已有的有效路径，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
 
+        // 语言：按 config 设置初始选中项（null=跟随系统=zh-CN 默认）
+        LanguageComboBox.SelectedIndex = cfg.Language switch
+        {
+            "zh-CN" => 1,
+            "en-US" => 2,
+            _ => 0,
+        };
+        UpdateLanguageStatus();
+
         this.KeyDown += SettingsPage_KeyDown;
     }
 
@@ -46,6 +56,42 @@ public sealed partial class SettingsPage : Page
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
         App.DataEngine.Config.Theme = theme;
         App.ApplyTheme();
+    }
+
+    // 语言代码：下标 0=跟随系统(默认zh-CN) 1=中文 2=English
+    private static string? LangCodeFromIndex(int idx) => idx switch
+    {
+        1 => "zh-CN",
+        2 => "en-US",
+        _ => null,
+    };
+
+    private void UpdateLanguageStatus()
+    {
+        // 实时展示：切换后 Localization.Get 应随当前语言返回对应文本（证明不重启即生效）
+        LanguageStatusText.Text = Localization.Get("Language_Status_Switched");
+    }
+
+    private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LanguageComboBox.SelectedIndex < 0) return;
+        var code = LangCodeFromIndex(LanguageComboBox.SelectedIndex);
+
+        // 真正切换语言（库支持运行时切换，无需重启）
+        try
+        {
+            if (Localization.Instance != null)
+                Localization.Instance.SetLanguage(code ?? "zh-CN");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 切换语言失败: {ex.Message}");
+        }
+
+        App.DataEngine.Config.Language = code;
+        await App.DataEngine.SaveConfigAsync();
+
+        UpdateLanguageStatus();
     }
 
     private void SettingsPage_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)

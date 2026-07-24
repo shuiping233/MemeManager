@@ -28,6 +28,16 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+                <TextBlock Text="语言" FontWeight="SemiBold"/>
+                <ComboBox x:Name="LanguageComboBox" Width="125" SelectionChanged="LanguageComboBox_SelectionChanged">
+                    <x:String>跟随系统</x:String>
+                    <x:String>中文</x:String>
+                    <x:String>English</x:String>
+                </ComboBox>
+                <TextBlock x:Name="LanguageStatusText" FontSize="12" Opacity="0.6"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
                 <TextBlock Text="表情包存放路径" FontWeight="SemiBold"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
