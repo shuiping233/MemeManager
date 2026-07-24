@@ -480,6 +480,12 @@ public class MemeDataEngine
         Directory.CreateDirectory(targetDir);
         var targetMeta = await LoadCategoryMetadataAsync(targetDir);
 
+        // 目标分类当前最大优先级；移入项依次 +1，使其排到目标分类最前
+        // （Priority 越大越靠前，与导入/重排语义一致）。
+        uint targetMaxPriority = 0;
+        foreach (var entry in targetMeta.Items.Values)
+            if (entry.Priority > targetMaxPriority) targetMaxPriority = entry.Priority;
+
         foreach (var meme in memes)
         {
             if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
@@ -507,11 +513,12 @@ public class MemeDataEngine
                 continue;
             }
 
-            // 更新目标分类 metadata
+            // 更新目标分类 metadata（移入项置顶：优先级 = 当前最大 + 1）
             targetMeta.Items[meme.FileName] = new MemeMetaEntry
             {
                 Title = meme.Title,
-                Tags = meme.Tags
+                Tags = meme.Tags,
+                Priority = ++targetMaxPriority
             };
 
             // 从源分类 metadata 移除
@@ -521,6 +528,7 @@ public class MemeDataEngine
             // 更新内存缓存
             meme.Category = safeTarget;
             meme.LocalPath = destPath;
+            meme.Priority = targetMaxPriority;
         }
 
         await SaveCategoryMetadataAsync(targetDir, targetMeta);
