@@ -16,9 +16,10 @@ public static class Localization
         try
         {
             var stringsFolder = Path.Combine(AppContext.BaseDirectory, "Strings");
+            var defaultLang = LangHelper.DetectSystemLanguage();
             Instance = await new LocalizerBuilder()
                 .AddStringResourcesFolderForLanguageDictionaries(stringsFolder)
-                .SetOptions(options => options.DefaultLanguage = "zh-CN")
+                .SetOptions(options => options.DefaultLanguage = defaultLang)
                 .Build();
         }
         catch (Exception ex)
