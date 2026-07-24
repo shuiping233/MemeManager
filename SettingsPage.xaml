@@ -6,6 +6,7 @@
     xmlns:local="using:MemeManager"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:l="using:WinUI3Localizer"
     mc:Ignorable="d">
 
     <Grid Padding="24" HorizontalAlignment="Left">
@@ -15,11 +16,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="设置" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
+        <TextBlock Grid.Row="0" l:Uids.Uid="Settings_Title" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
         <StackPanel Grid.Row="1" Spacing="16" MaxWidth="400">
             <StackPanel Spacing="6">
-                <TextBlock Text="主题" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_Theme" FontWeight="SemiBold"/>
                 <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">
                     <x:String>跟随系统</x:String>
                     <x:String>浅色</x:String>
@@ -28,7 +29,7 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="语言" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_Language" FontWeight="SemiBold"/>
                 <ComboBox x:Name="LanguageComboBox" Width="125" SelectionChanged="LanguageComboBox_SelectionChanged">
                     <x:String>跟随系统</x:String>
                     <x:String>中文</x:String>
@@ -38,7 +39,7 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="表情包存放路径" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_StoragePath" FontWeight="SemiBold"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -46,14 +47,14 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="StoragePathBox" Grid.Column="0" IsReadOnly="False" VerticalAlignment="Center" MaxWidth="200" TextChanged="StoragePathBox_TextChanged"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" Spacing="4">
-                        <Button x:Name="BrowseButton" Content="浏览..." Click="BrowseButton_Click"/>
-                        <Button x:Name="OpenFolderButton" Content="打开存放文件夹" Click="OpenFolderButton_Click"/>
+                        <Button x:Name="BrowseButton" l:Uids.Uid="Settings_Browse" Click="BrowseButton_Click"/>
+                        <Button x:Name="OpenFolderButton" l:Uids.Uid="Settings_OpenFolder" Click="OpenFolderButton_Click"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="呼出快捷键" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_HotKey" FontWeight="SemiBold"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -61,14 +62,14 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="HotKeyBox" Grid.Column="0" IsReadOnly="True"
                              VerticalAlignment="Center" Text="Alt+E"/>
-                    <Button x:Name="RecordHotKeyButton" Grid.Column="1" Content="录制..."
+                    <Button x:Name="RecordHotKeyButton" Grid.Column="1" l:Uids.Uid="Settings_Record"
                             Margin="8,0,0,0" Click="RecordHotKeyButton_Click"/>
                 </Grid>
-                <TextBlock FontSize="11" Opacity="0.6">点击“录制”后，按下想要的组合键（如 Alt+E）</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_HotKeyHint" FontSize="11" Opacity="0.6"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="预览图最大分辨率" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_PreviewMaxResolution" FontWeight="SemiBold"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -76,67 +77,67 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="宽" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Grid.Column="0" l:Uids.Uid="Settings_Width" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <TextBox x:Name="PreviewMaxWidthBox" Grid.Column="1" Width="80"
                  InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
-                    <TextBlock Grid.Column="2" Text="高" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                    <TextBlock Grid.Column="2" l:Uids.Uid="Settings_Height" VerticalAlignment="Center" Margin="12,0,6,0"/>
                     <TextBox x:Name="PreviewMaxHeightBox" Grid.Column="3" Width="80"
                  InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
                 </Grid>
-                <TextBlock FontSize="11" Opacity="0.6">超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 640*480）</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_PreviewMaxResolutionHint" FontSize="11" Opacity="0.6"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="预览图触发延时（毫秒）" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_PreviewDelay" FontWeight="SemiBold"/>
                 <TextBox x:Name="PreviewDelayBox" Width="80" HorizontalAlignment="Left"
              InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewDelay_TextChanged"/>
-                <TextBlock FontSize="11" Opacity="0.6">鼠标悬停后等待多久才弹出预览（默认 500）</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_PreviewDelayHint" FontSize="11" Opacity="0.6"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="保存日志文件" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_SaveLog" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6">日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_SaveLogHint" FontSize="11" Opacity="0.6"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="效率模式 (EcoQoS)" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_EcoMode" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="EcoModeToggle" Toggled="EcoModeToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">对后台工作线程启用 Windows 效率模式，降低后台扫描/导入时的 CPU 与能耗，不影响界面响应</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_EcoModeHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="开机自动启动" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_AutoStart" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6">登录系统后自动在后台运行（仅托盘，不弹主窗口）</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_AutoStartHint" FontSize="11" Opacity="0.6"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="StorageFile 拖拽支持（拖出为文件）" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDrag" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 拖出表情将作为文件发送, 动态 GIF 等可正常拖到 QQ 等外部程序</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">默认关闭（稳定优先）: 关闭时仅以图片流拖出, GIF 拖到 QQ 会变为静态图, 不支持拖拽到NTQQ</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.9" Foreground="{ThemeResource SystemErrorTextColor}" TextWrapping="Wrap">警告: 开启后, 在快速连续拖拽可能触发程序闪退, 且Win10系统中此问题会更严重, 请知悉风险</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDragHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDragHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDragWarning" FontSize="11" Opacity="0.9" Foreground="{ThemeResource SystemErrorTextColor}" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="启用控件复用策略" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_ControlReuse" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="UseControlReuseToggle" Toggled="UseControlReuseToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">启用后, 图片控件将尽可能的少创建而是复用, 以减少创建图片控件的内存消耗, 会影响 刷新/切换分支/开关窗口 时的行为</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">此功能会导致关闭主窗口后后台仍保留图片缓存（WinUI3局限所致）</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">且后台进程专用工作集会有几十MB的图片缓存内容常驻不会释放</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_ControlReuseHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_ControlReuseHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_ControlReuseHint3" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="资源管理器风格多选操作模式" FontWeight="SemiBold"/>
+                <TextBlock l:Uids.Uid="Settings_ExplorerMultiSelect" FontWeight="SemiBold"/>
                 <ToggleSwitch x:Name="ExplorerStyleMultiSelectToggle" Toggled="ExplorerStyleMultiSelectToggle_Toggled"/>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">关闭（默认）：复选框风格的多选逻辑, 鼠标单击即可多选图片, Ctrl+鼠标左键反选图片, Shift多选/反选有些限制</TextBlock>
-                <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">开启：类似Windows资源管理器风格的单击和shift多选逻辑, 需要Ctrl+鼠标左键才能单独多选, 允许Shift灵活多选/反选</TextBlock>
+                <TextBlock l:Uids.Uid="Settings_ExplorerMultiSelectHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_ExplorerMultiSelectHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
             </StackPanel>
 
         </StackPanel>
 
-        <Button Grid.Row="2" x:Name="CloseButton" Content="完成" HorizontalAlignment="Right"
+        <Button Grid.Row="2" x:Name="CloseButton" l:Uids.Uid="Settings_Done" HorizontalAlignment="Right"
                 Margin="0,16,0,0" Click="CloseButton_Click"
                 Style="{StaticResource AccentButtonStyle}"/>
     </Grid>

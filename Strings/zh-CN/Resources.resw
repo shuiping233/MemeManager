@@ -76,4 +76,133 @@
   <data name="Language_Status_Switched" xml:space="preserve">
     <value>语言已切换（无需重启）</value>
   </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Settings_Theme_System" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="Settings_Theme_Light" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="Settings_Theme_Dark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="Settings_Language_Chinese" xml:space="preserve">
+    <value>中文</value>
+  </data>
+  <data name="Settings_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_StoragePath" xml:space="preserve">
+    <value>表情包存放路径</value>
+  </data>
+  <data name="Settings_Browse" xml:space="preserve">
+    <value>浏览...</value>
+  </data>
+  <data name="Settings_OpenFolder" xml:space="preserve">
+    <value>打开存放文件夹</value>
+  </data>
+  <data name="Settings_HotKey" xml:space="preserve">
+    <value>呼出快捷键</value>
+  </data>
+  <data name="Settings_HotKeyHint" xml:space="preserve">
+    <value>点击“录制”后，按下想要的组合键（如 Alt+E）</value>
+  </data>
+  <data name="Settings_HotKey_Default" xml:space="preserve">
+    <value>Alt+E</value>
+  </data>
+  <data name="Settings_HotKey_PressKeys" xml:space="preserve">
+    <value>请按下组合键…</value>
+  </data>
+  <data name="Settings_Record" xml:space="preserve">
+    <value>录制…</value>
+  </data>
+  <data name="Settings_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Settings_PreviewMaxResolution" xml:space="preserve">
+    <value>预览图最大分辨率</value>
+  </data>
+  <data name="Settings_Width" xml:space="preserve">
+    <value>宽</value>
+  </data>
+  <data name="Settings_Height" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Settings_PreviewMaxResolutionHint" xml:space="preserve">
+    <value>超过该尺寸的预览图将等比压缩，未超过则不缩放 (默认 640*480）</value>
+  </data>
+  <data name="Settings_PreviewDelay" xml:space="preserve">
+    <value>预览图触发延时（毫秒）</value>
+  </data>
+  <data name="Settings_PreviewDelayHint" xml:space="preserve">
+    <value>鼠标悬停后等待多久才弹出预览（默认 500）</value>
+  </data>
+  <data name="Settings_SaveLog" xml:space="preserve">
+    <value>保存日志文件</value>
+  </data>
+  <data name="Settings_SaveLogHint" xml:space="preserve">
+    <value>日志位于数据目录的 log 文件夹下，一般无需启用，5MB自动清理</value>
+  </data>
+  <data name="Settings_EcoMode" xml:space="preserve">
+    <value>效率模式 (EcoQoS)</value>
+  </data>
+  <data name="Settings_EcoModeHint" xml:space="preserve">
+    <value>对后台工作线程启用 Windows 效率模式，降低后台扫描/导入时的 CPU 与能耗，不影响界面响应</value>
+  </data>
+  <data name="Settings_AutoStart" xml:space="preserve">
+    <value>开机自动启动</value>
+  </data>
+  <data name="Settings_AutoStartHint" xml:space="preserve">
+    <value>登录系统后自动在后台运行（仅托盘，不弹主窗口）</value>
+  </data>
+  <data name="Settings_StorageFileDrag" xml:space="preserve">
+    <value>StorageFile 拖拽支持（拖出为文件）</value>
+  </data>
+  <data name="Settings_StorageFileDragHint1" xml:space="preserve">
+    <value>启用后, 拖出表情将作为文件发送, 动态 GIF 等可正常拖到 QQ 等外部程序</value>
+  </data>
+  <data name="Settings_StorageFileDragHint2" xml:space="preserve">
+    <value>默认关闭（稳定优先）: 关闭时仅以图片流拖出, GIF 拖到 QQ 会变为静态图, 不支持拖拽到NTQQ</value>
+  </data>
+  <data name="Settings_StorageFileDragWarning" xml:space="preserve">
+    <value>警告: 开启后, 在快速连续拖拽可能触发程序闪退, 且Win10系统中此问题会更严重, 请知悉风险</value>
+  </data>
+  <data name="Settings_ControlReuse" xml:space="preserve">
+    <value>启用控件复用策略</value>
+  </data>
+  <data name="Settings_ControlReuseHint1" xml:space="preserve">
+    <value>启用后, 图片控件将尽可能的少创建而是复用, 以减少创建图片控件的内存消耗, 会影响 刷新/切换分支/开关窗口 时的行为</value>
+  </data>
+  <data name="Settings_ControlReuseHint2" xml:space="preserve">
+    <value>此功能会导致关闭主窗口后后台仍保留图片缓存（WinUI3局限所致）</value>
+  </data>
+  <data name="Settings_ControlReuseHint3" xml:space="preserve">
+    <value>且后台进程专用工作集会有几十MB的图片缓存内容常驻不会释放</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelect" xml:space="preserve">
+    <value>资源管理器风格多选操作模式</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelectHint1" xml:space="preserve">
+    <value>关闭（默认）：复选框风格的多选逻辑, 鼠标单击即可多选图片, Ctrl+鼠标左键反选图片, Shift多选/反选有些限制</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelectHint2" xml:space="preserve">
+    <value>开启：类似Windows资源管理器风格的单击和shift多选逻辑, 需要Ctrl+鼠标左键才能单独多选, 允许Shift灵活多选/反选</value>
+  </data>
+  <data name="Settings_Done" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="Settings_OpenFolderPickerFailed" xml:space="preserve">
+    <value>打开文件夹选择器失败</value>
+  </data>
 </root>

@@ -76,4 +76,133 @@
   <data name="Language_Status_Switched" xml:space="preserve">
     <value>Language switched (no restart needed)</value>
   </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Settings_Theme_System" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="Settings_Theme_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Settings_Theme_Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+  <data name="Settings_Language_Chinese" xml:space="preserve">
+    <value>中文</value>
+  </data>
+  <data name="Settings_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_StoragePath" xml:space="preserve">
+    <value>Meme storage path</value>
+  </data>
+  <data name="Settings_Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="Settings_OpenFolder" xml:space="preserve">
+    <value>Open storage folder</value>
+  </data>
+  <data name="Settings_HotKey" xml:space="preserve">
+    <value>Invocation hotkey</value>
+  </data>
+  <data name="Settings_HotKeyHint" xml:space="preserve">
+    <value>Click "Record", then press the desired key combination (e.g. Alt+E)</value>
+  </data>
+  <data name="Settings_HotKey_Default" xml:space="preserve">
+    <value>Alt+E</value>
+  </data>
+  <data name="Settings_HotKey_PressKeys" xml:space="preserve">
+    <value>Press the key combination...</value>
+  </data>
+  <data name="Settings_Record" xml:space="preserve">
+    <value>Record...</value>
+  </data>
+  <data name="Settings_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Settings_PreviewMaxResolution" xml:space="preserve">
+    <value>Preview max resolution</value>
+  </data>
+  <data name="Settings_Width" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="Settings_Height" xml:space="preserve">
+    <value>Height</value>
+  </data>
+  <data name="Settings_PreviewMaxResolutionHint" xml:space="preserve">
+    <value>Previews larger than this are scaled down proportionally; smaller ones are untouched (default 640*480)</value>
+  </data>
+  <data name="Settings_PreviewDelay" xml:space="preserve">
+    <value>Preview trigger delay (ms)</value>
+  </data>
+  <data name="Settings_PreviewDelayHint" xml:space="preserve">
+    <value>How long to wait after hover before showing the preview (default 500)</value>
+  </data>
+  <data name="Settings_SaveLog" xml:space="preserve">
+    <value>Save log file</value>
+  </data>
+  <data name="Settings_SaveLogHint" xml:space="preserve">
+    <value>Logs are under the log folder in the data directory; usually not needed, auto-cleaned at 5MB</value>
+  </data>
+  <data name="Settings_EcoMode" xml:space="preserve">
+    <value>Efficiency mode (EcoQoS)</value>
+  </data>
+  <data name="Settings_EcoModeHint" xml:space="preserve">
+    <value>Enables Windows efficiency mode for background worker threads, reducing CPU and power usage during scans/imports without affecting UI responsiveness</value>
+  </data>
+  <data name="Settings_AutoStart" xml:space="preserve">
+    <value>Launch at startup</value>
+  </data>
+  <data name="Settings_AutoStartHint" xml:space="preserve">
+    <value>Automatically runs in the background after login (tray only, no main window)</value>
+  </data>
+  <data name="Settings_StorageFileDrag" xml:space="preserve">
+    <value>StorageFile drag support (drag out as file)</value>
+  </data>
+  <data name="Settings_StorageFileDragHint1" xml:space="preserve">
+    <value>When enabled, dragged memes are sent as files, so animated GIFs etc. work in external apps like QQ</value>
+  </data>
+  <data name="Settings_StorageFileDragHint2" xml:space="preserve">
+    <value>Off by default (stability first): when off, only image stream is dragged; GIF to QQ becomes static, NTQQ drag unsupported</value>
+  </data>
+  <data name="Settings_StorageFileDragWarning" xml:space="preserve">
+    <value>Warning: enabling may cause crashes on rapid consecutive drags, more severe on Win10. Use at your own risk</value>
+  </data>
+  <data name="Settings_ControlReuse" xml:space="preserve">
+    <value>Enable control reuse strategy</value>
+  </data>
+  <data name="Settings_ControlReuseHint1" xml:space="preserve">
+    <value>When enabled, image controls are reused instead of recreated to reduce memory from creating controls, affecting refresh/branch switch/window toggle behavior</value>
+  </data>
+  <data name="Settings_ControlReuseHint2" xml:space="preserve">
+    <value>This keeps image cache in background after closing the main window (a WinUI3 limitation)</value>
+  </data>
+  <data name="Settings_ControlReuseHint3" xml:space="preserve">
+    <value>And the background process working set retains tens of MB of image cache that is never released</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelect" xml:space="preserve">
+    <value>Explorer-style multi-select mode</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelectHint1" xml:space="preserve">
+    <value>Off (default): checkbox-style multi-select, single click selects multiple, Ctrl+left click inverts, Shift multi-select/invert has some limits</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelectHint2" xml:space="preserve">
+    <value>On: Windows Explorer-style click and Shift multi-select; Ctrl+left click needed for individual multi-select, Shift allows flexible multi-select/invert</value>
+  </data>
+  <data name="Settings_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Settings_OpenFolderPickerFailed" xml:space="preserve">
+    <value>Failed to open folder picker</value>
+  </data>
 </root>

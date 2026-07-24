@@ -16,6 +16,8 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
 
+        LocalizeStaticStrings();
+
         var cfg = App.DataEngine.Config;
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
@@ -50,6 +52,22 @@ public sealed partial class SettingsPage : Page
     // 进入设置时已有的有效路径（校验失败回退用，而非默认路径）
     private string? _originalStoragePath;
 
+    // 填充 ComboBox 选项与默认快捷键提示等无法用 Uid 直接绑定的静态文本。
+    private void LocalizeStaticStrings()
+    {
+        ThemeComboBox.Items.Clear();
+        ThemeComboBox.Items.Add(Localization.Get("Settings_Theme_System"));
+        ThemeComboBox.Items.Add(Localization.Get("Settings_Theme_Light"));
+        ThemeComboBox.Items.Add(Localization.Get("Settings_Theme_Dark"));
+
+        LanguageComboBox.Items.Clear();
+        LanguageComboBox.Items.Add(Localization.Get("Settings_Language_System"));
+        LanguageComboBox.Items.Add(Localization.Get("Settings_Language_Chinese"));
+        LanguageComboBox.Items.Add(Localization.Get("Settings_Language_English"));
+
+        HotKeyBox.Text = Localization.Get("Settings_HotKey_Default");
+    }
+
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // 即选即预览：立刻切换主题，无需点“完成”
@@ -70,6 +88,13 @@ public sealed partial class SettingsPage : Page
     {
         // 实时展示：切换后 Localization.Get 应随当前语言返回对应文本（证明不重启即生效）
         LanguageStatusText.Text = Localization.Get("Language_Status_Switched");
+        // 手动填充的 ComboBox 选项需在语言切换后重新本地化（不重置正在录制的快捷键提示）。
+        ThemeComboBox.Items[0] = Localization.Get("Settings_Theme_System");
+        ThemeComboBox.Items[1] = Localization.Get("Settings_Theme_Light");
+        ThemeComboBox.Items[2] = Localization.Get("Settings_Theme_Dark");
+        LanguageComboBox.Items[0] = Localization.Get("Settings_Language_System");
+        LanguageComboBox.Items[1] = Localization.Get("Settings_Language_Chinese");
+        LanguageComboBox.Items[2] = Localization.Get("Settings_Language_English");
     }
 
     private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -197,8 +222,8 @@ public sealed partial class SettingsPage : Page
     private void RecordHotKeyButton_Click(object sender, RoutedEventArgs e)
     {
         _recording = true;
-        HotKeyBox.Text = "请按下组合键…";
-        RecordHotKeyButton.Content = "取消";
+        HotKeyBox.Text = Localization.Get("Settings_HotKey_PressKeys");
+        RecordHotKeyButton.Content = Localization.Get("Settings_Cancel");
         RecordHotKeyButton.Click -= RecordHotKeyButton_Click;
         RecordHotKeyButton.Click += CancelRecord_Click;
         this.Focus(FocusState.Programmatic);
@@ -214,7 +239,7 @@ public sealed partial class SettingsPage : Page
     private void StopRecording()
     {
         _recording = false;
-        RecordHotKeyButton.Content = "录制…";
+        RecordHotKeyButton.Content = Localization.Get("Settings_Record");
         RecordHotKeyButton.Click -= CancelRecord_Click;
         RecordHotKeyButton.Click += RecordHotKeyButton_Click;
     }
@@ -245,7 +270,7 @@ public sealed partial class SettingsPage : Page
         catch (Exception ex)
         {
             Logger.Log($"[Settings] BrowseButton_Click 异常: {ex}");
-            await ShowErrorAsync("打开文件夹选择器失败", ex.ToString());
+            await ShowErrorAsync(Localization.Get("Settings_OpenFolderPickerFailed"), ex.ToString());
         }
         finally
         {
