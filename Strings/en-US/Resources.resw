@@ -129,37 +129,40 @@
   <data name="Main_Refresh.Content" xml:space="preserve">
     <value>Refresh</value>
   </data>
-  <data name="Category_New.Content" xml:space="preserve">
+  <data name="Category_New.Text" xml:space="preserve">
     <value>New category</value>
   </data>
-  <data name="Category_OpenFolder.Content" xml:space="preserve">
+  <data name="Category_OpenFolder.Text" xml:space="preserve">
     <value>Open containing folder</value>
   </data>
-  <data name="Category_Rename.Content" xml:space="preserve">
+  <data name="Category_Rename.Text" xml:space="preserve">
     <value>Rename</value>
   </data>
-  <data name="Category_Delete.Content" xml:space="preserve">
+  <data name="Category_Delete.Text" xml:space="preserve">
     <value>Delete</value>
   </data>
-  <data name="Meme_Open.Content" xml:space="preserve">
+  <data name="Meme_Open.Text" xml:space="preserve">
     <value>Open</value>
   </data>
-  <data name="Meme_OpenFolder.Content" xml:space="preserve">
+  <data name="Meme_OpenFolder.Text" xml:space="preserve">
     <value>Open containing folder</value>
   </data>
-  <data name="Meme_Copy.Content" xml:space="preserve">
+  <data name="Meme_Copy.Text" xml:space="preserve">
     <value>Copy</value>
   </data>
-  <data name="Meme_MultiSelect.Content" xml:space="preserve">
+  <data name="Meme_MultiSelect.Text" xml:space="preserve">
     <value>Multi-select</value>
   </data>
-  <data name="Meme_Rename.Content" xml:space="preserve">
+  <data name="Meme_Rename.Text" xml:space="preserve">
     <value>Rename</value>
   </data>
-  <data name="Meme_MoveToOtherCategory.Content" xml:space="preserve">
+  <data name="Meme_MoveToOtherCategory.Text" xml:space="preserve">
     <value>Move to other category</value>
   </data>
   <data name="Meme_Delete.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Meme_Delete.Text" xml:space="preserve">
     <value>Delete</value>
   </data>
   <data name="Settings_Language.Text" xml:space="preserve">
@@ -294,10 +297,10 @@
   <data name="Language_Status_Switched" xml:space="preserve">
     <value>Language switched (no restart needed)</value>
   </data>
-  <data name="Settings_Theme_Light.Text" xml:space="preserve">
+  <data name="Settings_Theme_Light" xml:space="preserve">
     <value>Light</value>
   </data>
-  <data name="Settings_Theme_Dark.Text" xml:space="preserve">
+  <data name="Settings_Theme_Dark" xml:space="preserve">
     <value>Dark</value>
   </data>
   <data name="Settings_Language_System.Text" xml:space="preserve">
@@ -448,7 +451,7 @@ Reverted to the previous valid path.</value>
   <data name="Settings_Theme.Text" xml:space="preserve">
     <value>Theme</value>
   </data>
-  <data name="Settings_Theme_System.Text" xml:space="preserve">
+  <data name="Settings_Theme_System" xml:space="preserve">
     <value>Follow system</value>
   </data>
   <data name="Settings_Title.Text" xml:space="preserve">
