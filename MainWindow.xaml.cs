@@ -18,6 +18,7 @@ using WinRT.Interop;
 using MemeManager.Data;
 using MemeManager.Models;
 using MemeManager.ViewModels;
+using MemeManager.Helpers;
 
 namespace MemeManager;
 
@@ -433,7 +434,7 @@ public sealed partial class MainWindow : Window
             CategoryList.CanReorderItems = false;
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
-            e.DragUIOverride.Caption = "移动到该分类";
+            e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
         }
@@ -636,7 +637,7 @@ public sealed partial class MainWindow : Window
         {
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
-            e.DragUIOverride.Caption = "移动到该分类";
+            e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
         }
@@ -944,7 +945,7 @@ public sealed partial class MainWindow : Window
         if (_editMode) return;
         Log("进入多选模式");
         _editMode = true;
-        EditButton.Content = "完成";
+        EditButton.Content = Localization.Get("Meme_Done");
         // 背景/前景的蓝色由 XAML 写死常亮，这里不再处理颜色，仅切换文字与模式
         BatchBar.Visibility = Visibility.Visible;
         // 编辑模式开启内置重排：落点由 WinUI 自己算准
@@ -1457,7 +1458,7 @@ public sealed partial class MainWindow : Window
         // 注意：DataTemplate 内的 x:Name 不会提升为页面字段，这里从 flyout 里按类型/文本查找。
         var moveSub = flyout.Items
             .OfType<MenuFlyoutSubItem>()
-            .FirstOrDefault(s => s.Text == "移动到其他分类");
+            .FirstOrDefault(s => s.Text == Localization.Get("Meme_MoveToOtherCategory"));
         if (moveSub == null) return;
 
         moveSub.Items.Clear();
@@ -1603,8 +1604,8 @@ public sealed partial class MainWindow : Window
         var files = await PickerHelper.PickMultipleFilesAsync(
             this,
             PickerLocationId.PicturesLibrary,
-            ("图片", ".png"), ("图片", ".jpg"), ("图片", ".jpeg"),
-            ("图片", ".gif"), ("图片", ".webp"), ("图片", ".bmp"));
+            (Localization.Get("Meme_ImageFileType"), ".png"), (Localization.Get("Meme_ImageFileType"), ".jpg"), (Localization.Get("Meme_ImageFileType"), ".jpeg"),
+            (Localization.Get("Meme_ImageFileType"), ".gif"), (Localization.Get("Meme_ImageFileType"), ".webp"), (Localization.Get("Meme_ImageFileType"), ".bmp"));
 
         if (files.Count == 0) return;
 
@@ -1686,7 +1687,7 @@ public sealed partial class MainWindow : Window
 
         if (!hasTarget)
         {
-            BatchMoveFlyout.Items.Add(new MenuFlyoutItem { Text = "（无其他分类）", IsEnabled = false });
+            BatchMoveFlyout.Items.Add(new MenuFlyoutItem { Text = Localization.Get("Meme_NoOtherCategory"), IsEnabled = false });
         }
     }
 
@@ -2058,7 +2059,7 @@ public sealed partial class MainWindow : Window
         else
             foreach (var m in _memeList) if (!MemeGridView.SelectedItems.Contains(m)) MemeGridView.SelectedItems.Add(m);
         if (SelectAllButton != null)
-            SelectAllButton.Content = allSelected ? "全选" : "取消全选";
+            SelectAllButton.Content = allSelected ? Localization.Get("Meme_SelectAll") : Localization.Get("Meme_CancelSelectAll");
     }
 
     // 由 Ctrl+V 主动触发的剪贴板图片导入：先记录内容类型，仅当为图片/位图/文件时才继续，
@@ -2116,13 +2117,13 @@ public sealed partial class MainWindow : Window
     private void ExitEditMode()
     {
         _editMode = false;
-        EditButton.Content = "修改";
+        EditButton.Content = Localization.Get("Meme_Edit");
         BatchBar.Visibility = Visibility.Collapsed;
         // 退出编辑模式：仅关闭原生多选；拖拽重排保持开启（普通模式也允许排序）
         MemeGridView.SelectedItems.Clear();
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
         _lastShiftAnchor = -1;
-        SelectAllButton.Content = "全选";
+        SelectAllButton.Content = Localization.Get("Meme_SelectAll");
         // 隐藏并清空复选框指示器
         SetSelectionBoxVisible(false);
         foreach (var vm in _memeList) vm.IsSelected = false;

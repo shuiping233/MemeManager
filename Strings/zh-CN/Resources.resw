@@ -205,4 +205,194 @@
   <data name="Settings_OpenFolderPickerFailed" xml:space="preserve">
     <value>打开文件夹选择器失败</value>
   </data>
+  <data name="Dialog_OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Dialog_Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Dialog_ImageMovedOut_Title" xml:space="preserve">
+    <value>图片被移出</value>
+  </data>
+  <data name="Dialog_ImageMovedOut_Message" xml:space="preserve">
+    <value>图片文件已被移出的数据目录, 这可能是您将图片拖拽到资源管理器中导致的
+若您的目的是复制图片到目标文件夹，请按住 Ctrl 再进行拖拽
+如果需要恢复，请重新导入该图片</value>
+  </data>
+  <data name="Dialog_CannotImport_Title" xml:space="preserve">
+    <value>无法导入</value>
+  </data>
+  <data name="Dialog_CannotImport_Message" xml:space="preserve">
+    <value>剪贴板内容不是图片，仅支持图片或图片文件。</value>
+  </data>
+  <data name="Dialog_ImageExists_Title" xml:space="preserve">
+    <value>图片已存在</value>
+  </data>
+  <data name="Dialog_ImageExists_Message" xml:space="preserve">
+    <value>该图片已经在分类"{0}"中存在，已跳过导入。
+已有图片：{1}</value>
+  </data>
+  <data name="Dialog_MoveFailed_Title" xml:space="preserve">
+    <value>移动图片失败</value>
+  </data>
+  <data name="Dialog_MoveFailed_Intro" xml:space="preserve">
+    <value>分类"{0}"已经存在相同的图片</value>
+  </data>
+  <data name="Dialog_CategoryExists_Title" xml:space="preserve">
+    <value>分类已存在</value>
+  </data>
+  <data name="Dialog_CategoryExists_Message" xml:space="preserve">
+    <value>分类"{0}"已经存在，请换一个名称。</value>
+  </data>
+  <data name="Dialog_RenameFailed_Title" xml:space="preserve">
+    <value>重命名失败</value>
+  </data>
+  <data name="Dialog_RenameFailed_Message" xml:space="preserve">
+    <value>分类重命名失败（可能名称已存在或文件夹无法访问）。</value>
+  </data>
+  <data name="Dialog_DeleteConfirm_Title" xml:space="preserve">
+    <value>删除确认</value>
+  </data>
+  <data name="Dialog_DeleteMeme_Message" xml:space="preserve">
+    <value>确定要删除「{0}」吗？</value>
+  </data>
+  <data name="Dialog_DeleteMemes_Message" xml:space="preserve">
+    <value>确定要删除选中的 {0} 个表情吗？</value>
+  </data>
+  <data name="Dialog_DeleteCategory_Title" xml:space="preserve">
+    <value>删除分类</value>
+  </data>
+  <data name="Dialog_DeleteCategory_Message" xml:space="preserve">
+    <value>确定要删除分类「{0}」吗？
+该分类下的所有表情与文件夹都会被删除。</value>
+  </data>
+  <data name="Dialog_NewCategory_Title" xml:space="preserve">
+    <value>新增分类</value>
+  </data>
+  <data name="Dialog_NewCategory_Placeholder" xml:space="preserve">
+    <value>输入新分类名称</value>
+  </data>
+  <data name="Dialog_RenameCategory_Title" xml:space="preserve">
+    <value>重命名分类</value>
+  </data>
+  <data name="Dialog_RenameCategory_Placeholder" xml:space="preserve">
+    <value>输入新的分类名称</value>
+  </data>
+  <data name="Dialog_Rename_Title" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="Dialog_Rename_Placeholder" xml:space="preserve">
+    <value>输入新的名称</value>
+  </data>
+  <data name="Dialog_PasteCategory_Title" xml:space="preserve">
+    <value>粘贴图片到分类</value>
+  </data>
+  <data name="Dialog_PasteCategory_Placeholder" xml:space="preserve">
+    <value>输入分类名称（不存在则新建）</value>
+  </data>
+  <data name="Dialog_PathNotFound_Title" xml:space="preserve">
+    <value>路径不存在</value>
+  </data>
+  <data name="Dialog_PathNotFound_Message" xml:space="preserve">
+    <value>指定的存放路径不存在：
+{0}
+
+已恢复为之前的有效路径。</value>
+  </data>
+  <data name="Main_Search.PlaceholderText" xml:space="preserve">
+    <value>搜索表情...</value>
+  </data>
+  <data name="Main_SearchToolTip" xml:space="preserve">
+    <value>模糊查询当前分类的表情 (Ctrl+F)</value>
+  </data>
+  <data name="Main_TopMost.Content" xml:space="preserve">
+    <value>置顶</value>
+  </data>
+  <data name="Main_TopMostToolTip" xml:space="preserve">
+    <value>启用/关闭主窗口置顶</value>
+  </data>
+  <data name="Main_Edit.Content" xml:space="preserve">
+    <value>修改</value>
+  </data>
+  <data name="Main_EditToolTip" xml:space="preserve">
+    <value>进入/退出多选模式 (Ctrl+E)</value>
+  </data>
+  <data name="Main_Refresh.Content" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="Main_RefreshToolTip" xml:space="preserve">
+    <value>刷新当前页面 (F5)</value>
+  </data>
+  <data name="Main_Settings.Content" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Main_SettingsToolTip" xml:space="preserve">
+    <value>打开/关闭设置页面</value>
+  </data>
+  <data name="Category_New.Content" xml:space="preserve">
+    <value>新建分类</value>
+  </data>
+  <data name="Category_OpenFolder.Content" xml:space="preserve">
+    <value>打开所在文件夹</value>
+  </data>
+  <data name="Category_Rename.Content" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="Category_Delete.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Meme_Open.Content" xml:space="preserve">
+    <value>打开</value>
+  </data>
+  <data name="Meme_OpenFolder.Content" xml:space="preserve">
+    <value>打开所在文件夹</value>
+  </data>
+  <data name="Meme_Copy.Content" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="Meme_MultiSelect.Content" xml:space="preserve">
+    <value>多选</value>
+  </data>
+  <data name="Meme_Rename.Content" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="Meme_MoveToOtherCategory.Content" xml:space="preserve">
+    <value>移动到其他分类</value>
+  </data>
+  <data name="Meme_Delete.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Meme_MoveToThisCategory" xml:space="preserve">
+    <value>移动到该分类</value>
+  </data>
+  <data name="Meme_Done" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="Meme_Edit" xml:space="preserve">
+    <value>修改</value>
+  </data>
+  <data name="Meme_SelectAll" xml:space="preserve">
+    <value>全选</value>
+  </data>
+  <data name="Meme_CancelSelectAll" xml:space="preserve">
+    <value>取消全选</value>
+  </data>
+  <data name="Meme_NoOtherCategory" xml:space="preserve">
+    <value>（无其他分类）</value>
+  </data>
+  <data name="Meme_ImageFileType" xml:space="preserve">
+    <value>图片</value>
+  </data>
+  <data name="Meme_BatchImport" xml:space="preserve">
+    <value>批量导入</value>
+  </data>
+  <data name="Meme_BatchExport" xml:space="preserve">
+    <value>批量导出</value>
+  </data>
+  <data name="Meme_BatchMove" xml:space="preserve">
+    <value>批量移动</value>
+  </data>
 </root>
