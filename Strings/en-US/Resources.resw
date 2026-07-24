@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -261,7 +261,7 @@
   <data name="Main_RefreshToolTip.Content" xml:space="preserve">
     <value>Refresh current page (F5)</value>
   </data>
-  <data name="Main_SettingsToolTip.Text" xml:space="preserve">
+  <data name="Main_SettingsToolTip.Content" xml:space="preserve">
     <value>Open/close settings page</value>
   </data>
   <data name="Meme_SelectAll.Content" xml:space="preserve">
@@ -453,5 +453,8 @@ Reverted to the previous valid path.</value>
   </data>
   <data name="Settings_Title.Text" xml:space="preserve">
     <value>Settings</value>
+  </data>
+  <data name="Main_AddCategoryToolTip.Content" xml:space="preserve">
+    <value>Add Category (Ctrl+N)</value>
   </data>
 </root>

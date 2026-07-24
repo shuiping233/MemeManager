@@ -117,7 +117,9 @@
             </ListView>
             <Button x:Name="AddCategoryButton" Grid.Row="1" Content="+" FontSize="20"
                     HorizontalAlignment="Stretch" Margin="8" Click="AddCategoryButton_Click">
-                <ToolTipService.ToolTip>添加分类 (Ctrl+N)</ToolTipService.ToolTip>
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_AddCategoryToolTip"/>
+                </ToolTipService.ToolTip>
             </Button>
         </Grid>
 

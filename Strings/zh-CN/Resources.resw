@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -261,7 +261,7 @@
   <data name="Main_RefreshToolTip.Content" xml:space="preserve">
     <value>刷新当前页面 (F5)</value>
   </data>
-  <data name="Main_SettingsToolTip.Text" xml:space="preserve">
+  <data name="Main_SettingsToolTip.Content" xml:space="preserve">
     <value>打开/关闭设置页面</value>
   </data>
   <data name="Meme_SelectAll.Content" xml:space="preserve">
@@ -453,5 +453,8 @@
   </data>
   <data name="Settings_Title.Text" xml:space="preserve">
     <value>设置</value>
+  </data>
+  <data name="Main_AddCategoryToolTip.Content" xml:space="preserve">
+    <value>添加分类 (Ctrl+N)</value>
   </data>
 </root>
