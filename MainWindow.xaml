@@ -86,7 +86,11 @@
                       SelectionChanged="CategoryList_SelectionChanged">
                 <ListView.ContextFlyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem l:Uids.Uid="Category_New" Click="CategoryNew_Click"/>
+                        <MenuFlyoutItem l:Uids.Uid="Category_New" Click="CategoryNew_Click">
+                            <MenuFlyoutItem.Icon>
+                                <SymbolIcon Symbol="NewFolder"/>
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
                     </MenuFlyout>
                 </ListView.ContextFlyout>
                 <ListView.ItemTemplate>
@@ -100,9 +104,21 @@
                             </ToolTipService.ToolTip>
                             <Grid.ContextFlyout>
                                 <MenuFlyout Opening="CategoryItemContextFlyout_Opening">
-                                    <MenuFlyoutItem l:Uids.Uid="Category_OpenFolder" Click="CategoryOpenFolder_Click"/>
-                                    <MenuFlyoutItem l:Uids.Uid="Category_Rename" Click="CategoryRename_Click"/>
-                                    <MenuFlyoutItem l:Uids.Uid="Category_Delete" Click="CategoryDelete_Click"/>
+                                    <MenuFlyoutItem l:Uids.Uid="Category_OpenFolder" Click="CategoryOpenFolder_Click">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Folder"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem l:Uids.Uid="Category_Rename" Click="CategoryRename_Click">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Rename"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem l:Uids.Uid="Category_Delete" Click="CategoryDelete_Click">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Delete"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
                                 </MenuFlyout>
                             </Grid.ContextFlyout>
                             <Grid.RowDefinitions>
@@ -154,13 +170,41 @@
                            Tapped="MemeItem_Tapped">
                         <Grid.ContextFlyout>
                             <MenuFlyout Opening="MemeItemContextFlyout_Opening">
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Open" Click="MemeOpen_Click"/>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_OpenFolder" Click="MemeOpenFolder_Click"/>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Copy" Click="MemeCopy_Click"/>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_MultiSelect" Click="MemeMultiSelect_Click"/>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Rename" Click="MemeRename_Click"/>
-                                <MenuFlyoutSubItem l:Uids.Uid="Meme_MoveToOtherCategory"/>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Delete" Click="MemeDelete_Click"/>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Open" Click="MemeOpen_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="OpenFile"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_OpenFolder" Click="MemeOpenFolder_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Folder"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Copy" Click="MemeCopy_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Copy"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_MultiSelect" Click="MemeMultiSelect_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE762;"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Rename" Click="MemeRename_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Rename"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutSubItem l:Uids.Uid="Meme_MoveToOtherCategory">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xE8DE;"/>
+                                    </MenuFlyoutSubItem.Icon>
+                                </MenuFlyoutSubItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Delete" Click="MemeDelete_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Delete"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
                             </MenuFlyout>
                         </Grid.ContextFlyout>
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
