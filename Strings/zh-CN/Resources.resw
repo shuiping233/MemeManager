@@ -460,4 +460,10 @@
   <data name="Settings_Language_System.Content" xml:space="preserve">
     <value>跟随系统</value>
   </data>
+  <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="LocalizedToggleSwitch.OffContent" xml:space="preserve">
+    <value>关</value>
+  </data>
 </root>

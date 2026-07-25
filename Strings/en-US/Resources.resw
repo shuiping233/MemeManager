@@ -460,4 +460,10 @@ Reverted to the previous valid path.</value>
   <data name="Settings_Language_System.Content" xml:space="preserve">
     <value>Follow system</value>
   </data>
+  <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="LocalizedToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
 </root>
