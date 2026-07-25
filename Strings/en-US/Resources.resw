@@ -458,7 +458,7 @@ Reverted to the previous valid path.</value>
     <value>Off</value>
   </data>
   <data name="Settings_Language_zh-CN" xml:space="preserve">
-    <value>中文</value>
+    <value>简体中文</value>
   </data>
   <data name="Settings_Language_en-US" xml:space="preserve">
     <value>English</value>

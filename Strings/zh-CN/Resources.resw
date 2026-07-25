@@ -300,12 +300,6 @@
   <data name="Settings_Theme_Light.Content" xml:space="preserve">
     <value>浅色</value>
   </data>
-  <data name="Settings_Language_zh-CN" xml:space="preserve">
-    <value>中文</value>
-  </data>
-  <data name="Settings_Language_en-US" xml:space="preserve">
-    <value>English</value>
-  </data>
   <data name="Settings_HotKey_Default.Text" xml:space="preserve">
     <value>Alt+E</value>
   </data>
@@ -457,13 +451,19 @@
   <data name="Settings_Theme_Dark.Content" xml:space="preserve">
     <value>深色</value>
   </data>
-  <data name="Settings_Language_System" xml:space="preserve">
-    <value>跟随系统</value>
-  </data>
   <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
     <value>开</value>
   </data>
   <data name="LocalizedToggleSwitch.OffContent" xml:space="preserve">
     <value>关</value>
+  </data>
+  <data name="Settings_Language_zh-CN" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Settings_Language_en-US" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>跟随系统</value>
   </data>
 </root>
