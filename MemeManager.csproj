@@ -79,6 +79,14 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.4.0" />
+    <PackageReference Include="WinUI3Localizer" Version="2.3.0" />
+  </ItemGroup>
+
+  <!-- WinUI3Localizer 从输出目录的 Strings 文件夹读取 resw（非 PRI 内嵌），需复制到输出 -->
+  <ItemGroup>
+    <Content Include="Strings\**\*.resw">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <!--

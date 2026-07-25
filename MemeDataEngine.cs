@@ -84,21 +84,6 @@ public class MemeDataEngine
         {
             Directory.CreateDirectory(ConfigDir);
 
-            // 迁移兼容：首次升级时旧 config.json 位于数据目录下，搬到用户目录，避免丢失（含 StoragePath）
-            var oldConfigPath = Path.Combine(_baseDir, "config.json");
-            if (!File.Exists(ConfigPath) && File.Exists(oldConfigPath))
-            {
-                try
-                {
-                    File.Copy(oldConfigPath, ConfigPath, overwrite: true);
-                    MemeManager.Logger.Log($"[Engine] 已迁移旧配置到用户目录: {oldConfigPath} -> {ConfigPath}");
-                }
-                catch (Exception ex)
-                {
-                    MemeManager.Logger.Log($"[Engine] 迁移旧配置失败: {ex.Message}");
-                }
-            }
-
             if (File.Exists(ConfigPath))
             {
                 var json = File.ReadAllText(ConfigPath);
@@ -136,7 +121,6 @@ public class MemeDataEngine
     {
         patch(Config);
 
-        // 先把 _baseDir 切到目标路径，确保 config.json 写到“新路径”而不是旧路径
         string newBase = string.IsNullOrWhiteSpace(Config.StoragePath)
             ? DefaultStoragePath()
             : Config.StoragePath;

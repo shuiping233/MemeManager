@@ -1,0 +1,469 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Settings_Done.Content" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Main_TopMost.Content" xml:space="preserve">
+    <value>Topmost</value>
+  </data>
+  <data name="Main_Edit.Content" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Main_Refresh.Content" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Category_New.Text" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="Category_OpenFolder.Text" xml:space="preserve">
+    <value>Open containing folder</value>
+  </data>
+  <data name="Category_Rename.Text" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Category_Delete.Text" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Meme_Open.Text" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Meme_OpenFolder.Text" xml:space="preserve">
+    <value>Open containing folder</value>
+  </data>
+  <data name="Meme_Copy.Text" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Meme_MultiSelect.Text" xml:space="preserve">
+    <value>Multi-select</value>
+  </data>
+  <data name="Meme_Rename.Text" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Meme_MoveToOtherCategory.Text" xml:space="preserve">
+    <value>Move to other category</value>
+  </data>
+  <data name="Meme_Delete.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Meme_Delete.Text" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Settings_Language.Text" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_StoragePath.Text" xml:space="preserve">
+    <value>Meme storage path</value>
+  </data>
+  <data name="Settings_Browse.Content" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="Settings_OpenFolder.Content" xml:space="preserve">
+    <value>Open storage folder</value>
+  </data>
+  <data name="Settings_HotKey.Text" xml:space="preserve">
+    <value>Invocation hotkey</value>
+  </data>
+  <data name="Settings_HotKeyHint.Text" xml:space="preserve">
+    <value>Click "Record", then press the desired key combination (e.g. Alt+E)</value>
+  </data>
+  <data name="Settings_PreviewMaxResolution.Text" xml:space="preserve">
+    <value>Preview max resolution</value>
+  </data>
+  <data name="Settings_Width.Text" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="Settings_Height.Text" xml:space="preserve">
+    <value>Height</value>
+  </data>
+  <data name="Settings_PreviewMaxResolutionHint.Text" xml:space="preserve">
+    <value>Previews larger than this are scaled down proportionally; smaller ones are untouched (default 640*480)</value>
+  </data>
+  <data name="Settings_PreviewDelay.Text" xml:space="preserve">
+    <value>Preview trigger delay (ms)</value>
+  </data>
+  <data name="Settings_PreviewDelayHint.Text" xml:space="preserve">
+    <value>How long to wait after hover before showing the preview (default 500)</value>
+  </data>
+  <data name="Settings_SaveLog.Text" xml:space="preserve">
+    <value>Save log file</value>
+  </data>
+  <data name="Settings_SaveLogHint.Text" xml:space="preserve">
+    <value>Logs are under the log folder in the data directory; usually not needed, auto-cleaned at 5MB</value>
+  </data>
+  <data name="Settings_EcoMode.Text" xml:space="preserve">
+    <value>Efficiency mode (EcoQoS)</value>
+  </data>
+  <data name="Settings_EcoModeHint.Text" xml:space="preserve">
+    <value>Enables Windows efficiency mode for background worker threads, reducing CPU and power usage during scans/imports without affecting UI responsiveness</value>
+  </data>
+  <data name="Settings_AutoStart.Text" xml:space="preserve">
+    <value>Launch at startup</value>
+  </data>
+  <data name="Settings_AutoStartHint.Text" xml:space="preserve">
+    <value>Automatically runs in the background after login (tray only, no main window)</value>
+  </data>
+  <data name="Settings_StorageFileDrag.Text" xml:space="preserve">
+    <value>StorageFile drag support (drag out as file)</value>
+  </data>
+  <data name="Settings_StorageFileDragHint1.Text" xml:space="preserve">
+    <value>When enabled, dragged memes are sent as files, so animated GIFs etc. work in external apps like QQ</value>
+  </data>
+  <data name="Settings_StorageFileDragHint2.Text" xml:space="preserve">
+    <value>Off by default (stability first): when off, only image stream is dragged; GIF to QQ becomes static, NTQQ drag unsupported</value>
+  </data>
+  <data name="Settings_StorageFileDragWarning.Text" xml:space="preserve">
+    <value>Warning: enabling may cause crashes on rapid consecutive drags, more severe on Win10. Use at your own risk</value>
+  </data>
+  <data name="Settings_ControlReuse.Text" xml:space="preserve">
+    <value>Enable control reuse strategy</value>
+  </data>
+  <data name="Settings_ControlReuseHint1.Text" xml:space="preserve">
+    <value>When enabled, image controls are reused instead of recreated to reduce memory from creating controls, affecting refresh/branch switch/window toggle behavior</value>
+  </data>
+  <data name="Settings_ControlReuseHint2.Text" xml:space="preserve">
+    <value>This keeps image cache in background after closing the main window (a WinUI3 limitation)</value>
+  </data>
+  <data name="Settings_ControlReuseHint3.Text" xml:space="preserve">
+    <value>And the background process working set retains tens of MB of image cache that is never released</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelect.Text" xml:space="preserve">
+    <value>Explorer-style multi-select mode</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelectHint1.Text" xml:space="preserve">
+    <value>Off (default): checkbox-style multi-select, single click selects multiple, Ctrl+left click inverts, Shift multi-select/invert has some limits</value>
+  </data>
+  <data name="Settings_ExplorerMultiSelectHint2.Text" xml:space="preserve">
+    <value>On: Windows Explorer-style click and Shift multi-select; Ctrl+left click needed for individual multi-select, Shift allows flexible multi-select/invert</value>
+  </data>
+  <data name="Main_SearchToolTip.Content" xml:space="preserve">
+    <value>Fuzzy search memes in the current category (Ctrl+F)</value>
+  </data>
+  <data name="Main_TopMostToolTip.Content" xml:space="preserve">
+    <value>Enable/disable main window always on top</value>
+  </data>
+  <data name="Main_EditToolTip.Content" xml:space="preserve">
+    <value>Enter/exit multi-select mode (Ctrl+E)</value>
+  </data>
+  <data name="Main_RefreshToolTip.Content" xml:space="preserve">
+    <value>Refresh current page (F5)</value>
+  </data>
+  <data name="Main_SettingsToolTip.Content" xml:space="preserve">
+    <value>Open/close settings page</value>
+  </data>
+  <data name="Meme_SelectAll.Content" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="Meme_BatchImport.Content" xml:space="preserve">
+    <value>Batch import</value>
+  </data>
+  <data name="Meme_BatchExport.Content" xml:space="preserve">
+    <value>Batch export</value>
+  </data>
+  <data name="Meme_BatchMove.Content" xml:space="preserve">
+    <value>Batch move</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>MemeManager</value>
+  </data>
+  <data name="Tray_Show" xml:space="preserve">
+    <value>Show main window</value>
+  </data>
+  <data name="Tray_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Tray_Restart" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Language_Status_Switched" xml:space="preserve">
+    <value>Language switched</value>
+  </data>
+  <data name="Settings_Theme_Light.Content" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Settings_HotKey_Default.Text" xml:space="preserve">
+    <value>Alt+E</value>
+  </data>
+  <data name="Settings_HotKey_PressKeys" xml:space="preserve">
+    <value>Press the key combination...</value>
+  </data>
+  <data name="Settings_Record.Content" xml:space="preserve">
+    <value>Record...</value>
+  </data>
+  <data name="Settings_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Settings_OpenFolderPickerFailed.Text" xml:space="preserve">
+    <value>Failed to open folder picker</value>
+  </data>
+  <data name="Dialog_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Dialog_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Dialog_ImageMovedOut_Title" xml:space="preserve">
+    <value>Image moved out</value>
+  </data>
+  <data name="Dialog_ImageMovedOut_Message" xml:space="preserve">
+    <value>The image file has been moved out of the data directory, possibly because you dragged it to File Explorer.
+If you meant to copy it, hold Ctrl while dragging.
+To recover, re-import the image.</value>
+  </data>
+  <data name="Dialog_CannotImport_Title" xml:space="preserve">
+    <value>Cannot import</value>
+  </data>
+  <data name="Dialog_CannotImport_Message" xml:space="preserve">
+    <value>Clipboard content is not an image; only images or image files are supported.</value>
+  </data>
+  <data name="Dialog_ImageExists_Title" xml:space="preserve">
+    <value>Image already exists</value>
+  </data>
+  <data name="Dialog_ImageExists_Message" xml:space="preserve">
+    <value>This image already exists in category "{0}", import skipped.
+Existing image: {1}</value>
+  </data>
+  <data name="Dialog_MoveFailed_Title" xml:space="preserve">
+    <value>Failed to move image</value>
+  </data>
+  <data name="Dialog_MoveFailed_Intro" xml:space="preserve">
+    <value>Category "{0}" already contains the same image</value>
+  </data>
+  <data name="Dialog_CategoryExists_Title" xml:space="preserve">
+    <value>Category already exists</value>
+  </data>
+  <data name="Dialog_CategoryExists_Message" xml:space="preserve">
+    <value>Category "{0}" already exists, please choose another name.</value>
+  </data>
+  <data name="Dialog_RenameFailed_Title" xml:space="preserve">
+    <value>Rename failed</value>
+  </data>
+  <data name="Dialog_RenameFailed_Message" xml:space="preserve">
+    <value>Failed to rename category (name may already exist or folder inaccessible).</value>
+  </data>
+  <data name="Dialog_DeleteConfirm_Title" xml:space="preserve">
+    <value>Delete confirmation</value>
+  </data>
+  <data name="Dialog_DeleteMeme_Message" xml:space="preserve">
+    <value>Are you sure you want to delete "{0}"?</value>
+  </data>
+  <data name="Dialog_DeleteMemes_Message" xml:space="preserve">
+    <value>Are you sure you want to delete the {0} selected memes?</value>
+  </data>
+  <data name="Dialog_DeleteCategory_Title" xml:space="preserve">
+    <value>Delete category</value>
+  </data>
+  <data name="Dialog_DeleteCategory_Message" xml:space="preserve">
+    <value>Are you sure you want to delete category "{0}"?
+All memes and folders under it will be deleted.</value>
+  </data>
+  <data name="Dialog_NewCategory_Title" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="Dialog_NewCategory_Placeholder" xml:space="preserve">
+    <value>Enter new category name</value>
+  </data>
+  <data name="Dialog_RenameCategory_Title" xml:space="preserve">
+    <value>Rename category</value>
+  </data>
+  <data name="Dialog_RenameCategory_Placeholder" xml:space="preserve">
+    <value>Enter new category name</value>
+  </data>
+  <data name="Dialog_Rename_Title" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Dialog_Rename_Placeholder" xml:space="preserve">
+    <value>Enter new name</value>
+  </data>
+  <data name="Dialog_PasteCategory_Title" xml:space="preserve">
+    <value>Paste image to category</value>
+  </data>
+  <data name="Dialog_PasteCategory_Placeholder" xml:space="preserve">
+    <value>Enter category name (created if not exists)</value>
+  </data>
+  <data name="Dialog_PathNotFound_Title" xml:space="preserve">
+    <value>Path not found</value>
+  </data>
+  <data name="Dialog_PathNotFound_Message" xml:space="preserve">
+    <value>The specified storage path does not exist:
+{0}
+
+Reverted to the previous valid path.</value>
+  </data>
+  <data name="Main_Search.PlaceholderText" xml:space="preserve">
+    <value>Search memes...</value>
+  </data>
+  <data name="Meme_MoveToThisCategory" xml:space="preserve">
+    <value>Move to this category</value>
+  </data>
+  <data name="Meme_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Meme_Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Meme_CancelSelectAll" xml:space="preserve">
+    <value>Cancel selection</value>
+  </data>
+  <data name="Meme_NoOtherCategory" xml:space="preserve">
+    <value>(No other category)</value>
+  </data>
+  <data name="Meme_ImageFileType" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="Main_Settings.Content" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings_Theme.Text" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Settings_Theme_System.Content" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Settings_Title.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Main_AddCategoryToolTip.Content" xml:space="preserve">
+    <value>Add Category (Ctrl+N)</value>
+  </data>
+  <data name="Settings_Theme_Dark.Content" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="LocalizedToggleSwitch.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Settings_Language_zh-CN" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Settings_Language_en-US" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_Language_System" xml:space="preserve">
+    <value>System</value>
+  </data>
+</root>

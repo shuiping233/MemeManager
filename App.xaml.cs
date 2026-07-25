@@ -2,6 +2,7 @@
 using MemeManager.Models;
 using Microsoft.UI.Xaml.Controls;
 using MemeManager.Data;
+using MemeManager.Helpers;
 using WinRT.Interop;
 using System.IO;
 using System.Threading.Tasks;
@@ -118,10 +119,16 @@ public partial class App : Application
             return;
         }
 
+        await Localization.InitializeAsync();
+
         await DataEngine.InitializeAsync();
 
         Logger.Log($"[EcoQos] 效率模式配置: {(DataEngine.Config.EcoMode ? "启用" : "关闭")}");
         EcoQos.ApplyProcessLevelFromConfig();
+
+        // 配置读取完毕后立即应用语言：首次启动跟随系统，否则用配置值。
+        // 必须在创建主窗口前完成，使主窗口一出来就是正确文案。
+        LangHelper.ApplyConfiguredLanguage();
 
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
         if (DataEngine.GetCategories().Count == 0)

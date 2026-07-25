@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using MemeManager.Helpers;
 
 namespace MemeManager;
 
@@ -39,7 +40,7 @@ public static class DialogHelper
             {
                 Title = title,
                 Content = content,
-                CloseButtonText = "确定",
+                CloseButtonText = Localization.Get("Dialog_OK"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = xamlRoot,
                 RequestedTheme = DialogTheme,
@@ -72,19 +73,15 @@ public static class DialogHelper
     // 图片被拖出数据目录（拖到资源管理器等外部目标且为 Move）后提醒：
     // 受系统限制文件已被剪切走，告知用户可重新导入恢复，或按住 Ctrl 拖拽以复制。
     public static Task ShowImageMovedOutAsync(XamlRoot xamlRoot) =>
-        ShowMessageAsync(xamlRoot, 
-            "图片被移出",
-            """
-            图片文件已被移出的数据目录, 这可能是您将图片拖拽到资源管理器中导致的
-            若您的目的是复制图片到目标文件夹，请按住 Ctrl 再进行拖拽
-            如果需要恢复，请重新导入该图片
-            """);
+        ShowMessageAsync(xamlRoot,
+            Localization.Get("Dialog_ImageMovedOut_Title"),
+            Localization.Get("Dialog_ImageMovedOut_Message"));
 
     // 确认对话框：带"主按钮 + 取消"，返回用户选择。主按钮文案由 primaryText 指定
     // （如"删除""确定"），用于删除确认等需要二选一的场景。
     public static async Task<ContentDialogResult> ConfirmAsync(
         XamlRoot xamlRoot, string title, string message,
-        string primaryText = "确定", string closeText = "取消")
+        string primaryText = "", string closeText = "")
     {
         if (xamlRoot == null) return ContentDialogResult.None;
         try
@@ -99,8 +96,8 @@ public static class DialogHelper
             {
                 Title = title,
                 Content = content,
-                PrimaryButtonText = primaryText,
-                CloseButtonText = closeText,
+                PrimaryButtonText = string.IsNullOrEmpty(primaryText) ? Localization.Get("Dialog_OK") : primaryText,
+                CloseButtonText = string.IsNullOrEmpty(closeText) ? Localization.Get("Dialog_Cancel") : closeText,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = xamlRoot,
                 RequestedTheme = DialogTheme,
@@ -132,8 +129,8 @@ public static class DialogHelper
             {
                 Title = title,
                 Content = box,
-                PrimaryButtonText = "确定",
-                CloseButtonText = "取消",
+                PrimaryButtonText = Localization.Get("Dialog_OK"),
+                CloseButtonText = Localization.Get("Dialog_Cancel"),
                 XamlRoot = xamlRoot,
                 DefaultButton = ContentDialogButton.Primary,
                 RequestedTheme = DialogTheme,
@@ -160,12 +157,12 @@ public static class DialogHelper
 
     // 剪贴板导入：非图片内容
     public static Task ShowClipboardNotImageAsync(XamlRoot xamlRoot) =>
-        ShowMessageAsync(xamlRoot, "无法导入", "剪贴板内容不是图片，仅支持图片或图片文件。");
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_CannotImport_Title"), Localization.Get("Dialog_CannotImport_Message"));
 
     // 剪贴板导入(Ctrl+V)：当前分类已存在相同图片，展示已有冲突图片的标题
     public static Task ShowImageDuplicateAsync(XamlRoot xamlRoot, string category, string existingLabel) =>
-        ShowMessageAsync(xamlRoot, "图片已存在",
-            $"该图片已经在分类\"{category}\"中存在，已跳过导入。\n已有图片：{existingLabel}");
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_ImageExists_Title"),
+            string.Format(Localization.Get("Dialog_ImageExists_Message"), category, existingLabel));
 
     // 移动图片失败：目标分类存在相同图片（hash 冲突）
     public static Task ShowMoveConflictAsync(
@@ -174,51 +171,51 @@ public static class DialogHelper
     {
         var lines = conflicts.Select(c => $"\"{c.srcLabel}\" -> \"{c.dstLabel}\"");
         return ShowListAsync(
-            xamlRoot, "移动图片失败",
-            $"分类\"{targetCategory}\"已经存在相同的图片", lines);
+            xamlRoot, Localization.Get("Dialog_MoveFailed_Title"),
+            string.Format(Localization.Get("Dialog_MoveFailed_Intro"), targetCategory), lines);
     }
 
     // 新建/重命名分类时，目标分类名已存在
     public static Task ShowCategoryExistsAsync(XamlRoot xamlRoot, string category) =>
-        ShowMessageAsync(xamlRoot, "分类已存在",
-            $"分类\"{category}\"已经存在，请换一个名称。");
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_CategoryExists_Title"),
+            string.Format(Localization.Get("Dialog_CategoryExists_Message"), category));
 
     // 重命名分类失败（文件夹无法访问等）
     public static Task ShowRenameCategoryFailedAsync(XamlRoot xamlRoot) =>
-        ShowMessageAsync(xamlRoot, "重命名失败",
-            "分类重命名失败（可能名称已存在或文件夹无法访问）。");
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_RenameFailed_Title"),
+            Localization.Get("Dialog_RenameFailed_Message"));
 
     // 删除单个图片确认
     public static Task<ContentDialogResult> ConfirmDeleteMemeAsync(XamlRoot xamlRoot, string title) =>
-        ConfirmAsync(xamlRoot, "删除确认", $"确定要删除「{title}」吗？", "删除");
+        ConfirmAsync(xamlRoot, Localization.Get("Dialog_DeleteConfirm_Title"), string.Format(Localization.Get("Dialog_DeleteMeme_Message"), title), Localization.Get("Dialog_Delete"));
 
     // 删除批量图片确认
     public static Task<ContentDialogResult> ConfirmDeleteMemesAsync(XamlRoot xamlRoot, int count) =>
-        ConfirmAsync(xamlRoot, "删除确认", $"确定要删除选中的 {count} 个表情吗？", "删除");
+        ConfirmAsync(xamlRoot, Localization.Get("Dialog_DeleteConfirm_Title"), string.Format(Localization.Get("Dialog_DeleteMemes_Message"), count), Localization.Get("Dialog_Delete"));
 
     // 删除分类确认
     public static Task<ContentDialogResult> ConfirmDeleteCategoryAsync(XamlRoot xamlRoot, string name) =>
-        ConfirmAsync(xamlRoot, "删除分类",
-            $"确定要删除分类「{name}」吗？\n该分类下的所有表情与文件夹都会被删除。", "删除");
+        ConfirmAsync(xamlRoot, Localization.Get("Dialog_DeleteCategory_Title"),
+            string.Format(Localization.Get("Dialog_DeleteCategory_Message"), name), Localization.Get("Dialog_Delete"));
 
     // 新增分类输入
     public static Task<string?> PromptNewCategoryAsync(XamlRoot xamlRoot) =>
-        PromptTextAsync(xamlRoot, "新增分类", "输入新分类名称");
+        PromptTextAsync(xamlRoot, Localization.Get("Dialog_NewCategory_Title"), Localization.Get("Dialog_NewCategory_Placeholder"));
 
     // 重命名分类输入（预填当前名）
     public static Task<string?> PromptRenameCategoryAsync(XamlRoot xamlRoot, string current) =>
-        PromptTextAsync(xamlRoot, "重命名分类", "输入新的分类名称", current);
+        PromptTextAsync(xamlRoot, Localization.Get("Dialog_RenameCategory_Title"), Localization.Get("Dialog_RenameCategory_Placeholder"), current);
 
     // 重命名图片输入（预填当前名）
     public static Task<string?> PromptRenameMemeAsync(XamlRoot xamlRoot, string current) =>
-        PromptTextAsync(xamlRoot, "重命名", "输入新的名称", current);
+        PromptTextAsync(xamlRoot, Localization.Get("Dialog_Rename_Title"), Localization.Get("Dialog_Rename_Placeholder"), current);
 
     // 粘贴图片到分类输入（预填当前分类）
     public static Task<string?> PromptPasteCategoryAsync(XamlRoot xamlRoot, string current) =>
-        PromptTextAsync(xamlRoot, "粘贴图片到分类", "输入分类名称（不存在则新建）", current);
+        PromptTextAsync(xamlRoot, Localization.Get("Dialog_PasteCategory_Title"), Localization.Get("Dialog_PasteCategory_Placeholder"), current);
 
     // 路径不存在提示（SettingsPage 复用）
     public static Task ShowPathNotFoundAsync(XamlRoot xamlRoot, string path) =>
-        ShowMessageAsync(xamlRoot, "路径不存在",
-            $"指定的存放路径不存在：\n{path}\n\n已恢复为之前的有效路径。");
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_PathNotFound_Title"),
+            string.Format(Localization.Get("Dialog_PathNotFound_Message"), path));
 }

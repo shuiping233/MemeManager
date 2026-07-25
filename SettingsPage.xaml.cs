@@ -1,8 +1,9 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using MemeManager.Data;
+using MemeManager.Helpers;
 using MemeManager.Models;
 using Windows.Storage.Pickers;
 using System.Diagnostics;
@@ -11,9 +12,17 @@ namespace MemeManager;
 
 public sealed partial class SettingsPage : Page
 {
+    // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
+    public System.Collections.Generic.IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = new System.Collections.Generic.List<LangHelper.LanguageOption>();
+
     public SettingsPage()
     {
+        // 语言下拉项需在 InitializeComponent 之前就绪，x:Bind(OneTime) 才能正确绑定。
+        LanguageItems = LangHelper.BuildLanguageOptions();
+
         InitializeComponent();
+
+        LocalizeStaticStrings();
 
         var cfg = App.DataEngine.Config;
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
@@ -34,11 +43,23 @@ public sealed partial class SettingsPage : Page
         // 进入设置时记录已有的有效路径，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
 
+        // 语言：先填充下拉项，再按 config 设置初始选中项（null=跟随系统）
+        LanguageItems = LangHelper.BuildLanguageOptions();
+        LanguageComboBox.ItemsSource = LanguageItems;
+        LanguageComboBox.SelectedIndex = LangHelper.IndexFromLangCode(cfg.Language, LanguageItems);
+        UpdateLanguageStatus();
+
         this.KeyDown += SettingsPage_KeyDown;
     }
 
     // 进入设置时已有的有效路径（校验失败回退用，而非默认路径）
     private string? _originalStoragePath;
+
+    // 填充默认快捷键提示等无法用 Uid 直接绑定的静态文本（ComboBox 选项已通过 XAML Uid 本地化）。
+    private void LocalizeStaticStrings()
+    {
+        HotKeyBox.Text = Localization.Get("Settings_HotKey_Default");
+    }
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -46,6 +67,29 @@ public sealed partial class SettingsPage : Page
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
         App.DataEngine.Config.Theme = theme;
         App.ApplyTheme();
+    }
+
+    private void UpdateLanguageStatus()
+    {
+        // 实时展示：切换后 Localization.Get 应随当前语言返回对应文本（证明不重启即生效）
+        LanguageStatusText.Text = Localization.Get("Language_Status_Switched");
+    }
+
+    private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LanguageComboBox.SelectedIndex < 0) return;
+        var code = LangHelper.LangCodeFromIndex(LanguageComboBox.SelectedIndex, LanguageItems);
+
+        // 真正切换语言（库支持运行时切换，无需重启）；统一走 LangHelper（已写入配置）。
+        LangHelper.SetLanguage(code);
+
+        // 切换语言后，下拉项自身的显示名需重新取 resw 文案刷新（原地更新，避免重设
+        // ItemsSource 触发 ComboBox 重新选择并递归触发 SelectionChanged）。
+        LangHelper.RefreshLanguageOptions(LanguageItems);
+
+        await App.DataEngine.SaveConfigAsync();
+
+        UpdateLanguageStatus();
     }
 
     private void SettingsPage_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
@@ -151,8 +195,8 @@ public sealed partial class SettingsPage : Page
     private void RecordHotKeyButton_Click(object sender, RoutedEventArgs e)
     {
         _recording = true;
-        HotKeyBox.Text = "请按下组合键…";
-        RecordHotKeyButton.Content = "取消";
+        HotKeyBox.Text = Localization.Get("Settings_HotKey_PressKeys");
+        RecordHotKeyButton.Content = Localization.Get("Settings_Cancel");
         RecordHotKeyButton.Click -= RecordHotKeyButton_Click;
         RecordHotKeyButton.Click += CancelRecord_Click;
         this.Focus(FocusState.Programmatic);
@@ -168,7 +212,7 @@ public sealed partial class SettingsPage : Page
     private void StopRecording()
     {
         _recording = false;
-        RecordHotKeyButton.Content = "录制…";
+        RecordHotKeyButton.Content = Localization.Get("Settings_Record");
         RecordHotKeyButton.Click -= CancelRecord_Click;
         RecordHotKeyButton.Click += RecordHotKeyButton_Click;
     }
@@ -199,7 +243,7 @@ public sealed partial class SettingsPage : Page
         catch (Exception ex)
         {
             Logger.Log($"[Settings] BrowseButton_Click 异常: {ex}");
-            await ShowErrorAsync("打开文件夹选择器失败", ex.ToString());
+            await ShowErrorAsync(Localization.Get("Settings_OpenFolderPickerFailed"), ex.ToString());
         }
         finally
         {
