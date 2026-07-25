@@ -12,8 +12,14 @@ namespace MemeManager;
 
 public sealed partial class SettingsPage : Page
 {
+    // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
+    public System.Collections.Generic.IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = new System.Collections.Generic.List<LangHelper.LanguageOption>();
+
     public SettingsPage()
     {
+        // 语言下拉项需在 InitializeComponent 之前就绪，x:Bind(OneTime) 才能正确绑定。
+        LanguageItems = LangHelper.BuildLanguageOptions();
+
         InitializeComponent();
 
         LocalizeStaticStrings();
@@ -37,8 +43,10 @@ public sealed partial class SettingsPage : Page
         // 进入设置时记录已有的有效路径，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
 
-        // 语言：按 config 设置初始选中项（null=跟随系统）
-        LanguageComboBox.SelectedIndex = LangHelper.IndexFromLangCode(cfg.Language);
+        // 语言：先填充下拉项，再按 config 设置初始选中项（null=跟随系统）
+        LanguageItems = LangHelper.BuildLanguageOptions();
+        LanguageComboBox.ItemsSource = LanguageItems;
+        LanguageComboBox.SelectedIndex = LangHelper.IndexFromLangCode(cfg.Language, LanguageItems);
         UpdateLanguageStatus();
 
         this.KeyDown += SettingsPage_KeyDown;
@@ -65,16 +73,19 @@ public sealed partial class SettingsPage : Page
     {
         // 实时展示：切换后 Localization.Get 应随当前语言返回对应文本（证明不重启即生效）
         LanguageStatusText.Text = Localization.Get("Language_Status_Switched");
-        // ComboBox 选项通过 XAML Uid 自动刷新，无需手动重填。
     }
 
     private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (LanguageComboBox.SelectedIndex < 0) return;
-        var code = LangHelper.LangCodeFromIndex(LanguageComboBox.SelectedIndex);
+        var code = LangHelper.LangCodeFromIndex(LanguageComboBox.SelectedIndex, LanguageItems);
 
         // 真正切换语言（库支持运行时切换，无需重启）；统一走 LangHelper（已写入配置）。
         LangHelper.SetLanguage(code);
+
+        // 切换语言后，下拉项自身的显示名需重新取 resw 文案刷新（原地更新，避免重设
+        // ItemsSource 触发 ComboBox 重新选择并递归触发 SelectionChanged）。
+        LangHelper.RefreshLanguageOptions(LanguageItems);
 
         await App.DataEngine.SaveConfigAsync();
 
