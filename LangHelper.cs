@@ -13,8 +13,8 @@ namespace MemeManager;
 // 无需在代码里硬编码语言列表。所有涉及语言更改的地方都只调用这里，避免散落。
 public static class LangHelper
 {
-    // “跟随系统”选项对应的语言代码（null）。
-    public const string SystemLanguage = "";
+    // “跟随系统”选项对应的语言代码（持久化到配置时写作 "system"）。
+    public const string SystemLanguage = "System";
 
     // 应用实际支持的语言：扫描 Strings 目录下的子目录得到（如 ["zh-CN","en-US"]）。
     // 仅保留含 Resources.resw 的子目录，避免列出无文案的空目录。
@@ -94,17 +94,17 @@ public static class LangHelper
     {
         foreach (var opt in options)
         {
-            if (string.IsNullOrEmpty(opt.Code))
+            if (string.IsNullOrEmpty(opt.Code) || opt.Code.Equals(SystemLanguage, StringComparison.OrdinalIgnoreCase))
                 opt.DisplayName = Localization.Get("Settings_Language_System");
             else
                 opt.DisplayName = ResolveLanguageDisplayName(opt.Code);
         }
     }
 
-    // 配置里 Language 为 null/空（首次启动）时，返回系统语言（fallback 到默认语言）。
+    // 配置里 Language 为空或 "system"（首次启动/跟随系统）时，返回系统语言（fallback 到默认语言）。
     public static string ResolveEffectiveLanguage(string? configured)
     {
-        if (!string.IsNullOrWhiteSpace(configured))
+        if (!string.IsNullOrWhiteSpace(configured) && !configured!.Equals(SystemLanguage, StringComparison.OrdinalIgnoreCase))
             return SupportedLanguages.Contains(configured, StringComparer.OrdinalIgnoreCase)
                 ? configured
                 : DefaultLanguage;
@@ -144,9 +144,9 @@ public static class LangHelper
     public static string? LangCodeFromIndex(int idx, System.Collections.Generic.IList<LanguageOption> options)
     {
         if (idx < 0 || idx >= options.Count)
-            return null;
+            return SystemLanguage;
         var code = options[idx].Code;
-        return string.IsNullOrEmpty(code) ? null : code;
+        return string.IsNullOrEmpty(code) ? SystemLanguage : code;
     }
 
     // 语言代码(含 null/空=跟随系统) -> 下拉索引。
@@ -171,14 +171,17 @@ public static class LangHelper
     }
 
     // 运行时切换语言：写入配置并立即生效（库支持不重启切换）。
-    // 传 null 表示“跟随系统”。
+    // 传 null/空/"system" 均表示“跟随系统”，统一持久化为 "system"。
     public static void SetLanguage(string? code)
     {
         try
         {
             var effective = ResolveEffectiveLanguage(code);
             Localization.Instance?.SetLanguage(effective);
-            App.DataEngine.Config.Language = code; // 保存用户选择（null=跟随系统）
+            // 持久化：跟随系统写作 "system"，避免配置里出现易误解的 null。
+            App.DataEngine.Config.Language = string.IsNullOrWhiteSpace(code) || code!.Equals(SystemLanguage, StringComparison.OrdinalIgnoreCase)
+                ? SystemLanguage
+                : code;
         }
         catch (Exception ex)
         {

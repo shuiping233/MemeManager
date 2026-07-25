@@ -13,8 +13,8 @@ public class AppConfig
 {
     public ThemeMode Theme { get; set; } = ThemeMode.System;
 
-    // 界面语言：null/空=跟随系统(默认zh-CN)，"zh-CN"，"en-US"。运行时由 WinUI3Localizer 切换。
-    public string? Language { get; set; } = null;
+    // 界面语言："system"=跟随系统(默认)，"zh-CN"，"en-US" 等。运行时由 WinUI3Localizer 切换。
+    public string? Language { get; set; } = "system";
 
     public string StoragePath { get; set; } = string.Empty;
 
