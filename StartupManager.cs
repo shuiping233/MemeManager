@@ -27,17 +27,9 @@ public static class StartupManager
     {
         try
         {
+            // 仅判断 Run 项下是否存在本程序的键值，存在即视为已开启。
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
-            var raw = key?.GetValue(AppName);
-            if (raw is not string value)
-                return false;
-            // 仅比对 exe 路径部分（路径可能含空格，不能按空格 Split），
-            // 去首尾引号后截取到 ".exe" 为止，忽略后面的参数。
-            var unquoted = value.Trim().Trim('"');
-            int exeIdx = unquoted.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
-            var path = exeIdx >= 0 ? unquoted.Substring(0, exeIdx + 4) : unquoted;
-            return !string.IsNullOrEmpty(path) &&
-                   path.Equals(CurrentExePath, System.StringComparison.OrdinalIgnoreCase);
+            return key?.GetValue(AppName) != null;
         }
         catch (Exception ex)
         {
