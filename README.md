@@ -1,5 +1,7 @@
 <div align="center">
 
+[English](./README.en.md) | 中文
+
 # MemeManager (表情包管理器)
 
 <img src="https://img.shields.io/github/v/release/shuiping233/MemeManager?color=76bad9" href="https://github.com/shuiping233/MemeManager/releases/latest">
@@ -122,8 +124,7 @@
   - `Delete` : 删除当前分类
   
 
-
-## 禁止多开
+## 多开唤起主窗口
 
 已经实现二次启动软件后, 会通知旧进程呼出主窗口的功能了
 
@@ -155,6 +156,17 @@
     └── fa779d7d485fae8366d53e102ded5258131378eb02b95175c813b018748a570c.jpg
 ```
 
+## 项目开发
+
+开发环境搭建请参考微软官方文档：[WinUI3 应用开发入门（Visual Studio）](https://learn.microsoft.com/zh-cn/windows/apps/get-started/start-here?tabs=visual-studio)。
+
+直接使用 Visual Studio 打开仓库根目录的 `MemeManager.sln` 即可编译运行。
+
+### 国际化 (i18n) 说明
+
+本程序的语言支持由 `Strings/` 目录下的资源文件驱动，新增/维护语言的详细说明请见 [Strings/README.zh-CN.md](Strings/README.zh-CN.md)（英文版见 [Strings/README.md](Strings/README.md)）。
+
+
 ## 鸣谢
 - [NightSkyTS] : 测试人员, 提供了win10测试机器, 提供和反馈了超过半数Bug和优化建议
 
@@ -163,3 +175,5 @@
 
 [NightSkyTS]: https://github.com/NightSkyTS
 [SuzuEmojy]: https://github.com/IxinorTyan/SuzuEmojy
+
+
