@@ -59,6 +59,20 @@ public static class LangHelper
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
     }
 
+    // 解析某语言的下拉显示名：优先取 resw 的 Settings_Language_<code>，
+    // 缺失（返回 key 本身或空串）时回退到 CultureInfo 本地名，保证不出现空白/原始 key。
+    private static string ResolveLanguageDisplayName(string code)
+    {
+        var key = $"Settings_Language_{code}";
+        var display = Localization.Get(key);
+        if (display == key || string.IsNullOrEmpty(display))
+        {
+            try { display = CultureInfo.GetCultureInfo(code).NativeName; }
+            catch { display = code; }
+        }
+        return display;
+    }
+
     // 构建下拉项：首项固定“跟随系统”，其余按 SupportedLanguages 顺序。
     // 显示名取自 resw 的 Settings_Language_<code>（跟随系统取 Settings_Language_System）。
     public static System.Collections.Generic.List<LanguageOption> BuildLanguageOptions()
@@ -69,16 +83,7 @@ public static class LangHelper
         };
         foreach (var lang in SupportedLanguages)
         {
-            // 优先取 resw 里的人工翻译（Settings_Language_<code>），缺失时回退到
-            // CultureInfo 本地名，保证新增语言目录不至于显示原始 key。
-            var key = $"Settings_Language_{lang}";
-            var display = Localization.Get(key);
-            if (display == string.Empty)
-            {
-                try { display = CultureInfo.GetCultureInfo(lang).NativeName; }
-                catch { display = lang; }
-            }
-            options.Add(new LanguageOption(lang, display));
+            options.Add(new LanguageOption(lang, ResolveLanguageDisplayName(lang)));
         }
         return options;
     }
@@ -92,16 +97,7 @@ public static class LangHelper
             if (string.IsNullOrEmpty(opt.Code))
                 opt.DisplayName = Localization.Get("Settings_Language_System");
             else
-            {
-                var key = $"Settings_Language_{opt.Code}";
-                var display = Localization.Get(key);
-                if (display == key)
-                {
-                    try { display = CultureInfo.GetCultureInfo(opt.Code).NativeName; }
-                    catch { display = opt.Code; }
-                }
-                opt.DisplayName = display;
-            }
+                opt.DisplayName = ResolveLanguageDisplayName(opt.Code);
         }
     }
 
