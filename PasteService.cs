@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -21,16 +21,59 @@ public static class PasteService
 
         try
         {
-            var file = await StorageFile.GetFileFromPathAsync(Path.GetFullPath(filePath));
-
+            // 延迟提供（SetDataProvider）：不在调用瞬间同步构造 StorageFile / Bitmap 等跨公寓
+            // COM 对象，而是等目标进程真正读取剪贴板时才在对方安全上下文异步提供，
+            // 避开 CDataPackage::GetDataHere 跨公寓释放导致的 0x40080201 崩溃
+            // （dump 证实崩溃发生在其他进程读取剪贴板时）。闭包仅捕获 string 路径（值类型）。
+            var path = Path.GetFullPath(filePath);
             var package = new DataPackage();
 
-            System.Collections.Generic.List<Windows.Storage.IStorageItem> storageItems =
-                new System.Collections.Generic.List<Windows.Storage.IStorageItem> { file };
-            package.SetStorageItems(storageItems);
+            package.SetDataProvider(StandardDataFormats.StorageItems, async (request) =>
+            {
+                var deferral = request.GetDeferral();
+                try
+                {
+                    var file = await StorageFile.GetFileFromPathAsync(path);
+                    request.SetData((System.Collections.Generic.IReadOnlyList<Windows.Storage.IStorageItem>)
+                        [file]);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("复制到剪贴板(StorageItems 提供)失败: " + ex.Message);
+                }
+                finally
+                {
+                    deferral.Complete();
+                }
+            });
 
-            var streamRef = RandomAccessStreamReference.CreateFromFile(file);
-            package.SetBitmap(streamRef);
+            // Bitmap 兜底：给只认 Bitmap 的老客户端（GIF 会静态化，已知代价）
+            package.SetDataProvider(StandardDataFormats.Bitmap, async (request) =>
+            {
+                var deferral = request.GetDeferral();
+                try
+                {
+                    var bytes = await Task.Run(() => File.ReadAllBytes(path));
+                    var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                    using (var dw = ms.GetOutputStreamAt(0))
+                    using (var dwStream = dw.AsStreamForWrite())
+                    {
+                        dwStream.Write(bytes, 0, bytes.Length);
+                        dwStream.Flush();
+                    }
+                    ms.Seek(0);
+                    request.SetData(
+                        Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("复制到剪贴板(Bitmap 提供)失败: " + ex.Message);
+                }
+                finally
+                {
+                    deferral.Complete();
+                }
+            });
 
             Clipboard.SetContent(package);
             // Flush 在剪贴板被其他进程占用时可能抛 COMException，这里忽略，
@@ -64,6 +107,8 @@ public static class PasteService
             // 复用“仅复制到剪贴板”的逻辑，随后模拟 Ctrl+V 粘贴到前台窗口
             await CopyImageToClipboardAsync(filePath);
 
+            // 数据改为延迟提供（SetDataProvider 异步构造），粘贴前多等一会确保
+            // 目标进程读取时数据已就绪，避免 Ctrl+V 早于数据提供完成
             await Task.Delay(10);
 
             // 若未显式指定目标，则取当前前台窗口（通常是用户正在输入的应用）
