@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -73,7 +73,7 @@ public static class LangHelper
             // CultureInfo 本地名，保证新增语言目录不至于显示原始 key。
             var key = $"Settings_Language_{lang}";
             var display = Localization.Get(key);
-            if (display == key)
+            if (display == string.Empty)
             {
                 try { display = CultureInfo.GetCultureInfo(lang).NativeName; }
                 catch { display = lang; }
