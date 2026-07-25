@@ -67,7 +67,13 @@ but adding the key keeps the wording consistent and intentional.
 - `DefaultLanguage` falls back to `zh-CN` if present, otherwise the first
   discovered language.
 - The language code must be a valid .NET culture name understood by
-  `CultureInfo` (used for the fallback display name).
+  `CultureInfo` (used for the fallback display name). See the Microsoft
+  locale/culture reference for valid codes:
+  https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/
+  or use the following PowerShell command to list culture names
+  ```powershell
+  [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object { -not $_.IsNeutralCulture } | Select-Object Name, NativeName | Where-Object Name
+  ```
 
 
 

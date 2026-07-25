@@ -60,5 +60,11 @@
 - 只有包含 `Resources.resw` 的子文件夹才会被注册，空文件夹会被忽略。
 - `DefaultLanguage` 优先取 `zh-CN`，若不存在则取第一个被发现的语言。
 - 语言代码必须是 `.NET` 能识别的有效文化名（回退显示名时会用到 `CultureInfo`）。
+  可参考微软的区域/文化代码文档查看合法代码：
+  https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/
+  或者使用以下PowerShell命令来快速列出文化名
+  ```powershell
+  [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object { -not $_.IsNeutralCulture } | Select-Object Name, NativeName | Where-Object Name
+  ```
 
 [English]: ./README.md
