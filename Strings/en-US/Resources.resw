@@ -301,7 +301,7 @@
     <value>Light</value>
   </data>
   <data name="Settings_Language_Chinese.Content" xml:space="preserve">
-    <value>中文</value>
+    <value>简体中文</value>
   </data>
   <data name="Settings_Language_English.Content" xml:space="preserve">
     <value>English</value>
@@ -446,7 +446,7 @@ Reverted to the previous valid path.</value>
     <value>Theme</value>
   </data>
   <data name="Settings_Theme_System.Content" xml:space="preserve">
-    <value>Follow system</value>
+    <value>System</value>
   </data>
   <data name="Settings_Title.Text" xml:space="preserve">
     <value>Settings</value>
@@ -458,7 +458,7 @@ Reverted to the previous valid path.</value>
     <value>Dark</value>
   </data>
   <data name="Settings_Language_System.Content" xml:space="preserve">
-    <value>Follow system</value>
+    <value>System</value>
   </data>
   <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
     <value>On</value>
