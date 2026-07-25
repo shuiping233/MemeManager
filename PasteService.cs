@@ -22,18 +22,20 @@ public static class PasteService
         try
         {
             // 延迟提供（SetDataProvider）：不在调用瞬间同步构造 StorageFile / Bitmap 等跨公寓
-            // COM 对象，而是等目标进程真正读取剪贴板时才在对方安全上下文异步提供，
-            // 避开 CDataPackage::GetDataHere 跨公寓释放导致的 0x40080201 崩溃
-            // （dump 证实崩溃发生在其他进程读取剪贴板时）。闭包仅捕获 string 路径（值类型）。
+            // COM 对象，而是等目标进程真正读取剪贴板时才提供，避开 CDataPackage::GetDataHere
+            // 跨公寓释放导致的 0x40080201 崩溃（dump 证实崩溃发生在其他进程读取剪贴板时）。
+            // 闭包仅捕获 string 路径（值类型）。provider 回调刻意做成【同步】(见下方 lambda 无 async)：
+            // 若用 await 会 Post 回 UI 线程公寓，与发送瞬间 UI 操作抢线程 → 卡顿+偶发失败；
+            // 同步在系统回调线程取数可避免跨线程排队，同时保留延迟提供的不崩特性。
             var path = Path.GetFullPath(filePath);
             var package = new DataPackage();
 
-            package.SetDataProvider(StandardDataFormats.StorageItems, async (request) =>
+            package.SetDataProvider(StandardDataFormats.StorageItems, (request) =>
             {
                 var deferral = request.GetDeferral();
                 try
                 {
-                    var file = await StorageFile.GetFileFromPathAsync(path);
+                    var file = StorageFile.GetFileFromPathAsync(path).GetAwaiter().GetResult();
                     request.SetData((System.Collections.Generic.IReadOnlyList<Windows.Storage.IStorageItem>)
                         [file]);
                 }
@@ -48,12 +50,12 @@ public static class PasteService
             });
 
             // Bitmap 兜底：给只认 Bitmap 的老客户端（GIF 会静态化，已知代价）
-            package.SetDataProvider(StandardDataFormats.Bitmap, async (request) =>
+            package.SetDataProvider(StandardDataFormats.Bitmap, (request) =>
             {
                 var deferral = request.GetDeferral();
                 try
                 {
-                    var bytes = await Task.Run(() => File.ReadAllBytes(path));
+                    var bytes = File.ReadAllBytes(path);
                     var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
                     using (var dw = ms.GetOutputStreamAt(0))
                     using (var dwStream = dw.AsStreamForWrite())
