@@ -1119,10 +1119,11 @@ public sealed partial class MainWindow : Window
         //  - StorageFileDrag 关闭（默认，稳定优先）：仅用 SetBitmap + in-mem 流
         //    （进程内、同公寓，释放无跨公寓 COM 开销，安全）。单张任意类型（含 GIF）都设 Bitmap 流，
         //    老 QQ 认 Bitmap 格式（静态图可拖入；GIF 会变为静态图，已知代价）。
-        //  - StorageFileDrag 开启（恢复文件拖出）：写入 StorageFile（SetStorageItems）+ 单张非 GIF
-        //    额外 SetBitmap。可让动态 GIF 等作为文件拖到 QQ；但 dump 证实 StorageFile 跨公寓释放
-        //    会撞 WinUI 重入保护(0x40080201 / 0xc000027b)，高手连续拖拽操作可能会导致FastFail闪退。
-        //    Win10对于此问题尤为严重
+        //  - StorageFileDrag 开启（恢复文件拖出）：改用 SetDataProvider 延迟提供 StorageItems
+        //    （+单张非 GIF 兜底 Bitmap）。拖放目标真正请求时才异步取 StorageFile，不在
+        //    DragItemsStarting 同步构造跨公寓 COM 对象，从而避开 DataPackage 析构时的释放竞态
+        //    (0x40080201 / 0xc000027b)。可让动态 GIF 等作为文件拖到 QQ，且不触发闪退。
+        //    【注：此分支稳定性有待验证，验证期内若出问题可关掉 StorageFileDrag 退回稳定路径】
         // 内部重排(CanReorderItems)不读 DataPackage 内容，仅靠 Move 语义生效，互不影响。
         try
         {
@@ -1135,34 +1136,63 @@ public sealed partial class MainWindow : Window
             }
             else if (App.DataEngine.Config.StorageFileDrag)
             {
-                // 恢复文件拖出能力：写入 StorageFile（含 GIF 走文件路径）。
-                var files = valid
-                    .Select(v => StorageFile.GetFileFromPathAsync(v.LocalPath!).AsTask().Result)
-                    .ToArray();
-                e.Data.SetStorageItems(files);
-
-                bool isGif = files.Length == 1 &&
-                    string.Equals(Path.GetExtension(files[0].Path), ".gif", StringComparison.OrdinalIgnoreCase);
-                if (files.Length == 1 && !isGif)
+                // 新方案（微软建议，稳定性有待验证）：用 SetDataProvider 注册回调，拖放目标真正请求
+                // StorageItems 时才异步取 StorageFile——不在 DragItemsStarting 同步构造，
+                // 避开 DataPackage 析构时的跨公寓 COM 释放竞态(0xc000027b)。
+                // paths 是本地 string 数组（值类型，无 COM 对象），DragItemsStarting 退出时
+                // 没有任何跨公寓对象要释放——这正是修复关键。
+                var paths = valid.Select(v => v.LocalPath!).ToArray();
+                e.Data.SetDataProvider(StandardDataFormats.StorageItems, async (request) =>
                 {
+                    var deferral = request.GetDeferral();
                     try
                     {
-                        var bytes = File.ReadAllBytes(valid[0].LocalPath!);
-                        var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                        using (var dw = ms.GetOutputStreamAt(0))
-                        using (var dwStream = dw.AsStreamForWrite())
-                        {
-                            dwStream.Write(bytes, 0, bytes.Length);
-                            dwStream.Flush();
-                        }
-                        ms.Seek(0);
-                        e.Data.SetBitmap(
-                            Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                        var files = await Task.WhenAll(
+                            paths.Select(p => StorageFile.GetFileFromPathAsync(p).AsTask()));
+                        request.SetData(files);
                     }
                     catch (Exception ex)
                     {
-                        Log("DragItemsStarting: 构造位图流失败（已放弃图片格式）: " + ex.Message);
+                        Log("DragItemsStarting(SetDataProvider): 取文件失败: " + ex.Message);
                     }
+                    finally
+                    {
+                        deferral.Complete();
+                    }
+                });
+
+                // 单张非 GIF 额外用 SetDataProvider 注册 Bitmap 兜底，给只认 Bitmap 的老客户端
+                bool singleNonGif = paths.Length == 1 &&
+                    !string.Equals(Path.GetExtension(paths[0]), ".gif", StringComparison.OrdinalIgnoreCase);
+                if (singleNonGif)
+                {
+                    var singlePath = paths[0];
+                    e.Data.SetDataProvider(StandardDataFormats.Bitmap, async (request) =>
+                    {
+                        var deferral = request.GetDeferral();
+                        try
+                        {
+                            var bytes = await Task.Run(() => File.ReadAllBytes(singlePath));
+                            var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                            using (var dw = ms.GetOutputStreamAt(0))
+                            using (var dwStream = dw.AsStreamForWrite())
+                            {
+                                dwStream.Write(bytes, 0, bytes.Length);
+                                dwStream.Flush();
+                            }
+                            ms.Seek(0);
+                            request.SetData(
+                                Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
+                        }
+                        catch (Exception ex)
+                        {
+                            Log("DragItemsStarting(SetDataProvider Bitmap): 构造位图流失败: " + ex.Message);
+                        }
+                        finally
+                        {
+                            deferral.Complete();
+                        }
+                    });
                 }
             }
             else
