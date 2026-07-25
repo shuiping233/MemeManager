@@ -31,6 +31,7 @@ public sealed partial class SettingsPage : Page
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
+        _initialAutoStart = AutoStartToggle.IsOn;
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
         StorageFileDragToggle.IsOn = cfg.StorageFileDrag;
@@ -54,6 +55,9 @@ public sealed partial class SettingsPage : Page
 
     // 进入设置时已有的有效路径（校验失败回退用，而非默认路径）
     private string? _originalStoragePath;
+
+    // 进入设置时开机自启的初始状态，用于判断用户是否真正改动过该开关。
+    private bool _initialAutoStart;
 
     // 填充默认快捷键提示等无法用 Uid 直接绑定的静态文本（ComboBox 选项已通过 XAML Uid 本地化）。
     private void LocalizeStaticStrings()
@@ -354,9 +358,13 @@ public sealed partial class SettingsPage : Page
         App.MainWindow.ApplyListStrategyFromConfig();
         App.MainWindow.ReloadData();
 
-        bool ok = AutoStartToggle.IsOn ? StartupManager.Enable() : StartupManager.Disable();
-        if (!ok)
-            Logger.Log("[Settings] 设置开机自启失败（注册表写入被拒绝）");
+        // 仅当用户真正改动过开机自启开关时才写注册表，避免每次打开设置都强制写入。
+        if (AutoStartToggle.IsOn != _initialAutoStart)
+        {
+            bool ok = AutoStartToggle.IsOn ? StartupManager.Enable() : StartupManager.Disable();
+            if (!ok)
+                Logger.Log("[Settings] 设置开机自启失败（注册表写入被拒绝）");
+        }
 
         Logger.Log("[Settings] 配置已保存");
     }

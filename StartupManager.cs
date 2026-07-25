@@ -42,6 +42,9 @@ public static class StartupManager
     {
         try
         {
+            // 已写入则跳过，避免无意义的重复注册表写入。
+            if (IsEnabled())
+                return true;
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
             if (key == null) return false;
             key.SetValue(AppName, DesiredValue, RegistryValueKind.String);
