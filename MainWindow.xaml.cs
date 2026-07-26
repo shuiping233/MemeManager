@@ -1129,6 +1129,15 @@ public sealed partial class MainWindow : Window
     // 记录被拖项 + 设 StorageItems（供拖到文件管理器/输入框时复制）。
     private void MemeGridView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
+        // 全量刷新（F5）重建 ItemsSource 期间禁止发起拖拽：此时 GridView 正在重置集合，
+        // 若进入拖拽会让 WinUI 在重建中又操作同一容器而崩溃。直接取消本次拖拽。
+        if (_reloading)
+        {
+            e.Cancel = true;
+            Log("拖拽被取消：全量刷新进行中，避免重建 ItemsSource 与拖拽冲突导致崩溃");
+            return;
+        }
+
         // 拖拽会话开始即彻底关闭预览浮窗：避免浮窗淡出 Storyboard 异步回调
         // 与 GridView 拖拽重排会话在 native 层交错访问同一容器树导致 failfast；
         // 同时拖拽时不再弹浮窗，避免遮挡鼠标视野。
@@ -1703,7 +1712,7 @@ public sealed partial class MainWindow : Window
     // 或网格正处于拖拽重排中（拖拽中重建 ItemsSource 会令 WinUI 崩溃）。
     // 模态窗优先（避免叠加弹窗），写锁与拖拽次之。
     private bool IsBusyBlockingInput() =>
-        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || _draggingMemes != null;
+        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || _draggingMemes != null || _reloading;
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
     // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在
