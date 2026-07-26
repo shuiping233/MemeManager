@@ -1369,6 +1369,14 @@ public sealed partial class MainWindow : Window
             }
         }
 
+        // 外部文件拖入为导入（写操作）：先判断写入锁，占用则弹提示并放弃，
+        // 避免无谓地 GetStorageItemsAsync + 遍历收集（写锁占用时这些收集纯属浪费）。
+        if (!TryGuardWrite())
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            return;
+        }
+
         // 列出所有可用的数据格式，便于排查 QQ 等特殊来源
         var formats = view.AvailableFormats;
         Log($"Drop: 可用格式数量={formats.Count}");

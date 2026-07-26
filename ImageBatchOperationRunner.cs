@@ -139,9 +139,16 @@ internal sealed class ImageBatchOperationRunner
             // 整个工作搬到线程池，避免 UI 线程被逐张 IO/缓存写入占满
             await Task.Run(() => work(progress));
 
-            // 回到 UI 线程收尾（守卫 + 自动刷新 + 隐藏）
+            // 写锁在工作完成后立即释放（不等待 UI 收尾），避免收尾刷新（如重建网格）
+            // 在 UI 线程执行期间仍占用写锁，导致后续用户操作（如再次拖入）的 guard 被延迟放行/拒绝。
+            if (wasWrite)
+                Interlocked.Exchange(ref _writeActive, 0);
+
+            // 回到 UI 线程收尾（守卫 + 自动刷新 + 隐藏）。
+            // 用 Low 优先级入队：收尾刷新（尤其导入后重建网格）是重活，降到输入事件/渲染之后执行，
+            // 避免与用户紧接着的操作（如再次拖入文件）在 UI 线程同一帧抢执行权造成卡顿。
             var tcs = new TaskCompletionSource();
-            _dispatcher.TryEnqueue(() =>
+            _dispatcher.TryEnqueue(DispatcherQueuePriority.Low, () =>
             {
                 try
                 {
@@ -166,6 +173,7 @@ internal sealed class ImageBatchOperationRunner
         }
         finally
         {
+            // 兜底：若上面未因正常路径释放（如 work 抛异常跳过释放点），确保写锁一定归零。
             if (wasWrite)
                 Interlocked.Exchange(ref _writeActive, 0);
         }
