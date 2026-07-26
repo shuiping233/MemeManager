@@ -39,10 +39,11 @@
                  Severity="Informational"
                  Margin="0">
             <InfoBar.Content>
+                <!-- 标题 / 进度条 / 计数 放在同一行 -->
                 <Grid VerticalAlignment="Center" ColumnSpacing="10" Margin="0,4,0,4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="Auto" MinWidth="70"/>
+                        <ColumnDefinition Width="Auto" MinWidth="120"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="BatchProgressText" Grid.Column="0" VerticalAlignment="Center"/>
