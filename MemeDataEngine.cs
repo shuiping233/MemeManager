@@ -222,7 +222,9 @@ public class MemeDataEngine
 
     public IReadOnlyList<MemeModel> GetMemes(string? category = null, string? keyword = null)
     {
-        IEnumerable<MemeModel> query = _memeCache;
+        // 快照后再做延迟 LINQ 枚举，避免枚举过程中 _memeCache 被其它线程（导入/删除/文件监听）
+        // 并发修改导致 “Collection was modified” 崩溃。
+        IEnumerable<MemeModel> query = _memeCache.ToList();
 
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
@@ -242,7 +244,8 @@ public class MemeDataEngine
     {
         // 分类 = 内存中已有分类 ∪ 磁盘上实际存在的分类文件夹
         var set = new System.Collections.Generic.SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var m in _memeCache)
+        // 先快照再枚举，避免枚举过程中 _memeCache 被并发修改导致崩溃
+        foreach (var m in _memeCache.ToList())
             if (!string.IsNullOrWhiteSpace(m.Category)) set.Add(m.Category);
 
         if (Directory.Exists(_baseDir))

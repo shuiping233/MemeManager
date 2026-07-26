@@ -67,6 +67,9 @@ public sealed partial class MainWindow : Window
     // 内部拖拽移动：当前拖拽的 meme 模型列表（非空即表示内部拖拽，区别于外部导入）
     private List<MemeModel>? _draggingMemes;
 
+    // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
+    private bool _reloading;
+
     // 记录本窗口激活前的前台窗口（通常是正在聊天的目标应用），用于粘贴时回投 Ctrl+V
     private IntPtr _prevActiveHwnd;
     private IntPtr _lastExternalFg;
@@ -1696,10 +1699,11 @@ public sealed partial class MainWindow : Window
         return true;
     }
 
-    // 是否应拦截用户输入（拖入等）：有任意模态弹窗未处理，或已有写任务在跑。
-    // 模态窗优先（避免叠加弹窗），写锁次之。
+    // 是否应拦截用户输入（拖入/F5 等）：有任意模态弹窗未处理、已有写任务在跑，
+    // 或网格正处于拖拽重排中（拖拽中重建 ItemsSource 会令 WinUI 崩溃）。
+    // 模态窗优先（避免叠加弹窗），写锁与拖拽次之。
     private bool IsBusyBlockingInput() =>
-        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive;
+        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || _draggingMemes != null;
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
     // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在
@@ -1857,9 +1861,32 @@ public sealed partial class MainWindow : Window
     /// <summary>重新读取数据目录并重渲染：分类、表情、缩略图全部刷新</summary>
     private async Task RefreshDataAsync()
     {
-        Log("刷新：重新读取数据目录");
-        await App.DataEngine.InitializeAsync();
-        LoadCategories(); // 内部末尾已调用 RefreshMemes，无需再调一次
+        // 拖拽重排进行中刷新会令 WinUI 崩溃（重建 ItemsSource），写任务进行中重载会与写操作抢数据，
+        // 有模态窗时也不应插入刷新，重载自身也不得重入。统一用 IsBusyBlockingInput 拦截。
+        if (IsBusyBlockingInput() || _reloading)
+        {
+            if (_batchRunner.IsWriteActive)
+                _ = DialogHelper.ShowWriteBusyAsync(this.Content.XamlRoot);
+            else if (_draggingMemes != null)
+                Log("刷新被忽略：网格拖拽重排进行中，避免重建 ItemsSource 导致崩溃");
+            else if (_reloading)
+                Log("刷新被忽略：已有刷新在进行中");
+            else
+                Log("刷新被忽略：存在未处理的模态弹窗");
+            return;
+        }
+
+        _reloading = true;
+        try
+        {
+            Log("刷新：重新读取数据目录");
+            await App.DataEngine.InitializeAsync();
+            LoadCategories(); // 内部末尾已调用 RefreshMemes，无需再调一次
+        }
+        finally
+        {
+            _reloading = false;
+        }
     }
 
     /// <summary>托盘菜单“设置”：先呼出窗口，再弹设置页</summary>
