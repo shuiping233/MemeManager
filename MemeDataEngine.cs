@@ -479,41 +479,28 @@ public class MemeDataEngine
         long ioDone = 0;
 
         // ---------- 阶段2：并行复制文件（IO 并行，不碰共享状态）----------
-        var copyGate = new SemaphoreSlim(ImportParallelism);
-        var copyTasks = new List<Task>(plans.Count);
-        foreach (var plan in plans)
+        var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
+        await Parallel.ForEachAsync(plans, copyPo, async (plan, _) =>
         {
-            copyTasks.Add(Task.Run(async () =>
+            if (!plan.IsDuplicate)   // 重复项直接跳过，无须复制
             {
-                await copyGate.WaitAsync();
                 try
                 {
-                    if (!plan.IsDuplicate)   // 重复项直接跳过，无须复制
-                    {
-                        try
-                        {
-                            await EcoQos.RunAsync(() =>
-                                File.Copy(plan.SourcePath, Path.Combine(categoryDir, plan.FileName), overwrite: true));
-                            plan.CopyOk = true;
-                        }
-                        catch (Exception ex)
-                        {
-                            // 失败静默打日志跳过（沿用现状，不弹窗）
-                            MemeManager.Logger.Log($"[Engine] 导入复制失败: {plan.SourcePath} {ex.Message}");
-                            plan.CopyOk = false;
-                        }
-                    }
+                    await EcoQos.RunAsync(() =>
+                        File.Copy(plan.SourcePath, Path.Combine(categoryDir, plan.FileName), overwrite: true));
+                    plan.CopyOk = true;
                 }
-                finally
+                catch (Exception ex)
                 {
-                    copyGate.Release();
-                    // 该项 IO 处理完毕（无论复制/重复/失败），进度 +1
-                    var d = (uint)Interlocked.Increment(ref ioDone);
-                    progress?.Report(new BatchProgress(d, total));
+                    // 失败静默打日志跳过（沿用现状，不弹窗）
+                    MemeManager.Logger.Log($"[Engine] 导入复制失败: {plan.SourcePath} {ex.Message}");
+                    plan.CopyOk = false;
                 }
-            }));
-        }
-        await Task.WhenAll(copyTasks);
+            }
+            // 该项 IO 处理完毕（无论复制/重复/失败），进度 +1
+            var d = (uint)Interlocked.Increment(ref ioDone);
+            progress?.Report(new BatchProgress(d, total));
+        });
 
         // ---------- 阶段3：串行落地（写 metadata/cache，纯内存极快）----------
         foreach (var plan in plans)
@@ -602,34 +589,24 @@ public class MemeDataEngine
         long ioDone = 0;
 
         // 并行复制文件（IO 并行，互不依赖，无共享状态；失败静默忽略）
-        var copyGate = new SemaphoreSlim(ImportParallelism);
-        var copyTasks = new List<Task>(list.Count);
-        foreach (var meme in list)
+        var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
+        await Parallel.ForEachAsync(list, copyPo, async (meme, _) =>
         {
-            copyTasks.Add(Task.Run(async () =>
+            try
             {
-                await copyGate.WaitAsync();
-                try
+                if (File.Exists(meme.LocalPath))
                 {
-                    if (File.Exists(meme.LocalPath))
-                    {
-                        var dest = Path.Combine(targetDir, meme.FileName);
-                        await EcoQos.RunAsync(() => File.Copy(meme.LocalPath, dest, overwrite: true));
-                    }
+                    var dest = Path.Combine(targetDir, meme.FileName);
+                    await EcoQos.RunAsync(() => File.Copy(meme.LocalPath, dest, overwrite: true));
                 }
-                catch (Exception ex)
-                {
-                    MemeManager.Logger.Log($"[Engine] 导出复制失败: {meme.LocalPath} {ex.Message}");
-                }
-                finally
-                {
-                    copyGate.Release();
-                    var d = (uint)Interlocked.Increment(ref ioDone);
-                    progress?.Report(new BatchProgress(d, total));
-                }
-            }));
-        }
-        await Task.WhenAll(copyTasks);
+            }
+            catch (Exception ex)
+            {
+                MemeManager.Logger.Log($"[Engine] 导出复制失败: {meme.LocalPath} {ex.Message}");
+            }
+            var d = (uint)Interlocked.Increment(ref ioDone);
+            progress?.Report(new BatchProgress(d, total));
+        });
     }
 
     // ---------- 移动到其他分类 ----------
@@ -703,53 +680,46 @@ public class MemeDataEngine
         var plans = new List<MovePlan>(list.Count);
 
         // ---------- 阶段1：并行移动物理文件（IO 并行，互不依赖）----------
-        var moveGate = new SemaphoreSlim(ImportParallelism);
-        var moveTasks = new List<Task>(list.Count);
-        foreach (var meme in list)
+        var movePo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
+        await Parallel.ForEachAsync(list, movePo, async (meme, _) =>
         {
-            moveTasks.Add(Task.Run(async () =>
+            try
             {
-                await moveGate.WaitAsync();
+                // 已在目标分类：标记跳过
+                if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedSameTarget));
+                    return;
+                }
+
+                var destPath = Path.Combine(targetDir, meme.FileName);
+                // 目标已存在同名(hash)文件：跳过移动，不覆盖（同名=同内容，原文件保留，
+                // 避免即使守卫被绕过也静默丢失目标分类原有图片）。
+                if (File.Exists(destPath))
+                {
+                    MemeManager.Logger.Log($"[Engine] 移动跳过(目标已存在): 文件={meme.FileName} 源分类=\"{meme.Category}\" -> 目标=\"{safeTarget}\"");
+                    lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedExists));
+                    return;
+                }
+
                 try
                 {
-                    // 已在目标分类：标记跳过
-                    if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
-                    {
-                        lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedSameTarget));
-                        return;
-                    }
-
-                    var destPath = Path.Combine(targetDir, meme.FileName);
-                    // 目标已存在同名(hash)文件：跳过移动，不覆盖（同名=同内容，原文件保留，
-                    // 避免即使守卫被绕过也静默丢失目标分类原有图片）。
-                    if (File.Exists(destPath))
-                    {
-                        MemeManager.Logger.Log($"[Engine] 移动跳过(目标已存在): 文件={meme.FileName} 源分类=\"{meme.Category}\" -> 目标=\"{safeTarget}\"");
-                        lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedExists));
-                        return;
-                    }
-
-                    try
-                    {
-                        if (File.Exists(meme.LocalPath))
-                            await EcoQos.RunAsync(() => File.Move(meme.LocalPath, destPath, overwrite: false));
-                        lock (plans) plans.Add(new MovePlan(meme, MoveResult.Moved, destPath));
-                    }
-                    catch (Exception ex)
-                    {
-                        MemeManager.Logger.Log($"[Engine] 移动文件失败 {meme.FileName}: {ex.Message}");
-                        lock (plans) plans.Add(new MovePlan(meme, MoveResult.Failed));
-                    }
+                    if (File.Exists(meme.LocalPath))
+                        await EcoQos.RunAsync(() => File.Move(meme.LocalPath, destPath, overwrite: false));
+                    lock (plans) plans.Add(new MovePlan(meme, MoveResult.Moved, destPath));
                 }
-                finally
+                catch (Exception ex)
                 {
-                    moveGate.Release();
-                    var d = (uint)Interlocked.Increment(ref ioDone);
-                    progress?.Report(new BatchProgress(d, total));
+                    MemeManager.Logger.Log($"[Engine] 移动文件失败 {meme.FileName}: {ex.Message}");
+                    lock (plans) plans.Add(new MovePlan(meme, MoveResult.Failed));
                 }
-            }));
-        }
-        await Task.WhenAll(moveTasks);
+            }
+            finally
+            {
+                var d = (uint)Interlocked.Increment(ref ioDone);
+                progress?.Report(new BatchProgress(d, total));
+            }
+        });
 
         // ---------- 阶段2：串行落地（写 metadata/cache，纯内存极快）----------
         foreach (var plan in plans)
@@ -943,27 +913,17 @@ public class MemeDataEngine
             var groupList = group.ToList();
 
             // 阶段1：并行删除物理文件（IO 并行，互不依赖；失败静默忽略）
-            var deleteGate = new SemaphoreSlim(ImportParallelism);
-            var deleteTasks = new List<Task>(groupList.Count);
-            foreach (var meme in groupList)
+            var delPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
+            await Parallel.ForEachAsync(groupList, delPo, async (meme, _) =>
             {
-                deleteTasks.Add(Task.Run(async () =>
+                try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); }
+                catch (Exception ex)
                 {
-                    await deleteGate.WaitAsync();
-                    try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); }
-                    catch (Exception ex)
-                    {
-                        MemeManager.Logger.Log($"[Engine] 删除文件失败: {meme.LocalPath} {ex.Message}");
-                    }
-                    finally
-                    {
-                        deleteGate.Release();
-                        var d = (uint)Interlocked.Increment(ref ioDone);
-                        progress?.Report(new BatchProgress(d, total));
-                    }
-                }));
-            }
-            await Task.WhenAll(deleteTasks);
+                    MemeManager.Logger.Log($"[Engine] 删除文件失败: {meme.LocalPath} {ex.Message}");
+                }
+                var d = (uint)Interlocked.Increment(ref ioDone);
+                progress?.Report(new BatchProgress(d, total));
+            });
 
             // 阶段2：串行更新内存缓存与 metadata（共享字典/集合必须串行，纯内存极快）
             foreach (var meme in groupList)
