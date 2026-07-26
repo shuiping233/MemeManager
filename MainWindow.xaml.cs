@@ -45,6 +45,9 @@ public sealed partial class MainWindow : Window
     // 批量操作进度条（顶部 InfoBar）封装；构造时绑定 XAML 控件
     private readonly BatchProgressHelper _batchProgress;
 
+    // 批量操作统一编排器（后台化 + 进度条 + UI 收尾 + 写锁）
+    private readonly ImageBatchOperationRunner _batchRunner;
+
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
@@ -109,6 +112,16 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount);
+
+        _batchRunner = new ImageBatchOperationRunner(_batchProgress, DispatcherQueue, new BatchUiContext
+        {
+            IsClosing = () => _isClosing,
+            IsVisible = () => _isVisible,
+            CurrentCategory = () => _currentCategory,
+            UpdateCategoryCounts = UpdateCategoryCounts,
+            RefreshMemes = RefreshMemes,
+            RemoveFromCurrentView = RemoveFromCurrentView,
+        });
 
         Title = "MemeManager " + GetInformationalVersion();
 
@@ -494,13 +507,18 @@ public sealed partial class MainWindow : Window
         int moved = memes.Count(m => !m.Category.Equals(targetCat.Name, StringComparison.OrdinalIgnoreCase));
         if (moved > 0)
         {
+            // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
+            if (!TryGuardWrite()) return;
             if (!await GuardMoveConflictAsync(memes, targetCat.Name))
                 return;
-            await App.DataEngine.MoveMemesToCategoryAsync(memes, targetCat.Name);
-            Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」");
-            // 场景B：内容减少但顺序不变。精准移除被移走的项，保持滚动条位置。
-            RemoveFromCurrentView(memes);
-            UpdateCategoryCounts();
+            int total = memes.Count;
+            // 后台执行移动，结束后由 runner 统一移除当前视图中的已移动项（移出当前分类）
+            await _batchRunner.RunAsync(
+                BatchOperationKind.Move,
+                total,
+                progress => App.DataEngine.MoveMemesToCategoryAsync(memes, targetCat.Name, progress),
+                affectedModels: memes,
+                onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」"));
         }
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
@@ -706,12 +724,6 @@ public sealed partial class MainWindow : Window
     }
 
     // 新导入的表情包优先级最高(DateAdded 最新)，按现有排序规则(Priority 降序、
-    // 同值 DateAdded 降序)应排在列表最前。直接在头部插入，避免整列表重建。
-    private void InsertMemeAtFront(MemeViewModel vm)
-    {
-        _memeList.Insert(0, vm);
-    }
-
     // 精准从当前视图移除若干项（不 Clear 重建，保持滚动条位置与选中状态）。
     // 用于“移动到其他分类”等“内容减少但顺序不变”的场景。
     private void RemoveFromCurrentView(IEnumerable<MemeModel> removed)
@@ -1322,13 +1334,15 @@ public sealed partial class MainWindow : Window
             int moved = memes.Count(m => !m.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase));
             if (moved > 0)
             {
-                await App.DataEngine.MoveMemesToCategoryAsync(memes, _currentCategory);
-                Log($"Drop: 内部移动 {moved} 张图片到分类「{_currentCategory}」");
-                if (!_isClosing && _isVisible)
-                {
-                    RefreshMemes();
-                    UpdateCategoryCounts();
-                }
+                // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
+                if (!TryGuardWrite()) return;
+                int total = memes.Count;
+                await _batchRunner.RunAsync(
+                    BatchOperationKind.Move,
+                    total,
+                    progress => App.DataEngine.MoveMemesToCategoryAsync(memes, _currentCategory, progress),
+                    affectedModels: memes,
+                    onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{_currentCategory}」"));
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
                 return;
             }
@@ -1340,7 +1354,9 @@ public sealed partial class MainWindow : Window
         foreach (var f in formats)
             Log($"Drop: 格式 = {f}");
 
-        int importedCount = 0;
+        // 收集所有待导入的源路径（StorageItems 直接用原路径；Bitmap 先落临时文件）
+        var importPaths = new System.Collections.Generic.List<string>();
+        var tempPaths = new System.Collections.Generic.List<string>();
 
         // 1) StorageItems（最常见：文件 / QQ 拖出的文件）
         if (view.Contains(StandardDataFormats.StorageItems))
@@ -1349,10 +1365,7 @@ public sealed partial class MainWindow : Window
             foreach (var item in items)
             {
                 if (item is StorageFile file && IsImage(file.FileType))
-                {
-                    var (imported, _) = await App.DataEngine.ImportMemeAsync(file.Path, _currentCategory);
-                    if (imported != null) importedCount++;
-                }
+                    importPaths.Add(file.Path);
             }
         }
 
@@ -1368,26 +1381,29 @@ public sealed partial class MainWindow : Window
                 {
                     await stream.AsStreamForRead().CopyToAsync(outStream);
                 }
-                var (imported, _) = await App.DataEngine.ImportMemeAsync(tempPath, _currentCategory);
-                if (imported != null) importedCount++;
-                try { System.IO.File.Delete(tempPath); } catch { }
+                importPaths.Add(tempPath);
+                tempPaths.Add(tempPath);
             }
             catch (Exception ex) { Log("拖入(Bitmap)失败: " + ex.Message); }
         }
 
-        if (importedCount > 0)
+        try
         {
-            if (!_isClosing && _isVisible)
+            // 统一走后台批量导入（含写入锁守卫、进度条、分类守卫刷新）
+            if (importPaths.Count > 0)
+                await RunBatchImportAsync(importPaths, _currentCategory);
+        }
+        finally
+        {
+            // 清理 Bitmap 落地的临时文件（导入已在后台读取完毕，此时删除安全）
+            foreach (var t in tempPaths)
             {
-                RefreshMemes();
-                UpdateCategoryCounts();
+                try { System.IO.File.Delete(t); } catch { }
             }
-            Log($"拖入完成(GridView): 新增 {importedCount} 个图片");
         }
-        else
-        {
+
+        if (importPaths.Count == 0)
             Log("拖入: 未导入任何图片（已忽略不符合要求的拖拽对象）");
-        }
     }
 
     // ---------- Win32 层拖入文件（WM_DROPFILES）----------
@@ -1502,13 +1518,19 @@ public sealed partial class MainWindow : Window
     {
         if (_contextMeme == null) return;
         var vm = _contextMeme;
-        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) == ContentDialogResult.Primary)
-        {
-            await App.DataEngine.DeleteMemesAsync(new[] { vm.Model });
-            var item = _memeList.FirstOrDefault(m => m == vm);
-            if (item != null) _memeList.Remove(item);
-            UpdateCategoryCounts();
-        }
+        if (await DialogHelper.ConfirmDeleteMemeAsync(this.Content.XamlRoot, vm.Title) != ContentDialogResult.Primary)
+            return;
+
+        // 删除为写操作：入口先判断写入锁，占用则弹提示并放弃
+        if (!TryGuardWrite()) return;
+
+        var models = new[] { vm.Model };
+        await _batchRunner.RunAsync(
+            BatchOperationKind.Delete,
+            1,
+            progress => App.DataEngine.DeleteMemesAsync(models, progress),
+            affectedModels: models,
+            onUiComplete: () => Log($"右键删除「{vm.Title}」"));
     }
 
     private void MemeOpen_Click(object sender, RoutedEventArgs e)
@@ -1590,15 +1612,21 @@ public sealed partial class MainWindow : Window
         else
             toMove = new List<MemeViewModel> { vm };
 
+        // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
+        if (!TryGuardWrite()) return;
+
         var models = toMove.Select(m => m.Model).ToList();
         if (!await GuardMoveConflictAsync(models, targetName))
             return;
 
-        await App.DataEngine.MoveMemesToCategoryAsync(models, targetName);
-        Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」");
-        // 内容减少、顺序不变：精准移除被移走的项，保持滚动条位置
-        RemoveFromCurrentView(models);
-        UpdateCategoryCounts();
+        int total = models.Count;
+        // 后台执行移动，结束后由 runner 统一移除当前视图中的已移动项（移出当前分类）
+        await _batchRunner.RunAsync(
+            BatchOperationKind.Move,
+            total,
+            progress => App.DataEngine.MoveMemesToCategoryAsync(models, targetName, progress),
+            affectedModels: models,
+            onUiComplete: () => Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」"));
     }
 
     // ---------- 批量操作 ----------
@@ -1621,79 +1649,67 @@ public sealed partial class MainWindow : Window
         await RunBatchImportAsync(files, _currentCategory);
     }
 
-    // 低于该数量的导入/导出不弹进度 InfoBar（数量小，瞬间完成没必要）
-    private const int BatchImportExportProgressMinCount = 5;
-    // 批量移动低于该数量不弹进度 InfoBar
-    private const int BatchMoveProgressMinCount = 100;
-    // 批量删除低于该数量不弹进度 InfoBar
-    private const int BatchDeleteProgressMinCount = 10;
+    // 写操作入口守卫：若已有用户主动发起的写任务（导入/移动/删除）在跑，
+    // 弹出“操作进行中”模态提示并放弃本次操作；否则返回 true 放行。
+    // 导出（copy 语义）与文件监听触发的导入不走此守卫。
+    private bool TryGuardWrite()
+    {
+        if (_batchRunner.IsWriteActive)
+        {
+            _ = DialogHelper.ShowWriteBusyAsync(this.Content.XamlRoot);
+            return false;
+        }
+        return true;
+    }
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
-    // 结束后回到 UI 线程更新分类计数，且仅当用户仍停留在导入时的分类才刷新右侧网格。
+    // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在
+    // 导入时的分类才刷新右侧网格——分类守卫逻辑内置在 runner 的 Import 分支）。
     private async Task RunBatchImportAsync(IEnumerable<string> files, string category)
     {
+        // 导入为写操作：入口先判断写入锁，占用则弹提示并放弃
+        if (!TryGuardWrite()) return;
+
         var list = files.ToList();
         int total = list.Count;
         if (total == 0) return;
 
-        bool showProgress = total >= BatchImportExportProgressMinCount;
-
         // 捕获导入时的分类名：结束后即使用户切到别的分类，也据此决定是否刷新当前视图
         string targetCategory = category;
-
-        if (showProgress) _batchProgress.Show("导入中…", (uint)total);
-
-        IProgress<BatchProgress> progress = showProgress
-            ? _batchProgress.CreateProgress()
-            : new Progress<BatchProgress>(_ => { });
 
         MemeModel? duplicateModel = null;
         int imported = 0, duplicate = 0;
 
-        // 整个循环在后台线程跑，避免 UI 线程被逐张导入/缓存写入占满
-        await Task.Run(async () =>
-        {
-            foreach (var file in list)
+        await _batchRunner.RunAsync(
+            BatchOperationKind.Import,
+            total,
+            async progress =>
             {
-                var (model, dup) = await App.DataEngine.ImportMemeAsync(file, targetCategory);
-                if (model == null) continue;
-                if (dup)
+                // 整个循环在后台线程跑，避免 UI 线程被逐张导入/缓存写入占满
+                foreach (var file in list)
                 {
-                    duplicate++;
-                    if (list.Count == 1) duplicateModel = model;
+                    var (model, dup) = await App.DataEngine.ImportMemeAsync(file, targetCategory);
+                    if (model == null) continue;
+                    if (dup)
+                    {
+                        duplicate++;
+                        if (list.Count == 1) duplicateModel = model;
+                    }
+                    else
+                    {
+                        imported++;
+                    }
+                    progress.Report(new BatchProgress((uint)(imported + duplicate), (uint)total));
                 }
-                else
-                {
-                    imported++;
-                }
-                progress.Report(new BatchProgress((uint)(imported + duplicate), (uint)total));
-            }
-        });
-
-        // 回到 UI 线程收尾
-        DispatcherQueue.TryEnqueue(async () =>
-        {
-            if (_isClosing || !_isVisible)
+            },
+            targetCategory: targetCategory,
+            onUiComplete: () =>
             {
-                if (showProgress) _batchProgress.Hide();
-                Log($"[防护] 批量导入刷新被守卫拦截，丢弃 {imported} 个导入");
-                return;
-            }
-
-            // 始终更新各分类计数（纯内存，开销小，不论切到哪都刷新数字）
-            UpdateCategoryCounts();
-
-            // 仅当用户还停留在导入时的分类，才重建右侧图片容器；否则只更新左侧数字，不干扰用户
-            if (_currentCategory.Equals(targetCategory, StringComparison.OrdinalIgnoreCase))
-                RefreshMemes();
-
-            if (showProgress) _batchProgress.Hide();
-            Log($"导入完成: 新增 {imported} 个, 重复跳过 {duplicate} 个");
-
-            // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默
-            if (list.Count == 1 && duplicateModel != null)
-                await ShowSingleImportDuplicateAsync(duplicateModel);
-        });
+                Log($"导入完成: 新增 {imported} 个, 重复跳过 {duplicate} 个");
+                // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默
+                if (list.Count == 1 && duplicateModel != null)
+                    _ = ShowSingleImportDuplicateAsync(duplicateModel);
+            });
     }
 
     // 当前 GridView 原生选中的项
@@ -1712,23 +1728,12 @@ public sealed partial class MainWindow : Window
         int total = models.Count;
         if (total == 0) return;
 
-        bool showProgress = total >= BatchImportExportProgressMinCount;
-
-        IProgress<BatchProgress> progress = showProgress ? _batchProgress.CreateProgress() : new Progress<BatchProgress>(_ => { });
-        if (showProgress)
-        {
-            _batchProgress.Show("导出中…", (uint)total);
-        }
-
-        // 后台执行导出，逐张汇报进度；导出不改缓存，结束直接关闭进度条
-        await Task.Run(() => App.DataEngine.ExportMemesAsync(models, folder, progress));
-
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (_isClosing || !_isVisible) { if (showProgress) _batchProgress.Hide(); return; }
-            if (showProgress) _batchProgress.Hide();
-            Log($"导出完成: {total} 个图片到 {folder}");
-        });
+        // 批量导出按钮：明确为 copy 语义，不占用写入锁（不改缓存/源文件）。
+        await _batchRunner.RunAsync(
+            BatchOperationKind.Export,
+            total,
+            progress => App.DataEngine.ExportMemesAsync(models, folder, progress),
+            onUiComplete: () => Log($"导出完成: {total} 个图片到 {folder}"));
     }
 
     private async void DeleteButton_Click(object sender, RoutedEventArgs e)
@@ -1739,28 +1744,22 @@ public sealed partial class MainWindow : Window
         if (await DialogHelper.ConfirmDeleteMemesAsync(this.Content.XamlRoot, selected.Count) != ContentDialogResult.Primary)
             return;
 
+        // 删除为写操作：入口先判断写入锁，占用则弹提示并放弃
+        if (!TryGuardWrite()) return;
+
         var models = selected.Select(m => m.Model).ToList();
         int total = models.Count;
-        bool showProgress = total >= BatchDeleteProgressMinCount;
 
-        IProgress<BatchProgress> progress = showProgress ? _batchProgress.CreateProgress() : new Progress<BatchProgress>(_ => { });
-        if (showProgress)
-        {
-            _batchProgress.Show("删除中…", (uint)total);
-        }
-
-        // 后台执行删除，结束后回 UI 线程更新视图（删除只影响当前分类，直接刷新当前网格）
-        await Task.Run(() => App.DataEngine.DeleteMemesAsync(models, progress));
-
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (_isClosing || !_isVisible) { if (showProgress) _batchProgress.Hide(); return; }
-            RemoveFromCurrentView(models);
-            MemeGridView.SelectedItems.Clear();
-            UpdateCategoryCounts();
-            if (showProgress) _batchProgress.Hide();
-            Log($"删除完成: {total} 个图片");
-        });
+        await _batchRunner.RunAsync(
+            BatchOperationKind.Delete,
+            total,
+            progress => App.DataEngine.DeleteMemesAsync(models, progress),
+            affectedModels: models,
+            onUiComplete: () =>
+            {
+                MemeGridView.SelectedItems.Clear();
+                Log($"删除完成: {total} 个图片");
+            });
     }
 
     // 批量移动到：弹出分类下拉，点击后将选中项移动到该分类
@@ -1784,29 +1783,22 @@ public sealed partial class MainWindow : Window
             item.Click += async (_, __) =>
             {
                 var models = selected.Select(m => m.Model).ToList();
+
+                // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
+                if (!TryGuardWrite()) return;
+
                 if (!await GuardMoveConflictAsync(models, targetName))
                     return;
 
                 int total = models.Count;
-                bool showProgress = total >= BatchMoveProgressMinCount;
 
-                IProgress<BatchProgress> progress = showProgress ? _batchProgress.CreateProgress() : new Progress<BatchProgress>(_ => { });
-                if (showProgress)
-                {
-                    _batchProgress.Show("移动中…", (uint)total);
-                }
-
-                // 后台执行移动，结束后回 UI 线程移除当前视图中的已移动项（移出当前分类）
-                await Task.Run(() => App.DataEngine.MoveMemesToCategoryAsync(models, targetName, progress));
-
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    if (_isClosing || !_isVisible) { if (showProgress) _batchProgress.Hide(); return; }
-                    RemoveFromCurrentView(models);
-                    UpdateCategoryCounts();
-                    if (showProgress) _batchProgress.Hide();
-                    Log($"批量移动 {total} 张图片到分类「{targetName}」");
-                });
+                // 后台执行移动，结束后由 runner 统一移除当前视图中的已移动项（移出当前分类）
+                await _batchRunner.RunAsync(
+                    BatchOperationKind.Move,
+                    total,
+                    progress => App.DataEngine.MoveMemesToCategoryAsync(models, targetName, progress),
+                    affectedModels: models,
+                    onUiComplete: () => Log($"批量移动 {total} 张图片到分类「{targetName}」"));
             };
             BatchMoveFlyout.Items.Add(item);
         }
@@ -2217,21 +2209,23 @@ public sealed partial class MainWindow : Window
             var category = await PromptCategoryForPasteAsync();
             if (category == null) return;
 
-            var (imported, duplicate) = await ImportFromClipboardAsync(view, category);
-            if (imported == null)
-                Log("[粘贴] 导入失败或内容为空");
-            else if (duplicate)
+            var (paths, temps) = await CollectClipboardImportPathsAsync(view);
+            try
             {
-                Log($"[粘贴] 重复图片已跳过(hash={imported.Hash}, 分类={category})");
-                var label = DialogHelper.TruncateLabel(
-                    string.IsNullOrWhiteSpace(imported.Title) ? imported.FileName : imported.Title);
-                await DialogHelper.ShowImageDuplicateAsync(this.Content.XamlRoot, category, label);
+                if (paths.Count == 0)
+                {
+                    Log("[粘贴] 导入失败或内容为空");
+                    return;
+                }
+                // 统一走后台批量导入（含写入锁守卫、进度条、分类守卫刷新、单张重复弹窗）
+                await RunBatchImportAsync(paths, category);
             }
-            else if (category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+            finally
             {
-                Log($"[粘贴] 导入成功: {imported.Title} (分类={category})");
-                InsertMemeAtFront(new MemeViewModel(imported));
-                UpdateCategoryCounts();
+                foreach (var t in temps)
+                {
+                    try { File.Delete(t); } catch { }
+                }
             }
         }
         catch (Exception ex)
@@ -2329,8 +2323,12 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task<(MemeModel? model, bool duplicate)> ImportFromClipboardAsync(DataPackageView view, string category)
+    // 从剪贴板收集待导入的源路径：StorageItems 直接用原路径，Bitmap 先落地临时文件。
+    // 返回 (待导入路径, 需事后清理的临时文件路径)。实际导入交给 RunBatchImportAsync 统一处理。
+    private async Task<(List<string> paths, List<string> temps)> CollectClipboardImportPathsAsync(DataPackageView view)
     {
+        var paths = new List<string>();
+        var temps = new List<string>();
         try
         {
             if (view.Contains(StandardDataFormats.StorageItems))
@@ -2339,10 +2337,7 @@ public sealed partial class MainWindow : Window
                 foreach (var item in items)
                 {
                     if (item is StorageFile file && IsImage(file.FileType))
-                    {
-                        var (m, dup) = await App.DataEngine.ImportMemeAsync(file.Path, category);
-                        return (m, dup);
-                    }
+                        paths.Add(file.Path);
                 }
             }
             else if (view.Contains(StandardDataFormats.Bitmap))
@@ -2354,16 +2349,15 @@ public sealed partial class MainWindow : Window
                 {
                     await stream.AsStreamForRead().CopyToAsync(outStream);
                 }
-                var (imported, dup) = await App.DataEngine.ImportMemeAsync(tempPath, category);
-                try { File.Delete(tempPath); } catch { }
-                return (imported, dup);
+                paths.Add(tempPath);
+                temps.Add(tempPath);
             }
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Paste] 导入失败: {ex.Message}");
+            Logger.Log($"[Paste] 收集路径失败: {ex.Message}");
         }
-        return (null, false);
+        return (paths, temps);
     }
 
     private static bool IsImage(string ext) =>
@@ -2663,27 +2657,32 @@ public sealed partial class MainWindow : Window
                 .ToList();
             if (added.Count == 0) return; // 非焦点分类，跳过
 
-            int imported = 0;
-            foreach (var c in added)
+            // 收集真实存在的文件全路径（过滤已存在于列表的，避免冗余导入）
+            var fullPaths = added
+                .Where(c => !_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
+                    string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
+                .Select(c => Path.Combine(App.DataEngine.BaseDir, c.Category, c.FileName))
+                .Where(File.Exists)
+                .ToList();
+            if (fullPaths.Count > 0)
             {
-                // 防御：当前列表已存在同名 VM（程序内导入已加过）则跳过，避免重复追加
-                if (_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
-                        string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
-                    continue;
-                // 复用现有导入流程：按全路径重新导入到当前分类（ImportMemeAsync 会去重）
-                var fullPath = Path.Combine(App.DataEngine.BaseDir, c.Category, c.FileName);
-                if (!File.Exists(fullPath)) continue;
-                var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
-                if (model != null)
-                {
-                    InsertMemeAtFront(new MemeViewModel(model));
-                    imported++;
-                }
-            }
-            if (imported > 0)
-            {
-                UpdateCategoryCounts();
-                Log($"[文件监听] 新增 {imported} 个图片到分类「{focus}」");
+                // 文件监听触发的新增：后台执行 + 进度条，但不占用写入锁
+                // （用户自行在资源管理器操作数据目录，应自己 F5 刷新，不在此兜底拦截）。
+                await _batchRunner.RunAsync(
+                    BatchOperationKind.Import,
+                    fullPaths.Count,
+                    async progress =>
+                    {
+                        foreach (var fullPath in fullPaths)
+                        {
+                            var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
+                            if (model != null)
+                                progress.Report(new BatchProgress(1, 1));
+                        }
+                    },
+                    targetCategory: focus,
+                    occupyWriteLock: false,
+                    onUiComplete: () => Log($"[文件监听] 新增 {fullPaths.Count} 个图片到分类「{focus}」"));
             }
         });
     }
@@ -2722,26 +2721,30 @@ public sealed partial class MainWindow : Window
                 .ToList();
             if (toAdded.Count > 0)
             {
-                int imported = 0;
-                foreach (var m in toAdded)
+                // 收集真实存在的文件全路径（过滤不存在的）
+                var fullPaths = toAdded
+                    .Select(m => Path.Combine(App.DataEngine.BaseDir, m.To.Category, m.To.FileName))
+                    .Where(File.Exists)
+                    .ToList();
+                if (fullPaths.Count > 0)
                 {
-                    // 防御：当前列表已存在同名 VM 则跳过，避免重复追加
-                    if (_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
-                            string.Equals(Path.GetFileName(vm.LocalPath), m.To.FileName, StringComparison.OrdinalIgnoreCase)))
-                        continue;
-                    var fullPath = Path.Combine(App.DataEngine.BaseDir, m.To.Category, m.To.FileName);
-                    if (!File.Exists(fullPath)) continue;
-                    var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
-                    if (model != null)
-                    {
-                        InsertMemeAtFront(new MemeViewModel(model));
-                        imported++;
-                    }
-                }
-                if (imported > 0)
-                {
-                    UpdateCategoryCounts();
-                    Log($"[文件监听] 移入 {imported} 个图片到分类「{focus}」");
+                    // 文件监听触发的导入：后台执行 + 进度条，但不占用写入锁
+                    // （用户自行在资源管理器操作数据目录，应自己 F5 刷新，不在此兜底拦截）。
+                    await _batchRunner.RunAsync(
+                        BatchOperationKind.Import,
+                        fullPaths.Count,
+                        async progress =>
+                        {
+                            foreach (var fullPath in fullPaths)
+                            {
+                                var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
+                                if (model != null)
+                                    progress.Report(new BatchProgress(1, 1));
+                            }
+                        },
+                        targetCategory: focus,
+                        occupyWriteLock: false,
+                        onUiComplete: () => Log($"[文件监听] 移入 {fullPaths.Count} 个图片到分类「{focus}」"));
                 }
             }
         });

@@ -77,6 +77,13 @@ public static class DialogHelper
             Localization.Get("Dialog_ImageMovedOut_Title"),
             Localization.Get("Dialog_ImageMovedOut_Message"));
 
+    // 写入锁占用提示：当用户主动发起的写操作（导入/移动/删除）已有任务在跑时，
+    // 新的写操作入口会先判断写入锁，命中则弹此模态提示并放弃本次操作。
+    public static Task ShowWriteBusyAsync(XamlRoot xamlRoot) =>
+        ShowMessageAsync(xamlRoot,
+            Localization.Get("Batch_WriteBusy_Title"),
+            Localization.Get("Batch_WriteBusy_Message"));
+
     // 确认对话框：带"主按钮 + 取消"，返回用户选择。主按钮文案由 primaryText 指定
     // （如"删除""确定"），用于删除确认等需要二选一的场景。
     public static async Task<ContentDialogResult> ConfirmAsync(

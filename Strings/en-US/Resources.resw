@@ -466,4 +466,22 @@ Reverted to the previous valid path.</value>
   <data name="Settings_Language_System" xml:space="preserve">
     <value>System</value>
   </data>
+  <data name="Batch_Importing" xml:space="preserve">
+    <value>Importing…</value>
+  </data>
+  <data name="Batch_Exporting" xml:space="preserve">
+    <value>Exporting…</value>
+  </data>
+  <data name="Batch_Moving" xml:space="preserve">
+    <value>Moving…</value>
+  </data>
+  <data name="Batch_Deleting" xml:space="preserve">
+    <value>Deleting…</value>
+  </data>
+  <data name="Batch_WriteBusy_Title" xml:space="preserve">
+    <value>Operation in progress</value>
+  </data>
+  <data name="Batch_WriteBusy_Message" xml:space="preserve">
+    <value>A write operation is currently running. Please wait before writing images.</value>
+  </data>
 </root>
