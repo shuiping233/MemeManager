@@ -862,9 +862,29 @@ public class MemeDataEngine
         {
             var categoryDir = Path.Combine(_baseDir, SanitizeCategory(group.Key));
             var meta = await LoadCategoryMetadataAsync(categoryDir);
-            foreach (var meme in group)
+            var groupList = group.ToList();
+
+            // 阶段1：并行删除物理文件（IO 并行，互不依赖；失败静默忽略）
+            var deleteGate = new SemaphoreSlim(ImportParallelism);
+            var deleteTasks = new List<Task>(groupList.Count);
+            foreach (var meme in groupList)
             {
-                try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); } catch { }
+                deleteTasks.Add(Task.Run(async () =>
+                {
+                    await deleteGate.WaitAsync();
+                    try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); }
+                    catch (Exception ex)
+                    {
+                        MemeManager.Logger.Log($"[Engine] 删除文件失败: {meme.LocalPath} {ex.Message}");
+                    }
+                    finally { deleteGate.Release(); }
+                }));
+            }
+            await Task.WhenAll(deleteTasks);
+
+            // 阶段2：串行更新内存缓存与 metadata（共享字典/集合必须串行，纯内存极快）
+            foreach (var meme in groupList)
+            {
                 meta.Items.Remove(meme.FileName);
                 _memeCache.Remove(meme);
                 if (!string.IsNullOrWhiteSpace(meme.Title) &&
@@ -876,6 +896,7 @@ public class MemeDataEngine
                 done++;
                 progress?.Report(new BatchProgress(done, total));
             }
+
             await SaveCategoryMetadataAsync(categoryDir, meta);
         }
     }
