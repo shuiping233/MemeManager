@@ -29,13 +29,15 @@
         </Grid.ColumnDefinitions>
 
         <!-- 批量导入/导出进度条（不阻塞 UI，任务结束后自动关闭） -->
+        <!-- 外层 Margin 必须为 0：IsOpen=False 时 InfoBar 仍 Visible，若有 Margin 会把
+             所在 Auto 行撑出空隙，导致下方搜索栏被顶下去；隐藏时靠行高塌缩为 0。 -->
         <InfoBar x:Name="BatchProgressInfoBar"
                  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                  IsOpen="False"
                  IsIconVisible="True"
                  IsClosable="False"
                  Severity="Informational"
-                 Margin="8,6,8,0">
+                 Margin="0">
             <InfoBar.Content>
                 <Grid VerticalAlignment="Center" ColumnSpacing="10" Margin="0,4,0,4">
                     <Grid.ColumnDefinitions>
