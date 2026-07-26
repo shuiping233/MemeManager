@@ -408,6 +408,113 @@ public class MemeDataEngine
         }
     }
 
+    // 批量导入：与 ImportMemeAsync 单张逻辑一致，但目标分类的 .metadata.json
+    // 只加载/保存一次（而非逐张各读写一次），并按分类预建文件名索引做 O(1) 去重，
+    // 避免批量导入时大量冗余磁盘 IO 与 O(n²) 扫描。返回新增数、重复数及（仅当整体为单张
+    // 且重复时的）重复模型，供调用方弹窗提示。
+    public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesAsync(
+        IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null)
+    {
+        var list = sourcePaths.ToList();
+        uint total = (uint)list.Count;
+        if (total == 0) return (0, 0, null);
+
+        var safeTarget = SanitizeCategory(category);
+        var categoryDir = Path.Combine(_baseDir, safeTarget);
+        Directory.CreateDirectory(categoryDir);
+
+        // 目标分类 metadata 仅加载一次
+        var meta = await LoadCategoryMetadataAsync(categoryDir);
+
+        // 预建“文件名 -> 缓存项”索引（仅本分类），O(1) 去重，避免逐张线性扫描
+        var existingByFile = _memeCache
+            .Where(m => m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(m => m.FileName, m => m, StringComparer.OrdinalIgnoreCase);
+
+        int imported = 0, duplicate = 0;
+        MemeModel? duplicateModel = null;
+        uint done = 0;
+
+        foreach (var sourcePath in list)
+        {
+            if (!File.Exists(sourcePath)) continue;
+            try
+            {
+                string hash = await CalculateSha256Async(sourcePath);
+                string ext = Path.GetExtension(sourcePath);
+                string fileName = $"{hash}{ext}";
+                var targetPath = Path.Combine(categoryDir, fileName);
+
+                // 去重：优先查预建索引
+                if (existingByFile.TryGetValue(fileName, out var existing))
+                {
+                    if (!File.Exists(existing.LocalPath))
+                    {
+                        // 缓存命中但磁盘文件已缺失：清除僵尸缓存后按新导入流程覆盖写入
+                        _memeCache.Remove(existing);
+                        if (!string.IsNullOrWhiteSpace(existing.Title) &&
+                            _titleReverseMap.TryGetValue(existing.Title, out var rev))
+                        {
+                            rev.Remove(existing.FileName);
+                            if (rev.Count == 0) _titleReverseMap.Remove(existing.Title);
+                        }
+                        existingByFile.Remove(fileName);
+                    }
+                    else
+                    {
+                        Logger.Log($"[Engine] 导入重复跳过: 文件={fileName} 源路径={sourcePath} 目标分类={safeTarget} (已存在)");
+                        duplicate++;
+                        if (total == 1) duplicateModel = existing;
+                        done++;
+                        progress?.Report(new BatchProgress(done, total));
+                        continue;
+                    }
+                }
+
+                await EcoQos.RunAsync(() => File.Copy(sourcePath, targetPath, overwrite: true));
+
+                uint maxPriority = 0;
+                foreach (var entry in meta.Items.Values)
+                    if (entry.Priority > maxPriority) maxPriority = entry.Priority;
+
+                var model = new MemeModel
+                {
+                    Hash = hash,
+                    Extension = ext,
+                    LocalPath = targetPath,
+                    Category = Path.GetFileName(categoryDir),
+                    Title = Path.GetFileNameWithoutExtension(sourcePath),
+                    Tags = new List<string>(),
+                    DateAdded = DateTime.UtcNow,
+                    UsageCount = 0,
+                    Priority = maxPriority + 1
+                };
+
+                meta.Items[fileName] = new MemeMetaEntry
+                {
+                    Title = model.Title,
+                    Tags = model.Tags,
+                    Priority = model.Priority
+                };
+
+                _memeCache.Add(model);
+                IndexTitle(model);
+                existingByFile[fileName] = model;   // 同批次内后续重复也能识别
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                MemeManager.Logger.Log($"[Engine] 导入表情包失败: {ex.Message}");
+            }
+            done++;
+            progress?.Report(new BatchProgress(done, total));
+        }
+
+        // 整批仅写回一次 metadata
+        await SaveCategoryMetadataAsync(categoryDir, meta);
+        return (imported, duplicate, duplicateModel);
+    }
+
     // ---------- 导出 ----------
 
     public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir, IProgress<BatchProgress>? progress = null)
@@ -479,6 +586,19 @@ public class MemeDataEngine
         var list = memes.ToList();
         uint total = (uint)list.Count;
         uint done = 0;
+
+        // 各源分类的 metadata 仅加载/保存一次（避免逐张读写 .metadata.json）。
+        // Key = 源目录路径，Value = (metadata, 是否已被修改需写回)。
+        // 先按去重的源目录统一异步加载一次，避免在循环内混用同步等待。
+        var sourceDirs = list
+            .Where(m => !m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
+            .Select(m => Path.Combine(_baseDir, SanitizeCategory(m.Category)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var sourceMetas = new Dictionary<string, (CategoryMetadata meta, bool dirty)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dir in sourceDirs)
+            sourceMetas[dir] = (await LoadCategoryMetadataAsync(dir), false);
+
         foreach (var meme in list)
         {
             if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
@@ -489,7 +609,7 @@ public class MemeDataEngine
             }
 
             var sourceDir = Path.Combine(_baseDir, SanitizeCategory(meme.Category));
-            var sourceMeta = await LoadCategoryMetadataAsync(sourceDir);
+            var sourceMeta = sourceMetas[sourceDir].meta;
 
             var destPath = Path.Combine(targetDir, meme.FileName);
             // 目标已存在同名(hash)文件：跳过移动，不覆盖（同名=同内容，原文件保留，
@@ -522,9 +642,9 @@ public class MemeDataEngine
                 Priority = ++targetMaxPriority
             };
 
-            // 从源分类 metadata 移除
+            // 从源分类 metadata 移除（仅内存，循环结束统一写回）
             sourceMeta.Items.Remove(meme.FileName);
-            await SaveCategoryMetadataAsync(sourceDir, sourceMeta);
+            sourceMetas[sourceDir] = (sourceMeta, true);
 
             // 更新内存缓存
             meme.Category = safeTarget;
@@ -535,7 +655,11 @@ public class MemeDataEngine
             progress?.Report(new BatchProgress(done, total));
         }
 
+        // 仅各源分类与目标分类各写回一次 metadata（而非逐张写回）
         await SaveCategoryMetadataAsync(targetDir, targetMeta);
+        foreach (var (dir, entry) in sourceMetas)
+            if (entry.dirty)
+                await SaveCategoryMetadataAsync(dir, entry.meta);
     }
 
     // ---------- 重命名分类 ----------

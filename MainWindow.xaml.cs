@@ -1698,39 +1698,25 @@ public sealed partial class MainWindow : Window
         // 捕获导入时的分类名：结束后即使用户切到别的分类，也据此决定是否刷新当前视图
         string targetCategory = category;
 
-        MemeModel? duplicateModel = null;
-        int imported = 0, duplicate = 0;
+        // 批量导入结果（新增/重复/单张重复模型），由 onUiComplete 在 UI 线程回填
+        (int imported, int duplicate, MemeModel? duplicateModel) result = default;
 
         await _batchRunner.RunAsync(
             BatchOperationKind.Import,
             total,
-            async progress =>
-            {
-                // 整个循环在后台线程跑，避免 UI 线程被逐张导入/缓存写入占满
-                foreach (var file in list)
-                {
-                    var (model, dup) = await App.DataEngine.ImportMemeAsync(file, targetCategory);
-                    if (model == null) continue;
-                    if (dup)
-                    {
-                        duplicate++;
-                        if (list.Count == 1) duplicateModel = model;
-                    }
-                    else
-                    {
-                        imported++;
-                    }
-                    progress.Report(new BatchProgress((uint)(imported + duplicate), (uint)total));
-                }
-            },
+            progress => App.DataEngine.ImportMemesAsync(list, targetCategory, progress),
             targetCategory: targetCategory,
             onUiComplete: () =>
             {
-                Log($"导入完成: 新增 {imported} 个, 重复跳过 {duplicate} 个");
+                Log($"导入完成: 新增 {result.imported} 个, 重复跳过 {result.duplicate} 个");
                 // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默
-                if (list.Count == 1 && duplicateModel != null)
-                    _ = ShowSingleImportDuplicateAsync(duplicateModel);
+                if (list.Count == 1 && result.duplicateModel != null)
+                    _ = ShowSingleImportDuplicateAsync(result.duplicateModel);
             });
+
+        // 注：result 由 onUiComplete（在 RunAsync 结束前于 UI 线程执行）回填，await 返回后即可用。
+        // 当前日志/弹窗已在 onUiComplete 内完成，此处无需额外处理。
+        _ = result;
     }
 
     // 当前 GridView 原生选中的项
