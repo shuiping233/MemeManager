@@ -1277,6 +1277,10 @@ public sealed partial class MainWindow : Window
         Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, _editMode={_editMode}, DropResult={e.DropResult}");
         if (_draggingMemes == null) return;
 
+        // 重排为写操作（会写回当前分类 metadata）：若已有用户主动发起的写任务在跑，
+        // 直接放弃本次重排，避免并发写同一分类 .metadata.json 或顺序被收尾刷新冲掉。
+        if (!TryGuardWrite()) return;
+
         // 拖拽结束：恢复预览定时器（仅当窗口可见）。与 DragItemsStarting 里的
         // _previewTimer.Stop() 成对，避免拖拽期间停定时器导致预览功能永久失效。
         if (_isVisible && !_isClosing)
