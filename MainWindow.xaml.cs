@@ -1759,6 +1759,13 @@ public sealed partial class MainWindow : Window
 
     private async void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
+        await DeleteSelectedMemesAsync();
+    }
+
+    // 删除当前选中的表情：复用删除按钮的确认弹窗 + 写锁守卫 + 后台删除流程。
+    // 编辑模式下由删除快捷键调用；若进入编辑模式但未选中任何图片则不响应。
+    private async Task DeleteSelectedMemesAsync()
+    {
         var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
 
@@ -2164,9 +2171,21 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Delete：删除当前选中的分类（聚焦分类控件时）
+        // Delete：编辑模式下删除已选中的表情（复用删除按钮的确认弹窗与流程）；
+        // 若编辑模式但未选中任何图片则不响应。非编辑模式下仍按原逻辑删除选中的分类。
         if (e.Key == Windows.System.VirtualKey.Delete)
         {
+            if (_editMode)
+            {
+                if (SelectedMemeViewModels().Count > 0)
+                {
+                    e.Handled = true;
+                    await DeleteSelectedMemesAsync();
+                }
+                // 编辑模式但无选中：不响应（也不删除分类）
+                return;
+            }
+
             if (CategoryList.SelectedItem is CategoryViewModel selCat)
             {
                 e.Handled = true;
