@@ -461,7 +461,7 @@ public class MemeDataEngine
     /// 将一批表情移动到目标分类：移动物理文件、更新两分类的 metadata 与内存缓存。
     /// 若目标分类不存在会自动创建。
     /// </summary>
-    public async Task MoveMemesToCategoryAsync(IEnumerable<MemeModel> memes, string targetCategory)
+    public async Task MoveMemesToCategoryAsync(IEnumerable<MemeModel> memes, string targetCategory, IProgress<int>? progress = null)
     {
         var safeTarget = SanitizeCategory(targetCategory);
         var targetDir = Path.Combine(_baseDir, safeTarget);
@@ -474,10 +474,17 @@ public class MemeDataEngine
         foreach (var entry in targetMeta.Items.Values)
             if (entry.Priority > targetMaxPriority) targetMaxPriority = entry.Priority;
 
-        foreach (var meme in memes)
+        var list = memes.ToList();
+        int total = list.Count;
+        int done = 0;
+        foreach (var meme in list)
         {
             if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                done++;
+                progress?.Report(total == 0 ? 0 : done * 100 / total);
                 continue; // 已在目标分类，跳过
+            }
 
             var sourceDir = Path.Combine(_baseDir, SanitizeCategory(meme.Category));
             var sourceMeta = await LoadCategoryMetadataAsync(sourceDir);
@@ -488,6 +495,8 @@ public class MemeDataEngine
             if (File.Exists(destPath))
             {
                 MemeManager.Logger.Log($"[Engine] 移动跳过(目标已存在): 文件={meme.FileName} 源分类=\"{meme.Category}\" -> 目标=\"{safeTarget}\"");
+                done++;
+                progress?.Report(total == 0 ? 0 : done * 100 / total);
                 continue;
             }
             try
@@ -498,6 +507,8 @@ public class MemeDataEngine
             catch (Exception ex)
             {
                 MemeManager.Logger.Log($"[Engine] 移动文件失败 {meme.FileName}: {ex.Message}");
+                done++;
+                progress?.Report(total == 0 ? 0 : done * 100 / total);
                 continue;
             }
 
@@ -517,6 +528,9 @@ public class MemeDataEngine
             meme.Category = safeTarget;
             meme.LocalPath = destPath;
             meme.Priority = targetMaxPriority;
+
+            done++;
+            progress?.Report(total == 0 ? 0 : done * 100 / total);
         }
 
         await SaveCategoryMetadataAsync(targetDir, targetMeta);
@@ -643,9 +657,12 @@ public class MemeDataEngine
 
     // ---------- 删除 ----------
 
-    public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes)
+    public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes, IProgress<int>? progress = null)
     {
-        var byCategory = memes.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
+        var list = memes.ToList();
+        int total = list.Count;
+        int done = 0;
+        var byCategory = list.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
         foreach (var group in byCategory)
         {
             var categoryDir = Path.Combine(_baseDir, SanitizeCategory(group.Key));
@@ -656,11 +673,13 @@ public class MemeDataEngine
                 meta.Items.Remove(meme.FileName);
                 _memeCache.Remove(meme);
                 if (!string.IsNullOrWhiteSpace(meme.Title) &&
-                    _titleReverseMap.TryGetValue(meme.Title, out var list))
+                    _titleReverseMap.TryGetValue(meme.Title, out var revList))
                 {
-                    list.Remove(meme.FileName);
-                    if (list.Count == 0) _titleReverseMap.Remove(meme.Title);
+                    revList.Remove(meme.FileName);
+                    if (revList.Count == 0) _titleReverseMap.Remove(meme.Title);
                 }
+                done++;
+                progress?.Report(total == 0 ? 0 : done * 100 / total);
             }
             await SaveCategoryMetadataAsync(categoryDir, meta);
         }

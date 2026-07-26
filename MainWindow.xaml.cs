@@ -1620,7 +1620,11 @@ public sealed partial class MainWindow : Window
     private sealed record BatchImportProgress(int Done, int Imported, int Duplicate);
 
     // 低于该数量的导入/导出不弹进度 InfoBar（数量小，瞬间完成没必要）
-    private const int BatchProgressMinCount = 5;
+    private const int BatchImportExportProgressMinCount = 5;
+    // 批量移动低于该数量不弹进度 InfoBar
+    private const int BatchMoveProgressMinCount = 100;
+    // 批量删除低于该数量不弹进度 InfoBar
+    private const int BatchDeleteProgressMinCount = 10;
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
     // 结束后回到 UI 线程更新分类计数，且仅当用户仍停留在导入时的分类才刷新右侧网格。
@@ -1630,7 +1634,7 @@ public sealed partial class MainWindow : Window
         int total = list.Count;
         if (total == 0) return;
 
-        bool showProgress = total >= BatchProgressMinCount;
+        bool showProgress = total >= BatchImportExportProgressMinCount;
 
         // 捕获导入时的分类名：结束后即使用户切到别的分类，也据此决定是否刷新当前视图
         string targetCategory = category;
@@ -1722,7 +1726,7 @@ public sealed partial class MainWindow : Window
         int total = models.Count;
         if (total == 0) return;
 
-        bool showProgress = total >= BatchProgressMinCount;
+        bool showProgress = total >= BatchImportExportProgressMinCount;
 
         IProgress<int> progress = new Progress<int>(p =>
         {
@@ -1758,10 +1762,37 @@ public sealed partial class MainWindow : Window
         if (await DialogHelper.ConfirmDeleteMemesAsync(this.Content.XamlRoot, selected.Count) != ContentDialogResult.Primary)
             return;
 
-        await App.DataEngine.DeleteMemesAsync(selected.Select(m => m.Model));
-        RemoveFromCurrentView(selected.Select(m => m.Model));
-        MemeGridView.SelectedItems.Clear();
-        UpdateCategoryCounts();
+        var models = selected.Select(m => m.Model).ToList();
+        int total = models.Count;
+        bool showProgress = total >= BatchDeleteProgressMinCount;
+
+        IProgress<int> progress = new Progress<int>(p =>
+        {
+            if (!showProgress) return;
+            BatchProgressBar.Value = p;
+        });
+        if (showProgress)
+        {
+            ShowBatchProgress("删除中…");
+            BatchProgressCount.Text = $"0/{total}";
+        }
+
+        // 后台执行删除，结束后回 UI 线程更新视图（删除只影响当前分类，直接刷新当前网格）
+        await Task.Run(() => App.DataEngine.DeleteMemesAsync(models, progress));
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isClosing || !_isVisible) { if (showProgress) HideBatchProgress(); return; }
+            RemoveFromCurrentView(models);
+            MemeGridView.SelectedItems.Clear();
+            UpdateCategoryCounts();
+            if (showProgress)
+            {
+                BatchProgressCount.Text = $"{total}/{total}";
+                HideBatchProgress();
+            }
+            Log($"删除完成: {total} 个图片");
+        });
     }
 
     // 批量移动到：弹出分类下拉，点击后将选中项移动到该分类
@@ -1787,10 +1818,36 @@ public sealed partial class MainWindow : Window
                 var models = selected.Select(m => m.Model).ToList();
                 if (!await GuardMoveConflictAsync(models, targetName))
                     return;
-                await App.DataEngine.MoveMemesToCategoryAsync(models, targetName);
-                Log($"批量移动 {selected.Count} 张图片到分类「{targetName}」");
-                RemoveFromCurrentView(models);
-                UpdateCategoryCounts();
+
+                int total = models.Count;
+                bool showProgress = total >= BatchMoveProgressMinCount;
+
+                IProgress<int> progress = new Progress<int>(p =>
+                {
+                    if (!showProgress) return;
+                    BatchProgressBar.Value = p;
+                });
+                if (showProgress)
+                {
+                    ShowBatchProgress("移动中…");
+                    BatchProgressCount.Text = $"0/{total}";
+                }
+
+                // 后台执行移动，结束后回 UI 线程移除当前视图中的已移动项（移出当前分类）
+                await Task.Run(() => App.DataEngine.MoveMemesToCategoryAsync(models, targetName, progress));
+
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (_isClosing || !_isVisible) { if (showProgress) HideBatchProgress(); return; }
+                    RemoveFromCurrentView(models);
+                    UpdateCategoryCounts();
+                    if (showProgress)
+                    {
+                        BatchProgressCount.Text = $"{total}/{total}";
+                        HideBatchProgress();
+                    }
+                    Log($"批量移动 {total} 张图片到分类「{targetName}」");
+                });
             };
             BatchMoveFlyout.Items.Add(item);
         }
