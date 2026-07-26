@@ -484,4 +484,10 @@ Reverted to the previous valid path.</value>
   <data name="Batch_WriteBusy_Message" xml:space="preserve">
     <value>A write operation is currently running. Please wait before writing images.</value>
   </data>
+  <data name="Meme_EmptyHint" xml:space="preserve">
+    <value>This category has no images</value>
+  </data>
+  <data name="Meme_SearchEmptyHint" xml:space="preserve">
+    <value>No images match “{0}”</value>
+  </data>
 </root>

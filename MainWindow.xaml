@@ -249,6 +249,16 @@
             </GridView.ItemTemplate>
         </GridView>
 
+        <!-- 空状态提示：当前分类没有图片（或搜索无结果）时居中显示 -->
+        <TextBlock x:Name="EmptyHint"
+                   Grid.Row="2" Grid.Column="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   Opacity="0.5"
+                   Visibility="Collapsed"/>
+
+
         <!-- 鼠标悬停表情时的放大预览 Popup -->
         <Popup x:Name="PreviewPopup"
                IsLightDismissEnabled="False"

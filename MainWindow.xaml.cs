@@ -721,6 +721,25 @@ public sealed partial class MainWindow : Window
             SetSelectionBoxVisible(true);
             SyncSelectionToViewModels();
         }
+
+        UpdateEmptyHint();
+    }
+
+    // 空状态提示：图片列表为空时居中显示“当前分类没有图片”（搜索无结果时显示对应文案），
+    // 避免用户误以为图片没加载出来。文本走 i18n。
+    private void UpdateEmptyHint()
+    {
+        if (_memeList.Count > 0)
+        {
+            EmptyHint.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var keyword = SearchBox.Text?.Trim();
+        EmptyHint.Text = string.IsNullOrWhiteSpace(keyword)
+            ? Localization.Get("Meme_EmptyHint")
+            : string.Format(Localization.Get("Meme_SearchEmptyHint"), keyword);
+        EmptyHint.Visibility = Visibility.Visible;
     }
 
     // 新导入的表情包优先级最高(DateAdded 最新)，按现有排序规则(Priority 降序、
@@ -733,6 +752,8 @@ public sealed partial class MainWindow : Window
         for (int i = _memeList.Count - 1; i >= 0; i--)
             if (names.Contains(_memeList[i].FileName))
                 _memeList.RemoveAt(i);
+
+        UpdateEmptyHint();
     }
 
     // 重排后顺序已由 WinUI / _memeList 排好，仅需把内存模型 Priority 同步到 ViewModel 顺序，

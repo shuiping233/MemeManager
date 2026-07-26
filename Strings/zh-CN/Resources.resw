@@ -484,4 +484,10 @@
   <data name="Batch_WriteBusy_Message" xml:space="preserve">
     <value>当前正在执行写入任务，无法对图片进行写入，请稍后</value>
   </data>
+  <data name="Meme_EmptyHint" xml:space="preserve">
+    <value>当前分类没有图片</value>
+  </data>
+  <data name="Meme_SearchEmptyHint" xml:space="preserve">
+    <value>没有匹配“{0}”的图片</value>
+  </data>
 </root>
