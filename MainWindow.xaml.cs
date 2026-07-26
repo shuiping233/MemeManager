@@ -1450,12 +1450,15 @@ public sealed partial class MainWindow : Window
         // 注意：此函数在窗口过程(WM_DROPFILES)回调内同步执行，
         // 绝对不能在里面阻塞等待异步(会卡死消息泵)。只同步收集路径，后续异步导入。
 
-        // 有模态弹窗（如“操作进行中”提示）未处理或写任务进行中时，直接拦截拖入，
-        // 避免叠加弹窗/未决状态下误操作。
+        // 拦截拖入：写任务进行中弹“操作进行中”提示（与其它写入口一致）；
+        // 其余忙态（模态弹窗未处理 / 拖拽重排中 / 刷新中）仅静默拦截，避免叠加弹窗。
         if (IsBusyBlockingInput())
         {
             NativeMethods.DragFinish(hDrop);
-            Log("WM_DROPFILES 被拦截：存在未处理的模态弹窗或写任务进行中，忽略本次拖入");
+            if (_batchRunner.IsWriteActive)
+                _ = DialogHelper.ShowWriteBusyAsync(this.Content.XamlRoot);
+            else
+                Log("WM_DROPFILES 被拦截：存在未处理的模态弹窗 / 拖拽重排 / 刷新进行中，忽略本次拖入");
             return;
         }
 
