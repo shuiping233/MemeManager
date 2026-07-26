@@ -1098,6 +1098,7 @@ public sealed partial class MainWindow : Window
     {
         SyncSelectionToViewModels();
         UpdateBatchButtons();
+        UpdateSelectAllButton();
     }
 
     // 把 GridView 原生选中态单向镜像到各 MemeViewModel.IsSelected，
@@ -2258,9 +2259,18 @@ public sealed partial class MainWindow : Window
         if (allSelected)
             MemeGridView.SelectedItems.Clear();
         else
+            // 用 GridView 内置批量选中，避免逐项 Add 触发 O(n²) 判断 + 重复 UI 刷新导致卡顿
             MemeGridView.SelectAll();
-        if (SelectAllButton != null)
-            SelectAllButton.Content = allSelected ? Localization.Get("Meme_SelectAll") : Localization.Get("Meme_CancelSelectAll");
+        UpdateSelectAllButton();
+    }
+
+    // 按当前实际选中态更新“全选/取消全选”按钮文案，避免在 ToggleSelectAll 里用操作前的状态导致文字反置，
+    // 也覆盖 Ctrl+A 原生、鼠标框选等其它改变选中的路径。
+    private void UpdateSelectAllButton()
+    {
+        if (SelectAllButton == null) return;
+        bool allSelected = _editMode && MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
+        SelectAllButton.Content = allSelected ? Localization.Get("Meme_CancelSelectAll") : Localization.Get("Meme_SelectAll");
     }
 
     // 由 Ctrl+V 主动触发的剪贴板图片导入：先记录内容类型，仅当为图片/位图/文件时才继续，
