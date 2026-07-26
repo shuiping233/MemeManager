@@ -424,7 +424,7 @@
   <data name="Meme_Edit" xml:space="preserve">
     <value>修改</value>
   </data>
-  <data name="Meme_CancelSelectAll" xml:space="preserve">
+  <data name="Meme_CancelSelectAll.Content" xml:space="preserve">
     <value>取消全选</value>
   </data>
   <data name="Meme_NoOtherCategory" xml:space="preserve">

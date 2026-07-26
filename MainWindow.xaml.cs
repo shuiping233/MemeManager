@@ -2233,7 +2233,7 @@ public sealed partial class MainWindow : Window
         MemeGridView.SelectedItems.Clear();
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
         _lastShiftAnchor = -1;
-        SelectAllButton.Content = Localization.Get("Meme_SelectAll.Content");
+        SelectAllButton.Content = Localization.Get("Meme_SelectAll");
         // 隐藏并清空复选框指示器
         SetSelectionBoxVisible(false);
         foreach (var vm in _memeList) vm.IsSelected = false;

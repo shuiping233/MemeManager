@@ -424,7 +424,7 @@ Reverted to the previous valid path.</value>
   <data name="Meme_Edit" xml:space="preserve">
     <value>Edit</value>
   </data>
-  <data name="Meme_CancelSelectAll" xml:space="preserve">
+  <data name="Meme_CancelSelectAll.Content" xml:space="preserve">
     <value>Cancel selection</value>
   </data>
   <data name="Meme_NoOtherCategory" xml:space="preserve">
