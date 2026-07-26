@@ -490,4 +490,19 @@ Reverted to the previous valid path.</value>
   <data name="Meme_SearchEmptyHint" xml:space="preserve">
     <value>No images match “{0}”</value>
   </data>
+  <data name="Batch_EtaLessThan1s" xml:space="preserve">
+    <value>&lt;1 second</value>
+  </data>
+  <data name="Batch_EtaSeconds" xml:space="preserve">
+    <value>{0} seconds</value>
+  </data>
+  <data name="Batch_EtaMinutes" xml:space="preserve">
+    <value>{0} minutes</value>
+  </data>
+  <data name="Batch_EtaHours" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="Batch_EtaPrefix" xml:space="preserve">
+    <value>about {0}</value>
+  </data>
 </root>

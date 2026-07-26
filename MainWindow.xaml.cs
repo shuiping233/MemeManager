@@ -111,7 +111,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount);
+        _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
         _batchRunner = new ImageBatchOperationRunner(_batchProgress, DispatcherQueue, new BatchUiContext
         {

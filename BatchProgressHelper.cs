@@ -25,6 +25,7 @@ internal sealed class BatchProgressHelper
     private readonly InfoBar _infoBar;
     private readonly ProgressBar _bar;
     private readonly TextBlock _countText;
+    private readonly TextBlock _titleText;
 
     // 测速 / ETA 状态
     private Stopwatch? _sw;
@@ -41,17 +42,19 @@ internal sealed class BatchProgressHelper
     // 至少采样多少次稳定后才显示 ETA（避免开头速率失真导致 ETA 乱跳）
     private const int MinSamplesBeforeEta = 3;
 
-    public BatchProgressHelper(InfoBar infoBar, ProgressBar bar, TextBlock countText)
+    public BatchProgressHelper(InfoBar infoBar, ProgressBar bar, TextBlock countText, TextBlock titleText)
     {
         _infoBar = infoBar;
         _bar = bar;
         _countText = countText;
+        _titleText = titleText;
     }
 
     /// <summary>打开 InfoBar 并显示标题，重置进度条、计数与测速状态。</summary>
     public void Show(string title)
     {
-        _infoBar.Title = title;
+        // 标题写入 Content 内的文本块（与进度条同一行），而非 InfoBar.Title（默认会另起一行）
+        _titleText.Text = title;
         _bar.Value = 0;
         _countText.Text = "";
         ResetTiming();
@@ -84,16 +87,27 @@ internal sealed class BatchProgressHelper
     /// </summary>
     public IProgress<BatchProgress> CreateProgress() => new Progress<BatchProgress>(OnReport);
 
-    // 收到一次事实快照：更新测速状态，并按降频节奏刷新 UI。
+    // 收到一次事实快照：按降频节奏刷新 UI，并据此采样速率。
     private void OnReport(BatchProgress p)
     {
         if (_sw == null) return;
 
         var elapsed = _sw.Elapsed;
+        var now = DateTime.Now;
 
-        // 首次出现已完成项才启动测速（避免 Completed 仍为 0 时除零/0 速）
+        // 降频：距上次 UI 刷新不足间隔、且尚未完成则跳过本次写入。
+        // 注意：被跳过的 Report 不会更新 _lastSample，因此速率只按“渲染间隔”采样，
+        // 而不是按“每次 Report 间隔”采样——否则高频 Report（毫秒级）会让瞬时速度
+        // 因 deltaTime 极小而冲到几千，造成速率/ETA 剧烈跳变。
+        bool finished = p.Completed >= p.Total;
+        if (!finished && _speedSamples > 0 && now - _lastRender < MinRenderInterval)
+            return;
+        _lastRender = now;
+
+        // 只有真正渲染的这一帧才采样速率（使用渲染间隔，稳定）
         if (_lastCompleted == 0 && p.Completed > 0)
         {
+            // 首次启动测速
             _lastCompleted = p.Completed;
             _lastSample = elapsed;
         }
@@ -111,12 +125,6 @@ internal sealed class BatchProgressHelper
             _lastCompleted = p.Completed;
             _lastSample = elapsed;
         }
-
-        // 降频：距上次 UI 刷新不足间隔则跳过本次写入（状态已更新，下次再画）
-        var now = DateTime.Now;
-        if (now - _lastRender < MinRenderInterval && p.Completed < p.Total)
-            return;
-        _lastRender = now;
 
         Render(p);
     }
@@ -138,7 +146,7 @@ internal sealed class BatchProgressHelper
         {
             var remaining = p.Total - p.Completed;
             var etaSec = remaining / _speed;
-            text += $" · 约 {FormatEta(etaSec)}";
+            text += " · " + string.Format(Localization.Get("Batch_EtaPrefix"), FormatEta(etaSec));
         }
 
         if (!string.IsNullOrEmpty(p.CurrentItemName))
@@ -147,12 +155,12 @@ internal sealed class BatchProgressHelper
         _countText.Text = text;
     }
 
-    // 把秒数格式化为简洁的剩余时间文本
+    // 把秒数格式化为简洁的剩余时间文本（i18n）
     private static string FormatEta(double seconds)
     {
-        if (seconds < 1) return "<1s";
-        if (seconds < 60) return $"{(int)seconds}s";
-        if (seconds < 3600) return $"{(int)(seconds / 60)}m";
-        return $"{(int)(seconds / 3600)}h";
+        if (seconds < 1) return Localization.Get("Batch_EtaLessThan1s");
+        if (seconds < 60) return string.Format(Localization.Get("Batch_EtaSeconds"), (int)seconds);
+        if (seconds < 3600) return string.Format(Localization.Get("Batch_EtaMinutes"), (int)(seconds / 60));
+        return string.Format(Localization.Get("Batch_EtaHours"), (int)(seconds / 3600));
     }
 }

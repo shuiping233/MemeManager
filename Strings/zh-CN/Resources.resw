@@ -490,4 +490,19 @@
   <data name="Meme_SearchEmptyHint" xml:space="preserve">
     <value>没有匹配“{0}”的图片</value>
   </data>
+  <data name="Batch_EtaLessThan1s" xml:space="preserve">
+    <value>小于 1 秒</value>
+  </data>
+  <data name="Batch_EtaSeconds" xml:space="preserve">
+    <value>{0} 秒</value>
+  </data>
+  <data name="Batch_EtaMinutes" xml:space="preserve">
+    <value>{0} 分钟</value>
+  </data>
+  <data name="Batch_EtaHours" xml:space="preserve">
+    <value>{0} 小时</value>
+  </data>
+  <data name="Batch_EtaPrefix" xml:space="preserve">
+    <value>约 {0}</value>
+  </data>
 </root>
