@@ -38,9 +38,12 @@ public sealed partial class MainWindow : Window
     // 最小化结束事件钩子：窗口从最小化恢复时重新断言置顶（防止 DWM 抽风掉置顶）
     private readonly NativeMethods.WinEventProc _winEventProc;
     private IntPtr _winEventHook;
-
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
+
     private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
+
+    // 批量操作进度条（顶部 InfoBar）封装；构造时绑定 XAML 控件
+    private readonly BatchProgressHelper _batchProgress;
 
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
@@ -104,6 +107,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount);
 
         Title = "MemeManager " + GetInformationalVersion();
 
@@ -1616,9 +1621,6 @@ public sealed partial class MainWindow : Window
         await RunBatchImportAsync(files, _currentCategory);
     }
 
-    // 批量导入进度快照（已处理数 / 实际新增数 / 重复跳过数）
-    private sealed record BatchImportProgress(int Done, int Imported, int Duplicate);
-
     // 低于该数量的导入/导出不弹进度 InfoBar（数量小，瞬间完成没必要）
     private const int BatchImportExportProgressMinCount = 5;
     // 批量移动低于该数量不弹进度 InfoBar
@@ -1639,14 +1641,11 @@ public sealed partial class MainWindow : Window
         // 捕获导入时的分类名：结束后即使用户切到别的分类，也据此决定是否刷新当前视图
         string targetCategory = category;
 
-        IProgress<BatchImportProgress> progress = new Progress<BatchImportProgress>(p =>
-        {
-            if (!showProgress) return;
-            BatchProgressBar.Value = total == 0 ? 0 : (double)p.Done / total * 100;
-            BatchProgressCount.Text = $"{p.Done}/{total}";
-        });
+        if (showProgress) _batchProgress.Show("导入中…", (uint)total);
 
-        if (showProgress) ShowBatchProgress("导入中…");
+        IProgress<BatchProgress> progress = showProgress
+            ? _batchProgress.CreateProgress()
+            : new Progress<BatchProgress>(_ => { });
 
         MemeModel? duplicateModel = null;
         int imported = 0, duplicate = 0;
@@ -1667,7 +1666,7 @@ public sealed partial class MainWindow : Window
                 {
                     imported++;
                 }
-                progress.Report(new BatchImportProgress(imported + duplicate, imported, duplicate));
+                progress.Report(new BatchProgress((uint)(imported + duplicate), (uint)total));
             }
         });
 
@@ -1676,7 +1675,7 @@ public sealed partial class MainWindow : Window
         {
             if (_isClosing || !_isVisible)
             {
-                if (showProgress) HideBatchProgress();
+                if (showProgress) _batchProgress.Hide();
                 Log($"[防护] 批量导入刷新被守卫拦截，丢弃 {imported} 个导入");
                 return;
             }
@@ -1688,26 +1687,13 @@ public sealed partial class MainWindow : Window
             if (_currentCategory.Equals(targetCategory, StringComparison.OrdinalIgnoreCase))
                 RefreshMemes();
 
-            if (showProgress) HideBatchProgress();
+            if (showProgress) _batchProgress.Hide();
             Log($"导入完成: 新增 {imported} 个, 重复跳过 {duplicate} 个");
 
             // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默
             if (list.Count == 1 && duplicateModel != null)
                 await ShowSingleImportDuplicateAsync(duplicateModel);
         });
-    }
-
-    private void ShowBatchProgress(string title)
-    {
-        BatchProgressInfoBar.Title = title;
-        BatchProgressBar.Value = 0;
-        BatchProgressCount.Text = "";
-        BatchProgressInfoBar.IsOpen = true;
-    }
-
-    private void HideBatchProgress()
-    {
-        BatchProgressInfoBar.IsOpen = false;
     }
 
     // 当前 GridView 原生选中的项
@@ -1728,15 +1714,10 @@ public sealed partial class MainWindow : Window
 
         bool showProgress = total >= BatchImportExportProgressMinCount;
 
-        IProgress<int> progress = new Progress<int>(p =>
-        {
-            if (!showProgress) return;
-            BatchProgressBar.Value = p;
-        });
+        IProgress<BatchProgress> progress = showProgress ? _batchProgress.CreateProgress() : new Progress<BatchProgress>(_ => { });
         if (showProgress)
         {
-            ShowBatchProgress("导出中…");
-            BatchProgressCount.Text = $"0/{total}";
+            _batchProgress.Show("导出中…", (uint)total);
         }
 
         // 后台执行导出，逐张汇报进度；导出不改缓存，结束直接关闭进度条
@@ -1744,12 +1725,8 @@ public sealed partial class MainWindow : Window
 
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (_isClosing || !_isVisible) { if (showProgress) HideBatchProgress(); return; }
-            if (showProgress)
-            {
-                BatchProgressCount.Text = $"{total}/{total}";
-                HideBatchProgress();
-            }
+            if (_isClosing || !_isVisible) { if (showProgress) _batchProgress.Hide(); return; }
+            if (showProgress) _batchProgress.Hide();
             Log($"导出完成: {total} 个图片到 {folder}");
         });
     }
@@ -1766,15 +1743,10 @@ public sealed partial class MainWindow : Window
         int total = models.Count;
         bool showProgress = total >= BatchDeleteProgressMinCount;
 
-        IProgress<int> progress = new Progress<int>(p =>
-        {
-            if (!showProgress) return;
-            BatchProgressBar.Value = p;
-        });
+        IProgress<BatchProgress> progress = showProgress ? _batchProgress.CreateProgress() : new Progress<BatchProgress>(_ => { });
         if (showProgress)
         {
-            ShowBatchProgress("删除中…");
-            BatchProgressCount.Text = $"0/{total}";
+            _batchProgress.Show("删除中…", (uint)total);
         }
 
         // 后台执行删除，结束后回 UI 线程更新视图（删除只影响当前分类，直接刷新当前网格）
@@ -1782,15 +1754,11 @@ public sealed partial class MainWindow : Window
 
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (_isClosing || !_isVisible) { if (showProgress) HideBatchProgress(); return; }
+            if (_isClosing || !_isVisible) { if (showProgress) _batchProgress.Hide(); return; }
             RemoveFromCurrentView(models);
             MemeGridView.SelectedItems.Clear();
             UpdateCategoryCounts();
-            if (showProgress)
-            {
-                BatchProgressCount.Text = $"{total}/{total}";
-                HideBatchProgress();
-            }
+            if (showProgress) _batchProgress.Hide();
             Log($"删除完成: {total} 个图片");
         });
     }
@@ -1822,15 +1790,10 @@ public sealed partial class MainWindow : Window
                 int total = models.Count;
                 bool showProgress = total >= BatchMoveProgressMinCount;
 
-                IProgress<int> progress = new Progress<int>(p =>
-                {
-                    if (!showProgress) return;
-                    BatchProgressBar.Value = p;
-                });
+                IProgress<BatchProgress> progress = showProgress ? _batchProgress.CreateProgress() : new Progress<BatchProgress>(_ => { });
                 if (showProgress)
                 {
-                    ShowBatchProgress("移动中…");
-                    BatchProgressCount.Text = $"0/{total}";
+                    _batchProgress.Show("移动中…", (uint)total);
                 }
 
                 // 后台执行移动，结束后回 UI 线程移除当前视图中的已移动项（移出当前分类）
@@ -1838,14 +1801,10 @@ public sealed partial class MainWindow : Window
 
                 DispatcherQueue.TryEnqueue(() =>
                 {
-                    if (_isClosing || !_isVisible) { if (showProgress) HideBatchProgress(); return; }
+                    if (_isClosing || !_isVisible) { if (showProgress) _batchProgress.Hide(); return; }
                     RemoveFromCurrentView(models);
                     UpdateCategoryCounts();
-                    if (showProgress)
-                    {
-                        BatchProgressCount.Text = $"{total}/{total}";
-                        HideBatchProgress();
-                    }
+                    if (showProgress) _batchProgress.Hide();
                     Log($"批量移动 {total} 张图片到分类「{targetName}」");
                 });
             };
