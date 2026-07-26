@@ -18,6 +18,7 @@
     <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -27,8 +28,30 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- 批量导入/导出进度条（不阻塞 UI，任务结束后自动关闭） -->
+        <InfoBar x:Name="BatchProgressInfoBar"
+                 Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                 IsOpen="False"
+                 IsIconVisible="True"
+                 IsClosable="False"
+                 Severity="Informational"
+                 Margin="8,6,8,0">
+            <InfoBar.Content>
+                <Grid VerticalAlignment="Center" ColumnSpacing="10" Margin="0,4,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="BatchProgressText" Grid.Column="0" VerticalAlignment="Center"/>
+                    <ProgressBar x:Name="BatchProgressBar" Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="100" Value="0"/>
+                    <TextBlock x:Name="BatchProgressCount" Grid.Column="2" VerticalAlignment="Center"/>
+                </Grid>
+            </InfoBar.Content>
+        </InfoBar>
+
         <!-- 顶部栏：右侧按钮 -->
-        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Padding="12,10,12,6">
+        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Padding="12,10,12,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -70,7 +93,7 @@
         </Grid>
 
         <!-- 左侧分类栏 -->
-        <Grid Grid.Row="1" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
+        <Grid Grid.Row="2" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -141,7 +164,7 @@
 
         <!-- 右侧表情网格 -->
         <GridView x:Name="MemeGridView"
-                  Grid.Row="1" Grid.Column="1"
+                  Grid.Row="2" Grid.Column="1"
                   Margin="12"
                   HorizontalAlignment="Stretch"
                   SelectionMode="None"
@@ -254,7 +277,7 @@
         </Popup>
 
         <!-- 修改模式底部批量操作栏 -->
-        <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+        <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
               x:Name="BatchBar"
               Visibility="Collapsed"
               Padding="12"

@@ -409,14 +409,18 @@ public class MemeDataEngine
 
     // ---------- 导出 ----------
 
-    public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir)
+    public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir, IProgress<int>? progress = null)
     {
         Directory.CreateDirectory(targetDir);
+        int done = 0;
+        int total = memes.Count();
         foreach (var meme in memes)
         {
             if (!File.Exists(meme.LocalPath)) continue;
             var dest = Path.Combine(targetDir, meme.FileName);
             await EcoQos.RunAsync(() => File.Copy(meme.LocalPath, dest, overwrite: true));
+            done++;
+            progress?.Report(total == 0 ? 0 : done * 100 / total);
         }
     }
 

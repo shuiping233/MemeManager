@@ -1430,35 +1430,9 @@ public sealed partial class MainWindow : Window
     private async Task ImportDroppedFilesAsync(System.Collections.Generic.List<string> paths)
     {
         if (paths.Count == 0) return;
-        int importedCount = 0;
-        int duplicateCount = 0;
-        MemeModel? duplicateModel = null;
-        foreach (var path in paths)
-        {
-            var (imported, dup) = await App.DataEngine.ImportMemeAsync(path, _currentCategory);
-            if (imported == null) continue;
-            if (dup) { duplicateCount++; duplicateModel = imported; }
-            else importedCount++;
-        }
 
-        // 回到 UI 线程刷新
-        DispatcherQueue.TryEnqueue(async () =>
-        {
-            // 窗口已隐藏/销毁则放弃，避免操作已不存在的 XAML 导致 native AV
-            if (_isClosing || !_isVisible)
-            {
-                Log($"[防护] 拖入刷新被守卫拦截(_isClosing={_isClosing}, _isVisible={_isVisible})，丢弃 {importedCount} 个导入");
-                return;
-            }
-            RefreshMemes();
-            UpdateCategoryCounts();
-            Log($"拖入完成: 新增 {importedCount} 个, 重复跳过 {duplicateCount} 个");
-
-            // 仅当只拖入 1 张且为重复时才弹窗提示；多张重复刻意静默，交由去重逻辑处理，
-            // 避免批量导入时反复弹窗打扰用户体验。
-            if (paths.Count == 1 && duplicateCount == 1 && duplicateModel != null)
-                await ShowSingleImportDuplicateAsync(duplicateModel);
-        });
+        // 复用后台批量导入（含进度条与分类守卫），拖入与按钮导入行为保持一致
+        await RunBatchImportAsync(paths, _currentCategory);
     }
 
     // 单张导入重复时，弹窗告知用户与哪张已有图片冲突（展示 title，无则文件名）。
@@ -1639,20 +1613,97 @@ public sealed partial class MainWindow : Window
 
         if (files.Count == 0) return;
 
-        MemeModel? duplicateModel = null;
-        foreach (var file in files)
-        {
-            var (imported, dup) = await App.DataEngine.ImportMemeAsync(file, _currentCategory);
-            if (imported == null) continue;
-            if (dup) duplicateModel = imported;
-            else InsertMemeAtFront(new MemeViewModel(imported));
-        }
-        UpdateCategoryCounts();
+        await RunBatchImportAsync(files, _currentCategory);
+    }
 
-        // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默，交由去重逻辑处理，
-        // 避免批量导入时反复弹窗打扰用户体验。
-        if (files.Count == 1 && duplicateModel != null)
-            await ShowSingleImportDuplicateAsync(duplicateModel);
+    // 批量导入进度快照（已处理数 / 实际新增数 / 重复跳过数）
+    private sealed record BatchImportProgress(int Done, int Imported, int Duplicate);
+
+    // 低于该数量的导入/导出不弹进度 InfoBar（数量小，瞬间完成没必要）
+    private const int BatchProgressMinCount = 5;
+
+    // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
+    // 结束后回到 UI 线程更新分类计数，且仅当用户仍停留在导入时的分类才刷新右侧网格。
+    private async Task RunBatchImportAsync(IEnumerable<string> files, string category)
+    {
+        var list = files.ToList();
+        int total = list.Count;
+        if (total == 0) return;
+
+        bool showProgress = total >= BatchProgressMinCount;
+
+        // 捕获导入时的分类名：结束后即使用户切到别的分类，也据此决定是否刷新当前视图
+        string targetCategory = category;
+
+        IProgress<BatchImportProgress> progress = new Progress<BatchImportProgress>(p =>
+        {
+            if (!showProgress) return;
+            BatchProgressBar.Value = total == 0 ? 0 : (double)p.Done / total * 100;
+            BatchProgressCount.Text = $"{p.Done}/{total}";
+        });
+
+        if (showProgress) ShowBatchProgress("导入中…");
+
+        MemeModel? duplicateModel = null;
+        int imported = 0, duplicate = 0;
+
+        // 整个循环在后台线程跑，避免 UI 线程被逐张导入/缓存写入占满
+        await Task.Run(async () =>
+        {
+            foreach (var file in list)
+            {
+                var (model, dup) = await App.DataEngine.ImportMemeAsync(file, targetCategory);
+                if (model == null) continue;
+                if (dup)
+                {
+                    duplicate++;
+                    if (list.Count == 1) duplicateModel = model;
+                }
+                else
+                {
+                    imported++;
+                }
+                progress.Report(new BatchImportProgress(imported + duplicate, imported, duplicate));
+            }
+        });
+
+        // 回到 UI 线程收尾
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_isClosing || !_isVisible)
+            {
+                if (showProgress) HideBatchProgress();
+                Log($"[防护] 批量导入刷新被守卫拦截，丢弃 {imported} 个导入");
+                return;
+            }
+
+            // 始终更新各分类计数（纯内存，开销小，不论切到哪都刷新数字）
+            UpdateCategoryCounts();
+
+            // 仅当用户还停留在导入时的分类，才重建右侧图片容器；否则只更新左侧数字，不干扰用户
+            if (_currentCategory.Equals(targetCategory, StringComparison.OrdinalIgnoreCase))
+                RefreshMemes();
+
+            if (showProgress) HideBatchProgress();
+            Log($"导入完成: 新增 {imported} 个, 重复跳过 {duplicate} 个");
+
+            // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默
+            if (list.Count == 1 && duplicateModel != null)
+                await ShowSingleImportDuplicateAsync(duplicateModel);
+        });
+    }
+
+    private void ShowBatchProgress(string title)
+    {
+        BatchProgressInfoBar.Title = title;
+        BatchProgressBar.Value = 0;
+        BatchProgressCount.Text = "";
+        BatchProgressInfoBar.IsOpen = true;
+    }
+
+    private void HideBatchProgress()
+    {
+        BatchProgressInfoBar.IsOpen = false;
     }
 
     // 当前 GridView 原生选中的项
@@ -1667,7 +1718,36 @@ public sealed partial class MainWindow : Window
         var folder = await PickerHelper.PickFolderAsync(this);
         if (folder == null) return;
 
-        await App.DataEngine.ExportMemesAsync(selected.Select(m => m.Model), folder);
+        var models = selected.Select(m => m.Model).ToList();
+        int total = models.Count;
+        if (total == 0) return;
+
+        bool showProgress = total >= BatchProgressMinCount;
+
+        IProgress<int> progress = new Progress<int>(p =>
+        {
+            if (!showProgress) return;
+            BatchProgressBar.Value = p;
+        });
+        if (showProgress)
+        {
+            ShowBatchProgress("导出中…");
+            BatchProgressCount.Text = $"0/{total}";
+        }
+
+        // 后台执行导出，逐张汇报进度；导出不改缓存，结束直接关闭进度条
+        await Task.Run(() => App.DataEngine.ExportMemesAsync(models, folder, progress));
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isClosing || !_isVisible) { if (showProgress) HideBatchProgress(); return; }
+            if (showProgress)
+            {
+                BatchProgressCount.Text = $"{total}/{total}";
+                HideBatchProgress();
+            }
+            Log($"导出完成: {total} 个图片到 {folder}");
+        });
     }
 
     private async void DeleteButton_Click(object sender, RoutedEventArgs e)
