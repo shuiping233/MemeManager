@@ -2258,7 +2258,7 @@ public sealed partial class MainWindow : Window
         if (allSelected)
             MemeGridView.SelectedItems.Clear();
         else
-            foreach (var m in _memeList) if (!MemeGridView.SelectedItems.Contains(m)) MemeGridView.SelectedItems.Add(m);
+            MemeGridView.SelectAll();
         if (SelectAllButton != null)
             SelectAllButton.Content = allSelected ? Localization.Get("Meme_SelectAll") : Localization.Get("Meme_CancelSelectAll");
     }
