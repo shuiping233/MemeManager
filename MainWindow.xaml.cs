@@ -1373,14 +1373,6 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        // 外部文件拖入为导入（写操作）：先判断写入锁，占用则弹提示并放弃，
-        // 避免无谓地 GetStorageItemsAsync + 遍历收集（写锁占用时这些收集纯属浪费）。
-        if (!TryGuardWrite())
-        {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
-            return;
-        }
-
         // 列出所有可用的数据格式，便于排查 QQ 等特殊来源
         var formats = view.AvailableFormats;
         Log($"Drop: 可用格式数量={formats.Count}");
@@ -1445,6 +1437,16 @@ public sealed partial class MainWindow : Window
     {
         // 注意：此函数在窗口过程(WM_DROPFILES)回调内同步执行，
         // 绝对不能在里面阻塞等待异步(会卡死消息泵)。只同步收集路径，后续异步导入。
+
+        // 有模态弹窗（如“操作进行中”提示）未处理或写任务进行中时，直接拦截拖入，
+        // 避免叠加弹窗/未决状态下误操作。
+        if (IsBusyBlockingInput())
+        {
+            NativeMethods.DragFinish(hDrop);
+            Log("WM_DROPFILES 被拦截：存在未处理的模态弹窗或写任务进行中，忽略本次拖入");
+            return;
+        }
+
         try
         {
             uint count = NativeMethods.DragQueryFile(hDrop, 0xFFFFFFFFu, IntPtr.Zero, 0);
@@ -1458,7 +1460,6 @@ public sealed partial class MainWindow : Window
                 {
                     NativeMethods.DragQueryFile(hDrop, i, buf, len + 1);
                     string path = Marshal.PtrToStringUni(buf) ?? string.Empty;
-                    Log($"拖入文件[{i}] = {path}");
                     if (System.IO.File.Exists(path) && IsImage(System.IO.Path.GetExtension(path)))
                         paths.Add(path);
                 }
@@ -1694,6 +1695,11 @@ public sealed partial class MainWindow : Window
         }
         return true;
     }
+
+    // 是否应拦截用户输入（拖入等）：有任意模态弹窗未处理，或已有写任务在跑。
+    // 模态窗优先（避免叠加弹窗），写锁次之。
+    private bool IsBusyBlockingInput() =>
+        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive;
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
     // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在

@@ -21,6 +21,14 @@ public static class DialogHelper
     // 避免 Win10/Win11 下弹窗主题表现不一致（Win10 默认浅色、Win11 跟随系统）。
     public static ElementTheme DialogTheme { get; set; } = ElementTheme.Default;
 
+    // 当前打开的模态弹窗计数（原子增减）。用于让入口层在“已有模态窗未处理”时
+    // 直接拦截其它操作（如拖入文件），避免模态框叠加。任何 ShowAsync 路径都必须在
+    // 显示前 +1、关闭后(finally) -1，异常路径亦不例外，否则计数泄漏会永久拦截。
+    private static int _openDialogs;
+
+    // 是否有任意模态弹窗正打开（未关闭）。入口层可据此拦截其它用户输入。
+    public static bool IsModalOpen => _openDialogs > 0;
+
     // ---------- 基础方法（不直接对外暴露文案，仅内部复用） ----------
 
     // 标题 + 描述文本。wrap + 可选选中，便于用户复制冲突明细。
@@ -28,6 +36,7 @@ public static class DialogHelper
         XamlRoot xamlRoot, string title, string message, bool selectable = false)
     {
         if (xamlRoot == null) return;
+        Interlocked.Increment(ref _openDialogs);
         try
         {
             var content = new TextBlock
@@ -50,6 +59,10 @@ public static class DialogHelper
         catch (Exception ex)
         {
             Logger.Log($"[DialogHelper] 弹窗失败(title={title}): {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _openDialogs);
         }
     }
 
@@ -91,6 +104,7 @@ public static class DialogHelper
         string primaryText = "", string closeText = "")
     {
         if (xamlRoot == null) return ContentDialogResult.None;
+        Interlocked.Increment(ref _openDialogs);
         try
         {
             var content = new TextBlock
@@ -116,6 +130,10 @@ public static class DialogHelper
             Logger.Log($"[DialogHelper] 确认弹窗失败(title={title}): {ex.Message}");
             return ContentDialogResult.None;
         }
+        finally
+        {
+            Interlocked.Decrement(ref _openDialogs);
+        }
     }
 
     // 带输入框的提示弹窗：返回用户输入的文本（已 Trim）。
@@ -125,6 +143,7 @@ public static class DialogHelper
         XamlRoot xamlRoot, string title, string placeholder, string? defaultText = null)
     {
         if (xamlRoot == null) return null;
+        Interlocked.Increment(ref _openDialogs);
         try
         {
             var box = new TextBox
@@ -150,6 +169,10 @@ public static class DialogHelper
         {
             Logger.Log($"[DialogHelper] 输入弹窗失败(title={title}): {ex.Message}");
             return null;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _openDialogs);
         }
     }
 
