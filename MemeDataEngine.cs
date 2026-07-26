@@ -598,15 +598,38 @@ public class MemeDataEngine
         Directory.CreateDirectory(targetDir);
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        uint done = 0;
+        // 进度计数器：阶段1 每完成一项（复制 IO 完毕）计数一次
+        long ioDone = 0;
+
+        // 并行复制文件（IO 并行，互不依赖，无共享状态；失败静默忽略）
+        var copyGate = new SemaphoreSlim(ImportParallelism);
+        var copyTasks = new List<Task>(list.Count);
         foreach (var meme in list)
         {
-            if (!File.Exists(meme.LocalPath)) continue;
-            var dest = Path.Combine(targetDir, meme.FileName);
-            await EcoQos.RunAsync(() => File.Copy(meme.LocalPath, dest, overwrite: true));
-            done++;
-            progress?.Report(new BatchProgress(done, total));
+            copyTasks.Add(Task.Run(async () =>
+            {
+                await copyGate.WaitAsync();
+                try
+                {
+                    if (File.Exists(meme.LocalPath))
+                    {
+                        var dest = Path.Combine(targetDir, meme.FileName);
+                        await EcoQos.RunAsync(() => File.Copy(meme.LocalPath, dest, overwrite: true));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MemeManager.Logger.Log($"[Engine] 导出复制失败: {meme.LocalPath} {ex.Message}");
+                }
+                finally
+                {
+                    copyGate.Release();
+                    var d = (uint)Interlocked.Increment(ref ioDone);
+                    progress?.Report(new BatchProgress(d, total));
+                }
+            }));
         }
+        await Task.WhenAll(copyTasks);
     }
 
     // ---------- 移动到其他分类 ----------
