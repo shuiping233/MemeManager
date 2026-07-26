@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using MemeManager.Helpers;
 using MemeManager.Models;
@@ -14,6 +15,10 @@ namespace MemeManager.Data;
 
 public class MemeDataEngine
 {
+    // 导入并行度：阶段1（算 hash+去重判定）与阶段2（File.Copy）各自的并发上限。
+    // 兼顾 SSD 吞吐与句柄占用，后续调优直接改此处。
+    private const int ImportParallelism = 16;
+
     // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -426,86 +431,138 @@ public class MemeDataEngine
         // 目标分类 metadata 仅加载一次
         var meta = await LoadCategoryMetadataAsync(categoryDir);
 
-        // 预建“文件名 -> 缓存项”索引（仅本分类），O(1) 去重，避免逐张线性扫描
+        // 预建“文件名 -> 缓存项”索引（仅本分类），O(1) 去重，避免逐张线性扫描。
+        // 并行阶段只读取它（判定重复），绝不写入；写入留到阶段3串行。
         var existingByFile = _memeCache
             .Where(m => m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(m => m.FileName, m => m, StringComparer.OrdinalIgnoreCase);
 
         int imported = 0, duplicate = 0;
         MemeModel? duplicateModel = null;
-        uint done = 0;
 
-        foreach (var sourcePath in list)
+        // 每张的判定/落地结果容器（并行阶段填充，不触碰共享字典）。
+        var plans = new List<ImportPlan>(list.Count);
+
+        // ---------- 阶段1：并行算 hash + 去重判定（只读 existingByFile）----------
+        var po = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
+        await Parallel.ForEachAsync(list, po, async (sourcePath, _) =>
         {
-            if (!File.Exists(sourcePath)) continue;
-            try
-            {
-                string hash = await CalculateSha256Async(sourcePath);
-                string ext = Path.GetExtension(sourcePath);
-                string fileName = $"{hash}{ext}";
-                var targetPath = Path.Combine(categoryDir, fileName);
+            if (!File.Exists(sourcePath)) return;
 
-                // 去重：优先查预建索引
-                if (existingByFile.TryGetValue(fileName, out var existing))
-                {
-                    if (!File.Exists(existing.LocalPath))
-                    {
-                        // 缓存命中但磁盘文件已缺失：清除僵尸缓存后按新导入流程覆盖写入
-                        _memeCache.Remove(existing);
-                        if (!string.IsNullOrWhiteSpace(existing.Title) &&
-                            _titleReverseMap.TryGetValue(existing.Title, out var rev))
-                        {
-                            rev.Remove(existing.FileName);
-                            if (rev.Count == 0) _titleReverseMap.Remove(existing.Title);
-                        }
-                        existingByFile.Remove(fileName);
-                    }
-                    else
-                    {
-                        Logger.Log($"[Engine] 导入重复跳过: 文件={fileName} 源路径={sourcePath} 目标分类={safeTarget} (已存在)");
-                        duplicate++;
-                        if (total == 1) duplicateModel = existing;
-                        done++;
-                        progress?.Report(new BatchProgress(done, total));
-                        continue;
-                    }
-                }
-
-                await EcoQos.RunAsync(() => File.Copy(sourcePath, targetPath, overwrite: true));
-
-                uint maxPriority = 0;
-                foreach (var entry in meta.Items.Values)
-                    if (entry.Priority > maxPriority) maxPriority = entry.Priority;
-
-                var model = new MemeModel
-                {
-                    Hash = hash,
-                    Extension = ext,
-                    LocalPath = targetPath,
-                    Category = Path.GetFileName(categoryDir),
-                    Title = Path.GetFileNameWithoutExtension(sourcePath),
-                    Tags = new List<string>(),
-                    DateAdded = DateTime.UtcNow,
-                    UsageCount = 0,
-                    Priority = maxPriority + 1
-                };
-
-                meta.Items[fileName] = new MemeMetaEntry
-                {
-                    Title = model.Title,
-                    Tags = model.Tags,
-                    Priority = model.Priority
-                };
-
-                _memeCache.Add(model);
-                IndexTitle(model);
-                existingByFile[fileName] = model;   // 同批次内后续重复也能识别
-                imported++;
-            }
+            string hash;
+            try { hash = await CalculateSha256Async(sourcePath); }
             catch (Exception ex)
             {
-                MemeManager.Logger.Log($"[Engine] 导入表情包失败: {ex.Message}");
+                MemeManager.Logger.Log($"[Engine] 导入算哈希失败: {sourcePath} {ex.Message}");
+                return;
             }
+
+            string ext = Path.GetExtension(sourcePath);
+            string fileName = $"{hash}{ext}";
+
+            // 查预建索引判定重复（只读，线程安全）
+            bool isDuplicate = false;
+            bool zombie = false;   // 缓存命中但磁盘文件缺失，需在阶段3清理后覆盖
+            if (existingByFile.TryGetValue(fileName, out var existing))
+            {
+                if (File.Exists(existing.LocalPath))
+                    isDuplicate = true;
+                else
+                    zombie = true;
+            }
+
+            lock (plans)
+                plans.Add(new ImportPlan(sourcePath, hash, ext, fileName, isDuplicate, zombie));
+        });
+
+        // ---------- 阶段2：并行复制文件（IO 并行，不碰共享状态）----------
+        var copyGate = new SemaphoreSlim(ImportParallelism);
+        var copyTasks = new List<Task>(plans.Count);
+        foreach (var plan in plans)
+        {
+            if (plan.IsDuplicate) continue;   // 重复项直接跳过，无须复制
+            copyTasks.Add(Task.Run(async () =>
+            {
+                await copyGate.WaitAsync();
+                try
+                {
+                    await EcoQos.RunAsync(() =>
+                        File.Copy(plan.SourcePath, Path.Combine(categoryDir, plan.FileName), overwrite: true));
+                    plan.CopyOk = true;
+                }
+                catch (Exception ex)
+                {
+                    // 失败静默打日志跳过（沿用现状，不弹窗）
+                    MemeManager.Logger.Log($"[Engine] 导入复制失败: {plan.SourcePath} {ex.Message}");
+                    plan.CopyOk = false;
+                }
+                finally { copyGate.Release(); }
+            }));
+        }
+        await Task.WhenAll(copyTasks);
+
+        // ---------- 阶段3：串行落地（写 metadata/cache，纯内存极快）----------
+        uint done = 0;
+        foreach (var plan in plans)
+        {
+            if (plan.IsDuplicate)
+            {
+                duplicate++;
+                if (total == 1) duplicateModel = existingByFile.TryGetValue(plan.FileName, out var e) ? e : null;
+                done++;
+                progress?.Report(new BatchProgress(done, total));
+                continue;
+            }
+
+            if (!plan.CopyOk)
+            {
+                // 复制失败的项不写入 metadata/cache，仅计入已完成进度
+                done++;
+                progress?.Report(new BatchProgress(done, total));
+                continue;
+            }
+
+            // 僵尸缓存：先清掉缺失文件的旧缓存（仅串行阶段操作共享字典）
+            if (plan.Zombie && existingByFile.TryGetValue(plan.FileName, out var dead))
+            {
+                _memeCache.Remove(dead);
+                if (!string.IsNullOrWhiteSpace(dead.Title) &&
+                    _titleReverseMap.TryGetValue(dead.Title, out var rev))
+                {
+                    rev.Remove(dead.FileName);
+                    if (rev.Count == 0) _titleReverseMap.Remove(dead.Title);
+                }
+                existingByFile.Remove(plan.FileName);
+            }
+
+            uint maxPriority = 0;
+            foreach (var entry in meta.Items.Values)
+                if (entry.Priority > maxPriority) maxPriority = entry.Priority;
+
+            var model = new MemeModel
+            {
+                Hash = plan.Hash,
+                Extension = plan.Ext,
+                LocalPath = Path.Combine(categoryDir, plan.FileName),
+                Category = Path.GetFileName(categoryDir),
+                Title = Path.GetFileNameWithoutExtension(plan.SourcePath),
+                Tags = new List<string>(),
+                DateAdded = DateTime.UtcNow,
+                UsageCount = 0,
+                Priority = maxPriority + 1
+            };
+
+            meta.Items[plan.FileName] = new MemeMetaEntry
+            {
+                Title = model.Title,
+                Tags = model.Tags,
+                Priority = model.Priority
+            };
+
+            _memeCache.Add(model);
+            IndexTitle(model);
+            existingByFile[plan.FileName] = model;   // 同批次内后续重复也能识别
+            imported++;
             done++;
             progress?.Report(new BatchProgress(done, total));
         }
@@ -513,6 +570,18 @@ public class MemeDataEngine
         // 整批仅写回一次 metadata
         await SaveCategoryMetadataAsync(categoryDir, meta);
         return (imported, duplicate, duplicateModel);
+    }
+
+    // 导入单张的判定/落地计划（并行阶段填充，阶段3串行消费）
+    private sealed record ImportPlan(
+        string SourcePath,
+        string Hash,
+        string Ext,
+        string FileName,
+        bool IsDuplicate,
+        bool Zombie)
+    {
+        public bool CopyOk;
     }
 
     // ---------- 导出 ----------
