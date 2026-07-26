@@ -39,7 +39,6 @@
                  Severity="Informational"
                  Margin="0">
             <InfoBar.Content>
-                <!-- 标题 / 进度条 / 计数 放在同一行 -->
                 <Grid VerticalAlignment="Center" ColumnSpacing="10" Margin="0,4,0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" MinWidth="70"/>
