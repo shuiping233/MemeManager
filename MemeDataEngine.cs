@@ -1065,7 +1065,7 @@ public class MemeDataEngine
     private static string SanitizeCategory(string category)
     {
         var invalid = Path.GetInvalidFileNameChars();
-        var cleaned = new string(category.Where(c => !invalid.Contains(c)).ToArray()).Trim();
+        var cleaned = new string([.. category.Where(c => !invalid.Contains(c))]).Trim();
         return string.IsNullOrWhiteSpace(cleaned) ? "未分类" : cleaned;
     }
 
