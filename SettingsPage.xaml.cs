@@ -259,36 +259,28 @@ public sealed partial class SettingsPage : Page
     private Task ShowErrorAsync(string title, string detail) =>
         DialogHelper.ShowErrorAsync(this.XamlRoot, title, detail);
 
-    private async void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e)
+    private async Task OpenFolderAsync(string path)
     {
-        try
-        {
-            var dir = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager");
-            System.IO.Directory.CreateDirectory(dir);
-            await Windows.System.Launcher.LaunchFolderPathAsync(dir);
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[Settings] 打开设置文件夹失败: {ex.Message}");
-        }
-    }
-
-    private async void OpenMemeDataFolder_Click(object sender, RoutedEventArgs e)
-    {
-        var path = StoragePathBox.Text;
         if (string.IsNullOrWhiteSpace(path)) return;
         try
         {
             // 确保目录存在
             System.IO.Directory.CreateDirectory(path);
+            Logger.Log($"[Settings] 打开 {path} 文件夹");
             await Windows.System.Launcher.LaunchFolderPathAsync(path);
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Settings] 打开文件夹失败: {ex.Message}");
+            Logger.Log($"[Settings] 打开 {path} 文件夹错误: {ex.Message}");
         }
     }
+
+    private async void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e) =>
+        await OpenFolderAsync(System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager"));
+
+    private async void OpenMemeDataFolder_Click(object sender, RoutedEventArgs e) =>
+        await OpenFolderAsync(StoragePathBox.Text);
 
     // 用户手动修改路径文本框时校验：目录存在则记录，不存在则提示并回退到进入设置前的有效路径
     private bool _revertingPath;
