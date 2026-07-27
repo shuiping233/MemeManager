@@ -363,6 +363,7 @@ public sealed partial class MainWindow : Window
         }
 
         RefreshMemes();
+        SyncMemeDragState();
     }
 
     private void CategoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -377,7 +378,16 @@ public sealed partial class MainWindow : Window
             _currentCategory = cat.Name;
             _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
+            SyncMemeDragState();
         }
+    }
+
+    // 依据当前视图同步网格拖拽能力：
+    // “全部表情”视图下项来自不同分类，禁止拖起（视觉上即不可拖，也从根上阻断跨分类重排/移动）；
+    // 普通分类视图下允许拖出/拖入。编辑模式与此无关（普通模式本就允许拖出）。
+    private void SyncMemeDragState()
+    {
+        MemeGridView.CanDragItems = !string.IsNullOrEmpty(_currentCategory);
     }
 
     // 当前右键所操作的分类（由 ContextFlyout.Opening 写入，供各 Click 使用）
@@ -415,6 +425,7 @@ public sealed partial class MainWindow : Window
                 _currentCategory = string.Empty;
                 _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
                 RefreshMemes();
+                SyncMemeDragState();
             }
         }
     }
@@ -483,6 +494,16 @@ public sealed partial class MainWindow : Window
     {
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
+            // “全部表情”视图下项来自不同分类，禁止拖到分类栏移动归属：显示禁止光标。
+            if (string.IsNullOrEmpty(_currentCategory))
+            {
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+                e.DragUIOverride.Caption = Localization.Get("AllMemes_DropNotAllowed");
+                e.DragUIOverride.IsCaptionVisible = true;
+                e.DragUIOverride.IsGlyphVisible = true;
+                return;
+            }
+
             // 拖入表情图片：仅关闭 CanReorderItems 的插入占位，避免分类列表被撑开；
             // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
             CategoryList.CanReorderItems = false;
@@ -516,6 +537,13 @@ public sealed partial class MainWindow : Window
 
     private async void CategoryListItem_Drop(object sender, DragEventArgs e)
     {
+        // “全部表情”视图下禁止拖到分类栏移动归属（DragOver 已显示禁止光标，这里兜底）。
+        if (string.IsNullOrEmpty(_currentCategory))
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            return;
+        }
+
         // 优先用 DragItemsStarting 记录的 _draggingMemes；
         // 若它已被 DragItemsCompleted 提前清空（跨控件拖拽事件顺序不确定），
         // 则从 e.DataView 的 StorageItems 还原被拖项，避免依赖共享字段。
@@ -1345,14 +1373,24 @@ public sealed partial class MainWindow : Window
 
         var ordered = orderedFileNames;
 
-        try
+        // “全部表情”视图下（_currentCategory 为空）项来自不同分类，不存在单一分类顺序，
+        // 禁止重排写回，避免跨分类顺序被错误地写到某个分类的 metadata。
+        // 拖到左侧分类栏移动归属走 CategoryList 的 Drop（MoveMemesToCategoryAsync），与此无关。
+        if (string.IsNullOrEmpty(_currentCategory))
         {
-            await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
-            Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+            Log("DragItemsCompleted: 当前为“全部表情”视图，跳过重排写回（跨分类不允许重排序）");
         }
-        catch (Exception ex)
+        else
         {
-            Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
+            try
+            {
+                await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
+                Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+            }
+            catch (Exception ex)
+            {
+                Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
+            }
         }
         // 场景A：仅顺序变、内容不变。已就地调整 _memeList，不重建集合以保持滚动条位置。
 
@@ -1398,6 +1436,15 @@ public sealed partial class MainWindow : Window
             // 编辑模式下，网格内重排交给 WinUI 内置重排（CanReorderItems），
             // 落点在 DragItemsCompleted 里读新顺序写回 Priority，这里不处理。
             if (_editMode)
+            {
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+                return;
+            }
+
+            // “全部表情”视图（_currentCategory 为空）下：拖到网格自身无意义
+            // （无单一当前分类可作移动目标），且禁止跨分类重排序。直接忽略，
+            // 真正的“移动归属”请拖到左侧分类栏（CategoryListItem_Drop）。
+            if (string.IsNullOrEmpty(_currentCategory))
             {
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
                 return;
@@ -1572,6 +1619,21 @@ public sealed partial class MainWindow : Window
         if (moveSub == null) return;
 
         moveSub.Items.Clear();
+
+        // “全部表情”视图下项来自不同分类，禁止移动归属：子菜单保留可点，
+        // 点击弹出模态提示说明不允许。
+        if (string.IsNullOrEmpty(_currentCategory))
+        {
+            var blockedItem = new MenuFlyoutItem { Text = Localization.Get("AllMemes_MoveDisabledTip") };
+            blockedItem.Click += async (_, __) =>
+                await DialogHelper.ShowInfoAsync(this.Content.XamlRoot,
+                    Localization.Get("AllMemes_MoveBlockedTitle"),
+                    Localization.Get("AllMemes_MoveBlockedMessage"));
+            moveSub.Items.Add(blockedItem);
+            moveSub.IsEnabled = true;
+            return;
+        }
+
         bool hasTarget = false;
         foreach (var cat in _categoryList)
         {
@@ -1854,6 +1916,18 @@ public sealed partial class MainWindow : Window
 
         var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
+
+        // “全部表情”视图下禁止移动归属：菜单保留可点，点击弹出模态提示说明不允许。
+        if (string.IsNullOrEmpty(_currentCategory))
+        {
+            var blockedItem = new MenuFlyoutItem { Text = Localization.Get("AllMemes_MoveDisabledTip") };
+            blockedItem.Click += async (_, __) =>
+                await DialogHelper.ShowInfoAsync(this.Content.XamlRoot,
+                    Localization.Get("AllMemes_MoveBlockedTitle"),
+                    Localization.Get("AllMemes_MoveBlockedMessage"));
+            BatchMoveFlyout.Items.Add(blockedItem);
+            return;
+        }
 
         bool hasTarget = false;
         foreach (var cat in _categoryList)
@@ -2614,11 +2688,12 @@ public sealed partial class MainWindow : Window
         // 恢复 WinUI 拖拽能力：拖出(CanDragItems)与拖拽重排(CanReorderItems)在
         // 普通模式和编辑模式都需要（普通模式也能在窗口内拖动排序并落库）。
         CategoryList.CanReorderItems = true;
-        MemeGridView.CanDragItems = true;
         MemeGridView.CanReorderItems = true;
         MemeGridView.AllowDrop = true;
         CategoryList.CanDragItems = true;
         CategoryList.AllowDrop = true;
+        // 拖拽能力跟随当前视图：全部表情视图下网格禁止拖出（见 SyncMemeDragState）
+        SyncMemeDragState();
 
         Log("[防护] 已恢复窗口交互");
     }

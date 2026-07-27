@@ -508,4 +508,16 @@ Reverted to the previous valid path.</value>
   <data name="Category_AllMemes.Text" xml:space="preserve">
     <value>All Memes</value>
   </data>
+  <data name="AllMemes_DropNotAllowed" xml:space="preserve">
+    <value>Moving images to other categories is not allowed in "All Memes"</value>
+  </data>
+  <data name="AllMemes_MoveDisabledTip" xml:space="preserve">
+    <value>Moving images between categories is not allowed in "All Memes"</value>
+  </data>
+  <data name="AllMemes_MoveBlockedTitle" xml:space="preserve">
+    <value>Operation not allowed</value>
+  </data>
+  <data name="AllMemes_MoveBlockedMessage" xml:space="preserve">
+    <value>"All Memes" gathers images from every category, so images cannot be moved to another category here. Switch to a specific category first.</value>
+  </data>
 </root>
