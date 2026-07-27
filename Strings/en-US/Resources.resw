@@ -174,7 +174,7 @@
   <data name="Settings_Browse.Content" xml:space="preserve">
     <value>Browse...</value>
   </data>
-  <data name="Settings_OpenFolder.Content" xml:space="preserve">
+  <data name="Settings_OpenMemeDataFolder.Content" xml:space="preserve">
     <value>Open storage folder</value>
   </data>
   <data name="Settings_OpenConfigFolder.Content" xml:space="preserve">

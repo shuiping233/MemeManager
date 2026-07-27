@@ -274,7 +274,7 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private async void OpenFolderButton_Click(object sender, RoutedEventArgs e)
+    private async void OpenMemeDataFolder_Click(object sender, RoutedEventArgs e)
     {
         var path = StoragePathBox.Text;
         if (string.IsNullOrWhiteSpace(path)) return;

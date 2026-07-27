@@ -55,7 +55,7 @@
                     <TextBox x:Name="StoragePathBox" Grid.Column="0" IsReadOnly="False" VerticalAlignment="Center" MaxWidth="200" TextChanged="StoragePathBox_TextChanged"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" Spacing="4">
                         <Button x:Name="BrowseButton" l:Uids.Uid="Settings_Browse" Click="BrowseButton_Click"/>
-                        <Button x:Name="OpenFolderButton" l:Uids.Uid="Settings_OpenFolder" Click="OpenFolderButton_Click"/>
+                        <Button x:Name="OpenMemeDataFolder" l:Uids.Uid="Settings_OpenMemeDataFolder" Click="OpenMemeDataFolder_Click"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
