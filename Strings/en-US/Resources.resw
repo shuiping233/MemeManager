@@ -505,4 +505,7 @@ Reverted to the previous valid path.</value>
   <data name="Batch_EtaPrefix" xml:space="preserve">
     <value>about {0}</value>
   </data>
+  <data name="Category_AllMemes.Text" xml:space="preserve">
+    <value>All Memes</value>
+  </data>
 </root>

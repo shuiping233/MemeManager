@@ -505,4 +505,7 @@
   <data name="Batch_EtaPrefix" xml:space="preserve">
     <value>约 {0}</value>
   </data>
+  <data name="Category_AllMemes.Text" xml:space="preserve">
+    <value>全部表情</value>
+  </data>
 </root>

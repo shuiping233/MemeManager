@@ -42,6 +42,10 @@ public sealed partial class MainWindow : Window
 
     private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
 
+    // 初始化"全部表情"固定项（必须在 LoadCategories 之前，因为 LoadCategories
+    // 会触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到 _allMemesVm）
+    private readonly CategoryViewModel _allMemesVm = new("", 0);
+
     // 批量操作进度条（顶部 InfoBar）封装；构造时绑定 XAML 控件
     private readonly BatchProgressHelper _batchProgress;
 
@@ -226,6 +230,8 @@ public sealed partial class MainWindow : Window
         }
 
         LoadCategories();
+
+        AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { _allMemesVm };
     }
 
     private static string GetInformationalVersion()
@@ -354,6 +360,8 @@ public sealed partial class MainWindow : Window
     {
         if (CategoryList.SelectedItem is CategoryViewModel cat)
         {
+            // 清除"全部表情"的选中态
+            AllMemesList.SelectedItem = null;
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配
             if (cat.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
                 return;
@@ -385,6 +393,15 @@ public sealed partial class MainWindow : Window
 
     private async void CategoryNew_Click(object sender, RoutedEventArgs e)
         => await ShowAddCategoryDialog();
+
+    private void AllMemesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AllMemesList.SelectedItem != null)
+        {
+            CategoryList.SelectedItem = null;
+            // TODO: 切换到"全部表情"视图
+        }
+    }
 
     private async void CategoryDelete_Click(object sender, RoutedEventArgs e)
     {
@@ -772,6 +789,8 @@ public sealed partial class MainWindow : Window
         var cache = App.DataEngine.GetAllMemes();
         foreach (var c in _categoryList)
             c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
+        // 更新"全部表情"总数
+        _allMemesVm.Count = cache.Count;
     }
 
     // ---------- 悬停放大预览（Popup）----------
