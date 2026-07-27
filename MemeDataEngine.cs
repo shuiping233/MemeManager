@@ -19,6 +19,12 @@ public class MemeDataEngine
     // 兼顾 SSD 吞吐与句柄占用，后续调优直接改此处。
     private const int ImportParallelism = 16;
 
+    // 分类元数据文件名（每个分类目录下的 .metadata.json）
+    private const string MetadataFileName = ".metadata.json";
+
+    // 分类名为空/非法时的兜底分类名（走 i18n）
+    private static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
+
     // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -82,7 +88,7 @@ public class MemeDataEngine
     private string ConfigPath => Path.Combine(ConfigDir, "config.json");
 
     // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
-    private string CategoryOrderPath => Path.Combine(_baseDir, ".metadata.json");
+    private string CategoryOrderPath => Path.Combine(_baseDir, MetadataFileName);
 
     private void LoadConfig()
     {
@@ -160,7 +166,7 @@ public class MemeDataEngine
         foreach (var dir in dirs)
         {
             var category = Path.GetFileName(dir);
-            var metaPath = Path.Combine(dir, ".metadata.json");
+            var metaPath = Path.Combine(dir, MetadataFileName);
             CategoryMetadata meta;
             if (File.Exists(metaPath))
             {
@@ -253,7 +259,7 @@ public class MemeDataEngine
             foreach (var dir in Directory.GetDirectories(_baseDir))
             {
                 // 仅将含有 .metadata.json 的文件夹视为有效分类
-                if (File.Exists(Path.Combine(dir, ".metadata.json")))
+                if (File.Exists(Path.Combine(dir, MetadataFileName)))
                     set.Add(Path.GetFileName(dir));
             }
         }
@@ -983,7 +989,7 @@ public class MemeDataEngine
         Directory.CreateDirectory(dir);
         try
         {
-            var metaPath = Path.Combine(dir, ".metadata.json");
+            var metaPath = Path.Combine(dir, MetadataFileName);
             if (!File.Exists(metaPath))
                 File.WriteAllTextAsync(metaPath,
                     JsonSerializer.Serialize(new CategoryMetadata(), JsonOptions))
@@ -1038,7 +1044,7 @@ public class MemeDataEngine
 
     private async Task<CategoryMetadata> LoadCategoryMetadataAsync(string categoryDir)
     {
-        var metaPath = Path.Combine(categoryDir, ".metadata.json");
+        var metaPath = Path.Combine(categoryDir, MetadataFileName);
         if (!File.Exists(metaPath)) return new CategoryMetadata();
         try
         {
@@ -1055,7 +1061,7 @@ public class MemeDataEngine
     private async Task SaveCategoryMetadataAsync(string categoryDir, CategoryMetadata meta)
     {
         Directory.CreateDirectory(categoryDir);
-        var metaPath = Path.Combine(categoryDir, ".metadata.json");
+        var metaPath = Path.Combine(categoryDir, MetadataFileName);
         var json = JsonSerializer.Serialize(meta, JsonOptions);
         await File.WriteAllTextAsync(metaPath, json);
     }
@@ -1066,7 +1072,7 @@ public class MemeDataEngine
     {
         var invalid = Path.GetInvalidFileNameChars();
         var cleaned = new string([.. category.Where(c => !invalid.Contains(c))]).Trim();
-        return string.IsNullOrWhiteSpace(cleaned) ? "未分类" : cleaned;
+        return string.IsNullOrWhiteSpace(cleaned) ? UncategorizedCategory : cleaned;
     }
 
     private static async Task<string> CalculateSha256Async(string filePath)

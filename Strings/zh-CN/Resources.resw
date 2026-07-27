@@ -508,6 +508,9 @@
   <data name="Category_AllMemes.Text" xml:space="preserve">
     <value>全部表情</value>
   </data>
+  <data name="Category_Uncategorized" xml:space="preserve">
+    <value>未分类</value>
+  </data>
   <data name="AllMemes_DropNotAllowed" xml:space="preserve">
     <value>“全部表情”下不允许移动图片到其他分类</value>
   </data>

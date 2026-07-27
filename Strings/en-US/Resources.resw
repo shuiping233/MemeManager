@@ -508,6 +508,9 @@ Reverted to the previous valid path.</value>
   <data name="Category_AllMemes.Text" xml:space="preserve">
     <value>All Memes</value>
   </data>
+  <data name="Category_Uncategorized" xml:space="preserve">
+    <value>Uncategorized</value>
+  </data>
   <data name="AllMemes_DropNotAllowed" xml:space="preserve">
     <value>Moving images to other categories is not allowed in "All Memes"</value>
   </data>
