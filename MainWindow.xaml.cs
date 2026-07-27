@@ -57,8 +57,22 @@ public sealed partial class MainWindow : Window
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
     private IMemeListStrategy _listStrategy = new RebuildStrategy();
 
+    // 当前视图所属的分类类型
+    private enum CategoryKind
+    {
+        Normal = 0,
+        All = 1,
+    }
+
+    // “全部表情”视图下 _currentCategory 的取值（仅用于显示/日志，不参与判断）
+    private const string AllMemesCategory = "AllMemes";
+
     private string _currentCategory = string.Empty;
+    private CategoryKind _currentKind = CategoryKind.Normal;
     private bool _editMode;
+
+    // 便捷属性：当前是否处于“全部表情”视图（判断一律走 Kind，不受文件夹名影响）
+    private bool IsAllMemesView => _currentKind == CategoryKind.All;
 
     // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
     // 仅复用策略(ReuseStrategy.ComputeDragOrder)使用，用于把“拖起项”对齐到
@@ -345,7 +359,8 @@ public sealed partial class MainWindow : Window
         {
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
             AllMemesList.SelectedItem = _allMemesVm;
-            _currentCategory = string.Empty;
+            _currentCategory = AllMemesCategory;
+            _currentKind = CategoryKind.All;
         }
         else
         {
@@ -354,6 +369,7 @@ public sealed partial class MainWindow : Window
             {
                 CategoryList.SelectedItem = target;
                 _currentCategory = target.Name;
+                _currentKind = CategoryKind.Normal;
             }
             else if (target != null)
             {
@@ -376,6 +392,7 @@ public sealed partial class MainWindow : Window
             if (cat.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
                 return;
             _currentCategory = cat.Name;
+            _currentKind = CategoryKind.Normal;
             _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
             SyncMemeDragState();
@@ -392,9 +409,8 @@ public sealed partial class MainWindow : Window
         //  - 禁止任何内部拖拽（重排/移动到分类栏/拖回网格），故 CanReorderItems 关闭，
         //    且内部落点的 DragOver 已对全部表情返回 None 显示禁止光标。
         // 普通分类视图下两者皆开（可拖出、可内部重排）。
-        bool isAllMemes = string.IsNullOrEmpty(_currentCategory);
         MemeGridView.CanDragItems = true;          // 始终允许拖出到外部
-        MemeGridView.CanReorderItems = !isAllMemes; // 仅全部表情下禁止内部重排
+        MemeGridView.CanReorderItems = !IsAllMemesView; // 仅全部表情下禁止内部重排
     }
 
     // 当前右键所操作的分类（由 ContextFlyout.Opening 写入，供各 Click 使用）
@@ -425,11 +441,12 @@ public sealed partial class MainWindow : Window
         if (AllMemesList.SelectedItem != null)
         {
             CategoryList.SelectedItem = null;
-            // 切到"全部表情"：置空当前分类，RefreshMemes 内部会拉取全部表情。
+            // 切到"全部表情"：标记为 All 视图，RefreshMemes 内部会拉取全部表情。
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配。
-            if (!string.IsNullOrEmpty(_currentCategory))
+            if (!IsAllMemesView)
             {
-                _currentCategory = string.Empty;
+                _currentCategory = AllMemesCategory;
+                _currentKind = CategoryKind.All;
                 _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
                 RefreshMemes();
                 SyncMemeDragState();
@@ -502,7 +519,7 @@ public sealed partial class MainWindow : Window
         if (_draggingMemes != null && _draggingMemes.Count > 0)
         {
             // “全部表情”视图下项来自不同分类，禁止拖到分类栏移动归属：显示禁止光标。
-            if (string.IsNullOrEmpty(_currentCategory))
+            if (IsAllMemesView)
             {
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
                 e.DragUIOverride.Caption = Localization.Get("AllMemes_DropNotAllowed");
@@ -545,7 +562,7 @@ public sealed partial class MainWindow : Window
     private async void CategoryListItem_Drop(object sender, DragEventArgs e)
     {
         // “全部表情”视图下禁止拖到分类栏移动归属（DragOver 已显示禁止光标，这里兜底）。
-        if (string.IsNullOrEmpty(_currentCategory))
+        if (IsAllMemesView)
         {
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
             return;
@@ -770,7 +787,7 @@ public sealed partial class MainWindow : Window
     {
         var keyword = SearchBox.Text?.Trim();
         var memes = App.DataEngine.GetMemes(
-            string.IsNullOrWhiteSpace(_currentCategory) ? null : _currentCategory,
+            IsAllMemesView ? null : _currentCategory,
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
         // 用当前策略刷新表情列表（复用=增量复用 VM，重建=整体 Clear+重建）。
@@ -1357,7 +1374,7 @@ public sealed partial class MainWindow : Window
         // 普通分类：Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收。
         // 全部表情：仅声明 Copy（禁止内部移动/重排，不允许 Move 语义）。
         // 仅声明 Copy 不会真的移走文件——外部按 Copy 取数据，文件仍留在数据目录。
-        var op = string.IsNullOrEmpty(_currentCategory)
+        var op = IsAllMemesView
             ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy
             : Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
               Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
@@ -1370,6 +1387,15 @@ public sealed partial class MainWindow : Window
     {
         Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, _editMode={_editMode}, DropResult={e.DropResult}");
         if (_draggingMemes == null) return;
+
+        // “全部表情”视图下项来自不同分类，不存在单一分类顺序，禁止重排写回，
+        // 避免跨分类顺序被错误地写到某个分类的 metadata；且内部拖拽本就被禁止，
+        // 此处直接提前返回。拖到左侧分类栏移动归属走 CategoryList 的 Drop（MoveMemesToCategoryAsync），与此无关。
+        if (IsAllMemesView)
+        {
+            Log("DragItemsCompleted: 当前为“全部表情”视图，跳过重排写回（跨分类不允许重排序）");
+            return;
+        }
 
         // 重排为写操作（会写回当前分类 metadata）：若已有用户主动发起的写任务在跑，
         // 直接放弃本次重排，避免并发写同一分类 .metadata.json 或顺序被收尾刷新冲掉。
@@ -1391,24 +1417,14 @@ public sealed partial class MainWindow : Window
 
         var ordered = orderedFileNames;
 
-        // “全部表情”视图下（_currentCategory 为空）项来自不同分类，不存在单一分类顺序，
-        // 禁止重排写回，避免跨分类顺序被错误地写到某个分类的 metadata。
-        // 拖到左侧分类栏移动归属走 CategoryList 的 Drop（MoveMemesToCategoryAsync），与此无关。
-        if (string.IsNullOrEmpty(_currentCategory))
+        try
         {
-            Log("DragItemsCompleted: 当前为“全部表情”视图，跳过重排写回（跨分类不允许重排序）");
+            await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
+            Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
         }
-        else
+        catch (Exception ex)
         {
-            try
-            {
-                await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
-                Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
-            }
-            catch (Exception ex)
-            {
-                Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
-            }
+            Log($"[拖拽] ReorderMemesAsync 写回失败: {ex}");
         }
         // 场景A：仅顺序变、内容不变。已就地调整 _memeList，不重建集合以保持滚动条位置。
 
@@ -1462,7 +1478,7 @@ public sealed partial class MainWindow : Window
             // “全部表情”视图（_currentCategory 为空）下：拖到网格自身无意义
             // （无单一当前分类可作移动目标），且禁止跨分类重排序。直接忽略，
             // 真正的“移动归属”请拖到左侧分类栏（CategoryListItem_Drop）。
-            if (string.IsNullOrEmpty(_currentCategory))
+            if (IsAllMemesView)
             {
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
                 return;
@@ -1640,7 +1656,7 @@ public sealed partial class MainWindow : Window
 
         // “全部表情”视图下项来自不同分类，禁止移动归属：子菜单保留可点，
         // 点击弹出模态提示说明不允许。
-        if (string.IsNullOrEmpty(_currentCategory))
+        if (IsAllMemesView)
         {
             var blockedItem = new MenuFlyoutItem { Text = Localization.Get("AllMemes_MoveDisabledTip") };
             blockedItem.Click += async (_, __) =>
@@ -1936,7 +1952,7 @@ public sealed partial class MainWindow : Window
         if (selected.Count == 0) return;
 
         // “全部表情”视图下禁止移动归属：菜单保留可点，点击弹出模态提示说明不允许。
-        if (string.IsNullOrEmpty(_currentCategory))
+        if (IsAllMemesView)
         {
             var blockedItem = new MenuFlyoutItem { Text = Localization.Get("AllMemes_MoveDisabledTip") };
             blockedItem.Click += async (_, __) =>
