@@ -1394,6 +1394,9 @@ public sealed partial class MainWindow : Window
         if (IsAllMemesView)
         {
             Log("DragItemsCompleted: 当前为“全部表情”视图，跳过重排写回（跨分类不允许重排序）");
+            // 清空拖拽态，否则 _draggingMemes 残留会导致 IsBusyBlockingInput 一直为真（F5 被挡等）
+            _draggingMemes = null;
+            _dragAnchorFileName = null;
             return;
         }
 
