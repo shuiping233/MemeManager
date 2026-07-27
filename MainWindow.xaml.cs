@@ -387,7 +387,14 @@ public sealed partial class MainWindow : Window
     // 普通分类视图下允许拖出/拖入。编辑模式与此无关（普通模式本就允许拖出）。
     private void SyncMemeDragState()
     {
-        MemeGridView.CanDragItems = !string.IsNullOrEmpty(_currentCategory);
+        // “全部表情”视图下项来自不同分类：
+        //  - 允许拖出到外部进程（QQ/资源管理器），故 CanDragItems 开启、语义为 Copy；
+        //  - 禁止任何内部拖拽（重排/移动到分类栏/拖回网格），故 CanReorderItems 关闭，
+        //    且内部落点的 DragOver 已对全部表情返回 None 显示禁止光标。
+        // 普通分类视图下两者皆开（可拖出、可内部重排）。
+        bool isAllMemes = string.IsNullOrEmpty(_currentCategory);
+        MemeGridView.CanDragItems = true;          // 始终允许拖出到外部
+        MemeGridView.CanReorderItems = !isAllMemes; // 仅全部表情下禁止内部重排
     }
 
     // 当前右键所操作的分类（由 ContextFlyout.Opening 写入，供各 Click 使用）
@@ -1182,7 +1189,14 @@ public sealed partial class MainWindow : Window
 
     private void MemeGridView_DragOver(object sender, DragEventArgs e)
     {
-        // 接受一切拖拽对象，确保 Drop 能触发（后面在 Drop 里再筛选图片）
+        // 内部 item 拖回网格自身（全部表情下禁止任何内部拖拽移动/重排）：显示禁止光标。
+        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            return;
+        }
+
+        // 接受外部拖入（如从文件管理器拖图片进来做导入），确保 Drop 能触发。
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
         e.DragUIOverride.IsCaptionVisible = false;
     }
@@ -1340,10 +1354,14 @@ public sealed partial class MainWindow : Window
             Log("DragItemsStarting: 设拖出格式失败（已放弃，不影响重排）: " + ex.Message);
         }
 
-        // Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收，
+        // 普通分类：Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收。
+        // 全部表情：仅声明 Copy（禁止内部移动/重排，不允许 Move 语义）。
         // 仅声明 Copy 不会真的移走文件——外部按 Copy 取数据，文件仍留在数据目录。
-        e.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
-                                     Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        var op = string.IsNullOrEmpty(_currentCategory)
+            ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy
+            : Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
+              Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.Data.RequestedOperation = op;
     }
 
 
