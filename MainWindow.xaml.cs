@@ -341,16 +341,25 @@ public sealed partial class MainWindow : Window
         // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
         // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
         var last = App.DataEngine.Config.LastCategory;
-        var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
-        if (target != null && !target.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(last))
         {
-            CategoryList.SelectedItem = target;
-            _currentCategory = target.Name;
+            // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
+            AllMemesList.SelectedItem = _allMemesVm;
+            _currentCategory = string.Empty;
         }
-        else if (target != null)
+        else
         {
-            // 重建模式下分类名没变但容器已重建：重新设回同一项以恢复选中视觉。
-            CategoryList.SelectedItem = target;
+            var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
+            if (target != null && !target.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+            {
+                CategoryList.SelectedItem = target;
+                _currentCategory = target.Name;
+            }
+            else if (target != null)
+            {
+                // 重建模式下分类名没变但容器已重建：重新设回同一项以恢复选中视觉。
+                CategoryList.SelectedItem = target;
+            }
         }
 
         RefreshMemes();
@@ -399,7 +408,14 @@ public sealed partial class MainWindow : Window
         if (AllMemesList.SelectedItem != null)
         {
             CategoryList.SelectedItem = null;
-            // TODO: 切换到"全部表情"视图
+            // 切到"全部表情"：置空当前分类，RefreshMemes 内部会拉取全部表情。
+            // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配。
+            if (!string.IsNullOrEmpty(_currentCategory))
+            {
+                _currentCategory = string.Empty;
+                _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
+                RefreshMemes();
+            }
         }
     }
 
