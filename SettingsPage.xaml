@@ -20,6 +20,9 @@
         <TextBlock Grid.Row="0" l:Uids.Uid="Settings_Title" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
         <StackPanel Grid.Row="1" Spacing="16" MaxWidth="400">
+            <Button x:Name="OpenConfigFolderButton" l:Uids.Uid="Settings_OpenConfigFolder"
+                    HorizontalAlignment="Left" Click="OpenConfigFolderButton_Click"/>
+
             <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_Theme" FontWeight="SemiBold"/>
                 <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">

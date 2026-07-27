@@ -177,6 +177,9 @@
   <data name="Settings_OpenFolder.Content" xml:space="preserve">
     <value>打开存放文件夹</value>
   </data>
+  <data name="Settings_OpenConfigFolder.Content" xml:space="preserve">
+    <value>打开设置文件夹</value>
+  </data>
   <data name="Settings_HotKey.Text" xml:space="preserve">
     <value>呼出快捷键</value>
   </data>

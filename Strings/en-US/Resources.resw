@@ -177,6 +177,9 @@
   <data name="Settings_OpenFolder.Content" xml:space="preserve">
     <value>Open storage folder</value>
   </data>
+  <data name="Settings_OpenConfigFolder.Content" xml:space="preserve">
+    <value>Open settings folder</value>
+  </data>
   <data name="Settings_HotKey.Text" xml:space="preserve">
     <value>Invocation hotkey</value>
   </data>

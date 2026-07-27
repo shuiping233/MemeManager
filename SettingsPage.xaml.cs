@@ -259,6 +259,21 @@ public sealed partial class SettingsPage : Page
     private Task ShowErrorAsync(string title, string detail) =>
         DialogHelper.ShowErrorAsync(this.XamlRoot, title, detail);
 
+    private async void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager");
+            System.IO.Directory.CreateDirectory(dir);
+            await Windows.System.Launcher.LaunchFolderPathAsync(dir);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 打开设置文件夹失败: {ex.Message}");
+        }
+    }
+
     private async void OpenFolderButton_Click(object sender, RoutedEventArgs e)
     {
         var path = StoragePathBox.Text;
