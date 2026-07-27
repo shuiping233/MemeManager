@@ -29,6 +29,7 @@ public sealed class BatchUiContext
     public required Func<bool> IsClosing { get; init; }
     public required Func<bool> IsVisible { get; init; }
     public required Func<string> CurrentCategory { get; init; }
+    public required Func<bool> IsAllMemesView { get; init; }
     public required Action UpdateCategoryCounts { get; init; }
     public required Action RefreshMemes { get; init; }
     public required Action<IEnumerable<MemeModel>> RemoveFromCurrentView { get; init; }
@@ -186,9 +187,12 @@ internal sealed class ImageBatchOperationRunner
         {
             case BatchOperationKind.Import:
                 _ui.UpdateCategoryCounts();
-                // 仅当用户还停留在导入时的分类，才重建右侧图片容器；否则只更新左侧数字
+                // 刷新右侧图片容器的条件：
+                //  - 用户仍停留在导入时的分类；或
+                //  - 当前是“全部表情”聚合视图（导入到任何分类都应即时出现在全部表情里）。
                 if (targetCategory != null &&
-                    _ui.CurrentCategory().Equals(targetCategory, StringComparison.OrdinalIgnoreCase))
+                    (_ui.IsAllMemesView() ||
+                     _ui.CurrentCategory().Equals(targetCategory, StringComparison.OrdinalIgnoreCase)))
                     _ui.RefreshMemes();
                 break;
 

@@ -74,6 +74,12 @@ public sealed partial class MainWindow : Window
     // 便捷属性：当前是否处于“全部表情”视图（判断一律走 Kind，不受文件夹名影响）
     private bool IsAllMemesView => _currentKind == CategoryKind.All;
 
+    // 外部拖入/导入时的目标分类：
+    // 全部表情视图没有具体归属分类，落入“未分类”兜底分类（不存在则创建）；
+    // 普通分类视图则按当前分类导入。
+    private string ImportTargetCategory =>
+        IsAllMemesView ? MemeDataEngine.UncategorizedCategory : _currentCategory;
+
     // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
     // 仅复用策略(ReuseStrategy.ComputeDragOrder)使用，用于把“拖起项”对齐到
     // 鼠标落点，而非 WinUI 默认的组尾对齐；重建策略忽略此值。
@@ -139,6 +145,7 @@ public sealed partial class MainWindow : Window
             IsClosing = () => _isClosing,
             IsVisible = () => _isVisible,
             CurrentCategory = () => _currentCategory,
+            IsAllMemesView = () => IsAllMemesView,
             UpdateCategoryCounts = UpdateCategoryCounts,
             RefreshMemes = RefreshMemes,
             RemoveFromCurrentView = RemoveFromCurrentView,
@@ -1548,7 +1555,7 @@ public sealed partial class MainWindow : Window
         {
             // 统一走后台批量导入（含写入锁守卫、进度条、分类守卫刷新）
             if (importPaths.Count > 0)
-                await RunBatchImportAsync(importPaths, _currentCategory);
+                await RunBatchImportAsync(importPaths, ImportTargetCategory);
         }
         finally
         {
@@ -1622,14 +1629,14 @@ public sealed partial class MainWindow : Window
         if (paths.Count == 0) return;
 
         // 复用后台批量导入（含进度条与分类守卫），拖入与按钮导入行为保持一致
-        await RunBatchImportAsync(paths, _currentCategory);
+        await RunBatchImportAsync(paths, ImportTargetCategory);
     }
 
     // 单张导入重复时，弹窗告知用户与哪张已有图片冲突（展示 title，无则文件名）。
     private Task ShowSingleImportDuplicateAsync(MemeModel existing) =>
         DialogHelper.ShowImageDuplicateAsync(
             this.Content.XamlRoot,
-            _currentCategory,
+            ImportTargetCategory,
             DialogHelper.TruncateLabel(string.IsNullOrWhiteSpace(existing.Title) ? existing.FileName : existing.Title));
 
     // ---------- 右键菜单（XAML ContextFlyout 绑定）----------
@@ -1830,7 +1837,7 @@ public sealed partial class MainWindow : Window
 
         if (files.Count == 0) return;
 
-        await RunBatchImportAsync(files, _currentCategory);
+        await RunBatchImportAsync(files, ImportTargetCategory);
     }
 
     // 写操作入口守卫：若已有用户主动发起的写任务（导入/移动/删除）在跑，
@@ -1873,7 +1880,20 @@ public sealed partial class MainWindow : Window
         await _batchRunner.RunAsync(
             BatchOperationKind.Import,
             total,
-            progress => App.DataEngine.ImportMemesAsync(list, targetCategory, progress),
+            // 注意：work 的返回值会被 runner 丢弃，故在此用闭包捕获导入结果供日志/弹窗使用
+            work: async progress =>
+            {
+                result = await App.DataEngine.ImportMemesAsync(list, targetCategory, progress,
+                    // 仅当导入时真正新建了分类目录才回调，UI 据此把新分类加入左侧栏
+                    onCategoryCreated: createdName =>
+                    {
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            if (!_categoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
+                                _categoryList.Add(new CategoryViewModel(createdName, 0));
+                        });
+                    });
+            },
             targetCategory: targetCategory,
             onUiComplete: () =>
             {
@@ -2990,3 +3010,4 @@ public sealed partial class MainWindow : Window
         });
     }
 }
+

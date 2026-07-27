@@ -22,8 +22,9 @@ public class MemeDataEngine
     // 分类元数据文件名（每个分类目录下的 .metadata.json）
     private const string MetadataFileName = ".metadata.json";
 
-    // 分类名为空/非法时的兜底分类名（走 i18n）
-    private static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
+    // 分类名为空/非法时的兜底分类名（走 i18n），公开供 UI 层在“全部表情”视图下
+    // 将外部拖入的图片归入此分类（而非误用视图标记值）。
+    public static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
 
     // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -427,7 +428,8 @@ public class MemeDataEngine
     // 避免批量导入时大量冗余磁盘 IO 与 O(n²) 扫描。返回新增数、重复数及（仅当整体为单张
     // 且重复时的）重复模型，供调用方弹窗提示。
     public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesAsync(
-        IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null)
+        IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null,
+        Action<string>? onCategoryCreated = null)
     {
         var list = sourcePaths.ToList();
         uint total = (uint)list.Count;
@@ -435,7 +437,10 @@ public class MemeDataEngine
 
         var safeTarget = SanitizeCategory(category);
         var categoryDir = Path.Combine(_baseDir, safeTarget);
+        // 仅在分类目录原本不存在（即本次新建）时通知上层，便于 UI 即时刷新分类栏。
+        bool created = !Directory.Exists(categoryDir);
         Directory.CreateDirectory(categoryDir);
+        if (created) onCategoryCreated?.Invoke(safeTarget);
 
         // 目标分类 metadata 仅加载一次
         var meta = await LoadCategoryMetadataAsync(categoryDir);
