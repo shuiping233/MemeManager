@@ -55,6 +55,9 @@ public sealed partial class MainWindow : Window
     private AppMode _currentMode = AppMode.Full;
     public AppMode CurrentMode => _currentMode;
 
+    // Mini 模式无边框：是否已把内容扩展到标题栏区域（仅 Mini 期间为 true）
+    private bool _titleBarExtended;
+
     // ---------- 供 Page 层访问的窗口级状态 ----------
 
     public bool IsClosing => _isClosing;
@@ -174,6 +177,7 @@ public sealed partial class MainWindow : Window
         {
             case AppMode.Full:
                 RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
+                RestoreFullModeChrome();
                 ResizeForFullMode();
                 break;
 
@@ -195,15 +199,49 @@ public sealed partial class MainWindow : Window
     }
 
     // Mini 模式：固定紧凑尺寸（常量为 DIP，按窗口当前 DPI 换算为物理像素）。
+    // 同时转为无边框置顶悬浮条：隐藏标题栏、禁止最大化/最小化/缩放，内容自行绘制×按钮。
     private void ResizeForMiniMode()
     {
         if (_appWindow == null) return;
+
+        // 无边框：扩展内容到标题栏区域并隐藏系统标题栏（内容自带关闭/设置按钮）
+        if (!_titleBarExtended)
+        {
+            this.ExtendsContentIntoTitleBar = true;
+            _titleBarExtended = true;
+        }
+        if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p)
+        {
+            p.IsResizable = false;
+            p.IsMaximizable = false;
+            p.IsMinimizable = false;
+            p.SetBorderAndTitleBar(false, false);
+        }
+
         double scale = NativeMethods.GetDpiForWindow(_hWnd) / 96.0;
         if (scale <= 0) scale = 1.0;
         int w = (int)Math.Round(MiniModeWidth * scale);
         int h = (int)Math.Round(MiniModeHeight * scale);
         _appWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
         Log($"[窗口] Mini 模式尺寸 {MiniModeWidth}x{MiniModeHeight} DIP -> {w}x{h} px (scale={scale:F2})");
+    }
+
+    // 切回 Full 模式：恢复可调整/有标题栏的标准窗口外观。
+    private void RestoreFullModeChrome()
+    {
+        if (_appWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p)
+        {
+            p.IsResizable = true;
+            p.IsMaximizable = true;
+            p.IsMinimizable = true;
+            p.SetBorderAndTitleBar(true, true);
+        }
+        // 不再扩展内容到标题栏（Full 模式使用系统标题栏），下次进 Mini 再扩展。
+        if (_titleBarExtended)
+        {
+            this.ExtendsContentIntoTitleBar = false;
+            _titleBarExtended = false;
+        }
     }
 
     // ---------- 窗口尺寸持久化 ----------
@@ -469,6 +507,22 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 供 Mini 模式“关闭”按钮等调用：与用户点主窗口右上角 X 行为一致，
+    /// 仅隐藏窗口并保留后台（托盘）运行，不真正退出进程。
+    /// </summary>
+    public void HideToTray() => HideWindow();
+
+    /// <summary>
+    /// Mini 无边框悬浮条拖动窗口：按屏幕像素增量移动窗口位置。
+    /// </summary>
+    public void MoveWindowBy(int dx, int dy)
+    {
+        if (_appWindow == null) return;
+        var pos = _appWindow.Position;
+        _appWindow.Move(new Windows.Graphics.PointInt32(pos.X + dx, pos.Y + dy));
+    }
+
+    /// <summary>
     /// 普通启动使用：显示窗口但不抢前台焦点（SW_SHOWNOACTIVATE）。
     /// 这样用户正在用的外部应用(QQ 等)仍是前台，_fgTimer 在窗口“可见未激活”
     /// 期间持续记录其窗口句柄，点表情时才能把 Ctrl+V 精准投回输入框。
@@ -556,7 +610,7 @@ public sealed partial class MainWindow : Window
             NativeMethods.DragFinish(hDrop);
 
             if (paths.Count > 0)
-                CurrentMainPage?.HandleExternalDropPaths(paths);
+                (RootFrame.Content as IExternalDropPage)?.HandleExternalDropPaths(paths);
         }
         catch (Exception ex)
         {

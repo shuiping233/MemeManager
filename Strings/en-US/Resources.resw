@@ -138,6 +138,21 @@
   <data name="Mini_BackToFull.Content" xml:space="preserve">
     <value>Full Mode</value>
   </data>
+  <data name="Mini_Category.Content" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Mini_Picker.Content" xml:space="preserve">
+    <value>Meme</value>
+  </data>
+  <data name="Mini_Settings.Content" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Mini_Close.Content" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Mini_PickerEmpty.Text" xml:space="preserve">
+    <value>No memes in this category yet. Drag images in to import.</value>
+  </data>
   <data name="Category_New.Text" xml:space="preserve">
     <value>New category</value>
   </data>

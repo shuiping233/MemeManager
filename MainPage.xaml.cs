@@ -19,7 +19,7 @@ using MemeManager.Helpers;
 
 namespace MemeManager;
 
-public sealed partial class MainPage : Page
+public sealed partial class MainPage : Page, IExternalDropPage
 {
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
 

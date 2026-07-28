@@ -138,6 +138,21 @@
   <data name="Mini_BackToFull.Content" xml:space="preserve">
     <value>完整模式</value>
   </data>
+  <data name="Mini_Category.Content" xml:space="preserve">
+    <value>分类</value>
+  </data>
+  <data name="Mini_Picker.Content" xml:space="preserve">
+    <value>表情</value>
+  </data>
+  <data name="Mini_Settings.Content" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Mini_Close.Content" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Mini_PickerEmpty.Text" xml:space="preserve">
+    <value>该分类还没有表情，拖图片进来即可导入</value>
+  </data>
   <data name="Category_New.Text" xml:space="preserve">
     <value>新建分类</value>
   </data>
