@@ -201,8 +201,9 @@ public sealed partial class MainWindow : Window
 
         _currentMode = mode;
 
-        // 切模式前释放“即将被替换”的旧页面的图像资源，避免反复切模式时纹理累积。
-        // （注意：此时 RootFrame.Content 仍是旧页面，ReleaseImages 作用于它。）
+        // 切模式前释放“即将被替换”的旧页面的图像资源（仅断 VM/Image 引用，不置空
+        // ItemsSource——分类容器本就无需置空，且导航会卸载旧页面整棵可视化树；
+        // 在此处手动 null ItemsSource 反而会在导航前扰乱状态，导致切回的页面空白）。
         ReleaseCurrentPageImages();
 
         switch (mode)

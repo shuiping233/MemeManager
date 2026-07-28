@@ -498,12 +498,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // IImageReleasablePage：仅断引用，不 GC（GC 由 MainWindow 在隐藏/切模式后统一调用）。
     public void ReleaseImages()
     {
-        // 断开 ItemsSource，让 GridView 的 Item 容器（含 Image 控件）从可视化树移除，
-        // WinUI 框架会在下一帧自动释放其 GPU 纹理。两种列表策略共用此极简逻辑，不额外摘树。
-        MemeGridView.ItemsSource = null;
-        CategoryList.ItemsSource = null;
-
+        // 释放图像资源：遍历表情 VM 断开其 BitmapImage 引用（不触发 PropertyChanged，
+        // 避免绑定重求又 new 出纹理）；不置空 ItemsSource——分类容器无需置空，且图片容器
+        // 由框架/导航负责卸载，手动 null 反而在切模式导航前扰乱状态（曾导致切回空白）。
         // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
+        foreach (var vm in _memeList)
+            vm.ClearImages();
+
         if (App.DataEngine.Config.UseControlReuse)
         {
             Log($"[内存诊断] 隐藏释放(复用模式): _memeList={_memeList.Count} _categoryList={_categoryList.Count} " +
