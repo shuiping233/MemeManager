@@ -187,6 +187,8 @@ public sealed partial class MainWindow : Window
                 RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
                 RestoreFullModeChrome();
                 ResizeForFullMode();
+                // 从 Mini 切回：恢复内存中的置顶状态（Mini 期间是强制置顶的，不改写 _topMost）。
+                ApplyTopMost(_topMost);
                 // 从 Mini 切回：刷新分类与图片容器，确保与磁盘数据同步（Mini 期间可能导入过表情）。
                 DispatcherQueue.TryEnqueue(() => CurrentMainPage?.ReloadData());
                 break;
@@ -194,6 +196,9 @@ public sealed partial class MainWindow : Window
             case AppMode.Mini:
                 RootFrame.Navigate(typeof(MiniPage), null, new SuppressNavigationTransitionInfo());
                 ResizeForMiniMode();
+                // Mini 模式强制置顶（无论配置开关），且不改写配置里的 TopMost 值；
+                // 切回 Full 时再按配置恢复。
+                ApplyTopMost(true);
                 break;
         }
         Log($"[模式] 已切换到 {mode}");
@@ -387,7 +392,7 @@ public sealed partial class MainWindow : Window
         return fallback;
     }
 
-    // 置顶开关（由页面上的置顶按钮/托盘等调用），仅会话内有效，不持久化
+    // 置顶开关（由页面上的置顶按钮/托盘等调用），仅会话内存有效，不持久化。
     public void SetTopMost(bool topMost)
     {
         _topMost = topMost;
