@@ -91,12 +91,37 @@ public static class ImageDragHelper
         if (singleNonGif)
         {
             var singlePath = valid[0];
-            data.SetDataProvider(StandardDataFormats.Bitmap, async (request) =>
+            if (storageFileDrag)
             {
-                var deferral = request.GetDeferral();
+                // 文件拖出开启：延迟提供 Bitmap（与 StorageItems  alike，避开同步构造跨公寓 COM 对象）
+                data.SetDataProvider(StandardDataFormats.Bitmap, async (request) =>
+                {
+                    var deferral = request.GetDeferral();
+                    try
+                    {
+                        var bytes = await Task.Run(() => File.ReadAllBytes(singlePath));
+                        var ms = new InMemoryRandomAccessStream();
+                        using (var dw = ms.GetOutputStreamAt(0))
+                        using (var dwStream = dw.AsStreamForWrite())
+                        {
+                            dwStream.Write(bytes, 0, bytes.Length);
+                            dwStream.Flush();
+                        }
+                        ms.Seek(0);
+                        request.SetData(RandomAccessStreamReference.CreateFromStream(ms));
+                    }
+                    catch (Exception ex) { Logger.Log("[Drag] 拖出构造位图失败: " + ex.Message); }
+                    finally { deferral.Complete(); }
+                });
+            }
+            else
+            {
+                // 文件拖出关闭（稳定路径，与 Full 模式 MainPage 的稳定分支一致）：
+                // 用【立即同步】的 SetBitmap（内存流），避免延迟提供在拖放场景下被 NTQQ 等
+                // 同步拉取时取不到而表现为“空文件”。与 Full 行为完全对齐。
                 try
                 {
-                    var bytes = await Task.Run(() => File.ReadAllBytes(singlePath));
+                    var bytes = File.ReadAllBytes(singlePath);
                     var ms = new InMemoryRandomAccessStream();
                     using (var dw = ms.GetOutputStreamAt(0))
                     using (var dwStream = dw.AsStreamForWrite())
@@ -105,11 +130,10 @@ public static class ImageDragHelper
                         dwStream.Flush();
                     }
                     ms.Seek(0);
-                    request.SetData(RandomAccessStreamReference.CreateFromStream(ms));
+                    data.SetBitmap(RandomAccessStreamReference.CreateFromStream(ms));
                 }
                 catch (Exception ex) { Logger.Log("[Drag] 拖出构造位图失败: " + ex.Message); }
-                finally { deferral.Complete(); }
-            });
+            }
         }
 
         data.RequestedOperation = DataPackageOperation.Copy;
