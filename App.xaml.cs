@@ -133,7 +133,7 @@ public partial class App : Application
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
         if (DataEngine.GetCategories().Count == 0)
         {
-            await DataEngine.AddCategoryAsync("Default");
+            await DataEngine.AddCategoryAsync(MemeDataEngine.DefaultCategory);
         }
 
         _window = new MainWindow();
@@ -152,6 +152,16 @@ public partial class App : Application
             // 普通启动：显示但抢前台焦点，让外部应用(QQ 等)保持前台，
             // 以便 _fgTimer 记录其窗口句柄，点击表情能精准投回输入框。
             ((MainWindow)_window).ShowWithoutActivate();
+        }
+
+        // 若启动时创建默认数据目录失败（无写权限等），程序已照常启动；
+        // 窗口就绪后用对话框提醒用户去设置里改数据目录（DialogHelper 需 XamlRoot，故放此处）。
+        if (DataEngine.LastDefaultCategoryWriteError != null)
+        {
+            var xamlRoot = ((MainWindow)_window).Content?.XamlRoot;
+            if (xamlRoot != null)
+                await DialogHelper.ShowDefaultDirWriteFailedAsync(
+                    xamlRoot, DataEngine.BaseDir, DataEngine.LastDefaultCategoryWriteError);
         }
 
         // 系统托盘图标

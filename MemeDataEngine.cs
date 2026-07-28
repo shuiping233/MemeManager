@@ -16,6 +16,12 @@ namespace MemeManager.Data;
 
 public class MemeDataEngine
 {
+    // 默认分类名（UI 初次启动、无任何分类时创建）。统一在此定义，避免 "Default" 字面量散落。
+    public const string DefaultCategory = "Default";
+
+    // 默认数据目录名（位于“图片”库或 LocalApplicationData 下）。统一在此定义，避免 "MeMeManagerData" 字面量散落。
+    public const string DefaultDataFolderName = "MeMeManagerData";
+
     // 导入并行度：阶段1（算 hash+去重判定）与阶段2（File.Copy）各自的并发上限。
     // 兼顾 SSD 吞吐与句柄占用，后续调优直接改此处。
     private const int ImportParallelism = 16;
@@ -69,9 +75,50 @@ public class MemeDataEngine
 
     public static string DefaultStoragePath()
     {
+        // 优先用“图片”库；若其为空/未配置（某些精简系统或域环境会返回空串），
+        // 回退到 LocalApplicationData，避免拼接出相对路径或应用自身目录。
         var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-        return Path.Combine(pictures, "MeMeManagerData");
+        if (string.IsNullOrWhiteSpace(pictures) || !Path.IsPathRooted(pictures))
+            pictures = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(pictures, DefaultDataFolderName);
     }
+
+    // 解析实际数据目录：确保绝对且绝不落在应用自身目录内（防止把数据/分类写到 exe 目录下
+    // 导致无写权限崩溃，如 D:\MemeManager\Default 被拒）。空/非法/等于应用目录时回退到默认路径。
+    private static string ResolveBaseDir(string? storagePath)
+    {
+        string? candidate = string.IsNullOrWhiteSpace(storagePath) ? null : storagePath.Trim();
+        if (!string.IsNullOrWhiteSpace(candidate) && !Path.IsPathRooted(candidate))
+            candidate = null; // 拒绝相对路径，避免相对 exe 目录
+
+        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!string.IsNullOrWhiteSpace(candidate))
+        {
+            var cand = Path.GetFullPath(candidate).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            // 若候选路径落在应用目录内（含应用目录本身），回退默认，避免污染/无权限。
+            if (cand.Equals(appDir, StringComparison.OrdinalIgnoreCase)
+                || cand.StartsWith(appDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                candidate = null;
+        }
+
+        return string.IsNullOrWhiteSpace(candidate) ? DefaultStoragePath() : candidate;
+    }
+
+    // 判断给定路径是否落在应用自身目录内（含应用目录本身）。供上层在用户主动设置目录时
+    // 提示“不能设为应用文件夹”。
+    public static bool IsInsideAppDir(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
+            return false;
+        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var cand = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return cand.Equals(appDir, StringComparison.OrdinalIgnoreCase)
+            || cand.StartsWith(appDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 最近一次创建默认分类（AddCategoryAsync）时的写失败详情；为空表示成功。
+    // 供启动流程在窗口就绪后弹窗提示用户（保证程序仍能启动，方便去设置里改目录）。
+    public string? LastDefaultCategoryWriteError { get; private set; }
 
     // ---------- 配置 ----------
 
@@ -79,7 +126,10 @@ public class MemeDataEngine
     {
         LoadConfig();
 
-        _baseDir = string.IsNullOrWhiteSpace(Config.StoragePath) ? DefaultStoragePath() : Config.StoragePath;
+        _baseDir = ResolveBaseDir(Config.StoragePath);
+        // 若实际使用的目录与配置中记录的不一致（被回退），同步修正配置以免下次重复踩坑。
+        if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
+            Config.StoragePath = _baseDir;
         Directory.CreateDirectory(_baseDir);
 
         await LoadCategoryOrderAsync();
@@ -140,9 +190,10 @@ public class MemeDataEngine
     {
         patch(Config);
 
-        string newBase = string.IsNullOrWhiteSpace(Config.StoragePath)
-            ? DefaultStoragePath()
-            : Config.StoragePath;
+        string newBase = ResolveBaseDir(Config.StoragePath);
+        // 若用户选的路径落在应用自身目录内或非法，回退默认并写回配置。
+        if (!string.Equals(newBase, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
+            Config.StoragePath = newBase;
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
         _baseDir = newBase;
 
@@ -1004,19 +1055,30 @@ public class MemeDataEngine
     {
         var dir = Path.Combine(_baseDir, SanitizeCategory(category));
         if (Directory.Exists(dir)) return false;
-        Directory.CreateDirectory(dir);
-        await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
-        // 新分类默认优先级 0（排在同优先级最后），并持久化顺序
-        _categoryOrder[category] = 0;
-        await SaveCategoryOrderAsync();
-        MemeManager.Logger.Log($"[Engine] 创建分类: {category}");
-        return true;
+        try
+        {
+            Directory.CreateDirectory(dir);
+            await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
+            // 新分类默认优先级 0（排在同优先级最后），并持久化顺序
+            _categoryOrder[category] = 0;
+            await SaveCategoryOrderAsync();
+            MemeManager.Logger.Log($"[Engine] 创建分类: {category}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // 写入失败（无写权限等）不抛异常，保证调用方（尤其是启动流程）能继续启动；
+            // 记录详情供上层弹窗提示用户去设置里改目录。
+            LastDefaultCategoryWriteError = $"{dir}: {ex.GetType().Name}: {ex.Message}";
+            MemeManager.Logger.Log($"[Engine] 创建分类失败({category}): {LastDefaultCategoryWriteError}");
+            return false;
+        }
     }
 
     // 同步确保存在 Default 分类（供 UI 线程的 LoadCategories 调用，避免 async 死锁）
     public void EnsureDefaultCategory()
     {
-        var dir = Path.Combine(_baseDir, SanitizeCategory("Default"));
+        var dir = Path.Combine(_baseDir, SanitizeCategory(DefaultCategory));
         if (Directory.Exists(dir)) return;
         Directory.CreateDirectory(dir);
         try

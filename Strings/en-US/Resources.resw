@@ -428,7 +428,19 @@ All memes and folders under it will be deleted.</value>
     <value>The specified storage path does not exist:
 {0}
 
-Reverted to the previous valid path.</value>
+ Reverted to the previous valid path.</value>
+  </data>
+  <data name="Dialog_StorageInsideAppDir_Title" xml:space="preserve">
+    <value>Invalid data directory</value>
+  </data>
+  <data name="Dialog_StorageInsideAppDir_Message" xml:space="preserve">
+    <value>The data directory cannot be set to the application's own folder. Please choose another location (e.g. D:\MemeManagerData) to avoid losing write permission and being unable to save data.</value>
+  </data>
+  <data name="Dialog_DefaultDirWriteFailed_Title" xml:space="preserve">
+    <value>Failed to write default data directory</value>
+  </data>
+  <data name="Dialog_DefaultDirWriteFailed_Message" xml:space="preserve">
+    <value>Could not create default data under: {0}. Error detail: {1}. The app can still start, but please change the data directory in Settings to a location where you have write permission.</value>
   </data>
   <data name="Main_Search.PlaceholderText" xml:space="preserve">
     <value>Search memes...</value>
