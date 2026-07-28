@@ -59,9 +59,9 @@
                           MinWidth="100"
                           MaxWidth="100"
                           SelectionChanged="CategoryCombo_SelectionChanged">
-                    <ToolTipService.ToolTip>
-                        <ToolTip l:Uids.Uid="Mini_Category"/>
-                    </ToolTipService.ToolTip>
+        <ToolTipService.ToolTip>
+            <ToolTip Content="{x:Bind CategoryCombo.SelectedItem, Mode=OneWay}"/>
+        </ToolTipService.ToolTip>
                 </ComboBox>
 
                 <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用 -->
