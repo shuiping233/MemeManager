@@ -120,6 +120,12 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_AllowMiniMode" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="AllowMiniModeToggle" Toggled="AllowMiniModeToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_AllowMiniModeHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_StorageFileDrag" FontWeight="SemiBold"/>
                 <controls:LocalizedToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
                 <TextBlock l:Uids.Uid="Settings_StorageFileDragHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>

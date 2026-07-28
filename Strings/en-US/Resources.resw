@@ -231,6 +231,12 @@
   <data name="Settings_AutoStartHint.Text" xml:space="preserve">
     <value>Automatically runs in the background after login (tray only, no main window)</value>
   </data>
+  <data name="Settings_AllowMiniMode.Text" xml:space="preserve">
+    <value>Allow Mini compact mode</value>
+  </data>
+  <data name="Settings_AllowMiniModeHint.Text" xml:space="preserve">
+    <value>When off, the Mini button and tray "Toggle window mode" are disabled, and startup will not restore Mini mode</value>
+  </data>
   <data name="Settings_StorageFileDrag.Text" xml:space="preserve">
     <value>StorageFile drag support (drag out as file)</value>
   </data>

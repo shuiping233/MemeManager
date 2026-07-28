@@ -186,6 +186,9 @@ public sealed partial class MainPage : Page, IExternalDropPage
             Log($"[策略] 列表策略切换为: {(reuse ? "复用(Reuse)" : "重建(Rebuild)")}");
         else
             Log($"[策略] 列表策略初始化为: {(reuse ? "复用(Reuse)" : "重建(Rebuild)")}");
+
+        // Mini 按钮可见性随“允许 Mini 模式”配置变化（设置页保存后立即生效）。
+        ApplyMiniModeVisibilityFromConfig();
     }
 
     private void LoadCategories()
@@ -1722,10 +1725,20 @@ public sealed partial class MainPage : Page, IExternalDropPage
         SettingsButton_Click(this, new RoutedEventArgs());
     }
 
-    // 切换到 Mini 模式
+    // 切换到 Mini 模式（仅当配置允许时，按钮本身也会隐藏）
     private void MiniModeButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!App.DataEngine.Config.AllowMiniMode)
+            return;
         App.MainWindow.SwitchMode(AppMode.Mini);
+    }
+
+    // 依据 config 的 AllowMiniMode 控制 Mini 按钮可见性（设置页改动后刷新）。
+    public void ApplyMiniModeVisibilityFromConfig()
+    {
+        if (MiniModeButton != null)
+            MiniModeButton.Visibility = App.DataEngine.Config.AllowMiniMode
+                ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)

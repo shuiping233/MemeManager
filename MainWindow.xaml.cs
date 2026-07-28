@@ -169,11 +169,19 @@ public sealed partial class MainWindow : Window
     // 必须在 App._window 赋值之后调用（Page 构造中会访问 App.MainWindow）。
     public void InitializeMode()
     {
-        SwitchMode(App.DataEngine.Config.LastAppMode, persist: false);
+        // 若 config 关闭了 Mini 模式，则不恢复 Mini（强制 Full）。
+        var mode = App.DataEngine.Config.AllowMiniMode
+            ? App.DataEngine.Config.LastAppMode
+            : AppMode.Full;
+        SwitchMode(mode, persist: false);
     }
 
     public void SwitchMode(AppMode mode, bool persist = true)
     {
+        // 配置不允许 Mini 模式时，任何进入 Mini 的请求都强制转为 Full。
+        if (mode == AppMode.Mini && !App.DataEngine.Config.AllowMiniMode)
+            mode = AppMode.Full;
+
         if (RootFrame.Content != null && _currentMode == mode) return;
 
         // 离开 Full 模式前记录窗口尺寸，切回时据此还原（_currentMode 仍为 Full 时才会真正写入）
@@ -426,8 +434,11 @@ public sealed partial class MainWindow : Window
     }
 
     // 托盘菜单“切换窗口模式”：主窗口已在前台显示则直接切换；否则先呼出到前台再切换。
+    // 若 config 关闭了 Mini 模式，则该菜单项应已禁用，这里再兜底拦截。
     public void ToggleMode()
     {
+        if (!App.DataEngine.Config.AllowMiniMode)
+            return;
         bool foreground = Visible && NativeMethods.GetForegroundWindow() == _hWnd;
         if (!foreground)
             ShowAndActivate();

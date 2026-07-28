@@ -48,6 +48,10 @@ public class AppConfig
     // 上次退出时的 UI 模式（Full/Mini），启动时恢复
     public AppMode LastAppMode { get; set; } = AppMode.Full;
 
+    // 是否允许进入 Mini（紧凑）模式。关闭后：设置页不再提供开关、主窗口 Mini 按钮移除、
+    // 托盘“切换窗口模式”菜单项禁用，启动时若 config 记录为 Mini 也会强制回退到 Full。
+    public bool AllowMiniMode { get; set; } = true;
+
     // 悬停预览图最大分辨率（超过则等比压缩）
     public double PreviewMaxWidth { get; set; } = 640;
     public double PreviewMaxHeight { get; set; } = 480;

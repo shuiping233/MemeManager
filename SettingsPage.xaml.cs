@@ -32,6 +32,7 @@ public sealed partial class SettingsPage : Page
         EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
         _initialAutoStart = AutoStartToggle.IsOn;
+        AllowMiniModeToggle.IsOn = cfg.AllowMiniMode;
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
         StorageFileDragToggle.IsOn = cfg.StorageFileDrag;
@@ -171,6 +172,11 @@ public sealed partial class SettingsPage : Page
     }
 
     private void ExplorerStyleMultiSelectToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 改动延后到点击“完成”时保存
+    }
+
+    private void AllowMiniModeToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
     }
@@ -340,6 +346,7 @@ public sealed partial class SettingsPage : Page
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
             cfg.ExplorerStyleMultiSelect = ExplorerStyleMultiSelectToggle.IsOn;
             cfg.StorageFileDrag = StorageFileDragToggle.IsOn;
+            cfg.AllowMiniMode = AllowMiniModeToggle.IsOn;
             if (pw > 0) cfg.PreviewMaxWidth = pw;
             if (ph > 0) cfg.PreviewMaxHeight = ph;
             if (delay > 0) cfg.PreviewDelayMs = delay;

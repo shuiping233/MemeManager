@@ -231,6 +231,12 @@
   <data name="Settings_AutoStartHint.Text" xml:space="preserve">
     <value>登录系统后自动在后台运行（仅托盘，不弹主窗口）</value>
   </data>
+  <data name="Settings_AllowMiniMode.Text" xml:space="preserve">
+    <value>允许 Mini 紧凑模式</value>
+  </data>
+  <data name="Settings_AllowMiniModeHint.Text" xml:space="preserve">
+    <value>关闭后，主窗口的 Mini 按钮与托盘“切换窗口模式”将不可用，且启动时不再恢复 Mini 模式</value>
+  </data>
   <data name="Settings_StorageFileDrag.Text" xml:space="preserve">
     <value>StorageFile 拖拽支持（拖出为文件）</value>
   </data>

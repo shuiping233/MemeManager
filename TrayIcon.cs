@@ -90,7 +90,14 @@ public sealed class TrayIcon : IDisposable
         if (hMenu == IntPtr.Zero) return;
 
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SHOW, Localization.Get("Tray_Show"));
-        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_TOGGLE_MODE, Localization.Get("Tray_ToggleMode"));
+
+        // Mini 模式被配置禁用时，“切换窗口模式”菜单项置灰且不可选。
+        bool allowMini = App.DataEngine.Config.AllowMiniMode;
+        if (allowMini)
+            NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_TOGGLE_MODE, Localization.Get("Tray_ToggleMode"));
+        else
+            NativeMethods.AppendMenu(hMenu, MF_STRING | MF_GRAYED, CMD_TOGGLE_MODE, Localization.Get("Tray_ToggleMode"));
+
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SETTINGS, Localization.Get("Tray_Settings"));
         NativeMethods.AppendMenu(hMenu, MF_SEPARATOR, 0, string.Empty);
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_EXIT, Localization.Get("Tray_Exit"));
@@ -103,7 +110,7 @@ public sealed class TrayIcon : IDisposable
         switch (cmd)
         {
             case CMD_SHOW: ShowMainWindow?.Invoke(this, EventArgs.Empty); break;
-            case CMD_TOGGLE_MODE: ToggleMode?.Invoke(this, EventArgs.Empty); break;
+            case CMD_TOGGLE_MODE: if (allowMini) ToggleMode?.Invoke(this, EventArgs.Empty); break;
             case CMD_SETTINGS: OpenSettings?.Invoke(this, EventArgs.Empty); break;
             case CMD_EXIT: ExitApplication?.Invoke(this, EventArgs.Empty); break;
         }
@@ -155,6 +162,7 @@ public sealed class TrayIcon : IDisposable
     private const uint NIM_SETVERSION = 0x4;
     private const uint MF_STRING = 0x0;
     private const uint MF_SEPARATOR = 0x800;
+    private const uint MF_GRAYED = 0x1;
     private const uint TPM_RETURNCMD = 0x100;
     private const uint TPM_RIGHTBUTTON = 0x2;
     private const uint IMAGE_ICON = 1;
