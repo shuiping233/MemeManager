@@ -21,10 +21,12 @@ public sealed class TrayIcon : IDisposable
 
     // 菜单命令 ID
     private const int CMD_SHOW = 1001;
-    private const int CMD_SETTINGS = 1002;
-    private const int CMD_EXIT = 1003;
+    private const int CMD_TOGGLE_MODE = 1002;
+    private const int CMD_SETTINGS = 1003;
+    private const int CMD_EXIT = 1004;
 
     public event EventHandler? ShowMainWindow;
+    public event EventHandler? ToggleMode;
     public event EventHandler? OpenSettings;
     public event EventHandler? ExitApplication;
 
@@ -88,6 +90,7 @@ public sealed class TrayIcon : IDisposable
         if (hMenu == IntPtr.Zero) return;
 
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SHOW, Localization.Get("Tray_Show"));
+        NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_TOGGLE_MODE, Localization.Get("Tray_ToggleMode"));
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SETTINGS, Localization.Get("Tray_Settings"));
         NativeMethods.AppendMenu(hMenu, MF_SEPARATOR, 0, string.Empty);
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_EXIT, Localization.Get("Tray_Exit"));
@@ -100,6 +103,7 @@ public sealed class TrayIcon : IDisposable
         switch (cmd)
         {
             case CMD_SHOW: ShowMainWindow?.Invoke(this, EventArgs.Empty); break;
+            case CMD_TOGGLE_MODE: ToggleMode?.Invoke(this, EventArgs.Empty); break;
             case CMD_SETTINGS: OpenSettings?.Invoke(this, EventArgs.Empty); break;
             case CMD_EXIT: ExitApplication?.Invoke(this, EventArgs.Empty); break;
         }

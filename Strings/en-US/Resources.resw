@@ -324,6 +324,9 @@
   <data name="Tray_Show" xml:space="preserve">
     <value>Show main window</value>
   </data>
+  <data name="Tray_ToggleMode" xml:space="preserve">
+    <value>Toggle window mode</value>
+  </data>
   <data name="Tray_Settings" xml:space="preserve">
     <value>Settings</value>
   </data>

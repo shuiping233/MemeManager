@@ -157,6 +157,7 @@ public partial class App : Application
         // 系统托盘图标
         _trayIcon = new TrayIcon(WindowNativeHwnd());
         _trayIcon.ShowMainWindow += (_, _) => MainWindow.ShowAndActivate();
+        _trayIcon.ToggleMode += (_, _) => MainWindow.ToggleMode();
         _trayIcon.OpenSettings += (_, _) => MainWindow.OpenSettings();
         _trayIcon.ExitApplication += (_, _) => ExitApp();
     }

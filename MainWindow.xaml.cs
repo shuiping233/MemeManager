@@ -420,6 +420,15 @@ public sealed partial class MainWindow : Window
         ShowWindow(activate: true);
     }
 
+    // 托盘菜单“切换窗口模式”：主窗口已在前台显示则直接切换；否则先呼出到前台再切换。
+    public void ToggleMode()
+    {
+        bool foreground = Visible && NativeMethods.GetForegroundWindow() == _hWnd;
+        if (!foreground)
+            ShowAndActivate();
+        SwitchMode(_currentMode == AppMode.Full ? AppMode.Mini : AppMode.Full);
+    }
+
     // 将当前主窗口 HWND + PID 写入实例锁文件，供重复启动的新实例精准呼出。
     // 每次拿到（新）HWND 都覆盖写入，窗口重建后也能保持最新。
     private void PersistInstanceLock()
