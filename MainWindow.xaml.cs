@@ -22,7 +22,7 @@ public sealed partial class MainWindow : Window
     private const uint SUBCLASS_ID = 101;
 
     // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放），方便以后调整
-    public const int MiniModeWidth = 420;
+    public const int MiniModeWidth = 280;
     public const int MiniModeHeight = 100;
 
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
