@@ -56,3 +56,6 @@ _ReSharper*/
 Generated\ Files/
 *_wpftmp.csproj
 
+# opencode
+.opencode.jsonc
+
