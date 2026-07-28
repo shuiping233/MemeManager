@@ -69,56 +69,64 @@
                         l:Uids.Uid="Mini_Picker">
                     <Button.Flyout>
                         <Flyout x:Name="PickerFlyout"
-                                Placement="Top"
+                                Placement="Bottom"
                                 Opening="PickerFlyout_Opening"
                                 LightDismissOverlayMode="Off"
                                 ShouldConstrainToRootBounds="False">
-                            <Border Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="10"
-                                    Padding="6">
-                                <Border.Shadow>
+                            <Flyout.FlyoutPresenterStyle>
+                                <Style TargetType="FlyoutPresenter">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="CornerRadius" Value="10"/>
+                                </Style>
+                            </Flyout.FlyoutPresenterStyle>
+                            <Grid Width="360" Height="300"
+                                  Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="10"
+                                  Padding="6">
+                                <Grid.Shadow>
                                     <ThemeShadow/>
-                                </Border.Shadow>
-                                <Grid Width="360" Height="300">
-                                    <ScrollViewer>
-                                        <ItemsRepeater x:Name="PickerRepeater">
-                                            <ItemsRepeater.Layout>
-                                                <UniformGridLayout ItemsStretch="Fill"
-                                                                  MaximumRowsOrColumns="4"
-                                                                  MinItemWidth="80"
-                                                                  MinItemHeight="80"
-                                                                  Orientation="Horizontal"/>
-                                            </ItemsRepeater.Layout>
-                                            <ItemsRepeater.ItemTemplate>
-                                                <DataTemplate x:DataType="viewmodels:MemeViewModel">
-                                                    <Grid Margin="3"
-                                                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                          CornerRadius="6"
-                                                          Padding="2"
-                                                          Tag="{x:Bind}"
-                                                          CanDrag="True"
-                                                          DragStarting="PickerItem_DragStarting"
-                                                          Tapped="PickerItem_Tapped">
-                                                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
-                                                               Stretch="UniformToFill"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsRepeater.ItemTemplate>
-                                        </ItemsRepeater>
-                                    </ScrollViewer>
+                                </Grid.Shadow>
+                                <ScrollViewer>
+                                    <ItemsRepeater x:Name="PickerRepeater">
+                                        <ItemsRepeater.Layout>
+                                            <UniformGridLayout ItemsStretch="Fill"
+                                                              MaximumRowsOrColumns="4"
+                                                              MinItemWidth="80"
+                                                              MinItemHeight="80"
+                                                              Orientation="Horizontal"/>
+                                        </ItemsRepeater.Layout>
+                                        <ItemsRepeater.ItemTemplate>
+                                            <DataTemplate x:DataType="viewmodels:MemeViewModel">
+                                                <Grid Margin="3"
+                                                      Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                      CornerRadius="6"
+                                                      Padding="2"
+                                                      Tag="{x:Bind}"
+                                                      CanDrag="True"
+                                                      DragStarting="PickerItem_DragStarting"
+                                                      Tapped="PickerItem_Tapped">
+                                                    <Image Source="{x:Bind ImageSource, Mode=OneWay}"
+                                                           Stretch="UniformToFill"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsRepeater.ItemTemplate>
+                                    </ItemsRepeater>
+                                </ScrollViewer>
 
-                                    <TextBlock x:Name="PickerEmptyHint"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Opacity="0.6"
-                                               Visibility="Collapsed"
-                                               l:Uids.Uid="Mini_PickerEmpty"/>
-                                </Grid>
-                            </Border>
+                                <TextBlock x:Name="PickerEmptyHint"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Opacity="0.6"
+                                           Visibility="Collapsed"
+                                           l:Uids.Uid="Mini_PickerEmpty"/>
+                            </Grid>
                         </Flyout>
                     </Button.Flyout>
                     <ToolTipService.ToolTip>
