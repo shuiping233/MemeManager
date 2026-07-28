@@ -138,9 +138,6 @@
   <data name="Mini_BackToFull.Content" xml:space="preserve">
     <value>Full Mode</value>
   </data>
-  <data name="Mini_Category.Content" xml:space="preserve">
-    <value>Category</value>
-  </data>
   <data name="Mini_Picker.Content" xml:space="preserve">
     <value>Meme</value>
   </data>

@@ -138,9 +138,6 @@
   <data name="Mini_BackToFull.Content" xml:space="preserve">
     <value>完整模式</value>
   </data>
-  <data name="Mini_Category.Content" xml:space="preserve">
-    <value>分类</value>
-  </data>
   <data name="Mini_Picker.Content" xml:space="preserve">
     <value>表情</value>
   </data>
