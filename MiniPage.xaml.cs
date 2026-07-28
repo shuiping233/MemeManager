@@ -119,8 +119,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
                 _currentCategory = vm.Name;
                 _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = vm.Name);
             }
-            if (PickerFlyout.IsOpen)
-                LoadPickerMemes();
+            ReleaseImages();
         }
     }
 
