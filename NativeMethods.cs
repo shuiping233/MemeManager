@@ -6,14 +6,11 @@ namespace MemeManager;
 internal static partial class NativeMethods
 {
     public const int WM_MOUSEACTIVATE = 0x0021;
-    public const int MA_NOACTIVATE = 3; // 不激活窗口，但吃掉/处理鼠标消息
 
     public const int GWL_EXSTYLE = -20;
-    public const int WS_EX_NOACTIVATE = 0x08000000;
     public const int WS_EX_TOPMOST = 0x00000008;
 
     public const int WM_HOTKEY = 0x0312;
-    public const int MOD_ALT = 0x0001;
 
     public const int WM_RBUTTONUP = 0x0205;
     public const int WM_LBUTTONUP = 0x0202;
@@ -23,8 +20,6 @@ internal static partial class NativeMethods
 
     public const int WM_ACTIVATE = 0x0006;
     public const int WA_INACTIVE = 0;
-    public const int WA_ACTIVE = 1;
-    public const int WA_CLICKACTIVE = 2;
 
     public const int SW_HIDE = 0;
     public const int SW_SHOW = 5;
@@ -107,8 +102,6 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-    [LibraryImport("user32.dll", EntryPoint = "FindWindowW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    public static partial IntPtr FindWindowW(string? lpClassName, string lpWindowName);
 
     [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial int MessageBoxW(IntPtr hWnd, string lpText, string lpCaption, uint uType);
@@ -136,8 +129,6 @@ internal static partial class NativeMethods
     public static extern void DragFinish(IntPtr hDrop);
 
     public const int WM_SYSCOMMAND = 0x0112;
-    public const int SC_MINIMIZE = 0xF020;
-    public const int SC_RESTORE = 0xF120;
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int GetKeyNameTextW(int lParam, System.Text.StringBuilder lpString, int cchSize);
@@ -259,8 +250,6 @@ internal static partial class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool DestroyIcon(IntPtr hIcon);
 
     [LibraryImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]

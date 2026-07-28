@@ -613,21 +613,7 @@ public sealed partial class MainWindow : Window
         HideWindow();
     }
 
-    /// <summary>
-    /// 供 Mini 模式“关闭”按钮等调用：与用户点主窗口右上角 X 行为一致，
-    /// 仅隐藏窗口并保留后台（托盘）运行，不真正退出进程。
-    /// </summary>
-    public void HideToTray() => HideWindow();
 
-    /// <summary>
-    /// Mini 无边框悬浮条拖动窗口：按屏幕像素增量移动窗口位置。
-    /// </summary>
-    public void MoveWindowBy(int dx, int dy)
-    {
-        if (_appWindow == null) return;
-        var pos = _appWindow.Position;
-        _appWindow.Move(new Windows.Graphics.PointInt32(pos.X + dx, pos.Y + dy));
-    }
 
     /// <summary>
     /// 普通启动使用：显示窗口但不抢前台焦点（SW_SHOWNOACTIVATE）。
