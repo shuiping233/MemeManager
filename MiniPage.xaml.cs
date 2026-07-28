@@ -21,8 +21,19 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     // Picker 打开时才按需加载的缩略图列表（避免后台常驻解码）。
     private List<MemeViewModel> _pickerMemes = new();
 
-    // Mini 模式当前选中的分类（拖入/点选都基于它）。
-    private string _currentCategory = MemeDataEngine.UncategorizedCategory;
+    // “全部表情”视图下 _currentCategory 的取值（与 Full 一致：仅用于显示/日志，不参与判断）。
+    private const string AllMemesCategory = "AllMemes";
+
+    // Mini 模式当前选中的分类；空串 / AllMemesCategory 表示“全部表情”视图。
+    private string _currentCategory = AllMemesCategory;
+
+    // 是否处于“全部表情”视图（导入落到未分类，与 Full 一致）。
+    private bool IsAllMemesView => string.IsNullOrEmpty(_currentCategory)
+                                   || _currentCategory == AllMemesCategory;
+
+    // 拖入/导入时的目标分类：全部表情视图落入“未分类”，否则按当前分类（复用 Full 规则）。
+    private string ImportTargetCategory =>
+        IsAllMemesView ? MemeDataEngine.UncategorizedCategory : _currentCategory;
 
     // 用于取消上一次“提示文字自动恢复”的定时任务，避免多条消息互相抢占。
     private System.Threading.CancellationTokenSource? _hintRestoreCts;
@@ -59,28 +70,55 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             App.DataEngine.EnsureDefaultCategory();
         cats = App.DataEngine.GetCategories();
 
-        CategoryCombo.ItemsSource = cats;
+        // 复用 Full 的 CategoryViewModel：头部插入“全部表情”虚拟项（Name 空串），
+        // 与 Full 的 _allMemesVm 约定一致（空名 = 全部表情）。
+        var items = new System.Collections.Generic.List<ViewModels.CategoryViewModel>
+        {
+            new ViewModels.CategoryViewModel("", 0)
+        };
+        foreach (var c in cats)
+            items.Add(new ViewModels.CategoryViewModel(c, App.DataEngine.GetMemes(c).Count));
+        CategoryCombo.ItemsSource = items;
 
         var last = App.DataEngine.Config.LastCategory;
-        var target = cats.FirstOrDefault(c => c.Equals(last, StringComparison.OrdinalIgnoreCase))
-                     ?? cats.FirstOrDefault();
-        if (target != null)
+        if (string.IsNullOrEmpty(last))
         {
-            CategoryCombo.SelectedItem = target;
-            _currentCategory = target;
+            // 上次停留在“全部表情”：选中头部虚拟项。
+            CategoryCombo.SelectedIndex = 0;
+            _currentCategory = AllMemesCategory;
         }
         else
         {
-            _currentCategory = MemeDataEngine.UncategorizedCategory;
+            var idx = items.FindIndex(v => !string.IsNullOrEmpty(v.Name)
+                && v.Name.Equals(last, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0)
+            {
+                CategoryCombo.SelectedIndex = idx;
+                _currentCategory = items[idx].Name;
+            }
+            else
+            {
+                CategoryCombo.SelectedIndex = 0;
+                _currentCategory = AllMemesCategory;
+            }
         }
     }
 
     private void CategoryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CategoryCombo.SelectedItem is string cat && !string.IsNullOrEmpty(cat))
+        if (CategoryCombo.SelectedItem is ViewModels.CategoryViewModel vm)
         {
-            _currentCategory = cat;
-            _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat);
+            // 空名 = “全部表情”视图（与 Full 约定一致）。
+            if (string.IsNullOrEmpty(vm.Name))
+            {
+                _currentCategory = AllMemesCategory;
+                _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = "");
+            }
+            else
+            {
+                _currentCategory = vm.Name;
+                _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = vm.Name);
+            }
             if (PickerFlyout.IsOpen)
                 LoadPickerMemes();
         }
@@ -96,7 +134,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     private void LoadPickerMemes()
     {
-        var models = App.DataEngine.GetMemes(_currentCategory).ToList();
+        // 全部表情视图：GetMemes(null) 返回所有分类（复用引擎既有语义，不过滤）。
+        var models = App.DataEngine.GetMemes(IsAllMemesView ? null : _currentCategory).ToList();
         _pickerMemes = models.Select(m => new MemeViewModel(m)).ToList();
         PickerRepeater.ItemsSource = _pickerMemes;
 
@@ -168,7 +207,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     //  - 成功 → 显示“成功导入 x 张到 xxx 分类”，7s 后自动恢复。
     private async Task TryImportAsync(List<string> paths)
     {
-        var (success, imported) = await ImageDragHelper.ImportPathsAsync(paths, _currentCategory);
+        // 导入目标复用 Full 规则：全部表情视图落到“未分类”，否则当前分类。
+        var (success, imported) = await ImageDragHelper.ImportPathsAsync(paths, ImportTargetCategory);
         if (!success)
             ShowImportBusy();
         else
@@ -182,8 +222,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         _hintRestoreCts?.Cancel();
         _hintRestoreCts = new System.Threading.CancellationTokenSource();
 
+        // 全部表情视图下导入实际落到“未分类”，展示其本地化名而非 AllMemes 字面。
+        string targetName = IsAllMemesView
+            ? Localization.Get("Category_Uncategorized")
+            : _currentCategory;
         string text = imported > 0
-            ? string.Format(Localization.Get("Mini_ImportSuccess"), imported, _currentCategory)
+            ? string.Format(Localization.Get("Mini_ImportSuccess"), imported, targetName)
             : Localization.Get("Mini_ImportDuplicate");
 
         MiniDropHintText.Text = text;

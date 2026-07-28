@@ -58,9 +58,10 @@
                 <ComboBox x:Name="CategoryCombo"
                           MinWidth="100"
                           MaxWidth="100"
+                          DisplayMemberPath="DisplayText"
                           SelectionChanged="CategoryCombo_SelectionChanged">
         <ToolTipService.ToolTip>
-            <ToolTip Content="{x:Bind CategoryCombo.SelectedItem, Mode=OneWay}"/>
+            <ToolTip Content="{x:Bind ((viewmodels:CategoryViewModel)CategoryCombo.SelectedItem).DisplayText, Mode=OneWay}"/>
         </ToolTipService.ToolTip>
                 </ComboBox>
 
