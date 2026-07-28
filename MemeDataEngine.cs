@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using MemeManager;
 using MemeManager.Helpers;
 using MemeManager.Models;
 
@@ -90,9 +91,8 @@ public class MemeDataEngine
     }
 
     // 配置文件固定保存在 %LOCALAPPDATA% 下（与数据目录解耦），否则迁移数据目录后二次启动读不到配置
-    private static string ConfigDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager");
-    private string ConfigPath => Path.Combine(ConfigDir, "config.json");
+    private static string ConfigDir => MainWindow.AppDataDir;
+    private string ConfigPath => MainWindow.ConfigPath;
 
     // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
     private string CategoryOrderPath => Path.Combine(_baseDir, MetadataFileName);

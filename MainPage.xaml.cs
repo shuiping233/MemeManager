@@ -145,6 +145,17 @@ public sealed partial class MainPage : Page, IExternalDropPage
             // Full 模式标题栏：把顶部空拖拽条（TitleStrip）注册为窗口标题栏区域。
             // 仅此条可拖拽窗口；工具栏/搜索框在下方客户端区，不受系统三键覆盖影响。
             App.MainWindow.SetTitleBarElement(TitleStrip);
+            // 标题文本由 XAML 绑定到 MainWindow.WindowTitle（含 AppName + 版本），此处无需赋值。
+
+            // 标题条 Logo：用发布必拷贝的 AppIcon.ico（与托盘图标同源，见 MainWindow.AppIconPath），
+            // 以绝对路径加载，避免 XAML 松散引用 png 在非打包发布时丢失。
+            try
+            {
+                var iconPath = MainWindow.AppIconPath;
+                if (iconPath != null)
+                    TitleStripLogo.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
+            }
+            catch (Exception ex) { Logger.Log("[标题条] 加载 Logo 失败: " + ex.Message); }
         };
 
         LoadCategories();

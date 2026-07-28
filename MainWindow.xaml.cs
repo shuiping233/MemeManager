@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -425,10 +426,9 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager");
-            Directory.CreateDirectory(dir);
+            Directory.CreateDirectory(AppDataDir);
             var pid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
-            File.WriteAllText(Path.Combine(dir, "instance.lock"),
+            File.WriteAllText(InstanceLockPath,
                 $"{(long)_hWnd}\n{pid}");
         }
         catch (Exception ex)
@@ -442,7 +442,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager", "instance.lock");
+            var path = InstanceLockPath;
             if (File.Exists(path)) File.Delete(path);
         }
         catch { }
@@ -594,25 +594,50 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // 应用显示名（标题条、对话框等共用）。
+    public const string AppName = "MemeManager";
+
+    // 配置/锁文件所在目录与文件名（%LOCALAPPDATA%\AppName 下），供各模块复用，避免散落字面量。
+    public const string ConfigFileName = "config.json";
+    public const string InstanceLockFileName = "instance.lock";
+    public static string AppDataDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName);
+    public static string ConfigPath => Path.Combine(AppDataDir, ConfigFileName);
+    public static string InstanceLockPath => Path.Combine(AppDataDir, InstanceLockFileName);
+
+    // 窗口标题文本：AppName + 程序集 InformationalVersion（CI 传 -p:AppVersion=vX.Y.Z，否则本地时间戳 dev build）。
+    // dev build 形如 "... dev build+<hash>"，把 "+" 及其后的 hash 去掉，只保留可读部分。
+    public static string WindowTitle
+    {
+        get
+        {
+            var ver = typeof(MainWindow).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (ver != null)
+            {
+                int plus = ver.IndexOf('+');
+                if (plus >= 0) ver = ver.Substring(0, plus);
+                return $"{AppName} {ver}";
+            }
+            return AppName;
+        }
+    }
+
+    // AppIcon.ico 路径（发布/调试均会拷贝到 Assets 下），托盘图标与标题条 Logo 共用。
+    public static string AppIconPath =>
+        Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
+
     private IntPtr LoadAppIcon()
     {
         // 从 exe 运行目录的 AppIcon.ico 文件加载（LoadImage 已验证可用）
-        var candidates = new[]
+        var path = AppIconPath;
+        if (File.Exists(path))
         {
-            Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"),
-            Path.Combine(AppContext.BaseDirectory, "AppIcon.ico"),
-            Path.Combine(AppContext.BaseDirectory, "..", "Assets", "AppIcon.ico"),
-        };
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-            {
-                var h = NativeMethods.LoadImage(
-                    IntPtr.Zero, path, NativeMethods.IMAGE_ICON, 0, 0,
-                    NativeMethods.LR_LOADFROMFILE | NativeMethods.LR_DEFAULTSIZE);
-                if (h != IntPtr.Zero)
-                    return h;
-            }
+            var h = NativeMethods.LoadImage(
+                IntPtr.Zero, path, NativeMethods.IMAGE_ICON, 0, 0,
+                NativeMethods.LR_LOADFROMFILE | NativeMethods.LR_DEFAULTSIZE);
+            if (h != IntPtr.Zero)
+                return h;
         }
 
         Logger.Log("[MemeManager] 未找到 AppIcon.ico");

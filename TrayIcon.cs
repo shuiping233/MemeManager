@@ -40,8 +40,7 @@ public sealed class TrayIcon : IDisposable
 
     private void Register()
     {
-        var iconPath = GetIconPath();
-        var hIcon = LoadIconFromFile(iconPath);
+        var hIcon = LoadIconFromFile(MainWindow.AppIconPath);
 
         var data = new NativeMethods.TrayNotifyIconData
         {
@@ -107,23 +106,6 @@ public sealed class TrayIcon : IDisposable
     }
 
     private static void Log(string msg) => Logger.Log($"[MemeManager.Tray] {msg}");
-
-    private static string GetIconPath()
-    {
-        // 依次尝试多个可能的位置（打包/非打包运行目录不同）
-        var candidates = new[]
-        {
-            System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"),
-            System.IO.Path.Combine(AppContext.BaseDirectory, "AppX", "Assets", "AppIcon.ico"),
-            System.IO.Path.Combine(AppContext.BaseDirectory, "AppIcon.ico"),
-            System.IO.Path.Combine(System.AppContext.BaseDirectory, "..", "Assets", "AppIcon.ico"),
-        };
-        foreach (var p in candidates)
-        {
-            if (System.IO.File.Exists(p)) return p;
-        }
-        return candidates[0];
-    }
 
     private static IntPtr LoadIconFromFile(string path)
     {

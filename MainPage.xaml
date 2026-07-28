@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <Page
     x:Class="MemeManager.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -29,9 +29,13 @@
              右侧留空给系统 min/max/close 三键（系统按钮会叠加在此条右上，标题文本在左侧不冲突）。 -->
         <Grid x:Name="TitleStrip" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
               Height="32" Background="Transparent">
-            <TextBlock Text="MemeManager"
-                       VerticalAlignment="Center" Margin="12,0,0,0"
-                       FontWeight="SemiBold" IsHitTestVisible="False"/>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0"
+                        IsHitTestVisible="False">
+                <Image x:Name="TitleStripLogo" Width="16" Height="16" Margin="0,0,6,0"
+                       VerticalAlignment="Center"/>
+                <TextBlock x:Name="TitleStripText" Text="{x:Bind local:MainWindow.WindowTitle}"
+                           VerticalAlignment="Center" FontSize="12"/>
+            </StackPanel>
         </Grid>
 
         <!-- 批量导入/导出进度条（不阻塞 UI，任务结束后自动关闭） -->

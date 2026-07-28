@@ -276,8 +276,7 @@ public sealed partial class SettingsPage : Page
     }
 
     private async void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e) =>
-        await OpenFolderAsync(System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemeManager"));
+        await OpenFolderAsync(MainWindow.AppDataDir);
 
     private async void OpenMemeDataFolder_Click(object sender, RoutedEventArgs e) =>
         await OpenFolderAsync(StoragePathBox.Text);
