@@ -132,6 +132,7 @@
                                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                           CornerRadius="6"
                                           Padding="2"
+                                          Tag="{x:Bind}"
                                           CanDrag="True"
                                           DragStarting="PickerItem_DragStarting"
                                           Tapped="PickerItem_Tapped">

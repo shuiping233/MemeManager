@@ -117,7 +117,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage
 
     private async void PickerItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm)
+        if (sender is not FrameworkElement fe || fe.Tag is not MemeViewModel vm)
             return;
         if (!File.Exists(vm.LocalPath)) return;
 
@@ -127,6 +127,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         PickerPopup.IsOpen = false;
 
         var target = App.MainWindow.ResolveExternalPasteTarget();
+        Logger.Log($"[Mini] 点击发送图片 ({Path.GetFileName(vm.LocalPath)}) -> 目标={target:X}");
         await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
     }
 
@@ -134,13 +135,14 @@ public sealed partial class MiniPage : Page, IExternalDropPage
     // 仅声明 Copy（不移动文件），并提供 Bitmap（老客户端）与 StorageItems（文件拖出，动态图）。
     private void PickerItem_DragStarting(object sender, Microsoft.UI.Xaml.DragStartingEventArgs e)
     {
-        if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm)
+        if (sender is not FrameworkElement fe || fe.Tag is not MemeViewModel vm)
             return;
         if (string.IsNullOrEmpty(vm.LocalPath) || !File.Exists(vm.LocalPath))
             return;
 
         // 复用 ImageDragHelper：装 StorageItems + 单张非 GIF 的 Bitmap 兜底，GIF 仅文件拖出。
         ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, App.DataEngine.Config.StorageFileDrag);
+        Logger.Log($"[Mini] 拖出 1 张图片 ({Path.GetFileName(vm.LocalPath)})");
     }
 
     // ---------- 顶部按钮 ----------
