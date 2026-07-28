@@ -156,6 +156,9 @@
   <data name="Mini_DropHint.Text" xml:space="preserve">
     <value>Drop images here to import into the current category</value>
   </data>
+  <data name="Mini_ImportBusy.Text" xml:space="preserve">
+    <value>Importing… please wait</value>
+  </data>
   <data name="Mini_PickerEmpty.Text" xml:space="preserve">
     <value>No memes in this category yet. Drag images in to import.</value>
   </data>

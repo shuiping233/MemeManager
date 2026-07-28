@@ -1066,64 +1066,10 @@ public sealed partial class MainPage : Page, IExternalDropPage
             }
             else if (App.DataEngine.Config.StorageFileDrag)
             {
-                // 新方案（微软建议，稳定性有待验证）：用 SetDataProvider 注册回调，拖放目标真正请求
-                // StorageItems 时才异步取 StorageFile——不在 DragItemsStarting 同步构造，
-                // 避开 DataPackage 析构时的跨公寓 COM 释放竞态(0xc000027b)。
-                // paths 是本地 string 数组（值类型，无 COM 对象），DragItemsStarting 退出时
-                // 没有任何跨公寓对象要释放——这正是修复关键。
+                // 复用 ImageDragHelper：注册 StorageItems（延迟提供）+ 单张非 GIF 的 Bitmap 兜底。
+                // GIF 仅作文件拖出（Bitmap 只静态图，塞 GIF 会变第一帧），保持动图。
                 var paths = valid.Select(v => v.LocalPath!).ToArray();
-                e.Data.SetDataProvider(StandardDataFormats.StorageItems, async (request) =>
-                {
-                    var deferral = request.GetDeferral();
-                    try
-                    {
-                        var files = await Task.WhenAll(
-                            paths.Select(p => StorageFile.GetFileFromPathAsync(p).AsTask()));
-                        request.SetData(files);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log("DragItemsStarting(SetDataProvider): 取文件失败: " + ex.Message);
-                    }
-                    finally
-                    {
-                        deferral.Complete();
-                    }
-                });
-
-                // 单张非 GIF 额外用 SetDataProvider 注册 Bitmap 兜底，给只认 Bitmap 的老客户端
-                bool singleNonGif = paths.Length == 1 &&
-                    !string.Equals(Path.GetExtension(paths[0]), ".gif", StringComparison.OrdinalIgnoreCase);
-                if (singleNonGif)
-                {
-                    var singlePath = paths[0];
-                    e.Data.SetDataProvider(StandardDataFormats.Bitmap, async (request) =>
-                    {
-                        var deferral = request.GetDeferral();
-                        try
-                        {
-                            var bytes = await Task.Run(() => File.ReadAllBytes(singlePath));
-                            var ms = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                            using (var dw = ms.GetOutputStreamAt(0))
-                            using (var dwStream = dw.AsStreamForWrite())
-                            {
-                                dwStream.Write(bytes, 0, bytes.Length);
-                                dwStream.Flush();
-                            }
-                            ms.Seek(0);
-                            request.SetData(
-                                Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(ms));
-                        }
-                        catch (Exception ex)
-                        {
-                            Log("DragItemsStarting(SetDataProvider Bitmap): 构造位图流失败: " + ex.Message);
-                        }
-                        finally
-                        {
-                            deferral.Complete();
-                        }
-                    });
-                }
+                ImageDragHelper.ConfigureDragOut(e.Data, paths, true);
             }
             else
             {
@@ -1296,38 +1242,13 @@ public sealed partial class MainPage : Page, IExternalDropPage
         foreach (var f in formats)
             Log($"Drop: 格式 = {f}");
 
-        // 收集所有待导入的源路径（StorageItems 直接用原路径；Bitmap 先落临时文件）
-        var importPaths = new System.Collections.Generic.List<string>();
-        var tempPaths = new System.Collections.Generic.List<string>();
-
-        // 1) StorageItems（最常见：文件 / QQ 拖出的文件）
-        if (view.Contains(StandardDataFormats.StorageItems))
-        {
-            var items = await view.GetStorageItemsAsync();
-            foreach (var item in items)
-            {
-                if (item is StorageFile file && IsImage(file.FileType))
-                    importPaths.Add(file.Path);
-            }
-        }
-
-        // 2) Bitmap（剪贴板/截图类拖拽）
-        if (view.Contains(StandardDataFormats.Bitmap))
-        {
-            try
-            {
-                var streamRef = await view.GetBitmapAsync();
-                using var stream = await streamRef.OpenReadAsync();
-                var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"meme_{Guid.NewGuid():N}.png");
-                using (var outStream = System.IO.File.Create(tempPath))
-                {
-                    await stream.AsStreamForRead().CopyToAsync(outStream);
-                }
-                importPaths.Add(tempPath);
-                tempPaths.Add(tempPath);
-            }
-            catch (Exception ex) { Log("拖入(Bitmap)失败: " + ex.Message); }
-        }
+        // 收集所有待导入的源路径（复用 ImageDragHelper：StorageItems 直接用原路径；Bitmap 先落临时文件）
+        var importPaths = await ImageDragHelper.CollectDropPathsAsync(view);
+        // 标记临时文件（Bitmap 落地），导入后用于清理
+        var tempPrefix = System.IO.Path.GetTempPath().TrimEnd('\\').ToLowerInvariant();
+        var tempPaths = importPaths
+            .Where(p => p.ToLowerInvariant().StartsWith(tempPrefix))
+            .ToList();
 
         try
         {

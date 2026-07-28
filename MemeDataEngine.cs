@@ -38,6 +38,12 @@ public class MemeDataEngine
 
     private string _baseDir;
 
+    // 写/导入忙标志：保证同一时刻只有一个导入写任务在进行（数据安全）。
+    // MainPage 通过自带的 ImageBatchOperationRunner 已有锁；Mini 等没有 runner 的入口
+    // 统一走 ImportMemesSafeAsync，由本标志兜底拒绝并发导入。也可供 UI 判断是否“导入中”。
+    private int _writeBusy;
+    public bool IsBusyWriting => _writeBusy != 0;
+
     private readonly List<MemeModel> _memeCache = new();
 
     // 数据目录文件监听：探测图片文件从库中消失（外部拖出/被删），
@@ -578,6 +584,27 @@ public class MemeDataEngine
         // 整批仅写回一次 metadata
         await SaveCategoryMetadataAsync(categoryDir, meta);
         return (imported, duplicate, duplicateModel);
+    }
+
+    /// <summary>
+    /// 带“写忙”守卫的导入入口：同一时刻仅允许一个导入写任务进行（数据安全）。
+    /// 已在进行中时直接返回 (0,0,null) 表示被拒（UI 据此提示“导入进行中”并忽略本次拖入）。
+    /// Mini 等无 ImageBatchOperationRunner 的入口统一走这里；MainPage 自带 runner 锁，不强制改用。
+    /// </summary>
+    public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesSafeAsync(
+        IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null,
+        Action<string>? onCategoryCreated = null)
+    {
+        if (Interlocked.Exchange(ref _writeBusy, 1) != 0)
+            return (0, 0, null); // 已有导入任务在跑，拒绝本次
+        try
+        {
+            return await ImportMemesAsync(sourcePaths, category, progress, onCategoryCreated);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _writeBusy, 0);
+        }
     }
 
     // 导入单张的判定/落地计划（并行阶段填充，阶段3串行消费）

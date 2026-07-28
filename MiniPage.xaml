@@ -57,7 +57,7 @@
                 <!-- 分类下拉：Mini 模式单一当前分类，拖入/点选都基于它 -->
                 <ComboBox x:Name="CategoryCombo"
                           MinWidth="100"
-                          MaxWidth="160"
+                          MaxWidth="100"
                           SelectionChanged="CategoryCombo_SelectionChanged">
                     <ToolTipService.ToolTip>
                         <ToolTip l:Uids.Uid="Mini_Category"/>
@@ -83,7 +83,8 @@
         </Grid>
 
         <!-- 主体：提示文字 + 拖入遮罩 -->
-        <TextBlock Grid.Row="1"
+        <TextBlock x:Name="MiniDropHintText"
+                   Grid.Row="1"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    Opacity="0.5"
@@ -126,6 +127,8 @@
                                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                           CornerRadius="6"
                                           Padding="2"
+                                          CanDrag="True"
+                                          DragStarting="PickerItem_DragStarting"
                                           Tapped="PickerItem_Tapped">
                                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
                                                Stretch="UniformToFill"

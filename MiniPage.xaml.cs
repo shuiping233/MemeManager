@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Media;
 using MemeManager.Models;
 using MemeManager.ViewModels;
 using MemeManager.Data;
+using MemeManager.Helpers;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 
@@ -115,11 +116,25 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         if (!File.Exists(vm.LocalPath)) return;
 
         // 关闭 Picker 先把焦点交还给外部应用：点击瞬间前台通常仍是用户正在用的应用(QQ 等)，
-        // ResolveExternalPasteTarget 会优先返回 _fgTimer 记录的外部窗口。
+        // ResolveExternalPasteTarget 会优先返回 _fgTimer 记录的外部窗口（Mini 模式下回退到
+        // 本窗口获得焦点前的前台=外部应用，避免把图粘贴回自己身上）。
         PickerPopup.IsOpen = false;
 
         var target = App.MainWindow.ResolveExternalPasteTarget();
         await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
+    }
+
+    // 从 Picker 拖出图片到外部（QQ/输入框等）：复用 MainPage 的稳定单图拖出逻辑。
+    // 仅声明 Copy（不移动文件），并提供 Bitmap（老客户端）与 StorageItems（文件拖出，动态图）。
+    private void PickerItem_DragStarting(object sender, Microsoft.UI.Xaml.DragStartingEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm)
+            return;
+        if (string.IsNullOrEmpty(vm.LocalPath) || !File.Exists(vm.LocalPath))
+            return;
+
+        // 复用 ImageDragHelper：装 StorageItems + 单张非 GIF 的 Bitmap 兜底，GIF 仅文件拖出。
+        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, App.DataEngine.Config.StorageFileDrag);
     }
 
     // ---------- 顶部按钮 ----------
@@ -135,23 +150,46 @@ public sealed partial class MiniPage : Page, IExternalDropPage
     // 实现 IExternalDropPage：由 MainWindow 在 WM_DROPFILES 时转发路径。
     public void HandleExternalDropPaths(List<string> paths)
     {
-        _ = ImportDroppedFilesAsync(paths);
+        _ = TryImportAsync(paths);
     }
 
-    private async Task ImportDroppedFilesAsync(List<string> paths)
+    // 统一拖入入口：若正在导入（DataEngine.IsBusyWriting）则临时禁用拖入并显示“导入中”提示；
+    // 否则调用 ImageDragHelper 导入到当前分类。
+    private async Task TryImportAsync(List<string> paths)
     {
-        var images = paths
-            .Where(p => File.Exists(p) && MainPage.IsImage(Path.GetExtension(p)))
-            .ToList();
-        if (images.Count == 0) return;
+        if (App.DataEngine.IsBusyWriting)
+        {
+            ShowImportBusy();
+            return;
+        }
 
-        var result = await App.DataEngine.ImportMemesAsync(images, _currentCategory);
-        Logger.Log($"[Mini] 拖入导入：新增 {result.imported}，重复 {result.duplicate}（分类={_currentCategory}）");
+        bool started = await ImageDragHelper.ImportPathsAsync(paths, _currentCategory);
+        if (!started)
+            ShowImportBusy();
+    }
+
+    // 导入进行中：禁用整页拖入（显示禁止光标）并临时把提示文字改为“导入中”，
+    // 待 DataEngine 不再忙后自动恢复。
+    private void ShowImportBusy()
+    {
+        RootGrid.AllowDrop = false;
+        DropHint.Visibility = Visibility.Collapsed;
+        MiniDropHintText.Text = Localization.Get("Mini_ImportBusy");
+        Logger.Log("[Mini] 拖入被拒：导入进行中");
+
+        // 轮询直到不再忙，恢复拖入与提示文字
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            while (App.DataEngine.IsBusyWriting)
+                await Task.Delay(150);
+            RootGrid.AllowDrop = true;
+            MiniDropHintText.Text = Localization.Get("Mini_DropHint");
+        });
     }
 
     // ---------- XAML 层拖入（QQ 等来源的 DataPackage 拖拽）----------
 
-    private void Grid_DragOver(object sender, DragEventArgs e)
+    private async void Grid_DragOver(object sender, DragEventArgs e)
     {
         if (e.DataView.Contains(StandardDataFormats.StorageItems) ||
             e.DataView.Contains(StandardDataFormats.Bitmap))
@@ -173,33 +211,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage
     private async void Grid_Drop(object sender, DragEventArgs e)
     {
         DropHint.Visibility = Visibility.Collapsed;
-        var paths = new List<string>();
-
-        if (e.DataView.Contains(StandardDataFormats.StorageItems))
-        {
-            var items = await e.DataView.GetStorageItemsAsync();
-            foreach (var item in items)
-                if (item is StorageFile file && MainPage.IsImage(file.FileType))
-                    paths.Add(file.Path);
-        }
-
-        if (e.DataView.Contains(StandardDataFormats.Bitmap))
-        {
-            try
-            {
-                var streamRef = await e.DataView.GetBitmapAsync();
-                using var stream = await streamRef.OpenReadAsync();
-                var tempPath = Path.Combine(Path.GetTempPath(), $"meme_{Guid.NewGuid():N}.png");
-                using (var outStream = File.Create(tempPath))
-                {
-                    await stream.AsStreamForRead().CopyToAsync(outStream);
-                }
-                paths.Add(tempPath);
-            }
-            catch (Exception ex) { Logger.Log("[Mini] 拖入(Bitmap)失败: " + ex.Message); }
-        }
-
+        var paths = await ImageDragHelper.CollectDropPathsAsync(e.DataView);
         if (paths.Count > 0)
-            HandleExternalDropPaths(paths);
+            await TryImportAsync(paths);
     }
 }

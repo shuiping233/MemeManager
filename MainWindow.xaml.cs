@@ -330,7 +330,11 @@ public sealed partial class MainWindow : Window
     // _lastExternalFg 由 _fgTimer 在窗口可见且未激活时持续刷新。
     // liveFg 取“点击瞬间”的前台窗口：Tapped 事件通常先于窗口激活完成触发，
     // 此时前台往往仍是用户正在用的外部输入框(QQ 等)，故可作兜底。
-    // 解析不到有效外部窗口（或就是自己）时返回 IntPtr.Zero。
+    //
+    // 注意 Mini 模式特例：点 Picker 图片时本窗口已是前台（点击使其激活），
+    // 此时 liveFg==_hWnd，而 _lastExternalFg 也可能已被刷成自己。若最终解析到
+    // 自身，则回退到 _prevActiveHwnd（本窗口获得焦点前的前台=用户正在用的外部应用），
+    // 这样 Mini 点图也能正确回贴到外部应用，而不是把图“粘贴”回自己身上（看起来没反应）。
     public IntPtr ResolveExternalPasteTarget()
     {
         IntPtr liveFg = NativeMethods.GetForegroundWindow();
@@ -342,7 +346,14 @@ public sealed partial class MainWindow : Window
         else if (liveFg != IntPtr.Zero && liveFg != _hWnd)
             target = liveFg;
 
-        return target == _hWnd ? IntPtr.Zero : target;
+        // 解析到自身（或无有效目标）：回退到“获得焦点前的前台窗口”，再不行才返回 Zero。
+        if (target == IntPtr.Zero || target == _hWnd)
+        {
+            if (_prevActiveHwnd != IntPtr.Zero && _prevActiveHwnd != _hWnd)
+                return _prevActiveHwnd;
+            return IntPtr.Zero;
+        }
+        return target;
     }
 
     // 取得主窗口所在屏幕的工作区，转换为【窗口坐标(DIP)】，
