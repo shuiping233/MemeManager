@@ -64,9 +64,7 @@
         </ToolTipService.ToolTip>
                 </ComboBox>
 
-                <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用。
-                     用 Flyout 挂按钮（同 SettingsFlyout 机制），由 WinUI 自动做边缘翻转/屏幕内约束，
-                     无需手写定位数学。 -->
+                <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用。 -->
                 <Button x:Name="PickerButton"
                         l:Uids.Uid="Mini_Picker">
                     <Button.Flyout>
