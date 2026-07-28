@@ -64,10 +64,65 @@
         </ToolTipService.ToolTip>
                 </ComboBox>
 
-                <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用 -->
+                <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用。
+                     用 Flyout 挂按钮（同 SettingsFlyout 机制），由 WinUI 自动做边缘翻转/屏幕内约束，
+                     无需手写定位数学。 -->
                 <Button x:Name="PickerButton"
-                        l:Uids.Uid="Mini_Picker"
-                        Click="PickerButton_Click">
+                        l:Uids.Uid="Mini_Picker">
+                    <Button.Flyout>
+                        <Flyout x:Name="PickerFlyout"
+                                Placement="Top"
+                                Opening="PickerFlyout_Opening"
+                                LightDismissOverlayMode="Off"
+                                ShouldConstrainToRootBounds="False">
+                            <Border Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="6">
+                                <Border.Shadow>
+                                    <ThemeShadow/>
+                                </Border.Shadow>
+                                <Grid Width="360" Height="300">
+                                    <ScrollViewer>
+                                        <ItemsRepeater x:Name="PickerRepeater">
+                                            <ItemsRepeater.Layout>
+                                                <UniformGridLayout ItemsStretch="Fill"
+                                                                  MaximumRowsOrColumns="4"
+                                                                  MinItemWidth="80"
+                                                                  MinItemHeight="80"
+                                                                  Orientation="Horizontal"/>
+                                            </ItemsRepeater.Layout>
+                                            <ItemsRepeater.ItemTemplate>
+                                                <DataTemplate x:DataType="viewmodels:MemeViewModel">
+                                                    <Grid Margin="3"
+                                                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                          CornerRadius="6"
+                                                          Padding="2"
+                                                          Tag="{x:Bind}"
+                                                          CanDrag="True"
+                                                          DragStarting="PickerItem_DragStarting"
+                                                          Tapped="PickerItem_Tapped">
+                                                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
+                                                               Stretch="UniformToFill"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsRepeater.ItemTemplate>
+                                        </ItemsRepeater>
+                                    </ScrollViewer>
+
+                                    <TextBlock x:Name="PickerEmptyHint"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Opacity="0.6"
+                                               Visibility="Collapsed"
+                                               l:Uids.Uid="Mini_PickerEmpty"/>
+                                </Grid>
+                            </Border>
+                        </Flyout>
+                    </Button.Flyout>
                     <ToolTipService.ToolTip>
                         <ToolTip l:Uids.Uid="Mini_PickerTip"/>
                     </ToolTipService.ToolTip>
@@ -102,58 +157,5 @@
                 Background="{ThemeResource SystemAccentColor}"
                 Opacity="0.25"
                 Visibility="Collapsed"/>
-
-        <!-- 表情选择面板：Popup 可超出窗口边界（ShouldConstrainToRootBounds=False），
-             点 Picker 按钮时定位到悬浮条上方显示，点选即回贴前台应用。 -->
-        <Popup x:Name="PickerPopup"
-               IsLightDismissEnabled="True"
-               ShouldConstrainToRootBounds="False">
-            <Border Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="6">
-                <Border.Shadow>
-                    <ThemeShadow/>
-                </Border.Shadow>
-                <Grid Width="360" Height="300">
-                    <ScrollViewer>
-                        <ItemsRepeater x:Name="PickerRepeater">
-                            <ItemsRepeater.Layout>
-                                <UniformGridLayout ItemsStretch="Fill"
-                                                  MaximumRowsOrColumns="4"
-                                                  MinItemWidth="80"
-                                                  MinItemHeight="80"
-                                                  Orientation="Horizontal"/>
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="viewmodels:MemeViewModel">
-                                    <Grid Margin="3"
-                                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                          CornerRadius="6"
-                                          Padding="2"
-                                          Tag="{x:Bind}"
-                                          CanDrag="True"
-                                          DragStarting="PickerItem_DragStarting"
-                                          Tapped="PickerItem_Tapped">
-                                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
-                                               Stretch="UniformToFill"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </ScrollViewer>
-
-                    <TextBlock x:Name="PickerEmptyHint"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Opacity="0.6"
-                               Visibility="Collapsed"
-                               l:Uids.Uid="Mini_PickerEmpty"/>
-                </Grid>
-            </Border>
-        </Popup>
     </Grid>
 </Page>

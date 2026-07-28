@@ -81,29 +81,17 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         {
             _currentCategory = cat;
             _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat);
-            if (PickerPopup.IsOpen)
+            if (PickerFlyout.IsOpen)
                 LoadPickerMemes();
         }
     }
 
-    // ---------- 表情 Picker（Popup，可超出窗口边界）----------
+    // ---------- 表情 Picker（Flyout，由 WinUI 自动处理边缘翻转/屏幕约束）----------
 
-    private void PickerButton_Click(object sender, RoutedEventArgs e)
+    private void PickerFlyout_Opening(object sender, object e)
     {
-        if (PickerPopup.IsOpen)
-        {
-            PickerPopup.IsOpen = false;
-            return;
-        }
-
-        // 定位到 Picker 按钮正上方（Popup 设了 ShouldConstrainToRootBounds=False，
-        // 可超出窗口上沿显示）。坐标相对 Page（即窗口内容区左上角）。
-        var btnPos = PickerButton.TransformToVisual(this).TransformPoint(new Windows.Foundation.Point(0, 0));
-        PickerPopup.HorizontalOffset = btnPos.X;
-        PickerPopup.VerticalOffset = btnPos.Y - 312 - 4; // 面板高 ~312 + 间距
-
+        // Flyout 打开时按需加载缩略图（避免后台常驻解码）。
         LoadPickerMemes();
-        PickerPopup.IsOpen = true;
     }
 
     private void LoadPickerMemes()
@@ -124,7 +112,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         // 关闭 Picker 先把焦点交还给外部应用：点击瞬间前台通常仍是用户正在用的应用(QQ 等)，
         // ResolveExternalPasteTarget 会优先返回 _fgTimer 记录的外部窗口（Mini 模式下回退到
         // 本窗口获得焦点前的前台=外部应用，避免把图粘贴回自己身上）。
-        PickerPopup.IsOpen = false;
+        PickerFlyout.Hide();
 
         var target = App.MainWindow.ResolveExternalPasteTarget();
         Logger.Log($"[Mini] 点击发送图片 ({Path.GetFileName(vm.LocalPath)}) -> 目标={target:X}");
@@ -188,7 +176,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         DropHint.Visibility = Visibility.Collapsed;
 
         // 导入成功后若 Picker 浮窗已开，刷新其 GridView（浮窗展示的必定是当前分类）。
-        if (PickerPopup.IsOpen)
+        if (PickerFlyout.IsOpen)
             LoadPickerMemes();
 
         var token = _hintRestoreCts.Token;
