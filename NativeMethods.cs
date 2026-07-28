@@ -90,6 +90,9 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetForegroundWindow();
 
+    [LibraryImport("user32.dll")]
+    public static partial uint GetDpiForWindow(IntPtr hWnd);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern uint RegisterWindowMessageW(string lpString);
 

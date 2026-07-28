@@ -9,6 +9,13 @@ public enum ThemeMode
     Dark
 }
 
+// UI 模式：Full=完整管理模式，Mini=紧凑快速调用模式
+public enum AppMode
+{
+    Full = 0,
+    Mini = 1
+}
+
 public class AppConfig
 {
     public ThemeMode Theme { get; set; } = ThemeMode.System;
@@ -37,6 +44,9 @@ public class AppConfig
     public double WindowWidth { get; set; } = 950;
     public double WindowHeight { get; set; } = 750;
     public bool WindowMaximized { get; set; } = false;
+
+    // 上次退出时的 UI 模式（Full/Mini），启动时恢复
+    public AppMode LastAppMode { get; set; } = AppMode.Full;
 
     // 悬停预览图最大分辨率（超过则等比压缩）
     public double PreviewMaxWidth { get; set; } = 640;

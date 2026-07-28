@@ -129,6 +129,15 @@
   <data name="Main_Refresh.Content" xml:space="preserve">
     <value>Refresh</value>
   </data>
+  <data name="Main_MiniMode.Content" xml:space="preserve">
+    <value>Mini</value>
+  </data>
+  <data name="Main_MiniModeToolTip.Content" xml:space="preserve">
+    <value>Switch to Mini mode (compact quick access)</value>
+  </data>
+  <data name="Mini_BackToFull.Content" xml:space="preserve">
+    <value>Full Mode</value>
+  </data>
   <data name="Category_New.Text" xml:space="preserve">
     <value>New category</value>
   </data>

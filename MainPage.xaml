@@ -6,13 +6,357 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:MemeManager"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:MemeManager.ViewModels"
+    xmlns:l="using:WinUI3Localizer"
+    NavigationCacheMode="Required"
     mc:Ignorable="d">
 
-    <!--
-        This is the main content area of your application.
-        Add your UI elements here — for example, controls, layouts, and data-bound views.
-        Use 'dotnet new winui-page' to create additional pages and navigate to them via
-        the Frame in MainWindow (RootFrame).
-    -->
-    <Grid />
+    <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="160"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 批量导入/导出进度条（不阻塞 UI，任务结束后自动关闭） -->
+        <!-- 外层 Margin 必须为 0：IsOpen=False 时 InfoBar 仍 Visible，若有 Margin 会把
+             所在 Auto 行撑出空隙，导致下方搜索栏被顶下去；隐藏时靠行高塌缩为 0。 -->
+        <InfoBar x:Name="BatchProgressInfoBar"
+                 Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                 IsOpen="False"
+                 IsIconVisible="True"
+                 IsClosable="False"
+                 Severity="Informational"
+                 Margin="0">
+            <InfoBar.Content>
+                <Grid VerticalAlignment="Center" ColumnSpacing="10" Margin="0,4,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MinWidth="70"/>
+                        <ColumnDefinition Width="Auto" MinWidth="120"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="BatchProgressText" Grid.Column="0" VerticalAlignment="Center"/>
+                    <ProgressBar x:Name="BatchProgressBar" Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="100" Value="0"/>
+                    <TextBlock x:Name="BatchProgressCount" Grid.Column="2" VerticalAlignment="Center"/>
+                </Grid>
+            </InfoBar.Content>
+        </InfoBar>
+
+        <!-- 顶部栏：右侧按钮 -->
+        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Padding="12,10,12,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Grid.Column="0" l:Uids.Uid="Main_Search"
+                      Margin="0,0,8,0" TextChanged="SearchBox_TextChanged">
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_SearchToolTip"/>
+                </ToolTipService.ToolTip>
+            </TextBox>
+            <ToggleButton x:Name="TopMostToggle" Grid.Column="1" l:Uids.Uid="Main_TopMost" Margin="0,0,8,0"
+                          IsChecked="True" Checked="TopMostToggle_Checked" Unchecked="TopMostToggle_Unchecked">
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_TopMostToolTip"/>
+                </ToolTipService.ToolTip>
+            </ToggleButton>
+            <Button x:Name="EditButton" Grid.Column="2" l:Uids.Uid="Main_Edit" Margin="0,0,8,0"
+                    Style="{StaticResource AccentButtonStyle}" Click="EditButton_Click">
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_EditToolTip"/>
+                </ToolTipService.ToolTip>
+            </Button>
+            <Button x:Name="RefreshButton" Grid.Column="3" l:Uids.Uid="Main_Refresh" Margin="0,0,8,0" Click="RefreshButton_Click">
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_RefreshToolTip"/>
+                </ToolTipService.ToolTip>
+            </Button>
+            <Button x:Name="MiniModeButton" Grid.Column="4" l:Uids.Uid="Main_MiniMode" Margin="0,0,8,0" Click="MiniModeButton_Click">
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_MiniModeToolTip"/>
+                </ToolTipService.ToolTip>
+            </Button>
+            <Button x:Name="SettingsButton" Grid.Column="5" l:Uids.Uid="Main_Settings" Click="SettingsButton_Click">
+                <Button.Flyout>
+                    <Flyout x:Name="SettingsFlyout"/>
+                </Button.Flyout>
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_SettingsToolTip"/>
+                </ToolTipService.ToolTip>
+            </Button>
+        </Grid>
+
+        <!-- 左侧分类栏 -->
+        <Grid Grid.Row="2" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ListView x:Name="AllMemesList"
+                      Grid.Row="0"
+                      SelectionMode="Single"
+                      CanDragItems="False"
+                      CanReorderItems="False"
+                      SelectionChanged="AllMemesList_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="viewmodels:CategoryViewModel">
+                        <Grid Padding="8,6" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <SymbolIcon Grid.Column="0"
+                                        Symbol="ViewAll"
+                                        VerticalAlignment="Center"/>
+                            <Grid Grid.Column="1">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0"
+                                           l:Uids.Uid="Category_AllMemes"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Row="1"
+                                           Text="{x:Bind Count, Mode=OneWay}"
+                                           FontSize="11"
+                                           Opacity="0.6"/>
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <Border Grid.Row="1"
+                    Height="1"
+                    Background="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                    Margin="8,0"/>
+            <ListView x:Name="CategoryList"
+                      Grid.Row="2"
+                      SelectionMode="Single"
+                      AllowDrop="True"
+                      CanDragItems="True"
+                      CanReorderItems="True"
+                      DragItemsCompleted="CategoryList_DragItemsCompleted"
+                      DragOver="CategoryList_DragOver"
+                      SelectionChanged="CategoryList_SelectionChanged">
+                <ListView.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem l:Uids.Uid="Category_New" Click="CategoryNew_Click">
+                            <MenuFlyoutItem.Icon>
+                                <SymbolIcon Symbol="NewFolder"/>
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </ListView.ContextFlyout>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="viewmodels:CategoryViewModel">
+                        <Grid Padding="8,6"
+                              AllowDrop="True"
+                              DragOver="CategoryListItem_DragOver"
+                              Drop="CategoryListItem_Drop">
+                            <ToolTipService.ToolTip>
+                                <ToolTip Content="{x:Bind Name}"/>
+                            </ToolTipService.ToolTip>
+                            <Grid.ContextFlyout>
+                                <MenuFlyout Opening="CategoryItemContextFlyout_Opening">
+                                    <MenuFlyoutItem l:Uids.Uid="Category_OpenFolder" Click="CategoryOpenFolder_Click">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Folder"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem l:Uids.Uid="Category_Rename" Click="CategoryRename_Click">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Rename"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem l:Uids.Uid="Category_Delete" Click="CategoryDelete_Click">
+                                        <MenuFlyoutItem.Icon>
+                                            <SymbolIcon Symbol="Delete"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyout>
+                            </Grid.ContextFlyout>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <SymbolIcon Grid.Column="0"
+                                        Symbol="Folder"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,8,0"/>
+                            <Grid Grid.Column="1">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Row="1" Text="{x:Bind Count, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <Button x:Name="AddCategoryButton" Grid.Row="3" Content="+" FontSize="20"
+                    HorizontalAlignment="Stretch" Margin="8" Click="AddCategoryButton_Click">
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Main_AddCategoryToolTip"/>
+                </ToolTipService.ToolTip>
+            </Button>
+        </Grid>
+
+        <!-- 右侧表情网格 -->
+        <GridView x:Name="MemeGridView"
+                  Grid.Row="2" Grid.Column="1"
+                  Margin="12"
+                  HorizontalAlignment="Stretch"
+                  SelectionMode="None"
+                  IsItemClickEnabled="False"
+                  AllowDrop="True"
+                   CanDragItems="True"
+                   CanReorderItems="False"
+                   DragItemsStarting="MemeGridView_DragItemsStarting"
+                   DragItemsCompleted="MemeGridView_DragItemsCompleted"
+                   DragOver="MemeGridView_DragOver"
+                   Drop="MemeGridView_Drop"
+                   SelectionChanged="MemeGridView_SelectionChanged"
+                   ContainerContentChanging="MemeGridView_ContainerContentChanging">
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="-1" CacheLength="1"/>
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
+            <GridView.ItemTemplate>
+                <DataTemplate x:DataType="viewmodels:MemeViewModel">
+                    <Grid Width="90" Height="90" Margin="4"
+                          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                          CornerRadius="6"
+                           PointerEntered="MemeItem_PointerEntered"
+                           PointerExited="MemeItem_PointerExited"
+                           Tapped="MemeItem_Tapped">
+                        <Grid.ContextFlyout>
+                            <MenuFlyout Opening="MemeItemContextFlyout_Opening">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Open" Click="MemeOpen_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="OpenFile"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_OpenFolder" Click="MemeOpenFolder_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Folder"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Copy" Click="MemeCopy_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Copy"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_MultiSelect" Click="MemeMultiSelect_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE762;"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Rename" Click="MemeRename_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Rename"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutSubItem l:Uids.Uid="Meme_MoveToOtherCategory">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xE8DE;"/>
+                                    </MenuFlyoutSubItem.Icon>
+                                </MenuFlyoutSubItem>
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Delete" Click="MemeDelete_Click">
+                                    <MenuFlyoutItem.Icon>
+                                        <SymbolIcon Symbol="Delete"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                            </MenuFlyout>
+                        </Grid.ContextFlyout>
+                        <Image Source="{x:Bind ImageSource, Mode=OneWay}"
+                                Stretch="UniformToFill"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
+                        <!-- 多选模式指示：右上角 WinUI 风格复选框，纯显示(不响应点击) -->
+                        <CheckBox x:Name="SelectionCheckBox"
+                                  IsChecked="{x:Bind IsSelected, Mode=OneWay}"
+                                  IsHitTestVisible="False"
+                                  Visibility="Collapsed"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Top"
+                                  Margin="0,-6,0,0"
+                                  MinWidth="0"
+                                  Padding="0"/>
+                    </Grid>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
+
+        <!-- 空状态提示：当前分类没有图片（或搜索无结果）时居中显示 -->
+        <TextBlock x:Name="EmptyHint"
+                   Grid.Row="2" Grid.Column="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   Opacity="0.5"
+                   Visibility="Collapsed"/>
+
+
+        <!-- 鼠标悬停表情时的放大预览 Popup -->
+        <Popup x:Name="PreviewPopup"
+               IsLightDismissEnabled="False"
+               ShouldConstrainToRootBounds="False">
+            <Border x:Name="PreviewBorder"
+                    Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}"
+                    BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8"
+                    Opacity="0"
+                    IsHitTestVisible="False">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="PreviewTitle"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxWidth="600"/>
+                    <Image x:Name="PreviewImage"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <!-- 修改模式底部批量操作栏 -->
+        <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+              x:Name="BatchBar"
+              Visibility="Collapsed"
+              Padding="12"
+              Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="SelectAllButton" l:Uids.Uid="Meme_SelectAll" Click="SelectAllButton_Click"/>
+                <Button x:Name="BatchImportButton" l:Uids.Uid="Meme_BatchImport" Click="BatchImportButton_Click"/>
+                <Button x:Name="BatchExportButton" l:Uids.Uid="Meme_BatchExport" IsEnabled="False" Click="BatchExportButton_Click"/>
+                <Button x:Name="BatchMoveButton" l:Uids.Uid="Meme_BatchMove" IsEnabled="False">
+                    <Button.Flyout>
+                        <MenuFlyout x:Name="BatchMoveFlyout" Opening="BatchMoveFlyout_Opening"/>
+                    </Button.Flyout>
+                </Button>
+                <Button x:Name="DeleteButton" l:Uids.Uid="Meme_Delete" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" Click="DeleteButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
 </Page>

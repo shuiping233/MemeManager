@@ -129,6 +129,15 @@
   <data name="Main_Refresh.Content" xml:space="preserve">
     <value>刷新</value>
   </data>
+  <data name="Main_MiniMode.Content" xml:space="preserve">
+    <value>Mini</value>
+  </data>
+  <data name="Main_MiniModeToolTip.Content" xml:space="preserve">
+    <value>切换到 Mini 模式（紧凑快速调用）</value>
+  </data>
+  <data name="Mini_BackToFull.Content" xml:space="preserve">
+    <value>完整模式</value>
+  </data>
   <data name="Category_New.Text" xml:space="preserve">
     <value>新建分类</value>
   </data>

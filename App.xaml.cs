@@ -137,6 +137,8 @@ public partial class App : Application
         }
 
         _window = new MainWindow();
+        // 必须在 _window 赋值后再导航页面：Page 构造中会访问 App.MainWindow
+        ((MainWindow)_window).InitializeMode();
         ApplyTheme();
 
         // 开机自启(--hidden)：直接隐藏到后台、只留托盘，不闪界面
