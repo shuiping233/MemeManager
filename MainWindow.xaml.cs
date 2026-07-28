@@ -69,6 +69,9 @@ public sealed partial class MainWindow : Window
     // 当前承载的完整模式页面（未处于 Full 模式或尚未导航时为 null）
     public MainPage? CurrentMainPage => RootFrame.Content as MainPage;
 
+    // 当前承载的 Mini 模式页面（未处于 Mini 模式或尚未导航时为 null）
+    public MiniPage? CurrentMiniPage => RootFrame.Content as MiniPage;
+
     // 当前承载的页面（两种模式皆可），用于统一驱动图像资源释放。
     private IImageReleasablePage? CurrentReleasablePage => RootFrame.Content as IImageReleasablePage;
 
@@ -448,6 +451,12 @@ public sealed partial class MainWindow : Window
     public void ShowAndActivate()
     {
         ShowWindow(activate: true);
+        // 从托盘呼出后，将焦点重新定位到当前模式的默认交互控件，
+        // 避免焦点残留在系统标题栏关闭按钮上（用户点 X 隐藏后焦点被系统三键截持）。
+        if (_currentMode == AppMode.Full)
+            DispatcherQueue.TryEnqueue(() => CurrentMainPage?.FocusSearchBox());
+        else
+            DispatcherQueue.TryEnqueue(() => CurrentMiniPage?.FocusDropHint());
     }
 
     // 托盘菜单“切换窗口模式”：主窗口已在前台显示则直接切换；否则先呼出到前台再切换。

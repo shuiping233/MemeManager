@@ -467,6 +467,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
+    /// <summary>将键盘焦点设置到搜索输入框（供窗口从托盘呼出后调用）</summary>
+    public void FocusSearchBox()
+    {
+        SearchBox.Focus(FocusState.Programmatic);
+    }
+
     // 窗口显示/隐藏时由 MainWindow 调用：控制列表 ItemsSource 的挂载与释放。
     // 可见时重新绑回数据源并恢复选中视觉；隐藏时断开 ItemsSource 释放 GPU 纹理。
     public void SetMemeViewVisible(bool visible)

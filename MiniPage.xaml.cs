@@ -55,6 +55,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         App.MainWindow.SetTitleBarElement(DragBar);
     }
 
+    /// <summary>将焦点设置到提示文字区域（供窗口从托盘呼出后调用，避免焦点残留在系统关闭按钮上）</summary>
+    public void FocusDropHint()
+    {
+        MiniDropHintText.Focus(FocusState.Programmatic);
+    }
+
     private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
     {
         // 离开 Mini 时取消标题栏注册（MainPage 加载时会重新注册自己的标题栏）。
