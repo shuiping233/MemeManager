@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <Page
     x:Class="MemeManager.MiniPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -12,34 +12,50 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <!-- 悬浮条圆角背景 + 阴影 -->
         <CornerRadius x:Key="MiniBarRadius">10</CornerRadius>
+        <!-- Mini 顶栏高度受限（MaxHeight=35），统一收敛字号与高度，避免文本溢出/参差 -->
+        <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </Page.Resources>
 
-    <Grid AllowDrop="True"
+    <!-- 整个页面作为拖入目标（AllowDrop）。拖动窗口交由系统标题栏处理：
+         我们在 MiniPage_Loaded 里把顶栏 DragBar 通过 AppWindow.TitleBar.SetTitleBar 注册为
+         自定义标题栏，系统会自动让该区域可拖、且其中的按钮仍可点击（无需手挖洞）。 -->
+    <Grid x:Name="RootGrid"
+          AllowDrop="True"
           DragOver="Grid_DragOver"
           Drop="Grid_Drop"
           DragLeave="Grid_DragLeave">
 
-        <!-- 半透明圆角悬浮条，自带关闭/设置按钮（无系统标题栏） -->
-        <Border Margin="6"
-                x:Name="BarBorder"
-                Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                CornerRadius="{StaticResource MiniBarRadius}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                PointerPressed="BarBorder_PointerPressed"
-                PointerMoved="BarBorder_PointerMoved"
-                PointerReleased="BarBorder_PointerReleased"
-                PointerCanceled="BarBorder_PointerReleased">
-            <Border.Shadow>
-                <ThemeShadow/>
-            </Border.Shadow>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" Padding="6,2">
+        <!-- 自定义标题栏：注册为标题栏后整条可拖；右侧预留 ~46px 给系统关闭按钮。 -->
+        <Grid x:Name="DragBar"
+              Grid.Row="0"
+              ColumnDefinitions="*,Auto,46"
+              Padding="8,4"
+              Background="Transparent"
+              MaxHeight="38">
+            <!-- 左侧：分类下拉 + 表情 Picker -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Left"
+                        Spacing="6">
                 <!-- 分类下拉：Mini 模式单一当前分类，拖入/点选都基于它 -->
                 <ComboBox x:Name="CategoryCombo"
-                          Grid.Column="0"
                           MinWidth="100"
                           MaxWidth="160"
                           SelectionChanged="CategoryCombo_SelectionChanged">
@@ -50,38 +66,31 @@
 
                 <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用 -->
                 <Button x:Name="PickerButton"
-                        Grid.Column="1"
-                        Margin="6,0,0,0"
-                        HorizontalAlignment="Left"
                         l:Uids.Uid="Mini_Picker"
                         Click="PickerButton_Click"/>
+            </StackPanel>
 
-                <!-- 设置 -->
-                <Button x:Name="SettingsButton"
-                        Grid.Column="2"
-                        Margin="6,0,0,0"
-                        Click="SettingsButton_Click">
-                    <SymbolIcon Symbol="Setting"/>
-                    <ToolTipService.ToolTip>
-                        <ToolTip l:Uids.Uid="Mini_Settings"/>
-                    </ToolTipService.ToolTip>
-                </Button>
+            <!-- 右侧：切换到完整模式（紧贴系统关闭按钮左边） -->
+            <Button x:Name="ExpandButton"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    Click="ExpandButton_Click">
+                <SymbolIcon Symbol="FullScreen"/>
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Mini_Expand"/>
+                </ToolTipService.ToolTip>
+            </Button>
+        </Grid>
 
-                <!-- 关闭 = 隐藏到托盘（与主窗口关闭行为一致） -->
-                <Button x:Name="CloseButton"
-                        Grid.Column="3"
-                        Margin="4,0,0,0"
-                        Click="CloseButton_Click">
-                    <SymbolIcon Symbol="Cancel"/>
-                    <ToolTipService.ToolTip>
-                        <ToolTip l:Uids.Uid="Mini_Close"/>
-                    </ToolTipService.ToolTip>
-                </Button>
-            </Grid>
-        </Border>
+        <!-- 主体：提示文字 + 拖入遮罩 -->
+        <TextBlock Grid.Row="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Opacity="0.5"
+                   l:Uids.Uid="Mini_DropHint"/>
 
-        <!-- 拖入提示遮罩：拖文件到悬浮条上时显示 -->
         <Border x:Name="DropHint"
+                Grid.Row="1"
                 Margin="6"
                 CornerRadius="{StaticResource MiniBarRadius}"
                 Background="{ThemeResource SystemAccentColor}"
@@ -103,8 +112,7 @@
                 </Border.Shadow>
                 <Grid Width="360" Height="300">
                     <ScrollViewer>
-                        <ItemsRepeater x:Name="PickerRepeater"
-                                       ItemsSource="{x:Bind _pickerMemes, Mode=OneWay}">
+                        <ItemsRepeater x:Name="PickerRepeater">
                             <ItemsRepeater.Layout>
                                 <UniformGridLayout ItemsStretch="Fill"
                                                   MaximumRowsOrColumns="4"

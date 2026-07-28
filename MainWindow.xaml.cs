@@ -199,12 +199,14 @@ public sealed partial class MainWindow : Window
     }
 
     // Mini 模式：固定紧凑尺寸（常量为 DIP，按窗口当前 DPI 换算为物理像素）。
-    // 同时转为无边框置顶悬浮条：隐藏标题栏、禁止最大化/最小化/缩放，内容自行绘制×按钮。
+    // 采用“自定义标题栏”方案：保留系统边框，扩展内容到标题栏区域，并由 MiniPage
+    // 通过 SetMiniTitleBar 注册顶栏为标题栏 —— 系统据此让该区域可拖、且内部按钮可点，
+    // 无需手挖洞（这是 WinUI 3 无边框/自定义标题栏的官方做法，依赖标题栏存在）。
     private void ResizeForMiniMode()
     {
         if (_appWindow == null) return;
 
-        // 无边框：扩展内容到标题栏区域并隐藏系统标题栏（内容自带关闭/设置按钮）
+        // 扩展内容到标题栏区域（保留系统边框与标题栏，仅自定义其外观）。
         if (!_titleBarExtended)
         {
             this.ExtendsContentIntoTitleBar = true;
@@ -212,10 +214,12 @@ public sealed partial class MainWindow : Window
         }
         if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p)
         {
+            // 固定尺寸不可缩放；最小化/最大化按钮去掉（最小化不需要，
+            // 最大化由 MiniPage 的“展开”按钮替代为切回 Full 模式）。
             p.IsResizable = false;
             p.IsMaximizable = false;
             p.IsMinimizable = false;
-            p.SetBorderAndTitleBar(false, false);
+            p.SetBorderAndTitleBar(true, true);
         }
 
         double scale = NativeMethods.GetDpiForWindow(_hWnd) / 96.0;
@@ -229,6 +233,8 @@ public sealed partial class MainWindow : Window
     // 切回 Full 模式：恢复可调整/有标题栏的标准窗口外观。
     private void RestoreFullModeChrome()
     {
+        // 取消 Mini 注册的自定义标题栏，恢复系统默认标题栏
+        this.SetTitleBar(null);
         if (_appWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p)
         {
             p.IsResizable = true;
@@ -241,6 +247,23 @@ public sealed partial class MainWindow : Window
         {
             this.ExtendsContentIntoTitleBar = false;
             _titleBarExtended = false;
+        }
+    }
+
+    /// <summary>
+    /// Mini 模式：把指定元素注册为自定义标题栏（Window.SetTitleBar）。
+    /// 注册后该元素区域可拖拽窗口，且内部交互控件（按钮/下拉）仍正常点击。
+    /// 传 null 取消注册（切回 Full 时调用）。
+    /// </summary>
+    public void SetMiniTitleBar(Microsoft.UI.Xaml.UIElement? titleBar)
+    {
+        try
+        {
+            this.SetTitleBar(titleBar);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log("[窗口] SetMiniTitleBar 失败: " + ex.Message);
         }
     }
 

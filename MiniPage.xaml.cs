@@ -17,7 +17,7 @@ namespace MemeManager;
 
 public sealed partial class MiniPage : Page, IExternalDropPage
 {
-    // Flyout 打开时才按需加载的缩略图列表（避免后台常驻解码）。
+    // Picker 打开时才按需加载的缩略图列表（避免后台常驻解码）。
     private List<MemeViewModel> _pickerMemes = new();
 
     // Mini 模式当前选中的分类（拖入/点选都基于它）。
@@ -27,11 +27,20 @@ public sealed partial class MiniPage : Page, IExternalDropPage
     {
         InitializeComponent();
         Loaded += MiniPage_Loaded;
+        Unloaded += MiniPage_Unloaded;
     }
 
     private void MiniPage_Loaded(object sender, RoutedEventArgs e)
     {
         LoadCategories();
+        // 把顶栏注册为自定义标题栏：系统据此让该区域可拖，且内部按钮仍可点击。
+        App.MainWindow.SetMiniTitleBar(DragBar);
+    }
+
+    private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        // 离开 Mini 时取消标题栏注册，避免影响 Full 模式。
+        App.MainWindow.SetMiniTitleBar(null);
     }
 
     // ---------- 分类下拉 ----------
@@ -65,7 +74,6 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         {
             _currentCategory = cat;
             _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat);
-            // 分类变化：若 Picker 已打开则刷新缩略图
             if (PickerPopup.IsOpen)
                 LoadPickerMemes();
         }
@@ -114,64 +122,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
     }
 
-    // ---------- 窗口拖动（无系统标题栏，靠悬浮条空白处拖动）----------
-
-    private bool _dragging;
-    private Windows.Foundation.Point _dragLast;
-
-    private void BarBorder_PointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        // 点到交互控件（下拉/按钮）时不启动拖动，避免与正常点击冲突
-        if (IsInInteractiveControl(e.OriginalSource as DependencyObject))
-            return;
-
-        _dragging = true;
-        _dragLast = e.GetCurrentPoint(null).Position;
-        BarBorder.CapturePointer(e.Pointer);
-    }
-
-    private void BarBorder_PointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_dragging) return;
-        var p = e.GetCurrentPoint(null).Position;
-        int dx = (int)(p.X - _dragLast.X);
-        int dy = (int)(p.Y - _dragLast.Y);
-        if (dx == 0 && dy == 0) return;
-        _dragLast = p;
-        App.MainWindow.MoveWindowBy(dx, dy);
-    }
-
-    private void BarBorder_PointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_dragging) return;
-        _dragging = false;
-        if (BarBorder.PointerCaptures != null)
-            BarBorder.ReleasePointerCapture(e.Pointer);
-    }
-
-    private static bool IsInInteractiveControl(DependencyObject? obj)
-    {
-        var cur = obj;
-        while (cur != null)
-        {
-            if (cur is Button or ComboBox or SymbolIcon or ScrollViewer)
-                return true;
-            cur = VisualTreeHelper.GetParent(cur);
-        }
-        return false;
-    }
-
     // ---------- 顶部按钮 ----------
 
-    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    private void ExpandButton_Click(object sender, RoutedEventArgs e)
     {
-        App.MainWindow.OpenSettings();
-    }
-
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        // 与用户点主窗口右上角 X 行为一致：仅隐藏到托盘后台。
-        App.MainWindow.HideToTray();
+        // 替代系统最大化：切回完整模式
+        App.MainWindow.SwitchMode(AppMode.Full);
     }
 
     // ---------- 拖入导入（XAML DataPackage + Win32 WM_DROPFILES 转发）----------

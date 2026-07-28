@@ -150,6 +150,12 @@
   <data name="Mini_Close.Content" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="Mini_Expand.Content" xml:space="preserve">
+    <value>Expand</value>
+  </data>
+  <data name="Mini_DropHint.Text" xml:space="preserve">
+    <value>Drop images here to import into the current category</value>
+  </data>
   <data name="Mini_PickerEmpty.Text" xml:space="preserve">
     <value>No memes in this category yet. Drag images in to import.</value>
   </data>

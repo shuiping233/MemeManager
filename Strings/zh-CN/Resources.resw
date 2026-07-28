@@ -150,6 +150,12 @@
   <data name="Mini_Close.Content" xml:space="preserve">
     <value>关闭</value>
   </data>
+  <data name="Mini_Expand.Content" xml:space="preserve">
+    <value>展开</value>
+  </data>
+  <data name="Mini_DropHint.Text" xml:space="preserve">
+    <value>拖图片到此处即可导入到当前分类</value>
+  </data>
   <data name="Mini_PickerEmpty.Text" xml:space="preserve">
     <value>该分类还没有表情，拖图片进来即可导入</value>
   </data>
