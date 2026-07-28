@@ -138,33 +138,6 @@
   <data name="Mini_BackToFull.Content" xml:space="preserve">
     <value>完整模式</value>
   </data>
-  <data name="Mini_Picker.Content" xml:space="preserve">
-    <value>表情</value>
-  </data>
-  <data name="Mini_Settings.Content" xml:space="preserve">
-    <value>设置</value>
-  </data>
-  <data name="Mini_Close.Content" xml:space="preserve">
-    <value>关闭</value>
-  </data>
-  <data name="Mini_Expand.Content" xml:space="preserve">
-    <value>展开</value>
-  </data>
-  <data name="Mini_DropHint.Text" xml:space="preserve">
-    <value>拖图片到此处即可导入到当前分类</value>
-  </data>
-  <data name="Mini_ImportBusy.Text" xml:space="preserve">
-    <value>导入进行中，请稍候…</value>
-  </data>
-  <data name="Mini_ImportSuccess.Text" xml:space="preserve">
-    <value>成功导入 {0} 张图片到“{1}”分类</value>
-  </data>
-  <data name="Mini_ImportDuplicate.Text" xml:space="preserve">
-    <value>没有新图片（均为重复）</value>
-  </data>
-  <data name="Mini_PickerEmpty.Text" xml:space="preserve">
-    <value>该分类还没有表情，拖图片进来即可导入</value>
-  </data>
   <data name="Category_New.Text" xml:space="preserve">
     <value>新建分类</value>
   </data>
@@ -323,9 +296,6 @@
   </data>
   <data name="Tray_Show" xml:space="preserve">
     <value>显示主窗口</value>
-  </data>
-  <data name="Tray_ToggleMode" xml:space="preserve">
-    <value>切换窗口模式</value>
   </data>
   <data name="Tray_Settings" xml:space="preserve">
     <value>设置</value>
@@ -564,5 +534,38 @@
   </data>
   <data name="AllMemes_MoveBlockedMessage" xml:space="preserve">
     <value>“全部表情”汇集了所有分类的图片，无法在此移动图片到其他分类。请先切换到具体分类再操作。</value>
+  </data>
+  <data name="Mini_Picker.Content" xml:space="preserve">
+    <value>表情</value>
+  </data>
+  <data name="Mini_Settings.Content" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Mini_Close.Content" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Mini_PickerEmpty.Text" xml:space="preserve">
+    <value>该分类还没有表情，拖图片进来即可导入</value>
+  </data>
+  <data name="Mini_Expand.Content" xml:space="preserve">
+    <value>主窗口切换至完整模式</value>
+  </data>
+  <data name="Mini_DropHint.Text" xml:space="preserve">
+    <value>拖图片到此处即可导入到当前分类</value>
+  </data>
+  <data name="Mini_ImportBusy.Text" xml:space="preserve">
+    <value>导入进行中，请稍候…</value>
+  </data>
+  <data name="Mini_ImportSuccess.Text" xml:space="preserve">
+    <value>成功导入 {0} 张图片到“{1}”分类</value>
+  </data>
+  <data name="Mini_ImportDuplicate.Text" xml:space="preserve">
+    <value>没有新图片（均为重复）</value>
+  </data>
+  <data name="Tray_ToggleMode" xml:space="preserve">
+    <value>切换窗口模式</value>
+  </data>
+  <data name="Mini_PickerTip.Content" xml:space="preserve">
+    <value>打开/关闭表情浮窗</value>
   </data>
 </root>

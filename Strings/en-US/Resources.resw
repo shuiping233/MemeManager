@@ -138,33 +138,6 @@
   <data name="Mini_BackToFull.Content" xml:space="preserve">
     <value>Full Mode</value>
   </data>
-  <data name="Mini_Picker.Content" xml:space="preserve">
-    <value>Meme</value>
-  </data>
-  <data name="Mini_Settings.Content" xml:space="preserve">
-    <value>Settings</value>
-  </data>
-  <data name="Mini_Close.Content" xml:space="preserve">
-    <value>Close</value>
-  </data>
-  <data name="Mini_Expand.Content" xml:space="preserve">
-    <value>Expand</value>
-  </data>
-  <data name="Mini_DropHint.Text" xml:space="preserve">
-    <value>Drop images here to import into the current category</value>
-  </data>
-  <data name="Mini_ImportBusy.Text" xml:space="preserve">
-    <value>Importing… please wait</value>
-  </data>
-  <data name="Mini_ImportSuccess.Text" xml:space="preserve">
-    <value>Successfully imported {0} images to "{1}"</value>
-  </data>
-  <data name="Mini_ImportDuplicate.Text" xml:space="preserve">
-    <value>No new images (all duplicates)</value>
-  </data>
-  <data name="Mini_PickerEmpty.Text" xml:space="preserve">
-    <value>No memes in this category yet. Drag images in to import.</value>
-  </data>
   <data name="Category_New.Text" xml:space="preserve">
     <value>New category</value>
   </data>
@@ -323,9 +296,6 @@
   </data>
   <data name="Tray_Show" xml:space="preserve">
     <value>Show main window</value>
-  </data>
-  <data name="Tray_ToggleMode" xml:space="preserve">
-    <value>Toggle window mode</value>
   </data>
   <data name="Tray_Settings" xml:space="preserve">
     <value>Settings</value>
@@ -564,5 +534,38 @@ Reverted to the previous valid path.</value>
   </data>
   <data name="AllMemes_MoveBlockedMessage" xml:space="preserve">
     <value>"All Memes" gathers images from every category, so images cannot be moved to another category here. Switch to a specific category first.</value>
+  </data>
+  <data name="Mini_Picker.Content" xml:space="preserve">
+    <value>Meme</value>
+  </data>
+  <data name="Mini_Settings.Content" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Mini_Close.Content" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Mini_PickerEmpty.Text" xml:space="preserve">
+    <value>No memes in this category yet. Drag images in to import.</value>
+  </data>
+  <data name="Mini_Expand.Content" xml:space="preserve">
+    <value>Switch the main window to full mode</value>
+  </data>
+  <data name="Mini_DropHint.Text" xml:space="preserve">
+    <value>Drop images here to import into the current category</value>
+  </data>
+  <data name="Mini_ImportBusy.Text" xml:space="preserve">
+    <value>Importing… please wait</value>
+  </data>
+  <data name="Mini_ImportSuccess.Text" xml:space="preserve">
+    <value>Successfully imported {0} images to "{1}"</value>
+  </data>
+  <data name="Mini_ImportDuplicate.Text" xml:space="preserve">
+    <value>No new images (all duplicates)</value>
+  </data>
+  <data name="Tray_ToggleMode" xml:space="preserve">
+    <value>Toggle window mode</value>
+  </data>
+  <data name="Mini_PickerTip.Content" xml:space="preserve">
+    <value>Open/close meme popup</value>
   </data>
 </root>

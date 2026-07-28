@@ -67,7 +67,11 @@
                 <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用 -->
                 <Button x:Name="PickerButton"
                         l:Uids.Uid="Mini_Picker"
-                        Click="PickerButton_Click"/>
+                        Click="PickerButton_Click">
+                    <ToolTipService.ToolTip>
+                        <ToolTip l:Uids.Uid="Mini_PickerTip"/>
+                    </ToolTipService.ToolTip>
+                </Button>
             </StackPanel>
 
             <!-- 右侧：切换到完整模式（紧贴系统关闭按钮左边） -->
