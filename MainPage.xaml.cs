@@ -1873,7 +1873,7 @@ public sealed partial class MainPage : Page
 
     public void HandleHostKeyDown(KeyRoutedEventArgs e) => Root_KeyDown(null, e);
 
-    private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
+    private async void Root_KeyDown(object? sender, KeyRoutedEventArgs e)
     {
         // Ctrl+V：仅在本窗口激活（焦点在主窗口）时，才把剪贴板里的图片导入到分类。
         // 这样截图等写剪贴板的行为不会误触发“粘贴到分类”；无焦点时的 Ctrl+V 仍走投回外部逻辑。
