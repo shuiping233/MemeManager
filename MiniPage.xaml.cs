@@ -63,8 +63,6 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
     {
-        // 离开 Mini 时取消标题栏注册（MainPage 加载时会重新注册自己的标题栏）。
-        App.MainWindow.SetTitleBarElement(null);
     }
 
     // ---------- 分类下拉 ----------
