@@ -19,7 +19,7 @@ using MemeManager.Helpers;
 
 namespace MemeManager;
 
-public sealed partial class MainPage : Page, IExternalDropPage
+public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage
 {
     private readonly ObservableCollection<MemeViewModel> _memeList = new();
 
@@ -490,23 +490,27 @@ public sealed partial class MainPage : Page, IExternalDropPage
         }
         else
         {
-            // 隐藏时仅断开 ItemsSource，让 GridView 的 Item 容器（含 Image 控件）
-            // 从可视化树移除，WinUI 框架会在下一帧自动释放其 GPU 纹理；
-            // 再强制 GC 回收非托管资源。两种列表策略共用此极简逻辑，不额外摘树。
-            MemeGridView.ItemsSource = null;
-            CategoryList.ItemsSource = null;
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
-            // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
-            if (App.DataEngine.Config.UseControlReuse)
-            {
-                Log($"[内存诊断] 隐藏释放(复用模式): _memeList={_memeList.Count} _categoryList={_categoryList.Count} " +
-                    $"VM存活BitmapImage={MemeViewModel.LiveBitmapImageCount} " +
-                    $"托管堆={GC.GetTotalMemory(false) / 1024}KB GC代数0/1/2={GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
-            }
-            HidePreviewPopup(true, "SetMemeViewVisible");
+            // 隐藏时断开图像资源引用（GPU 纹理随后由框架回收）；GC 由 MainWindow 统一执行。
+            ReleaseImages();
         }
+    }
+
+    // IImageReleasablePage：仅断引用，不 GC（GC 由 MainWindow 在隐藏/切模式后统一调用）。
+    public void ReleaseImages()
+    {
+        // 断开 ItemsSource，让 GridView 的 Item 容器（含 Image 控件）从可视化树移除，
+        // WinUI 框架会在下一帧自动释放其 GPU 纹理。两种列表策略共用此极简逻辑，不额外摘树。
+        MemeGridView.ItemsSource = null;
+        CategoryList.ItemsSource = null;
+
+        // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
+        if (App.DataEngine.Config.UseControlReuse)
+        {
+            Log($"[内存诊断] 隐藏释放(复用模式): _memeList={_memeList.Count} _categoryList={_categoryList.Count} " +
+                $"VM存活BitmapImage={MemeViewModel.LiveBitmapImageCount} " +
+                $"托管堆={GC.GetTotalMemory(false) / 1024}KB GC代数0/1/2={GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
+        }
+        HidePreviewPopup(true, "ReleaseImages");
     }
 
     private void HidePreviewPopup(bool immediate = false, string reason = "")

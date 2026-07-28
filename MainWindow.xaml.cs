@@ -69,6 +69,17 @@ public sealed partial class MainWindow : Window
     // 当前承载的完整模式页面（未处于 Full 模式或尚未导航时为 null）
     public MainPage? CurrentMainPage => RootFrame.Content as MainPage;
 
+    // 当前承载的页面（两种模式皆可），用于统一驱动图像资源释放。
+    private IImageReleasablePage? CurrentReleasablePage => RootFrame.Content as IImageReleasablePage;
+
+    // 释放当前页面持有的图像资源引用，并统一执行一次 GC 回收（两种模式共用）。
+    private void ReleaseCurrentPageImages()
+    {
+        CurrentReleasablePage?.ReleaseImages();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+    }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -189,6 +200,11 @@ public sealed partial class MainWindow : Window
             SaveWindowSize();
 
         _currentMode = mode;
+
+        // 切模式前释放“即将被替换”的旧页面的图像资源，避免反复切模式时纹理累积。
+        // （注意：此时 RootFrame.Content 仍是旧页面，ReleaseImages 作用于它。）
+        ReleaseCurrentPageImages();
+
         switch (mode)
         {
             case AppMode.Full:
@@ -530,7 +546,8 @@ public sealed partial class MainWindow : Window
 
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
-        CurrentMainPage?.SetMemeViewVisible(false);
+        // 窗口隐藏：两种模式都断开图像引用并统一 GC（Mini 模式此前没有此释放路径）。
+        ReleaseCurrentPageImages();
         SuspendWindowInteractions(closing: false);
         Log("[窗口] 隐藏完成 (SW_HIDE)");
     }

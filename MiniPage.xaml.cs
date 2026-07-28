@@ -16,7 +16,7 @@ using Windows.Storage;
 
 namespace MemeManager;
 
-public sealed partial class MiniPage : Page, IExternalDropPage
+public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasablePage
 {
     // Picker 打开时才按需加载的缩略图列表（避免后台常驻解码）。
     private List<MemeViewModel> _pickerMemes = new();
@@ -134,6 +134,20 @@ public sealed partial class MiniPage : Page, IExternalDropPage
     }
 
     // ---------- 顶部按钮 ----------
+
+    // IImageReleasablePage：窗口隐藏/切模式前由 MainWindow 统一调用。
+    // Picker 每次 Opening 都会 new 一批新 VM 并重新赋 ItemsSource，旧批次若不断引用会累积；
+    // 这里遍历旧 VM 调 ClearImages() 断开其 BitmapImage，并把 Repeater 的 ItemsSource 置空，
+    // 让 Image 容器从可视化树移除、框架释放 GPU 纹理。仅断引用，GC 由 MainWindow 统一执行。
+    public void ReleaseImages()
+    {
+        if (_pickerMemes != null)
+        {
+            foreach (var vm in _pickerMemes)
+                vm.ClearImages();
+        }
+        PickerRepeater.ItemsSource = null;
+    }
 
     private void ExpandButton_Click(object sender, RoutedEventArgs e)
     {
