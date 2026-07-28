@@ -249,6 +249,14 @@ public sealed partial class MainWindow : Window
     {
         if (_appWindow == null) return;
 
+        // 最大化状态下 Resize 无效且会导致窗口异常定位到屏幕左上角，
+        // 先用 WinUI 3 原生 API 退出最大化。
+        if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op
+            && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized)
+        {
+            op.Restore();
+        }
+
         // 扩展内容到标题栏区域（Mini 用自定义顶栏）。扩展标志全程保持 true（启动时已设），此处幂等。
         if (!_titleBarExtended)
         {
