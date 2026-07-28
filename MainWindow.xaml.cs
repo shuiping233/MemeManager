@@ -202,6 +202,7 @@ public sealed partial class MainWindow : Window
         if (mode == AppMode.Mini && RootFrame.Content is MainPage)
             SaveWindowSize();
 
+        var prevMode = _currentMode;
         _currentMode = mode;
 
         // 切模式前释放“即将被替换”的旧页面的图像资源（仅断 VM/Image 引用，不置空
@@ -218,7 +219,10 @@ public sealed partial class MainWindow : Window
                 // 从 Mini 切回：恢复内存中的置顶状态（Mini 期间是强制置顶的，不改写 _topMost）。
                 ApplyTopMost(_topMost);
                 // 从 Mini 切回：刷新分类与图片容器，确保与磁盘数据同步（Mini 期间可能导入过表情）。
-                DispatcherQueue.TryEnqueue(() => CurrentMainPage?.ReloadData());
+                // 仅在 Mini→Full 时刷新；首次启动由 MainPage 构造函数加载，避免重复 RefreshMemes
+                // 导致 WinUI 3 GridView 虚拟化器状态崩溃（视口外图片透明不渲染）。
+                if (prevMode == AppMode.Mini)
+                    DispatcherQueue.TryEnqueue(() => CurrentMainPage?.ReloadData());
                 break;
 
             case AppMode.Mini:
