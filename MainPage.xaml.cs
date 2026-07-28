@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -2123,7 +2123,7 @@ public sealed partial class MainPage : Page
 
         try
         {
-            var name = await DialogHelper.PromptPasteCategoryAsync(this.XamlRoot, _currentCategory);
+            var name = await DialogHelper.PromptPasteCategoryAsync(this.XamlRoot, ImportTargetCategory);
             if (string.IsNullOrWhiteSpace(name))
             {
                 Log("[剪贴板] 取消粘贴");
