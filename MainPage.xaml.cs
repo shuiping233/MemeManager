@@ -137,8 +137,8 @@ public sealed partial class MainPage : Page
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
 
-        // Esc 退出多选模式 / Enter 完成多选模式
-        this.KeyDown += Root_KeyDown;
+        // 键盘事件由 MainWindow 内容根转发（见 MainWindow.ForwardKeyDown），
+        // 否则无任何控件获焦时按键不会冒泡到 Page。
         this.Loaded += (_, _) => RootGrid.Focus(FocusState.Programmatic);
 
         LoadCategories();
@@ -1870,6 +1870,8 @@ public sealed partial class MainPage : Page
         _searchDebounceTimer?.Stop();
         RefreshMemes();
     }
+
+    public void HandleHostKeyDown(KeyRoutedEventArgs e) => Root_KeyDown(null, e);
 
     private async void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {

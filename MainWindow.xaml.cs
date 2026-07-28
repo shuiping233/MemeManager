@@ -116,6 +116,12 @@ public sealed partial class MainWindow : Window
 
         Closed += Window_Closed;
 
+        // 键盘事件挂在内容根（与重构前 root 一致）：它是 Page 的祖先的祖先，
+        // 无论焦点在 GridView 内部多深，按键都会冒泡到此处，转发给当前页面处理
+        // （Ctrl+V 导入、Esc/Enter 多选等）。注意不能只挂在 RootFrame 上，
+        // GridView 内部焦点时 KeyRoutedEventArgs 无法稳定冒泡到 Frame。
+        RootContainer.KeyDown += (_, e) => CurrentMainPage?.HandleHostKeyDown(e);
+
         // 轮询前台窗口的定时器：用于把 Ctrl+V 投回用户正在用的外部窗口(如 QQ)。
         // 只在窗口可见时运行；窗口隐藏(后台常驻)时停止，
         // 既保证粘贴目标正确，又让后台零轮询、零 CPU 占用。
