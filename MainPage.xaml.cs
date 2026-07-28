@@ -139,7 +139,13 @@ public sealed partial class MainPage : Page, IExternalDropPage
 
         // 键盘事件由 MainWindow 内容根转发（见 MainWindow.ForwardKeyDown），
         // 否则无任何控件获焦时按键不会冒泡到 Page。
-        this.Loaded += (_, _) => RootGrid.Focus(FocusState.Programmatic);
+        this.Loaded += (_, _) =>
+        {
+            RootGrid.Focus(FocusState.Programmatic);
+            // Full 模式标题栏：把顶部空拖拽条（TitleStrip）注册为窗口标题栏区域。
+            // 仅此条可拖拽窗口；工具栏/搜索框在下方客户端区，不受系统三键覆盖影响。
+            App.MainWindow.SetTitleBarElement(TitleStrip);
+        };
 
         LoadCategories();
 

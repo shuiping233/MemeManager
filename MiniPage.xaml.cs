@@ -41,13 +41,13 @@ public sealed partial class MiniPage : Page, IExternalDropPage
     {
         LoadCategories();
         // 把顶栏注册为自定义标题栏：系统据此让该区域可拖，且内部按钮仍可点击。
-        App.MainWindow.SetMiniTitleBar(DragBar);
+        App.MainWindow.SetTitleBarElement(DragBar);
     }
 
     private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
     {
-        // 离开 Mini 时取消标题栏注册，避免影响 Full 模式。
-        App.MainWindow.SetMiniTitleBar(null);
+        // 离开 Mini 时取消标题栏注册（MainPage 加载时会重新注册自己的标题栏）。
+        App.MainWindow.SetTitleBarElement(null);
     }
 
     // ---------- 分类下拉 ----------

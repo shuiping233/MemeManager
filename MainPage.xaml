@@ -15,6 +15,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -24,11 +25,20 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- 顶部标题栏拖拽条：仅承载窗口标题文本，注册为窗口标题栏区域（见 MainPage.Loaded）。
+             右侧留空给系统 min/max/close 三键（系统按钮会叠加在此条右上，标题文本在左侧不冲突）。 -->
+        <Grid x:Name="TitleStrip" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+              Height="32" Background="Transparent">
+            <TextBlock Text="MemeManager"
+                       VerticalAlignment="Center" Margin="12,0,0,0"
+                       FontWeight="SemiBold" IsHitTestVisible="False"/>
+        </Grid>
+
         <!-- 批量导入/导出进度条（不阻塞 UI，任务结束后自动关闭） -->
         <!-- 外层 Margin 必须为 0：IsOpen=False 时 InfoBar 仍 Visible，若有 Margin 会把
-             所在 Auto 行撑出空隙，导致下方搜索栏被顶下去；隐藏时靠行高塌缩为 0。 -->
+              所在 Auto 行撑出空隙，导致下方搜索栏被顶下去；隐藏时靠行高塌缩为 0。 -->
         <InfoBar x:Name="BatchProgressInfoBar"
-                 Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                 Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                  IsOpen="False"
                  IsIconVisible="True"
                  IsClosable="False"
@@ -49,7 +59,7 @@
         </InfoBar>
 
         <!-- 顶部栏：右侧按钮 -->
-        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Padding="12,10,12,6">
+        <Grid x:Name="TopBar" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Padding="12,10,12,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -97,7 +107,7 @@
         </Grid>
 
         <!-- 左侧分类栏 -->
-        <Grid Grid.Row="2" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
+        <Grid Grid.Row="3" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -218,7 +228,7 @@
 
         <!-- 右侧表情网格 -->
         <GridView x:Name="MemeGridView"
-                  Grid.Row="2" Grid.Column="1"
+                  Grid.Row="3" Grid.Column="1"
                   Margin="12"
                   HorizontalAlignment="Stretch"
                   SelectionMode="None"
@@ -305,7 +315,7 @@
 
         <!-- 空状态提示：当前分类没有图片（或搜索无结果）时居中显示 -->
         <TextBlock x:Name="EmptyHint"
-                   Grid.Row="2" Grid.Column="1"
+                   Grid.Row="3" Grid.Column="1"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    TextWrapping="Wrap"
@@ -341,7 +351,7 @@
         </Popup>
 
         <!-- 修改模式底部批量操作栏 -->
-        <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+        <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
               x:Name="BatchBar"
               Visibility="Collapsed"
               Padding="12"

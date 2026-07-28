@@ -114,6 +114,13 @@ public sealed partial class MainWindow : Window
             overlappedPresenter.IsAlwaysOnTop = true;
         }
 
+        // 两种模式都保持 ExtendsContentIntoTitleBar=true（永不切回 false）：
+        // WinUI 3 中把扩展从 true 切回 false 会让系统标题栏丢失 Mica 与深色按钮且无法恢复。
+        // Full 用一条独立空拖拽条作标题栏（见 MainPage 顶部 TitleStrip），Mini 用 DragBar，
+        // 二者都复用扩展路径，Mica 与深色按钮表现一致。
+        this.ExtendsContentIntoTitleBar = true;
+        _titleBarExtended = true;
+
         // 标题栏主题色（简单自定义）：按主题给系统默认标题栏上色。
         ApplyTitleBarTheme();
 
@@ -202,13 +209,13 @@ public sealed partial class MainWindow : Window
 
     // Mini 模式：固定紧凑尺寸（常量为 DIP，按窗口当前 DPI 换算为物理像素）。
     // 采用“自定义标题栏”方案：保留系统边框，扩展内容到标题栏区域，并由 MiniPage
-    // 通过 SetMiniTitleBar 注册顶栏为标题栏 —— 系统据此让该区域可拖、且内部按钮可点，
+    // 通过 SetTitleBarElement 注册顶栏为标题栏 —— 系统据此让该区域可拖、且内部按钮可点，
     // 无需手挖洞（这是 WinUI 3 无边框/自定义标题栏的官方做法，依赖标题栏存在）。
     private void ResizeForMiniMode()
     {
         if (_appWindow == null) return;
 
-        // 扩展内容到标题栏区域（保留系统边框与标题栏，仅自定义其外观）。
+        // 扩展内容到标题栏区域（Mini 用自定义顶栏）。扩展标志全程保持 true（启动时已设），此处幂等。
         if (!_titleBarExtended)
         {
             this.ExtendsContentIntoTitleBar = true;
@@ -233,10 +240,10 @@ public sealed partial class MainWindow : Window
     }
 
     // 切回 Full 模式：恢复可调整/有标题栏的标准窗口外观。
+    // 扩展标志保持 true（永不切回 false，否则系统标题栏丢 Mica/深色按钮）；Full 用独立 TitleStrip 作标题栏，
+    // 由 MainPage 在 Loaded 时注册。这里仅恢复窗口可调整/三键状态，并重设标题栏主题（深色按钮）。
     private void RestoreFullModeChrome()
     {
-        // 取消 Mini 注册的自定义标题栏，恢复系统默认标题栏
-        this.SetTitleBar(null);
         if (_appWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter p)
         {
             p.IsResizable = true;
@@ -244,20 +251,16 @@ public sealed partial class MainWindow : Window
             p.IsMinimizable = true;
             p.SetBorderAndTitleBar(true, true);
         }
-        // 不再扩展内容到标题栏（Full 模式使用系统标题栏），下次进 Mini 再扩展。
-        if (_titleBarExtended)
-        {
-            this.ExtendsContentIntoTitleBar = false;
-            _titleBarExtended = false;
-        }
+        ApplyTitleBarTheme();
     }
 
     /// <summary>
-    /// Mini 模式：把指定元素注册为自定义标题栏（Window.SetTitleBar）。
+    /// 把指定元素注册为窗口标题栏区域（Window.SetTitleBar）。
     /// 注册后该元素区域可拖拽窗口，且内部交互控件（按钮/下拉）仍正常点击。
-    /// 传 null 取消注册（切回 Full 时调用）。
+    /// 目前仅 Mini 模式使用（注册 DragBar）；Full 模式用系统标题栏，不注册。
+    /// 传 null 取消注册。
     /// </summary>
-    public void SetMiniTitleBar(Microsoft.UI.Xaml.UIElement? titleBar)
+    public void SetTitleBarElement(Microsoft.UI.Xaml.UIElement? titleBar)
     {
         try
         {
@@ -265,7 +268,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.Log("[窗口] SetMiniTitleBar 失败: " + ex.Message);
+            Logger.Log("[窗口] SetTitleBarElement 失败: " + ex.Message);
         }
     }
 
