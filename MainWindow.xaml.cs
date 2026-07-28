@@ -458,13 +458,8 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘菜单“显示主窗口”：显示并激活窗口（兼容最小化状态）</summary>
     public void ShowAndActivate()
     {
+        // 焦点重置已在 ShowWindow 内统一处理（覆盖所有显示入口），此处无需重复。
         ShowWindow(activate: true);
-        // 从托盘呼出后，将焦点重新定位到当前模式的默认交互控件，
-        // 避免焦点残留在系统标题栏关闭按钮上（用户点 X 隐藏后焦点被系统三键截持）。
-        if (_currentMode == AppMode.Full)
-            DispatcherQueue.TryEnqueue(() => CurrentMainPage?.FocusSearchBox());
-        else
-            DispatcherQueue.TryEnqueue(() => CurrentMiniPage?.FocusDropHint());
     }
 
     // 托盘菜单“切换窗口模式”：主窗口已在前台显示则直接切换；否则先呼出到前台再切换。
@@ -543,6 +538,19 @@ public sealed partial class MainWindow : Window
         CurrentMainPage?.SetMemeViewVisible(true);
         _fgTimer?.Start();
         ResumeWindowInteractions();
+
+        // 从托盘/快捷键呼出后，将焦点重新定位到当前模式的默认交互控件，
+        // 避免焦点残留在系统标题栏关闭按钮上（用户点 X 隐藏后焦点被系统三键截持）。
+        // 放在 ShowWindow 统一处理，覆盖所有“显示窗口”入口（托盘显示、切换模式、设置等），
+        // 不遗漏。
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_currentMode == AppMode.Full)
+                CurrentMainPage?.FocusSearchBox();
+            else
+                CurrentMiniPage?.FocusDropHint();
+        });
+
         Log($"[窗口] 显示完成 (activate={activate})");
     }
 

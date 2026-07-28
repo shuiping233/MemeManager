@@ -58,7 +58,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     /// <summary>将焦点设置到提示文字区域（供窗口从托盘呼出后调用，避免焦点残留在系统关闭按钮上）</summary>
     public void FocusDropHint()
     {
-        MiniDropHintText.Focus(FocusState.Programmatic);
+        CategoryCombo.Focus(FocusState.Programmatic);
     }
 
     private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
