@@ -159,6 +159,12 @@
   <data name="Mini_ImportBusy.Text" xml:space="preserve">
     <value>Importing… please wait</value>
   </data>
+  <data name="Mini_ImportSuccess.Text" xml:space="preserve">
+    <value>Successfully imported {0} images to "{1}"</value>
+  </data>
+  <data name="Mini_ImportDuplicate.Text" xml:space="preserve">
+    <value>No new images (all duplicates)</value>
+  </data>
   <data name="Mini_PickerEmpty.Text" xml:space="preserve">
     <value>No memes in this category yet. Drag images in to import.</value>
   </data>

@@ -117,21 +117,22 @@ public static class ImageDragHelper
 
     // ---------- 导入：带“忙”守卫的统一入口 ----------
 
-    // 导入到指定分类；若 DataEngine 正在导入（IsBusyWriting）则直接拒绝，返回 false（UI 据此提示并忽略）。
+    // 导入到指定分类；若 DataEngine 正在导入（IsBusyWriting）则直接拒绝（Success=false，UI 据此忽略）。
     // 与 MainPage 的 RunBatchImportAsync 行为对齐（都受写锁保护），Mini 无进度条 UI，故不传进度。
-    public static async Task<bool> ImportPathsAsync(IEnumerable<string> paths, string category)
+    // 返回 (Success, Imported)：Success=false 表示被“忙”守卫拒绝；Imported 为本次新增张数。
+    public static async Task<(bool Success, int Imported)> ImportPathsAsync(IEnumerable<string> paths, string category)
     {
         var list = paths.Where(p => File.Exists(p) && MainPage.IsImage(Path.GetExtension(p))).ToList();
-        if (list.Count == 0) return false;
+        if (list.Count == 0) return (false, 0);
 
         if (App.DataEngine.IsBusyWriting)
         {
             Logger.Log("[Drag] 导入被拒：已有导入任务进行中");
-            return false;
+            return (false, 0);
         }
 
         var result = await App.DataEngine.ImportMemesSafeAsync(list, category);
         Logger.Log($"[Drag] 拖入导入：新增 {result.imported}，重复 {result.duplicate}（分类={category}）");
-        return true;
+        return (true, result.imported);
     }
 }

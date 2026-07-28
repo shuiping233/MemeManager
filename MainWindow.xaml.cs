@@ -179,6 +179,8 @@ public sealed partial class MainWindow : Window
                 RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
                 RestoreFullModeChrome();
                 ResizeForFullMode();
+                // 从 Mini 切回：刷新分类与图片容器，确保与磁盘数据同步（Mini 期间可能导入过表情）。
+                DispatcherQueue.TryEnqueue(() => CurrentMainPage?.ReloadData());
                 break;
 
             case AppMode.Mini:

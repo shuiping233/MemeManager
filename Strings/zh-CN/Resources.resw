@@ -159,6 +159,12 @@
   <data name="Mini_ImportBusy.Text" xml:space="preserve">
     <value>导入进行中，请稍候…</value>
   </data>
+  <data name="Mini_ImportSuccess.Text" xml:space="preserve">
+    <value>成功导入 {0} 张图片到“{1}”分类</value>
+  </data>
+  <data name="Mini_ImportDuplicate.Text" xml:space="preserve">
+    <value>没有新图片（均为重复）</value>
+  </data>
   <data name="Mini_PickerEmpty.Text" xml:space="preserve">
     <value>该分类还没有表情，拖图片进来即可导入</value>
   </data>

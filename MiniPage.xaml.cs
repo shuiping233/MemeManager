@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,6 +23,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage
 
     // Mini 模式当前选中的分类（拖入/点选都基于它）。
     private string _currentCategory = MemeDataEngine.UncategorizedCategory;
+
+    // 用于取消上一次“提示文字自动恢复”的定时任务，避免多条消息互相抢占。
+    private System.Threading.CancellationTokenSource? _hintRestoreCts;
+
+    // 导入成功提示自动恢复为默认文案的延迟时长（毫秒）。
+    private const int ImportHintRestoreDelay = 7 * 1000;
 
     public MiniPage()
     {
@@ -153,25 +159,50 @@ public sealed partial class MiniPage : Page, IExternalDropPage
         _ = TryImportAsync(paths);
     }
 
-    // 统一拖入入口：若正在导入（DataEngine.IsBusyWriting）则临时禁用拖入并显示“导入中”提示；
-    // 否则调用 ImageDragHelper 导入到当前分类。
+    // 统一拖入入口：调用 ImageDragHelper 导入到当前分类。
+    //  - 被“忙”守卫拒绝（已有导入进行中）→ 显示“导入中”并临时禁止拖入。
+    //  - 成功 → 显示“成功导入 x 张到 xxx 分类”，7s 后自动恢复。
     private async Task TryImportAsync(List<string> paths)
     {
-        if (App.DataEngine.IsBusyWriting)
-        {
+        var (success, imported) = await ImageDragHelper.ImportPathsAsync(paths, _currentCategory);
+        if (!success)
             ShowImportBusy();
-            return;
-        }
-
-        bool started = await ImageDragHelper.ImportPathsAsync(paths, _currentCategory);
-        if (!started)
-            ShowImportBusy();
+        else
+            ShowImportSuccess(imported);
     }
 
-    // 导入进行中：禁用整页拖入（显示禁止光标）并临时把提示文字改为“导入中”，
-    // 待 DataEngine 不再忙后自动恢复。
+    // 导入成功：显示“成功导入 x 张到 xxx 分类”，7s 后自动恢复默认提示。
+    private void ShowImportSuccess(int imported)
+    {
+        // 取消上一条恢复定时，避免互相抢占
+        _hintRestoreCts?.Cancel();
+        _hintRestoreCts = new System.Threading.CancellationTokenSource();
+
+        string text = imported > 0
+            ? string.Format(Localization.Get("Mini_ImportSuccess"), imported, _currentCategory)
+            : Localization.Get("Mini_ImportDuplicate");
+
+        MiniDropHintText.Text = text;
+        DropHint.Visibility = Visibility.Collapsed;
+
+        // 导入成功后若 Picker 浮窗已开，刷新其 GridView（浮窗展示的必定是当前分类）。
+        if (PickerPopup.IsOpen)
+            LoadPickerMemes();
+
+        var token = _hintRestoreCts.Token;
+        _ = Task.Delay(ImportHintRestoreDelay, token).ContinueWith(_ =>
+        {
+            if (token.IsCancellationRequested) return;
+            DispatcherQueue.TryEnqueue(() => MiniDropHintText.Text = Localization.Get("Mini_DropHint"));
+        }, TaskScheduler.Default);
+    }
+
+    // 导入进行中（被忙守卫拒绝）：禁用整页拖入（显示禁止光标）并临时把提示文字改为“导入中”，
+    // 待 DataEngine 不再忙后自动恢复拖入与默认提示。
     private void ShowImportBusy()
     {
+        _hintRestoreCts?.Cancel();
+
         RootGrid.AllowDrop = false;
         DropHint.Visibility = Visibility.Collapsed;
         MiniDropHintText.Text = Localization.Get("Mini_ImportBusy");
