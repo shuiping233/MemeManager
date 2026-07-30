@@ -1,0 +1,157 @@
+﻿<Page
+    x:Class="MemeManager.Views.SettingsPage"
+    Loaded="SettingsPage_Loaded"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MemeManager.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:l="using:WinUI3Localizer"
+    xmlns:controls="using:MemeManager.Views"
+    mc:Ignorable="d">
+
+    <Grid Padding="24" HorizontalAlignment="Left">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" l:Uids.Uid="Settings_Title" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+        <StackPanel Grid.Row="1" Spacing="16" MaxWidth="400">
+            <Button x:Name="OpenConfigFolderButton" l:Uids.Uid="Settings_OpenConfigFolder"
+                    HorizontalAlignment="Left" Click="OpenConfigFolderButton_Click"/>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_Theme" FontWeight="SemiBold"/>
+                <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">
+                    <ComboBoxItem l:Uids.Uid="Settings_Theme_System"/>
+                    <ComboBoxItem l:Uids.Uid="Settings_Theme_Light"/>
+                    <ComboBoxItem l:Uids.Uid="Settings_Theme_Dark"/>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_Language" FontWeight="SemiBold"/>
+                <ComboBox x:Name="LanguageComboBox" Width="125"
+                          SelectionChanged="LanguageComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock x:Name="LanguageStatusText" FontSize="12" Opacity="0.6"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_StoragePath" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="StoragePathBox" Grid.Column="0" IsReadOnly="False" VerticalAlignment="Center" MaxWidth="200" TextChanged="StoragePathBox_TextChanged"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" Spacing="4">
+                        <Button x:Name="BrowseButton" l:Uids.Uid="Settings_Browse" Click="BrowseButton_Click"/>
+                        <Button x:Name="OpenMemeDataFolder" l:Uids.Uid="Settings_OpenMemeDataFolder" Click="OpenMemeDataFolder_Click"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_HotKey" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="HotKeyBox" Grid.Column="0" IsReadOnly="True"
+                             VerticalAlignment="Center" Text="Alt+E"/>
+                    <Button x:Name="RecordHotKeyButton" Grid.Column="1" l:Uids.Uid="Settings_Record"
+                            Margin="8,0,0,0" Click="RecordHotKeyButton_Click"/>
+                </Grid>
+                <TextBlock l:Uids.Uid="Settings_HotKeyHint" FontSize="11" Opacity="0.6"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_PreviewMaxResolution" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" l:Uids.Uid="Settings_Width" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="PreviewMaxWidthBox" Grid.Column="1" Width="80"
+                 InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
+                    <TextBlock Grid.Column="2" l:Uids.Uid="Settings_Height" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                    <TextBox x:Name="PreviewMaxHeightBox" Grid.Column="3" Width="80"
+                 InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewResolution_TextChanged"/>
+                </Grid>
+                <TextBlock l:Uids.Uid="Settings_PreviewMaxResolutionHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_PreviewDelay" FontWeight="SemiBold"/>
+                <TextBox x:Name="PreviewDelayBox" Width="80" HorizontalAlignment="Left"
+             InputScope="Number" BeforeTextChanging="PreviewNumberBox_BeforeTextChanging" TextChanged="PreviewDelay_TextChanged"/>
+                <TextBlock l:Uids.Uid="Settings_PreviewDelayHint" FontSize="11" Opacity="0.6"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_SaveLog" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_SaveLogHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_EcoMode" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="EcoModeToggle" Toggled="EcoModeToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_EcoModeHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_AutoStart" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="AutoStartToggle" Toggled="AutoStartToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_AutoStartHint" FontSize="11" Opacity="0.6"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_AllowMiniMode" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="AllowMiniModeToggle" Toggled="AllowMiniModeToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_AllowMiniModeHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_StorageFileDrag" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDragHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDragHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_StorageFileDragWarning" FontSize="11" Opacity="0.9" Foreground="{ThemeResource SystemErrorTextColor}" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_ControlReuse" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="UseControlReuseToggle" Toggled="UseControlReuseToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_ControlReuseHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_ControlReuseHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_ControlReuseHint3" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_ExplorerMultiSelect" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="ExplorerStyleMultiSelectToggle" Toggled="ExplorerStyleMultiSelectToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_ExplorerMultiSelectHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                <TextBlock l:Uids.Uid="Settings_ExplorerMultiSelectHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+        </StackPanel>
+
+        <Button Grid.Row="2" x:Name="CloseButton" l:Uids.Uid="Settings_Done" HorizontalAlignment="Right"
+                Margin="0,16,0,0" Click="CloseButton_Click"
+                Style="{StaticResource AccentButtonStyle}"/>
+    </Grid>
+</Page>

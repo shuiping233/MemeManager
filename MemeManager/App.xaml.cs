@@ -1,8 +1,8 @@
 ﻿using Microsoft.UI.Xaml;
 using MemeManager.Models;
 using Microsoft.UI.Xaml.Controls;
-using MemeManager.Data;
-using MemeManager.Helpers;
+using MemeManager.Infrastructure;
+using MemeManager.Views;
 using WinRT.Interop;
 using System.IO;
 using System.Threading.Tasks;
