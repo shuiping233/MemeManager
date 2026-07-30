@@ -1,102 +1,252 @@
 ﻿# MemeManager 重构路线
 
-> **总目标**：让 `MainPage.xaml.cs`（102KB）只负责页面，让 `MemeDataEngine`（~1000行）只负责数据。
+> **总目标**：让 `MainPage.xaml.cs`（2323行/102KB）只负责页面，让 `MemeDataEngine`（~1000行）只负责数据。
 >
-> **原则**：已有架构演进（不是从零学 MVVM）。项目已有 `Models` / `ViewModels` / `Helpers` / `Data` 分层，
-> 也有独立的 `PasteService`、`ImageDragHelper`、`ImageBatchOperationRunner`——继续朝这个方向推进即可。
-> 每步保证编译通过 + 功能可运行，一步一 commit。
+> **原则**：已有架构演进。项目已有 `MemeManager.Models` / `MemeManager.ViewModels` / `MemeManager.Data` / `MemeManager.Helpers`
+> 分层，延续这个方向。每步保证 `dotnet build` 通过 + 功能可运行，一步一 commit。
 
 ---
 
 ## FileWatcher 分类事件（FileWatcher.cs）
 
-当前 `FileWatcher` 已有文件级事件（`FilesRemoved` / `FilesAdded` / `FilesMoved`，均已订阅处理），
-但缺少分类层级变更的探测与分发：
+当前 `FileWatcher` 有文件级事件（`FilesRemoved`/`FilesAdded`/`FilesMoved`，均已在 MainPage 订阅），
+但缺少分类层级变更探测：
 
-- [ ] `CategoryRemoved`：分类文件夹被删除时，供 MainWindow 移除左侧分类项并清理计数
-- [ ] `CategoryAdded`：新建分类文件夹时，供 MainWindow 在左侧分类栏追加新分类项
-- [ ] `CategoryRenamed`：分类文件夹改名时，供 MainWindow 同步更新分类名（含内部顺序/metadata 关联）
-
----
-
-## Phase 0：画图（不改代码）
-
-把 MainPage 的所有职责区域画出来，明确哪些属于"状态"、哪些属于"业务"、哪些属于"UI 生命周期"：
-
-- [ ] 标注 MainPage 的 UI 状态（`SearchText`、`SelectedCategory`、`SelectedMeme`、`IsSearching`、`IsLoading` 等）
-- [ ] 标注 MainPage 的业务方法（搜索、导入、删除、移动、重命名、复制/粘贴/拖出发送、批量操作）
-- [ ] 标注 MainPage 的 UI 生命周期（`Loaded`、`SizeChanged`、`PointerPressed`、`AnimationCompleted` 等）——这些留在 code-behind
-- [ ] 标注 MainWindow.xaml.cs 的职责划分（分类栏管理、文件监听回调、窗口级状态、Mini 切换）
+- [ ] **`CategoryRemoved`** — 分类文件夹被删 → `MainWindow`/`MainPage` 移除左侧分类项 + 清理计数
+  - 验收：资源管理器删除分类文件夹 → 左侧栏该分类消失，计数更新
+- [ ] **`CategoryAdded`** — 新建分类文件夹 → `MainWindow`/`MainPage` 在左侧栏追加
+  - 验收：资源管理器新建分类文件夹 → 左侧栏出现新分类
+- [ ] **`CategoryRenamed`** — 分类文件夹改名 → `MainWindow`/`MainPage` 同步分类名
+  - 验收：资源管理器重命名分类文件夹 → 左侧栏分类名更新
 
 ---
 
-## Phase 1：搬 UI 状态到 ViewModel（不拆 Service）
+## Phase 0：画职责图（0 行代码改动）
 
-**先把 MainPage 的 UI 状态搬进 `MainViewModel`，业务方法暂时不动。**
-注意顺序：先搬状态，后拆 Service——否则 Service 会开始依赖 UI 状态。
+- [ ] **0.1** 打开 `MainPage.xaml.cs`，标注所有 **UI 状态字段**（目前散落在 24–86 行）：
 
-- [ ] 创建 `MainViewModel`（继承 `ObservableObject`，绑定到 `MainPage.DataContext`）
-- [ ] 搬 `SearchText`、`IsSearching`、`SelectedCategory`、`SelectedMeme`、`IsLoading` 等状态字段
-- [ ] 在 `MemeViewModel` / `CategoryViewModel` 中把手动 `INotifyPropertyChanged` 换为 `[ObservableProperty]`（不改业务逻辑）
-- [ ] 创建 `SettingsViewModel`（空壳，先绑 DataContext，后续 Phase 3 再搬业务）
-- [ ] 创建 `MiniViewModel`（空壳，同上）
+  | 字段 | 类型 | 归属 |
+  |---|---|---|
+  | `_memeList` | `ObservableCollection<MemeViewModel>` | → ViewModel |
+  | `_categoryList` | `ObservableCollection<CategoryViewModel>` | → ViewModel |
+  | `_allMemesVm` | `CategoryViewModel` | → ViewModel |
+  | `_currentCategory` | `string` | → ViewModel |
+  | `_currentKind` | `CategoryKind` | → ViewModel |
+  | `_editMode` | `bool` | → ViewModel |
+  | `_listStrategy` | `IMemeListStrategy` | → ViewModel |
+  | `_dragAnchorFileName` | `string?` | → ViewModel |
+  | `_draggingMemes` | `List<MemeModel>?` | → ViewModel |
+  | `_reloading` | `bool` | → ViewModel |
+  | `_lastShiftAnchor` | `int` | → ViewModel |
+  | `_pasteDialogOpen` | `bool` | → ViewModel |
+  | `_previewTimer` / `_pendingPreviewVm` / `_pendingPreviewAnchor` | 悬停预览 | → ViewModel |
+  | `_searchDebounceTimer` | `DispatcherTimer?` | → ViewModel |
+  | `_contextMeme` / `_contextCategory` | 右键上下文 | → ViewModel |
+  | `_previewFadingOut` / `_lastPointerPos` / `_suppressNextMove` | 预览浮窗 | 留在 code-behind（纯 UI） |
+
+- [ ] **0.2** 标注所有 **业务方法 → 后续拆入 Service**：
+
+  | 方法 | 后续归属 |
+  |---|---|
+  | `RunBatchImportAsync()` | → `ImportService` |
+  | `DeleteSelectedMemesAsync()` | → `MemeOperationService` |
+  | `MoveMemeToCategory()` | → `MemeOperationService` |
+  | `BatchExportButton_Click()` | → `MemeOperationService` |
+  | `MemeDelete_Click()` | → `MemeOperationService` |
+  | `MemeRename_Click()` → `App.DataEngine.RenameMemeAsync()` | → `MemeOperationService` |
+  | `MemeCopy_Click()` → `PasteService.CopyImageToClipboardAsync()` | → `PasteService`（已有，改注入） |
+  | `PasteFromClipboardViaShortcutAsync()` | → `ImportService` |
+  | `ShowAddCategoryDialog()` / `DeleteCategoryConfirmed()` / `ShowRenameCategoryDialog()` | → `CategoryService` |
+  | `CategoryNew_Click()` / `CategoryDelete_Click()` / `CategoryRename_Click()` | → `CategoryService` |
+  | `SearchBox_TextChanged()` / `SearchDebounce_Tick()` / `RefreshMemes()` | → `SearchService` |
+  | `LoadCategories()` / `UpdateCategoryCounts()` | → `CategoryService` |
+
+- [ ] **0.3** 标注所有 **留在 code-behind 的 UI 生命周期**：
+
+  | 方法 | 理由 |
+  |---|---|
+  | `MemeItem_PointerEntered` / `_Exited` | 悬停预览浮窗定位，纯 UI |
+  | `Root_PointerMoved` | 浮窗跟踪鼠标，纯 UI |
+  | `ShowPreviewPopup` / `HidePreviewPopup` / `FadeInPreview` | 浮窗动画，纯 UI |
+  | `MemeGridView_DragItemsStarting` / `_Completed` / `_DragOver` / `_Drop` | 拖拽 DataPackage 操作，纯 UI |
+  | `CategoryList_DragOver` / `_DragItemsCompleted` / `CategoryListItem_Drop` | 分类拖拽排序，纯 UI |
+  | `EditButton_Click` / `EnterEditMode` / `ExitEditMode` | 编辑模式 UI 切换 |
+  | `TopMostToggle_Checked` / `_Unchecked` | 置顶开关 |
+  | `Root_KeyDown`（快捷键路由） | 键盘事件分发 |
+
+  验收：Phase 0 完成后，你有一份手写/脑图中的职责清单，后续每步都知道"这个该搬、那个不该搬"。
 
 ---
 
-## Phase 2：按钮事件 → RelayCommand（一次一个按钮）
+## Phase 1：搬 UI 状态到 ViewModel（不改业务逻辑）
 
-- [ ] 从 MainPage 最小的按钮开始（如 Refresh），改成 `[RelayCommand]`
-- [ ] 逐批迁移：刷新 → 搜索 → 删除 → 导入 → 移动 → 重命名 → 复制/粘贴/发送
-- [ ] XAML 同步改为 `Command="{Binding XxxCommand}"`
-- [ ] 每改完一个按钮验证功能正常
+> **关键顺序**：先搬状态，后拆 Service——否则 Service 会开始依赖 UI 状态。
+
+### 1.1 创建 MainViewModel 空壳
+
+- [ ] 新建 `MainViewModel.cs`，继承 `ObservableObject`
+  ```csharp
+  public partial class MainViewModel : ObservableObject { }
+  ```
+- [ ] `MainPage` 构造函数中 `DataContext = new MainViewModel();`
+- [ ] `dotnet build` 通过 → commit
+
+### 1.2 搬简单状态字段
+
+逐批搬，每批 build + 运行验证：
+
+- [ ] **第一批**：`_currentCategory` / `_allMemesVm` / `_currentKind` → `[ObservableProperty]`
+  - 验收：左侧分类栏切换正常，"全部表情"视图正常
+- [ ] **第二批**：`_editMode` → `[ObservableProperty]`，XAML 中 `BatchBar.Visibility` 绑定 `{Binding EditMode, Converter=...}`
+  - 验收：点击"修改"按钮 → 底部批量操作栏出现/消失
+- [ ] **第三批**：`_memeList` / `_categoryList` — 这两个是 `ObservableCollection`，不需要 `[ObservableProperty]`，直接暴露为 `public` 属性
+  - 验收：GridView ItemsSource 改为 `{Binding MemeList}`，刷新图片正常显示
+- [ ] **第四批**：右键上下文 `_contextMeme` / `_contextCategory` → ViewModel
+  - 验收：右键菜单操作（复制/删除/重命名/移动到分类）正常
+- [ ] **第五批**：搜索 `_searchDebounceTimer` + `SearchBox.Text` → ViewModel（逻辑暂留 code-behind，只搬状态）
+  - 验收：搜索框输入 → 防抖后刷新列表正常
+- [ ] **第六批**：悬停预览状态 `_pendingPreviewVm` / `_pendingPreviewAnchor` / `_previewTimer` → ViewModel
+  - 验收：鼠标悬停图片 → 400ms 后浮窗出现，移开消失
+
+### 1.3 MemeViewModel / CategoryViewModel 换 CommunityToolkit
+
+- [ ] `MemeViewModel.cs`：手动 `INotifyPropertyChanged` → 继承 `ObservableObject`，字段加 `[ObservableProperty]`
+  - 验收：图片标题修改后 UI 自动刷新，无功能变化
+- [ ] `CategoryViewModel.cs`：同上
+  - 验收：分类名修改/计数更新后 UI 自动刷新
+
+**Phase 1 完成标志**：`MainPage.xaml.cs` 减少约 30% 字段声明，所有 UI 状态字段都在 ViewModel 中。
 
 ---
 
-## Phase 3：按功能拆 Service（不是按抽象层）
+## Phase 2：按钮事件 → RelayCommand（一次一个）
 
-每拆一个功能，MainPage 减少约 200 行。顺序按依赖关系从独立到耦合：
+按复杂度从低到高，每个按钮改完立即验证：
 
-- [ ] **搜索 → `SearchService`**：`SearchText`、搜索建议、搜索结果过滤（`MemeListStrategy` 移到这）
-- [ ] **导入 → `ImportService`**：单张/批量导入、进度回调、去重判定（目前散落在 MainPage + `MemeDataEngine.ImportMemesAsync`）
-- [ ] **剪贴板/发送 → `PasteService`（已有，改为实例注入）**：`CopyImageToClipboardAsync`、`OutputMemeToCursorAsync` 不再 static 调用
-- [ ] **删除 & 移动 → `MemeOperationService`**：删除单张/批量、移动到其他分类（目前混在 MainPage + `MemeDataEngine`）
-- [ ] **分类管理 → `CategoryService`**：新建/删除/重命名分类、分类顺序重排（目前混在 MainWindow + `MemeDataEngine`）
-- [ ] **拖拽 → 保留 `ImageDragHelper`（已有）**：改为实例注入到 ViewModel，不再 static 调用
-- [ ] 重命名等零散方法 → 归入对应的 Service
+- [ ] **2.1** `RefreshButton_Click` (line 1755) → `[RelayCommand] RefreshCommand`
+  - 验收：点击刷新按钮 → 列表刷新，加载指示器正常
+- [ ] **2.2** `SettingsButton_Click` (line 1725) → `[RelayCommand]`
+  - 验收：点击设置 → 设置浮窗弹出
+- [ ] **2.3** `MiniModeButton_Click` (line 1740) → `[RelayCommand]`
+  - 验收：点击 Mini 按钮 → 切换到 Mini 模式
+- [ ] **2.4** `EditButton_Click` (line 886) → `[RelayCommand] ToggleEditModeCommand`
+  - 验收：进入/退出多选模式正常
+- [ ] **2.5** `SelectAllButton_Click` (line 1523) → `[RelayCommand]`
+  - 验收：全选/取消全选正常
+- [ ] **2.6** `AddCategoryButton_Click` (line 625) → `[RelayCommand]`
+  - 验收：新建分类弹窗正常
+- [ ] **2.7** 分类右键菜单 (lines 285/292/313/319) → 各 `[RelayCommand]`
+  - `CategoryOpenFolder_Click` → `OpenCategoryFolderCommand`
+  - `CategoryNew_Click` → `NewCategoryCommand`
+  - `CategoryDelete_Click` → `DeleteCategoryCommand`
+  - `CategoryRename_Click` → `RenameCategoryCommand`
+  - 验收：分类右键四个操作均正常
+- [ ] **2.8** 表情右键/批量按钮 (lines 1392–1633) → 各 `[RelayCommand]`
+  - `MemeCopy_Click` → `CopyMemeCommand`
+  - `MemeDelete_Click` → `DeleteMemeCommand`
+  - `MemeOpen_Click` / `MemeOpenFolder_Click` → `OpenMemeCommand` / `OpenMemeFolderCommand`
+  - `MemeRename_Click` → `RenameMemeCommand`
+  - `BatchImportButton_Click` → `BatchImportCommand`
+  - `BatchExportButton_Click` → `BatchExportCommand`
+  - `DeleteButton_Click` → `BatchDeleteCommand`
+  - 验收：右键菜单和批量按钮全部正常
+- [ ] **2.9** `MemeItem_Tapped` (line 940) → `[RelayCommand]`（带参数绑定）
+  - 验收：单击粘贴、Shift+点击多选正常
 
-完成后 ViewModel 只剩：
+**Phase 2 完成标志**：MainPage 上所有 `_Click` / `_Tapped` 事件处理方法变成 ViewModel 中的 `[RelayCommand]`，XAML 绑定 `Command="{Binding ...}"`。
 
-```csharp
-[RelayCommand]
-private async Task Delete() => await memeOperationService.DeleteAsync(selectedMemes);
-```
+---
+
+## Phase 3：按功能拆 Service
+
+每拆一个 Service，MainPage 减少 200+ 行。顺序：独立 → 耦合。
+
+### 3.1 搜索 → SearchService
+
+- [ ] 新建 `SearchService.cs`，搬入：
+  - `SearchBox_TextChanged` 防抖逻辑
+  - `RefreshMemes()` 中搜索过滤部分
+  - `_searchDebounceTimer`
+- [ ] `MainViewModel` 注入 `SearchService`
+- [ ] 验收：搜索框输入关键词 → 列表过滤正常，清空搜索 → 恢复全量；防抖 150ms 行为不变
+
+### 3.2 导入 → ImportService
+
+- [ ] 新建 `ImportService.cs`，搬入：
+  - `RunBatchImportAsync()` 整段（lines 1561–1611）
+  - `PasteFromClipboardViaShortcutAsync()` 的剪贴板读取 + 导入逻辑
+  - `TryGuardWrite()` 写入锁守卫（提取为独立 helper 或放 Service 基类）
+- [ ] `MainViewModel` 注入 `ImportService`
+- [ ] 验收：批量导入按钮 → 进度条 → 完成后图片出现；Ctrl+V 粘贴导入正常；写入锁并发守卫正常
+
+### 3.3 剪贴板/发送 → PasteService（已有，改为实例注入）
+
+- [ ] `PasteService` 从 `static` 改为实例类
+- [ ] 注册到 DI 容器（`App.xaml.cs`）
+- [ ] `MainViewModel` 注入 `PasteService`
+- [ ] 验收：复制/粘贴发送功能不变
+
+### 3.4 删除 & 移动 → MemeOperationService
+
+- [ ] 新建 `MemeOperationService.cs`，搬入：
+  - `DeleteSelectedMemesAsync()` (line 1637+)
+  - `MemeDelete_Click` 右键删除逻辑 (line 1406)
+  - `MoveMemeToCategory()` 移动逻辑
+  - `MemeRename_Click` → `App.DataEngine.RenameMemeAsync()` 重命名逻辑
+  - `BatchExportButton_Click` 导出逻辑 (line 1613)
+- [ ] 验收：删除单张/批量 → 确认弹窗 → 图片移除；移动到其他分类正常；重命名正常；导出正常
+
+### 3.5 分类管理 → CategoryService
+
+- [ ] 新建 `CategoryService.cs`，搬入：
+  - `ShowAddCategoryDialog()` / `AddCategoryButton_Click`
+  - `DeleteCategoryConfirmed()` / `CategoryDelete_Click`
+  - `ShowRenameCategoryDialog()` / `CategoryRename_Click`
+  - `LoadCategories()` / `UpdateCategoryCounts()`
+- [ ] 验收：新建/删除/重命名分类正常，分类计数实时更新
+
+### 3.6 拖拽 → ImageDragHelper（已有，改为实例注入）
+
+- [ ] `ImageDragHelper` 从 `static` 改为实例类，注册 DI
+- [ ] `CollectDropPathsAsync()` 和 `ConfigureDragOut()` 通过注入调用
+- [ ] 验收：从资源管理器拖图片入库、从 MemeManager 拖图片到 QQ，行为不变
+
+**Phase 3 完成标志**：`MainPage.xaml.cs` 从 ~2300 行缩减到 ~500 行（只剩 UI 生命周期 + 拖拽事件 + 预览浮窗），ViewModel 约 200 行（纯命令转发）。
 
 ---
 
 ## Phase 4：拆分 MemeDataEngine（风险最高，最后做）
 
-当前 `MemeDataEngine`（~1000行）承担了 Repository + Service + Config 三重职责：
+当前 `MemeDataEngine`（~1000行）= Repository + Service + Config。Phase 3 的各 Service 仍直接依赖 `App.DataEngine`，Phase 4 把它们切到 `MemeRepository`：
 
-- [ ] 从 `MemeDataEngine` 抽 `MemeRepository`：纯数据 CRUD（`GetAllMemes` / `GetMemes` / `GetCategories` / `AddCategoryAsync` / metadata 读写 / 缓存）
-- [ ] 从 `MemeDataEngine` 抽配置管理：配置加载/保存（与 `AppConfig` 一起独立）
-- [ ] `MemeDataEngine` 降级为 Facade：只转发调用，不自己干活
-- [ ] 各 Service 改为依赖 `MemeRepository` 而非 `App.DataEngine`
+- [ ] **4.1** 从 `MemeDataEngine` 抽 `MemeRepository`：
+  - 搬入：`_memeCache`、`_titleReverseMap`、`GetAllMemes()`、`GetMemes()`、`GetCategories()`、`ReverseLookupByTitle()`、`AddCategoryAsync()`、metadata 读写、`LoadAllMetadataCore()`
+  - 暴露为只读查询接口，写操作（`ImportMemesAsync`、`DeleteMemesAsync` 等）暂留 `MemeDataEngine`
+  - 验收：`dotnet build` → 分类/图片展示正常
+- [ ] **4.2** 配置管理独立：
+  - `AppConfig` 加载/保存从 `MemeDataEngine` 抽出 → `ConfigService`（或直接放 `Infrastructure`）
+  - 验收：设置页修改配置 → 重启后保留
+- [ ] **4.3** 写操作（导入/删除/移动/重命名/导出）逐步从 `MemeDataEngine` 迁入对应 Service
+  - 验收：每迁一个写操作，对应功能正常
+- [ ] **4.4** `MemeDataEngine` 降级为 Facade：只转发调用，不自己干活
+  - 为保持兼容可以让旧调用方继续用，内部转发到新 Service/Repository
+  - 验收：所有功能正常，`MemeDataEngine` 行数缩减到 ~100 行
 
 ---
 
-## 最后：目录整理（Phase 0–4 全部完成后，一次性做）
+## 最后：目录整理（Phase 0–4 全部完成后一次性做）
 
 分两步：先建 `MemeManager/` 子文件夹把项目嵌套进去，再在内部按功能分层。
-`Helpers/` 不再保留——这些文件全是 UI 相关工作，直接归入 `Views/`。
+
+`Helpers/` 不再保留——这些文件全是 UI 相关，直接归入 `Views/`。
 
 ### 目标结构
 
 ```
 Repository                         ← 仓库根（.sln 在这）
 │
-├── MemeManager.slnx
+├── MemeManager.sln
 ├── README.md
-├── LICENSE
 ├── .github/
 ├── docs/
 ├── scripts/
@@ -105,13 +255,12 @@ Repository                         ← 仓库根（.sln 在这）
 └── MemeManager/                   ← 项目根（.csproj 在这）
     │
     ├── MemeManager.csproj
-    ├── App.xaml
-    ├── App.xaml.cs
+    ├── App.xaml / .cs
     ├── Assets/
     ├── Strings/
     ├── Properties/
     │
-    ├── Views/                     ← XAML + code-behind + UI 辅助类
+    ├── Views/                     ← XAML + code-behind + UI 辅助
     │   ├── MainWindow.xaml / .cs
     │   ├── Pages/
     │   │   ├── MainPage.xaml / .cs
@@ -151,7 +300,7 @@ Repository                         ← 仓库根（.sln 在这）
     │   ├── CategoryService.cs
     │   └── PasteService.cs
     │
-    ├── Infrastructure/            ← 横切关注点（全项目共用）
+    ├── Infrastructure/            ← 横切关注点
     │   ├── MemeDataEngine.cs
     │   ├── FileWatcher.cs
     │   ├── Logger.cs
@@ -166,14 +315,14 @@ Repository                         ← 仓库根（.sln 在这）
     ├── Converters/
     │   └── BoolToVisibilityConverter.cs
     │
-    ├── Behaviors/                 ← 空目录，后续拖拽/Pointer 等复杂事件放这
+    ├── Behaviors/                 ← 空目录，后续放拖拽/Pointer 行为
     │
-    └── Extensions/                ← 空目录，后续扩展方法放这
+    └── Extensions/                ← 空目录，后续放扩展方法
 ```
 
 ### 执行步骤
 
 - [ ] **Step 1**：建 `MemeManager/` 子文件夹，移入 `.csproj`、所有源码/XAML、`Assets/`、`Strings/`、`Properties/`
-- [ ] **Step 2**：更新 `.sln` 中项目路径为 `MemeManager\MemeManager.csproj`，验证 `dotnet build`
-- [ ] **Step 3**：在 IDE 中按上表拖入各子文件夹，IDE 自动调整命名空间（如 `MemeManager.Views`）
-- [ ] **Step 4**：`dotnet build` + 完整功能回归测试
+- [ ] **Step 2**：更新 `MemeManager.sln` 中项目路径为 `MemeManager\MemeManager.csproj`，`dotnet build` 验证
+- [ ] **Step 3**：在 IDE 中按上表拖入各子文件夹，IDE 自动调整命名空间（`MemeManager.Views`、`MemeManager.Services` 等）
+- [ ] **Step 4**：`dotnet build` + 完整功能回归（搜索/导入/删除/移动/拖拽/Mini模式/设置/快捷键）
