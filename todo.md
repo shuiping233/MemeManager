@@ -1,592 +1,179 @@
-﻿## FileWatcher 分类事件（尚未实现，需在 FileWatcher.cs 中新增并分发）
-- [ ] `CategoryRemoved`：分类文件夹被删除（整个分类消失）时的事件，供 MainWindow 移除左侧分类项并清理计数
-- [ ] `CategoryAdded`：新建分类文件夹时的事件，供 MainWindow 在左侧分类栏追加新分类项
-- [ ] `CategoryRenamed`：分类文件夹改名（重命名）时的事件，供 MainWindow 同步更新分类名（含内部顺序/metadata 关联）
+﻿# MemeManager 重构路线
 
-## FileWatcher 文件级事件（MainWindow 已订阅/处理）
-- [x] `FilesRemoved`：图片从库中消失（外部拖出/被删），移除焦点分类对应控件并刷新分类数量（`OnWatchedFilesRemoved`，MainWindow.xaml.cs:2377）
-- [x] `FilesAdded`：图片新增（手动往分类文件夹塞图等兜底），追加焦点分类对应控件（`OnWatchedFilesAdded`，MainWindow.xaml.cs:2405）
-- [x] `FilesMoved`：库内移动（如移动到其他分类），按焦点分类移除源控件/追加目标控件（`OnWatchedFilesMoved`，MainWindow.xaml.cs:2444）
-
-## MVVM 架构重构
-我看完之后第一反应其实不是 MVVM，而是：
-
-> **先把工程目录整理干净，再开始 MVVM。**
-
-因为你的 tree 里面有很多都是 VS 自动生成的东西。
-
-真正源码其实只有这些：
-
-```text
-Assets/
-Controls/
-Properties/
-Strings/
-
-App.xaml
-App.xaml.cs
-
-MainWindow.xaml
-MainWindow.xaml.cs
-
-其它几个 Page
-对应的 .cs
-```
-
-也就是说，你的项目目前还是一个**非常容易重构**的规模，不属于那种几十万行代码。
+> **总目标**：让 `MainPage.xaml.cs`（102KB）只负责页面，让 `MemeDataEngine`（~1000行）只负责数据。
+>
+> **原则**：已有架构演进（不是从零学 MVVM）。项目已有 `Models` / `ViewModels` / `Helpers` / `Data` 分层，
+> 也有独立的 `PasteService`、`ImageDragHelper`、`ImageBatchOperationRunner`——继续朝这个方向推进即可。
+> 每步保证编译通过 + 功能可运行，一步一 commit。
 
 ---
 
-# 第一步：先理解 MVVM 后的职责
+## FileWatcher 分类事件（FileWatcher.cs）
 
-以后整个项目我建议遵循下面这个原则：
+当前 `FileWatcher` 已有文件级事件（`FilesRemoved` / `FilesAdded` / `FilesMoved`，均已订阅处理），
+但缺少分类层级变更的探测与分发：
 
-```
-View（XAML）
-    ↓
-ViewModel（界面状态）
-    ↓
-Service（业务）
-    ↓
-Repository（数据）
-    ↓
-SQLite/File
-```
-
-整个项目只有这一条数据流。
+- [ ] `CategoryRemoved`：分类文件夹被删除时，供 MainWindow 移除左侧分类项并清理计数
+- [ ] `CategoryAdded`：新建分类文件夹时，供 MainWindow 在左侧分类栏追加新分类项
+- [ ] `CategoryRenamed`：分类文件夹改名时，供 MainWindow 同步更新分类名（含内部顺序/metadata 关联）
 
 ---
 
-# 我建议你的目录
+## Phase 0：画图（不改代码）
 
-我比较喜欢微软 CommunityToolkit 官方推荐风格，结合你这个项目，最后会长这样：
+把 MainPage 的所有职责区域画出来，明确哪些属于"状态"、哪些属于"业务"、哪些属于"UI 生命周期"：
 
-```
-MemeManager
-│
-├── Assets/
-│
-├── Strings/
-│
-├── Views/
-│   │
-│   ├── MainWindow.xaml
-│   ├── MainWindow.xaml.cs
-│   │
-│   ├── Pages/
-│   │     HomePage.xaml
-│   │     HomePage.xaml.cs
-│   │
-│   │     SettingsPage.xaml
-│   │
-│   │     MiniPage.xaml
-│   │
-│   └── Dialogs/
-│
-├── ViewModels/
-│   │
-│   ├── MainViewModel.cs
-│   ├── HomeViewModel.cs
-│   ├── SettingsViewModel.cs
-│   └── MiniViewModel.cs
-│
-├── Models/
-│   │
-│   ├── MemeItem.cs
-│   ├── Category.cs
-│   ├── Tag.cs
-│   └── Config.cs
-│
-├── Services/
-│   │
-│   ├── MemeService.cs
-│   ├── CategoryService.cs
-│   ├── SearchService.cs
-│   ├── ImportService.cs
-│   ├── ClipboardService.cs
-│   ├── DragDropService.cs
-│   ├── CacheService.cs
-│   └── ImageService.cs
-│
-├── Repository/
-│   │
-│   ├── MemeRepository.cs
-│   └── CategoryRepository.cs
-│
-├── Helpers/
-│
-├── Converters/
-│
-├── Behaviors/
-│
-├── Controls/
-│
-├── App.xaml
-└── Program...
-```
-
-我不会再继续拆。
-
-这是桌面程序最舒服的规模。
+- [ ] 标注 MainPage 的 UI 状态（`SearchText`、`SelectedCategory`、`SelectedMeme`、`IsSearching`、`IsLoading` 等）
+- [ ] 标注 MainPage 的业务方法（搜索、导入、删除、移动、重命名、复制/粘贴/拖出发送、批量操作）
+- [ ] 标注 MainPage 的 UI 生命周期（`Loaded`、`SizeChanged`、`PointerPressed`、`AnimationCompleted` 等）——这些留在 code-behind
+- [ ] 标注 MainWindow.xaml.cs 的职责划分（分类栏管理、文件监听回调、窗口级状态、Mini 切换）
 
 ---
 
-# 第二步：安装 Toolkit
+## Phase 1：搬 UI 状态到 ViewModel（不拆 Service）
 
-NuGet：
+**先把 MainPage 的 UI 状态搬进 `MainViewModel`，业务方法暂时不动。**
+注意顺序：先搬状态，后拆 Service——否则 Service 会开始依赖 UI 状态。
 
-```
-CommunityToolkit.Mvvm
-```
-
-然后还有：
-
-```
-Microsoft.Extensions.DependencyInjection
-```
-
-如果以后准备 DI。
-
-不用一次装很多。
+- [ ] 创建 `MainViewModel`（继承 `ObservableObject`，绑定到 `MainPage.DataContext`）
+- [ ] 搬 `SearchText`、`IsSearching`、`SelectedCategory`、`SelectedMeme`、`IsLoading` 等状态字段
+- [ ] 在 `MemeViewModel` / `CategoryViewModel` 中把手动 `INotifyPropertyChanged` 换为 `[ObservableProperty]`（不改业务逻辑）
+- [ ] 创建 `SettingsViewModel`（空壳，先绑 DataContext，后续 Phase 3 再搬业务）
+- [ ] 创建 `MiniViewModel`（空壳，同上）
 
 ---
 
-# 第三步：App 改造成 DI
+## Phase 2：按钮事件 → RelayCommand（一次一个按钮）
 
-以后：
-
-```csharp
-public App()
-{
-    Services = ConfigureServices();
-}
-```
-
-例如：
-
-```csharp
-services.AddSingleton<HomeViewModel>();
-
-services.AddSingleton<HomePage>();
-
-services.AddSingleton<MemeService>();
-```
-
-以后 Page 不再：
-
-```
-new HomePage()
-```
-
-而是：
-
-```
-App.Services.GetRequiredService<HomePage>()
-```
-
-虽然目前可以不急着改，但最好一开始就搭好。
+- [ ] 从 MainPage 最小的按钮开始（如 Refresh），改成 `[RelayCommand]`
+- [ ] 逐批迁移：刷新 → 搜索 → 删除 → 导入 → 移动 → 重命名 → 复制/粘贴/发送
+- [ ] XAML 同步改为 `Command="{Binding XxxCommand}"`
+- [ ] 每改完一个按钮验证功能正常
 
 ---
 
-# 第四步：把所有 Model 挪出来
+## Phase 3：按功能拆 Service（不是按抽象层）
 
-例如：
+每拆一个功能，MainPage 减少约 200 行。顺序按依赖关系从独立到耦合：
 
-```
-ImageItem
+- [ ] **搜索 → `SearchService`**：`SearchText`、搜索建议、搜索结果过滤（`MemeListStrategy` 移到这）
+- [ ] **导入 → `ImportService`**：单张/批量导入、进度回调、去重判定（目前散落在 MainPage + `MemeDataEngine.ImportMemesAsync`）
+- [ ] **剪贴板/发送 → `PasteService`（已有，改为实例注入）**：`CopyImageToClipboardAsync`、`OutputMemeToCursorAsync` 不再 static 调用
+- [ ] **删除 & 移动 → `MemeOperationService`**：删除单张/批量、移动到其他分类（目前混在 MainPage + `MemeDataEngine`）
+- [ ] **分类管理 → `CategoryService`**：新建/删除/重命名分类、分类顺序重排（目前混在 MainWindow + `MemeDataEngine`）
+- [ ] **拖拽 → 保留 `ImageDragHelper`（已有）**：改为实例注入到 ViewModel，不再 static 调用
+- [ ] 重命名等零散方法 → 归入对应的 Service
 
-Category
-
-SearchResult
-
-Config
-```
-
-这些不应该混在 Page.cs。
-
-这一步基本不用改业务。
-
-只是搬家。
-
-风险最低。
-
----
-
-# 第五步：开始创建第一个 ViewModel
-
-例如：
-
-```
-HomeViewModel
-```
-
-一开始甚至只有：
-
-```csharp
-public partial class HomeViewModel
-    : ObservableObject
-{
-}
-```
-
-然后：
-
-HomePage：
-
-```csharp
-DataContext = new HomeViewModel();
-```
-
-先能跑。
-
-不要一下子搬业务。
-
----
-
-# 第六步：开始搬 ObservableProperty
-
-例如：
-
-以前：
-
-```csharp
-private bool isSearching;
-```
-
-以后：
-
-```csharp
-[ObservableProperty]
-private bool isSearching;
-```
-
-Toolkit 自动生成：
-
-```
-IsSearching
-```
-
-以及：
-
-PropertyChanged。
-
-这一步非常爽。
-
----
-
-# 第七步：开始搬 Command
-
-例如：
-
-原来：
-
-```csharp
-private void Delete_Click(...)
-```
-
-变：
+完成后 ViewModel 只剩：
 
 ```csharp
 [RelayCommand]
-private void Delete()
-{
-}
-```
-
-XAML：
-
-```
-Command="{Binding DeleteCommand}"
-```
-
-这是第二个收益最大的地方。
-
----
-
-# 第八步：开始拆 Service
-
-这是我觉得最关键的一步。
-
-例如：
-
-HomePage.cs：
-
-现在可能有：
-
-```
-LoadImage()
-
-Delete()
-
-Rename()
-
-Import()
-
-Refresh()
-
-Search()
-```
-
-开始分类。
-
-例如：
-
-```
-LoadImage
-Refresh
-```
-
-放：
-
-```
-ImageService
-```
-
-例如：
-
-```
-Delete
-
-Move
-
-Rename
-```
-
-放：
-
-```
-MemeService
-```
-
-例如：
-
-```
-CopyToClipboard
-
-SendToQQ
-
-DragDrop
-```
-
-放：
-
-```
-ClipboardService
-```
-
-这样 ViewModel 就只剩：
-
-```
-DeleteCommand
-
-↓
-
-memeService.Delete()
+private async Task Delete() => await memeOperationService.DeleteAsync(selectedMemes);
 ```
 
 ---
 
-# 第九步：开始把 UI 事件减少
+## Phase 4：拆分 MemeDataEngine（风险最高，最后做）
 
-保留：
+当前 `MemeDataEngine`（~1000行）承担了 Repository + Service + Config 三重职责：
 
-```
-Loaded
-
-SizeChanged
-
-PointerPressed
-
-AnimationCompleted
-```
-
-这些 UI 生命周期。
-
-去掉：
-
-```
-Delete_Click
-
-Import_Click
-
-Refresh_Click
-
-Search_Click
-```
-
-这些业务事件。
+- [ ] 从 `MemeDataEngine` 抽 `MemeRepository`：纯数据 CRUD（`GetAllMemes` / `GetMemes` / `GetCategories` / `AddCategoryAsync` / metadata 读写 / 缓存）
+- [ ] 从 `MemeDataEngine` 抽配置管理：配置加载/保存（与 `AppConfig` 一起独立）
+- [ ] `MemeDataEngine` 降级为 Facade：只转发调用，不自己干活
+- [ ] 各 Service 改为依赖 `MemeRepository` 而非 `App.DataEngine`
 
 ---
 
-# 第十步：Behavior
+## 最后：目录整理（Phase 0–4 全部完成后，一次性做）
 
-最后再处理：
+分两步：先建 `MemeManager/` 子文件夹把项目嵌套进去，再在内部按功能分层。
+`Helpers/` 不再保留——这些文件全是 UI 相关工作，直接归入 `Views/`。
 
-```
-DragStarting
-
-Drop
-
-PointerReleased
-
-SelectionChanged
-```
-
-这些比较复杂的事件。
-
-不用第一天就弄。
-
----
-
-## CommunityToolkit 到底帮你省什么？
-
-这个很多人误会。
-
-它不是一个 MVVM 框架。
-
-它只是：
-
-**自动帮你生成大量模板代码。**
-
-例如：
-
-以前：
-
-```csharp
-public string SearchText
-{
-    get
-    {
-    }
-
-    set
-    {
-        ...
-        PropertyChanged...
-    }
-}
-```
-
-Toolkit：
-
-```csharp
-[ObservableProperty]
-private string searchText;
-```
-
-结束。
-
----
-
-Command：
-
-以前：
-
-```csharp
-public ICommand DeleteCommand;
-
-DeleteCommand =
-    new RelayCommand(Delete);
-```
-
-Toolkit：
-
-```csharp
-[RelayCommand]
-private void Delete()
-{
-
-}
-```
-
-结束。
-
----
-
-Messenger：
-
-以前：
-
-自己写事件。
-
-Toolkit：
-
-```csharp
-WeakReferenceMessenger.Default.Send(...)
-```
-
-页面之间通信。
-
-例如：
+### 目标结构
 
 ```
-Home
-
-↓
-
-通知 Mini 更新
-
-↓
-
-不用互相引用
+Repository                         ← 仓库根（.sln 在这）
+│
+├── MemeManager.slnx
+├── README.md
+├── LICENSE
+├── .github/
+├── docs/
+├── scripts/
+├── tests/
+│
+└── MemeManager/                   ← 项目根（.csproj 在这）
+    │
+    ├── MemeManager.csproj
+    ├── App.xaml
+    ├── App.xaml.cs
+    ├── Assets/
+    ├── Strings/
+    ├── Properties/
+    │
+    ├── Views/                     ← XAML + code-behind + UI 辅助类
+    │   ├── MainWindow.xaml / .cs
+    │   ├── Pages/
+    │   │   ├── MainPage.xaml / .cs
+    │   │   ├── SettingsPage.xaml / .cs
+    │   │   └── MiniPage.xaml / .cs
+    │   ├── Controls/
+    │   │   └── LocalizedToggleSwitch.xaml / .cs
+    │   ├── Dialogs/
+    │   │   └── DialogHelper.cs
+    │   ├── ImageDragHelper.cs
+    │   ├── ImageBatchOperationRunner.cs
+    │   ├── BatchProgressHelper.cs
+    │   ├── PickerHelper.cs
+    │   ├── IExternalDropPage.cs
+    │   └── IImageReleasablePage.cs
+    │
+    ├── ViewModels/
+    │   ├── MainViewModel.cs
+    │   ├── MemeViewModel.cs
+    │   ├── CategoryViewModel.cs
+    │   ├── SettingsViewModel.cs
+    │   └── MiniViewModel.cs
+    │
+    ├── Models/
+    │   ├── MemeModel.cs
+    │   ├── CategoryMetadata.cs
+    │   ├── CategoryOrderMetadata.cs
+    │   ├── AppConfig.cs
+    │   ├── MemeListStrategy.cs
+    │   ├── RebuildStrategy.cs
+    │   └── ReuseStrategy.cs
+    │
+    ├── Services/
+    │   ├── SearchService.cs
+    │   ├── ImportService.cs
+    │   ├── MemeOperationService.cs
+    │   ├── CategoryService.cs
+    │   └── PasteService.cs
+    │
+    ├── Infrastructure/            ← 横切关注点（全项目共用）
+    │   ├── MemeDataEngine.cs
+    │   ├── FileWatcher.cs
+    │   ├── Logger.cs
+    │   ├── EcoQos.cs
+    │   ├── Localization.cs
+    │   ├── LangHelper.cs
+    │   ├── StartupManager.cs
+    │   ├── NativeMethods.cs
+    │   ├── TrayIcon.cs
+    │   └── Utils.cs
+    │
+    ├── Converters/
+    │   └── BoolToVisibilityConverter.cs
+    │
+    ├── Behaviors/                 ← 空目录，后续拖拽/Pointer 等复杂事件放这
+    │
+    └── Extensions/                ← 空目录，后续扩展方法放这
 ```
 
----
+### 执行步骤
 
-# 我觉得最适合你的迁移路线
-
-千万不要：
-
-> "今天开始，我把 MainPage.xaml.cs 全删了。"
-
-这是 99% MVVM 重构失败的原因。
-
-我的建议是：
-
-```
-① 安装 CommunityToolkit.Mvvm
-            ↓
-② 建立 ViewModels 文件夹
-            ↓
-③ 建立 Services 文件夹
-            ↓
-④ 创建 HomeViewModel（先什么都没有）
-            ↓
-⑤ 把所有 UI 状态迁进去
-（SelectedItem、SearchText、Loading 等）
-            ↓
-⑥ 把 Click 一个一个改成 RelayCommand
-（一次只改一个按钮）
-            ↓
-⑦ 把真正干活的方法搬进 Service
-（复制、删除、搜索、导入）
-            ↓
-⑧ 最后处理 DragDrop、SelectionChanged 等复杂事件
-```
-
-整个过程中**保证项目始终能编译、能运行**。每完成一步就提交一次 Git，而不是攒一大堆改动。
-
----
-
-## 结合你之前几次聊天，我还会额外建议一件事
-
-你的项目已经有：
-
-* 国际化（WinUI3Localizer）
-* Mini 模式
-* 拖拽发送
-* 批量导入
-* 图片缓存
-* 进度条 Helper
-* 后面还想加更多功能
-
-这已经不是一个“小 Demo”了，而是一个真正的桌面应用。
-
-所以我不会追求那种教科书式的“纯 MVVM，零 code-behind”。对于 WinUI 3，我更推荐一种**务实的 MVVM**：
-
-* **View（XAML + 少量 code-behind）**：只负责界面、动画、生命周期、焦点管理、复杂控件交互。
-* **ViewModel**：负责页面状态、命令、页面逻辑。
-* **Service**：负责文件系统、数据库、缓存、剪贴板、拖拽、图片处理等业务。
-* **Model**：纯数据对象。
-
-这种结构既符合 .NET 社区的主流实践，又不会为了追求“绝对纯净”而把简单问题复杂化。对于 MemeManager 这样的项目，我认为这是维护成本和开发效率最平衡的方案。
+- [ ] **Step 1**：建 `MemeManager/` 子文件夹，移入 `.csproj`、所有源码/XAML、`Assets/`、`Strings/`、`Properties/`
+- [ ] **Step 2**：更新 `.sln` 中项目路径为 `MemeManager\MemeManager.csproj`，验证 `dotnet build`
+- [ ] **Step 3**：在 IDE 中按上表拖入各子文件夹，IDE 自动调整命名空间（如 `MemeManager.Views`）
+- [ ] **Step 4**：`dotnet build` + 完整功能回归测试
