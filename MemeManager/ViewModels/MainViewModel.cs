@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.ViewModels;
 using System.Collections.ObjectModel;
@@ -63,6 +64,81 @@ public partial class MainViewModel : ObservableObject
     private void NewCategory()
     {
         NewCategoryRequested?.Invoke();
+    }
+
+    // 分类页业务（2.7）：直接注入 MemeDataEngine 单例（过渡方案，后续统一改构造器注入）。
+    // 仅做业务判断 + 调 DataEngine + 维护 CategoryList 集合；弹窗类 UI 行为通过下方事件请求 Page 层。
+    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
+
+    // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
+    public event Action? CategoriesChangedRequested;
+
+    // 删除分类确认弹窗请求：Page 订阅，用 DialogHelper 弹确认框，返回用户是否确认。
+    public event Func<CategoryViewModel, Task<bool>>? ConfirmDeleteCategoryRequested;
+
+    // 重命名分类输入弹窗请求：Page 订阅，用 DialogHelper 弹输入框，返回用户输入（取消/空白返回 null）。
+    public event Func<CategoryViewModel, Task<string?>>? PromptRenameCategoryRequested;
+
+    // 重命名分类失败提示请求：Page 订阅，用 DialogHelper 弹失败提示。
+    public event Action<CategoryViewModel>? RenameCategoryFailedRequested;
+
+    // 在文件资源管理器中打开分类对应文件夹（纯逻辑，无需弹窗）。
+    [RelayCommand]
+    private void OpenCategoryFolder(CategoryViewModel cat)
+    {
+        var dir = System.IO.Path.Combine(_engine.BaseDir, cat.Name);
+        Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
+    }
+
+    // 删除分类：确认弹窗 → 调 DataEngine 删除 → 维护 CategoryList 集合 → 切换当前分类 → 通知刷新。
+    [RelayCommand]
+    private async Task DeleteCategoryAsync(CategoryViewModel cat)
+    {
+        if (ConfirmDeleteCategoryRequested == null || !await ConfirmDeleteCategoryRequested(cat))
+            return;
+
+        bool ok = await _engine.DeleteCategoryAsync(cat.Name);
+        if (!ok) return;
+
+        for (int i = CategoryList.Count - 1; i >= 0; i--)
+            if (CategoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+                CategoryList.RemoveAt(i);
+
+        if (CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            CurrentCategory = CategoryList.FirstOrDefault()?.Name ?? string.Empty;
+        }
+
+        CategoriesChangedRequested?.Invoke();
+    }
+
+    // 重命名分类：输入弹窗 → 同名校验 → 调 DataEngine 改名 → 同步 VM 属性与当前分类 → 通知刷新。
+    [RelayCommand]
+    private async Task RenameCategoryAsync(CategoryViewModel cat)
+    {
+        if (PromptRenameCategoryRequested == null) return;
+        var newName = await PromptRenameCategoryRequested(cat);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        if (newName.Equals(cat.Name, StringComparison.OrdinalIgnoreCase)
+            || CategoryList.Any(c => c.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            RenameCategoryFailedRequested?.Invoke(cat);
+            return;
+        }
+
+        bool ok = await _engine.RenameCategoryAsync(cat.Name, newName);
+        if (!ok)
+        {
+            RenameCategoryFailedRequested?.Invoke(cat);
+            return;
+        }
+
+        cat.Name = newName;
+        if (CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+            CurrentCategory = newName;
+
+        CategoriesChangedRequested?.Invoke();
     }
 
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
