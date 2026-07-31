@@ -1,14 +1,14 @@
 using System;
 using System.IO;
-using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 
 namespace MemeManager.ViewModels
 {
-    public class MemeViewModel : INotifyPropertyChanged
+    public partial class MemeViewModel : ObservableObject
     {
         // 支持复用：切分类/刷新时复用同一 VM 实例仅替换 Model（见 UpdateModel），
         // 避免每次重建一批 BitmapImage 导致 WinUI 非托管纹理/解码资源累积泄漏。
@@ -24,19 +24,8 @@ namespace MemeManager.ViewModels
         public string Category => _model.Category;
         public string FileName => _model.FileName;
 
-        private string _title;
-        public string Title
-        {
-            get => _title;
-            set
-            {
-                if (_title != value)
-                {
-                    _title = value;
-                    OnPropertyChanged(nameof(Title));
-                }
-            }
-        }
+        [ObservableProperty]
+        public partial string Title { get; set; }
 
         // 缩略图：URI 绑定（文档推荐，可跨多处复用同一解码结果，避免重复解码）。
         // 复用 VM 时 UpdateModel 会清掉 _imageSource 并通知，Image 重新按新 URI
@@ -62,7 +51,7 @@ namespace MemeManager.ViewModels
         public void UpdateModel(MemeModel model)
         {
             _model = model;
-            _title = model.Title;
+            Title = model.Title;
             if (_imageSource != null) { LiveBitmapImageCount--; _imageSource = null; }
             if (_previewSource != null) { LiveBitmapImageCount--; _previewSource = null; }
             OnPropertyChanged(nameof(Hash));
@@ -155,26 +144,15 @@ namespace MemeManager.ViewModels
         public MemeViewModel(MemeModel model, MemeDataEngine engine)
         {
             _model = model;
-            _title = model.Title;
+            Title = model.Title;
             _engine = engine;
         }
 
         // 多选模式(Extended)下的选中镜像：仅作视觉指示（右上角复选框），
         // 单向由 GridView.SelectedItems 同步而来，不反向写回控件选中逻辑，
         // 避免与 WinUI 原生 shift 多选/反选冲突（见 MemeItem_Tapped 注释）。
-        private bool _isSelected;
-        public bool IsSelected
-        {
-            get => _isSelected;
-            set
-            {
-                if (_isSelected != value)
-                {
-                    _isSelected = value;
-                    OnPropertyChanged(nameof(IsSelected));
-                }
-            }
-        }
+        [ObservableProperty]
+        public partial bool IsSelected { get; set; }
 
         // 诊断用：当前进程内 MemeViewModel 还持有（已创建且未清除）的 BitmapImage 数量。
         // 隐藏/清空后应趋近于 0，否则说明仍有根引用未断开。
@@ -189,9 +167,5 @@ namespace MemeManager.ViewModels
             if (_imageSource != null) { LiveBitmapImageCount--; _imageSource = null; }
             if (_previewSource != null) { LiveBitmapImageCount--; _previewSource = null; }
         }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        private void OnPropertyChanged(string name) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
