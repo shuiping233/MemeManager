@@ -1,9 +1,10 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage.Pickers;
 using System.Diagnostics;
 
@@ -11,6 +12,9 @@ namespace MemeManager.Views;
 
 public sealed partial class SettingsPage : Page
 {
+    private readonly MemeDataEngine _engine =
+        ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();
+
     // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
     public System.Collections.Generic.IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = new System.Collections.Generic.List<LangHelper.LanguageOption>();
 
@@ -23,7 +27,7 @@ public sealed partial class SettingsPage : Page
 
         LocalizeStaticStrings();
 
-        var cfg = App.DataEngine.Config;
+        var cfg = _engine.Config;
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
@@ -69,7 +73,7 @@ public sealed partial class SettingsPage : Page
     {
         // 即选即预览：立刻切换主题，无需点“完成”
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
-        App.DataEngine.Config.Theme = theme;
+        _engine.Config.Theme = theme;
         App.ApplyTheme();
     }
 
@@ -91,7 +95,7 @@ public sealed partial class SettingsPage : Page
         // ItemsSource 触发 ComboBox 重新选择并递归触发 SelectionChanged）。
         LangHelper.RefreshLanguageOptions(LanguageItems);
 
-        await App.DataEngine.SaveConfigAsync();
+        await _engine.SaveConfigAsync();
 
         UpdateLanguageStatus();
     }
@@ -214,7 +218,7 @@ public sealed partial class SettingsPage : Page
     private void CancelRecord_Click(object sender, RoutedEventArgs e)
     {
         StopRecording();
-        var cfg = App.DataEngine.Config;
+        var cfg = _engine.Config;
         HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
     }
 
@@ -240,7 +244,7 @@ public sealed partial class SettingsPage : Page
 
                 // 立即写入并刷新：Flyout 打开文件选择器会失焦，可能导致设置页实例被换，
                 // 若延后到 SaveAsync 会读到旧实例的默认值
-                await App.DataEngine.UpdateConfigAsync(cfg => cfg.StoragePath = folder);
+                await _engine.UpdateConfigAsync(cfg => cfg.StoragePath = folder);
                 App.MainWindow.ReloadData();
                 Logger.Log($"[Settings] BrowseButton_Click: 已立即保存存放路径并刷新: {folder}");
 
@@ -336,11 +340,11 @@ public sealed partial class SettingsPage : Page
             pathChanged = true;
         }
 
-        var prev = App.DataEngine.Config;
+        var prev = _engine.Config;
         double prevW = prev.PreviewMaxWidth, prevH = prev.PreviewMaxHeight;
         int prevDelay = prev.PreviewDelayMs;
 
-        await App.DataEngine.UpdateConfigAsync(cfg =>
+        await _engine.UpdateConfigAsync(cfg =>
         {
             cfg.Theme = theme;
             cfg.SaveLogFile = SaveLogToggle.IsOn;
