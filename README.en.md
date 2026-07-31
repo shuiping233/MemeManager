@@ -15,20 +15,23 @@ A high-performance tool for managing and using your meme/sticker collection, bui
 </div>
 
 
-![](image/avif-main-window.avif)
-![](image/avif-500-image-import.avif)
-![](image/image-main-window.png)
-![](image/image-edit-mode.png)
-![](image/image-settings-1.png)
-![](image/image-settings-2.png)
+![avif-main-window.avif](image/avif-main-window.avif)
+![avif-500-image-import.avif](image/avif-500-image-import.avif)
+![image-main-window.png](image/image-main-window.png)
+![image-edit-mode.png](image/image-edit-mode.png)
+![image-settings-1.png](image/image-settings-1.png)
+![image-settings-2.png](image/image-settings-2.png)
+![mini-mode.png](image/mini-mode.png)
 
 
 ## Features
 
-- Both category controls and image controls support drag & drop, including batch drag-to-import, batch multi-select editing, reordering (requires edit mode), and re-categorizing — enjoy intuitive drag behaviors to organize your categories and memes.
-- Hover over an image to pop up a large preview with its title, so you can see the meme content at a glance.
-- The extreme async I/O performance of dotnet 10 and the excellent rendering of WinUI 3 deliver a smooth experience and animations; you can import thousands of images fluidly (depending on disk performance).
-- After the main window is closed, most controls are released. The background thread consumes virtually zero CPU/GPU; with the main window closed long-term, the private working set stays under ~30 MB.
+- **Extreme drag & drop support**: Both category controls and image controls support drag & drop, including batch drag-to-import, batch multi-select editing, reordering (requires edit mode), and re-categorizing — enjoy intuitive drag behaviors to organize your categories and memes.
+- **Smooth preview popup**: Hover over an image to pop up a large preview with its title, so you can see the meme content at a glance.
+- **Powerful import performance**: The extreme async I/O performance of dotnet 10 and the excellent rendering of WinUI 3 deliver a smooth experience and animations; you can import 1000 images instantly (depending on disk performance).
+- **Minimal background footprint**: After the main window is closed, most controls are released. The background thread consumes virtually zero CPU/GPU; with the main window closed long-term, the private working set stays under ~30 MB.
+- **Keyboard shortcut support**: As many common Windows shortcuts as possible are supported, aiming to provide a Windows Explorer-style shortcut experience. See [Keyboard Shortcuts](#keyboard-shortcuts) below for details.
+- **Mini mode**: A `334x117` mini window that takes little screen space while still offering basic importing and usage of memes. See [Mini Mode](#mini-mode) below for details.
 
 
 ## User Guide
@@ -116,7 +119,17 @@ All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported
   - `Ctrl`+`A` : select all images; in non-edit mode this enters edit mode and selects all images in the current category
   - `F5` : refresh page (due to control-reuse implementation, no refresh animation shows if content is unchanged)
   - `F2` : rename the current category
-  - `Delete` : delete the current category
+  - `Delete` : delete the current category; in edit mode, delete the selected images.
+
+
+## Mini Mode
+
+In Mini mode, the main window is forced to stay on top, providing basic image drag-to-import capability and an "emoji popup" feature similar to regular chat apps. Clicking the "Emoji" button pops up the "emoji popup", where you can send a meme by clicking or dragging the image.
+
+Apart from the global summon shortcut, no other shortcuts are currently supported in this mode.
+
+> [!TIP]
+> The button area in Mini mode is the window title bar; click and drag with the mouse to move the window (even if you click and drag on a button).
 
 
 ## Single-Instance Enforcement
@@ -165,10 +178,29 @@ The app's languages are driven by resource files under `Strings/`. For details o
 ## Acknowledgements
 - [NightSkyTS] : Tester — provided a Windows 10 test machine and contributed and reported more than half of the bugs and optimization suggestions.
 
-- [SuzuEmojy] : An excellent similar project, a meme manager based on Python and Qt.
-
+- Similar projects
+  - [SuzuEmojy] : An excellent similar project, a meme manager based on Python3 and Qt6.
+  - [OhMyMeme] : An excellent similar project, a meme manager based on Python3 and Webview2, which can import memes from chat apps like QQ/WeChat with one click, and supports saving and syncing memes to cloud storage services.
+  - [StickersManager2] : An excellent similar project, a meme manager based on C++20 and QT6.
+  - [MSearcher] : An earlier similar project, a meme manager based on Electron, "quickly organize and search your meme images or stickers", supports OCR renaming.
+  - [EmoKit] : An excellent similar project, a meme manager based on Python3, Qt5 and QFluentWidgets.
+  - [EmoticonTool] : A similar project, a meme manager based on Python3 and Qt6, "supports global hotkey summon, hover preview, and usage frequency statistics".
+  - [EmojiManager] : A similar project, a meme manager based on dotnet8 and webview2, "a local meme manager tool used with QQNT".
+  - [emoji-manager] : A closed-source similar project with unknown architecture information, "a meme manager on Windows".
+  - [astrbot_plugin_meme_manager] : An excellent [Astrbot] plugin, "a powerful AstrBot meme management plugin, supporting 🤖 AI smart send & auto-collect memes, 🖥️ WebUI management interface, ☁️ cloud sync and more."
+  - [astrbot_plugin_smart_imagechat_hub] : An excellent [Astrbot] plugin, "an LLM-driven all-in-one smart image chat plugin for AstrBot"
 
 [NightSkyTS]: https://github.com/NightSkyTS
 [SuzuEmojy]: https://github.com/IxinorTyan/SuzuEmojy
+[StickersManager2]: https://github.com/igugyj/StickersManager2
+[OhMyMeme]: https://github.com/TNTXZ/OhMyMeme
+[MSearcher]: https://github.com/Jacken-Wu/MSearcher
+[Astrbot]: https://github.com/AstrBotDevs/Astrbot
+[astrbot_plugin_smart_imagechat_hub]: https://github.com/QingchenWait/astrbot_plugin_smart_imagechat_hub
+[astrbot_plugin_meme_manager]: https://github.com/anka-afk/astrbot_plugin_meme_manager
+[EmoKit]: https://github.com/sxu79r/EmoKit
+[EmoticonTool]: https://github.com/xcsbhjz/EmoticonTool
+[emoji-manager]: https://github.com/morinoyuki/emoji-manager-releases
+[EmojiManager]: https://github.com/Natsukage/EmojiManager
 
 
