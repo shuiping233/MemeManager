@@ -41,22 +41,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
     private IMemeListStrategy _listStrategy = null!;
 
-    // 当前视图所属的分类类型
-    private enum CategoryKind
-    {
-        Normal = 0,
-        All = 1,
-    }
-
     // “全部表情”视图下 _currentCategory 的取值（仅用于显示/日志，不参与判断）
     private const string AllMemesCategory = "AllMemes";
 
     private string _currentCategory = string.Empty;
-    private CategoryKind _currentKind = CategoryKind.Normal;
     private bool _editMode;
 
     // 便捷属性：当前是否处于“全部表情”视图（判断一律走 Kind，不受文件夹名影响）
-    private bool IsAllMemesView => _currentKind == CategoryKind.All;
+    private bool IsAllMemesView => ViewModel.CurrentCategoryKind == CategoryKind.All;
 
     // 外部拖入/导入时的目标分类：
     // 全部表情视图没有具体归属分类，落入“未分类”兜底分类（不存在则创建）；
@@ -83,6 +75,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private readonly MemeDataEngine _engine =
         App.GetService<MemeDataEngine>();
+
+    private MainViewModel ViewModel => (MainViewModel)DataContext;
 
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
@@ -222,7 +216,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
             AllMemesList.SelectedItem = _allMemesVm;
             _currentCategory = AllMemesCategory;
-            _currentKind = CategoryKind.All;
+            ViewModel.CurrentCategoryKind = CategoryKind.All;
         }
         else
         {
@@ -231,7 +225,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 CategoryList.SelectedItem = target;
                 _currentCategory = target.Name;
-                _currentKind = CategoryKind.Normal;
+                ViewModel.CurrentCategoryKind = CategoryKind.Normal;
             }
             else if (target != null)
             {
@@ -254,7 +248,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (cat.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
                 return;
             _currentCategory = cat.Name;
-            _currentKind = CategoryKind.Normal;
+            ViewModel.CurrentCategoryKind = CategoryKind.Normal;
             _ = _engine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
             SyncMemeDragState();
@@ -308,7 +302,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (!IsAllMemesView)
             {
                 _currentCategory = AllMemesCategory;
-                _currentKind = CategoryKind.All;
+                ViewModel.CurrentCategoryKind = CategoryKind.All;
                 _ = _engine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
                 RefreshMemes();
                 SyncMemeDragState();
