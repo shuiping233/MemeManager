@@ -92,6 +92,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.SettingsRequested += ShowSettingsFlyout;
         // Phase 2.3：Mini 模式入口从 Click 迁到 Command；切窗口模式 UI 行为仍留本页
         ViewModel.MiniModeRequested += SwitchToMiniMode;
+        // Phase 2.4：编辑模式切换入口从 Click 迁到 Command；UI 行为仍留本页
+        ViewModel.EditModeRequested += ToggleEditMode;
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -874,7 +876,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // ---------- 修改模式 ----------
 
-    private void EditButton_Click(object? sender, RoutedEventArgs? e)
+    private void ToggleEditMode()
     {
         if (ViewModel.EditMode)
         {
@@ -1873,7 +1875,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // Ctrl+E：切换编辑（多选）模式，与“修改”按钮语义一致
         if (ctrl && e.Key == Windows.System.VirtualKey.E)
         {
-            EditButton_Click(null, null);
+            ToggleEditMode();
             e.Handled = true;
             return;
         }

@@ -85,7 +85,7 @@
                 </ToolTipService.ToolTip>
             </ToggleButton>
             <Button x:Name="EditButton" Grid.Column="2" l:Uids.Uid="Main_Edit" Margin="0,0,8,0"
-                    Style="{StaticResource AccentButtonStyle}" Click="EditButton_Click">
+                Style="{StaticResource AccentButtonStyle}" Command="{Binding ToggleEditModeCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_EditToolTip"/>
                 </ToolTipService.ToolTip>
