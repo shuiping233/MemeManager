@@ -163,9 +163,18 @@
 
 ## Phase 2：按钮事件 → RelayCommand（一次一个）
 
-按复杂度从低到高，每个按钮改完立即验证：
+> **Phase 2 核心纪律（改造前与 AI 讨论确定，务必遵守）**：
+> 1. **只迁移入口，不搬业务**：`Xxx_Click` 的方法体**原样**移到 VM 的 `[RelayCommand]` 方法里，逻辑一行不改。业务拆 Service 留到 Phase 3。否则会变成"把 102KB code-behind 平移成 100KB ViewModel"的假重构。
+> 2. **不是所有事件都 Command 化**：仅"用户意图型操作"迁移（刷新/设置/Mini/编辑/全选/分类操作/表情操作/点击粘贴）。以下**保留 code-behind 或 Behavior**：`DragStarting`/`DragOver`/`Drop`/`PointerMoved`/`Loaded`/`SizeChanged`/`Composition` 等 UI 生命周期/拖拽事件。
+> 3. **async 用 Toolkit**：含 IO/导入/删除的 Command 用 `[RelayCommand]` 标记 `async Task`，Toolkit 生成 `IAsyncRelayCommand`，**禁止 `async void`**。
+> 4. **Command 参数用 VM 类型**：`[RelayCommand] void DeleteMeme(MemeViewModel meme)` 而非 `(object sender)`。让 `RoutedEventArgs` 消失，体现 MVVM 价值。
+> 5. **MemeItem_Tapped 暂留 MainViewModel**（当前模板结构复杂），记一笔：未来应下沉到 `MemeViewModel`/`MemeItemViewModel`。
+> 6. **右键菜单（MenuFlyout）绑定坑**：WinUI 的 `MenuFlyout`/`ContextFlyout` 不在视觉树内，其 `DataContext` 不是 Page。XAML 绑定 Command 时需用 `ElementName=Root`（或 `RelativeSource`）指向 Page 根元素的 DataContext，否则绑定不到 VM 的 Command。
+
+按复杂度从低到高，每个按钮改完立即验证（build + 点击/功能点一遍）：
 
 - [ ] **2.1** `RefreshButton_Click` (line 1755) → `[RelayCommand] RefreshCommand`
+  - 验证 async Command 管线 / loading 状态 / 异常兜底
   - 验收：点击刷新按钮 → 列表刷新，加载指示器正常
 - [ ] **2.2** `SettingsButton_Click` (line 1725) → `[RelayCommand]`
   - 验收：点击设置 → 设置浮窗弹出
@@ -177,25 +186,25 @@
   - 验收：全选/取消全选正常
 - [ ] **2.6** `AddCategoryButton_Click` (line 625) → `[RelayCommand]`
   - 验收：新建分类弹窗正常
-- [ ] **2.7** 分类右键菜单 (lines 285/292/313/319) → 各 `[RelayCommand]`
+- [ ] **2.7** 分类右键菜单 (lines 285/292/313/319) → 各 `[RelayCommand]`（注意纪律 6 的 MenuFlyout 绑定）
   - `CategoryOpenFolder_Click` → `OpenCategoryFolderCommand`
   - `CategoryNew_Click` → `NewCategoryCommand`
   - `CategoryDelete_Click` → `DeleteCategoryCommand`
   - `CategoryRename_Click` → `RenameCategoryCommand`
   - 验收：分类右键四个操作均正常
-- [ ] **2.8** 表情右键/批量按钮 (lines 1392–1633) → 各 `[RelayCommand]`
-  - `MemeCopy_Click` → `CopyMemeCommand`
-  - `MemeDelete_Click` → `DeleteMemeCommand`
+- [ ] **2.8** 表情右键/批量按钮 (lines 1392–1633) → 各 `[RelayCommand]`（参数用 `MemeViewModel`，见纪律 4）
+  - `MemeCopy_Click` → `CopyMemeCommand(MemeViewModel)`
+  - `MemeDelete_Click` → `DeleteMemeCommand(MemeViewModel)`
   - `MemeOpen_Click` / `MemeOpenFolder_Click` → `OpenMemeCommand` / `OpenMemeFolderCommand`
-  - `MemeRename_Click` → `RenameMemeCommand`
+  - `MemeRename_Click` → `RenameMemeCommand(MemeViewModel)`
   - `BatchImportButton_Click` → `BatchImportCommand`
   - `BatchExportButton_Click` → `BatchExportCommand`
   - `DeleteButton_Click` → `BatchDeleteCommand`
   - 验收：右键菜单和批量按钮全部正常
-- [ ] **2.9** `MemeItem_Tapped` (line 940) → `[RelayCommand]`（带参数绑定）
+- [ ] **2.9** `MemeItem_Tapped` (line 940) → `[RelayCommand]`（带 `MemeViewModel` 参数，见纪律 5 暂留 MainVM）
   - 验收：单击粘贴、Shift+点击多选正常
 
-**Phase 2 完成标志**：MainPage 上所有 `_Click` / `_Tapped` 事件处理方法变成 ViewModel 中的 `[RelayCommand]`，XAML 绑定 `Command="{Binding ...}"`。
+**Phase 2 完成标志**：MainPage 上所有"用户意图型操作"的 `_Click` / `_Tapped` 事件处理方法变成 ViewModel 中的 `[RelayCommand]`，XAML 绑定 `Command="{Binding ...}"`；UI 生命周期/拖拽事件（DragOver/Drop/PointerMoved 等）仍保留在 code-behind。MainPage 明显瘦身且**未**变成"第二个巨型 VM"。
 
 ---
 
