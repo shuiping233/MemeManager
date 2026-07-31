@@ -162,7 +162,6 @@
                       AllowDrop="True"
                       CanDragItems="True"
                       CanReorderItems="True"
-                      Background="Transparent"
                       DragItemsCompleted="CategoryList_DragItemsCompleted"
                       DragOver="CategoryList_DragOver"
                       SelectionChanged="CategoryList_SelectionChanged">
