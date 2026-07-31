@@ -168,7 +168,7 @@
                 <ListView.ContextFlyout>
                     <MenuFlyout>
                         <MenuFlyoutItem l:Uids.Uid="Category_New"
-                                        Command="{Binding DataContext.NewCategoryCommand, ElementName=RootGrid}">
+                                        Command="{x:Bind ViewModel.NewCategoryCommand}">
                             <MenuFlyoutItem.Icon>
                                 <SymbolIcon Symbol="NewFolder"/>
                             </MenuFlyoutItem.Icon>
