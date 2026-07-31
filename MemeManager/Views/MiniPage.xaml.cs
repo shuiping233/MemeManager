@@ -143,7 +143,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     {
         // 全部表情视图：GetMemes(null) 返回所有分类（复用引擎既有语义，不过滤）。
         var models = _engine.GetMemes(IsAllMemesView ? null : _currentCategory).ToList();
-        _pickerMemes = models.Select(m => new MemeViewModel(m)).ToList();
+        _pickerMemes = models.Select(m => new MemeViewModel(m, _engine)).ToList();
         PickerRepeater.ItemsSource = _pickerMemes;
 
         PickerEmptyHint.Visibility = _pickerMemes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;

@@ -398,15 +398,23 @@ var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 | 顺序 | 文件 | `App.DataEngine` 引用数 | 说明 | 状态 |
 |---|---|---|---|---|
 | 1 | `Views/MiniPage.xaml.cs` | 10 | Page，由框架导航实例化，故用字段 `((App)Current).Services.GetRequiredService` 注入 | ✅ 已做(DI-1) |
-| 2 | `ViewModels/MemeViewModel.cs` | 1 | ⚠️ 延后：其构造器若注入 DataEngine，会牵连 `RebuildStrategy`/`ReuseStrategy`（由 MainPage new）及 MiniPage 的 new，扩散到多文件。留到 MainPage 一起处理 | ⏸ 暂缓 |
-| 3 | `Infrastructure/Logger.cs` | 2 | 保持 static（不进容器，见决策清单），但内部 `App.DataEngine?` 容错可保留或改注入；当前不动 | ⏸ 保持 static |
-| 4 | `Infrastructure/EcoQos.cs` | 2 | 保持 static，不进容器 | ⏸ 保持 static |
-| 5 | `Infrastructure/LangHelper.cs` | 2 | 保持 static，不进容器 | ⏸ 保持 static |
-| 6 | `Infrastructure/TrayIcon.cs` | 1 | 保持 static / 或注册单例 | ⏸ 暂缓 |
+| 2 | `ViewModels/MemeViewModel.cs` | 1 | 随 MainPage 批次一并注入：构造器加 `MemeDataEngine engine`，牵连 `RebuildStrategy`/`ReuseStrategy`（加 engine 参数）+ MiniPage new 传参 | ✅ 已做(DI-MainPage) |
+| 3 | `Infrastructure/Logger.cs` | 2 | 保持 static（不进容器，见决策清单），内部 `App.DataEngine?` 容错保留 | ✅ 按决策不动 |
+| 4 | `Infrastructure/EcoQos.cs` | 2 | 保持 static，不进容器 | ✅ 按决策不动 |
+| 5 | `Infrastructure/LangHelper.cs` | 2 | 保持 static，不进容器 | ✅ 按决策不动 |
+| 6 | `Infrastructure/TrayIcon.cs` | 1 | 实例化由 App `new TrayIcon(hwnd, engine)` 注入 | ✅ 已做(DI-MainWindow 批次) |
 | 7 | `Views/ImageDragHelper.cs` | 2 | 静态类 → Phase 3 改实例类并注册 DI | ⏸ Phase 3 |
-| 8 | `Views/SettingsPage.xaml.cs` | 7 | Page，同 MiniPage 方式注入 | ⬜ 待做 |
-| 9 | `Views/MainWindow.xaml.cs` | 14 | Page/Window，同方式注入 | ⬜ 待做 |
-| 10 | `Views/MainPage.xaml.cs` | 47 | 最大文件，可再按功能拆多笔提交；MemeViewModel 的注入随此处一并处理 | ⬜ 待做 |
+| 8 | `Views/SettingsPage.xaml.cs` | 7 | Page，字段式注入 | ✅ 已做(DI-2) |
+| 9 | `Views/MainWindow.xaml.cs` | 14 | Window，构造器注入 `MemeDataEngine engine` | ✅ 已做(DI-MainWindow 批次) |
+| 10 | `Views/MainPage.xaml.cs` | 47 | 字段式注入；策略类/VM 注入随此一并处理 | ✅ 已做(DI-MainPage) |
+
+> **MainViewModel 构造器注入前置（做 MainPage 时一并完成）**：
+> 当前 MainPage 仍 `new MainViewModel()`，故 `MainViewModel(MemeDataEngine engine)` 构造器注入**暂不支持**。
+> 做 MainPage 那一步时需先：
+> 1. `ConfigureServices()` 补 `services.AddSingleton<MainViewModel>();`
+> 2. MainPage 改为从容器取：`public MainPage(MainViewModel vm) { InitializeComponent(); DataContext = vm; }`，删除原 `new MainViewModel()`
+> 3. 之后 `MainViewModel` 构造器即可 `public MainViewModel(MemeDataEngine engine)` 由 M.E.DI 自动注入
+> 此前置未完成前，不要给 MainViewModel 加构造器参数。
 
 ### DI 大户分类：哪些进容器、哪些保持 static
 
@@ -448,13 +456,15 @@ var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 
 ### 首批提交清单
 
-- [x] **DI-0**：`App` 加 `Services` + `ConfigureServices()`，注册 `MemeDataEngine`（FileWatcher 随其注入不单独注册）；`App.DataEngine` 暂留作容器转发；build 通过 + 启动功能不变 → 已 commit `4a33511`
-- [x] **DI-1**：`Views/MiniPage.xaml.cs` 注入 `MemeDataEngine`（字段式，因 Page 由导航框架实例化），清零 10 处 `App.DataEngine` 引用，build 通过 → 已 commit
-- [ ] **DI-2 ~ DI-9**：按上表顺序（跳过 MemeViewModel/保持 static 者）逐文件注入、清零该文件引用、功能验证 → 每文件一 commit
-- [ ] **DI-final**：全局 grep `App.DataEngine` 仅剩声明 → 删除静态属性 → commit
+- [x] **DI-0**：`App` 加 `Services` + `ConfigureServices()`，注册 `MemeDataEngine`（FileWatcher 随其注入不单独注册）；`App.DataEngine` 暂留作容器转发；build 通过 → commit `4a33511`
+- [x] **DI-1**：`Views/MiniPage.xaml.cs` 字段式注入，清零 10 处 → commit `0624cfe`
+- [x] **DI-2**：`Views/SettingsPage.xaml.cs` 字段式注入，清零 7 处 → 同批次或独立 commit
+- [x] **DI-MainWindow 批次**：`MainWindow` 构造器注入 + `TrayIcon` 构造器注入（App new 处传参），清零 14+1 处 → commit
+- [x] **DI-MainPage 批次**：`MainPage` 字段式注入（47处）+ `MemeViewModel`/`RebuildStrategy`/`ReuseStrategy` 构造器注入 + `MiniPage` new 传参，全部清零 → commit
+- [ ] **DI-final**：全局 grep `App.DataEngine` 仅剩 Logger/EcoQos/LangHelper/ImageDragHelper（按决策保持 static 或 Phase 3）的转发引用 → `App.DataEngine` 静态属性**暂不删除**（仍有 static 文件依赖转发）；待 Phase 3 完成 ImageDragHelper 后评估
 
 > **注入方式说明**：Page / Window 由 XAML 导航或框架实例化，无法走构造器注入，统一用字段初始化
 > `private readonly MemeDataEngine _engine = ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();`
-> 并 `using Microsoft.Extensions.DependencyInjection;`。构造器可注入的类（Service/ViewModel）则用构造器参数。
+> 并 `using Microsoft.Extensions.DependencyInjection;`。构造器可注入的类（Service/ViewModel/策略类）则用构造器参数。
 
 **完成标志**：`ConfigureServices()` 就绪且各 Service/ViewModel 已注册；所有业务代码通过构造器注入获取 `MemeDataEngine`；`App.DataEngine` 静态入口已删除；项目仍可正常运行。

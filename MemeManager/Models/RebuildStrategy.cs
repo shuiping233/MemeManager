@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MemeManager.Models;
 using MemeManager.ViewModels;
+using MemeManager.Infrastructure;
 
 namespace MemeManager.Models;
 
@@ -14,6 +15,13 @@ namespace MemeManager.Models;
 /// </summary>
 public sealed class RebuildStrategy : IMemeListStrategy
 {
+    private readonly MemeDataEngine _engine;
+
+    public RebuildStrategy(MemeDataEngine engine)
+    {
+        _engine = engine;
+    }
+
     public void SyncCategories(ICollection<CategoryViewModel> list, IEnumerable<string> categories, Func<string, int> getCount)
     {
         list.Clear();
@@ -25,7 +33,7 @@ public sealed class RebuildStrategy : IMemeListStrategy
     {
         list.Clear();
         foreach (var m in memes)
-            list.Add(new MemeViewModel(m));
+            list.Add(new MemeViewModel(m, _engine));
     }
 
     public List<string>? ComputeDragOrder(IList<MemeViewModel> list, IEnumerable<MemeModel> draggingGroup, string? anchorFileName)

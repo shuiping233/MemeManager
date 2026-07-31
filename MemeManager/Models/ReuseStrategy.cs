@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MemeManager.Models;
 using MemeManager.ViewModels;
+using MemeManager.Infrastructure;
 
 namespace MemeManager.Models;
 
@@ -14,6 +15,13 @@ namespace MemeManager.Models;
 /// </summary>
 public sealed class ReuseStrategy : IMemeListStrategy
 {
+    private readonly MemeDataEngine _engine;
+
+    public ReuseStrategy(MemeDataEngine engine)
+    {
+        _engine = engine;
+    }
+
     public void SyncCategories(ICollection<CategoryViewModel> list, IEnumerable<string> categories, Func<string, int> getCount)
     {
         var cats = categories.ToList();
@@ -76,14 +84,14 @@ public sealed class ReuseStrategy : IMemeListStrategy
         if (list is not IList<MemeViewModel> l)
         {
             list.Clear();
-            foreach (var m in memeArr) list.Add(new MemeViewModel(m));
+            foreach (var m in memeArr) list.Add(new MemeViewModel(m, _engine));
             return;
         }
 
         int oldCount = l.Count;
         if (oldCount == 0)
         {
-            foreach (var m in memeArr) l.Add(new MemeViewModel(m));
+            foreach (var m in memeArr) l.Add(new MemeViewModel(m, _engine));
             return;
         }
 
@@ -96,7 +104,7 @@ public sealed class ReuseStrategy : IMemeListStrategy
 
         if (newCount > oldCount)
         {
-            for (int i = oldCount; i < newCount; i++) l.Add(new MemeViewModel(memeArr[i]));
+            for (int i = oldCount; i < newCount; i++) l.Add(new MemeViewModel(memeArr[i], _engine));
         }
         else if (newCount < oldCount)
         {

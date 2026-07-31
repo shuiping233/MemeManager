@@ -109,7 +109,7 @@ namespace MemeManager.ViewModels
             double h = Utils.PreviewMaxHeight;
             try
             {
-                var cfg = App.DataEngine.Config;
+                var cfg = _engine.Config;
                 if (cfg != null && cfg.PreviewMaxWidth > 0 && cfg.PreviewMaxHeight > 0)
                 {
                     w = cfg.PreviewMaxWidth;
@@ -150,10 +150,13 @@ namespace MemeManager.ViewModels
             return (Math.Round(w), Math.Round(h));
         }
 
-        public MemeViewModel(MemeModel model)
+        private readonly MemeDataEngine _engine;
+
+        public MemeViewModel(MemeModel model, MemeDataEngine engine)
         {
             _model = model;
             _title = model.Title;
+            _engine = engine;
         }
 
         // 多选模式(Extended)下的选中镜像：仅作视觉指示（右上角复选框），

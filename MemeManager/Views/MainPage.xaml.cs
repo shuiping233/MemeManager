@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,6 +14,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
+using Microsoft.Extensions.DependencyInjection;
 using MemeManager.Services;
 using MemeManager.ViewModels;
 
@@ -38,7 +39,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
-    private IMemeListStrategy _listStrategy = new RebuildStrategy();
+    private IMemeListStrategy _listStrategy = null!;
 
     // 当前视图所属的分类类型
     private enum CategoryKind
@@ -80,6 +81,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 防止粘贴导入的分类对话框重入
     private bool _pasteDialogOpen;
 
+    private readonly MemeDataEngine _engine =
+        ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();
+
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private MemeViewModel? _pendingPreviewVm;
@@ -90,7 +94,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         try
         {
-            var cfg = App.DataEngine.Config;
+            var cfg = _engine.Config;
             int ms = cfg?.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400;
             _previewTimer.Interval = TimeSpan.FromMilliseconds(ms);
         }
@@ -125,11 +129,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // 订阅数据目录文件监听：图片从库中消失/新增（外部拖出/被删/手动加图）时，
         // 就地更新对应分类控件并提示用户（与引擎解耦，逻辑全在页面层）。
-        if (App.DataEngine.Watcher != null)
+        if (_engine.Watcher != null)
         {
-            App.DataEngine.Watcher.FilesRemoved += OnWatchedFilesRemoved;
-            App.DataEngine.Watcher.FilesAdded += OnWatchedFilesAdded;
-            App.DataEngine.Watcher.FilesMoved += OnWatchedFilesMoved;
+            _engine.Watcher.FilesRemoved += OnWatchedFilesRemoved;
+            _engine.Watcher.FilesAdded += OnWatchedFilesAdded;
+            _engine.Watcher.FilesMoved += OnWatchedFilesMoved;
         }
 
         CategoryList.ItemsSource = _categoryList;
@@ -172,14 +176,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // 按配置创建对应的列表策略实例。
-    private static IMemeListStrategy CreateStrategy(bool reuse) =>
-        reuse ? new ReuseStrategy() : new RebuildStrategy();
+    private IMemeListStrategy CreateStrategy(bool reuse) =>
+        reuse ? new ReuseStrategy(_engine) : new RebuildStrategy(_engine);
 
     // 从配置读取并应用列表策略；首次启动与“设置”保存后均会调用。
     // 复用模式切换会打日志，便于观察内存/行为变化。
     public void ApplyListStrategyFromConfig()
     {
-        bool reuse = App.DataEngine.Config.UseControlReuse;
+        bool reuse = _engine.Config.UseControlReuse;
         var prev = _listStrategy;
         _listStrategy = CreateStrategy(reuse);
         if (prev != null)
@@ -194,23 +198,23 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void LoadCategories()
     {
         // 若没有任何分类文件夹，默认创建一个 "Default"
-        if (App.DataEngine.GetCategories().Count == 0)
+        if (_engine.GetCategories().Count == 0)
         {
-            App.DataEngine.EnsureDefaultCategory();
+            _engine.EnsureDefaultCategory();
         }
 
         // 用当前策略同步分类列表（复用=增量复用容器，重建=整体重建）。
         // 具体算法封装在 IMemeListStrategy.SyncCategories 内。
         _listStrategy.SyncCategories(
             _categoryList,
-            App.DataEngine.GetCategories(),
-            cat => App.DataEngine.GetMemes(cat).Count);
+            _engine.GetCategories(),
+            cat => _engine.GetMemes(cat).Count);
 
         // 默认选中上次或第一项。
         // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
         // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
         // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
-        var last = App.DataEngine.Config.LastCategory;
+        var last = _engine.Config.LastCategory;
         if (string.IsNullOrEmpty(last))
         {
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
@@ -249,7 +253,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return;
             _currentCategory = cat.Name;
             _currentKind = CategoryKind.Normal;
-            _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
+            _ = _engine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
             SyncMemeDragState();
         }
@@ -285,7 +289,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void CategoryOpenFolder_Click(object sender, RoutedEventArgs e)
     {
         if (_contextCategory == null) return;
-        var dir = System.IO.Path.Combine(App.DataEngine.BaseDir, _contextCategory.Name);
+        var dir = System.IO.Path.Combine(_engine.BaseDir, _contextCategory.Name);
         Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
     }
 
@@ -303,7 +307,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 _currentCategory = AllMemesCategory;
                 _currentKind = CategoryKind.All;
-                _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
+                _ = _engine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
                 RefreshMemes();
                 SyncMemeDragState();
             }
@@ -335,7 +339,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-        bool ok = await App.DataEngine.RenameCategoryAsync(cat.Name, newName);
+        bool ok = await _engine.RenameCategoryAsync(cat.Name, newName);
         if (!ok)
         {
             await DialogHelper.ShowRenameCategoryFailedAsync(this.XamlRoot);
@@ -352,7 +356,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (await DialogHelper.ConfirmDeleteCategoryAsync(this.XamlRoot, cat.Name) != ContentDialogResult.Primary)
             return;
 
-        bool ok = await App.DataEngine.DeleteCategoryAsync(cat.Name);
+        bool ok = await _engine.DeleteCategoryAsync(cat.Name);
         if (!ok) return;
 
         // 从 UI 列表移除
@@ -411,7 +415,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
 
         var ordered = _categoryList.Select(c => c.Name).ToList();
-        await App.DataEngine.ReorderCategoriesAsync(ordered);
+        await _engine.ReorderCategoriesAsync(ordered);
         Log($"分类重排写回 {ordered.Count} 个分类顺序");
     }
 
@@ -460,7 +464,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             await _batchRunner.RunAsync(
                 BatchOperationKind.Move,
                 total,
-                progress => App.DataEngine.MoveMemesToCategoryAsync(memes, targetCat.Name, progress),
+                progress => _engine.MoveMemesToCategoryAsync(memes, targetCat.Name, progress),
                 affectedModels: memes,
                 onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」"));
         }
@@ -511,7 +515,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         foreach (var vm in _memeList)
             vm.ClearImages();
 
-        if (App.DataEngine.Config.UseControlReuse)
+        if (_engine.Config.UseControlReuse)
         {
             Log($"[内存诊断] 隐藏释放(复用模式): _memeList={_memeList.Count} _categoryList={_categoryList.Count} " +
                 $"VM存活BitmapImage={MemeViewModel.LiveBitmapImageCount} " +
@@ -591,7 +595,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         try
         {
             var items = await view.GetStorageItemsAsync();
-            var all = App.DataEngine.GetAllMemes();
+            var all = _engine.GetAllMemes();
             foreach (var item in items)
             {
                 var name = System.IO.Path.GetFileName(item.Path);
@@ -637,7 +641,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, name);
             return;
         }
-        bool added = await App.DataEngine.AddCategoryAsync(name);
+        bool added = await _engine.AddCategoryAsync(name);
         if (added)
         {
             _categoryList.Add(new CategoryViewModel(name, 0));
@@ -650,7 +654,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void RefreshMemes()
     {
         var keyword = SearchBox.Text?.Trim();
-        var memes = App.DataEngine.GetMemes(
+        var memes = _engine.GetMemes(
             IsAllMemesView ? null : _currentCategory,
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
@@ -710,7 +714,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void UpdateCategoryCounts()
     {
         // 直接基于内存缓存计数，避免每个分类都走一次 GetMemes().ToList() 的临时分配
-        var cache = App.DataEngine.GetAllMemes();
+        var cache = _engine.GetAllMemes();
         foreach (var c in _categoryList)
             c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
         // 更新"全部表情"总数
@@ -911,7 +915,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 多选模式由配置决定：
         //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
         //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
-        bool explorerStyle = App.DataEngine.Config.ExplorerStyleMultiSelect;
+        bool explorerStyle = _engine.Config.ExplorerStyleMultiSelect;
         MemeGridView.SelectionMode = explorerStyle
             ? ListViewSelectionMode.Extended
             : ListViewSelectionMode.Multiple;
@@ -978,7 +982,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         Log($"单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target}");
         await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, target);
-        await App.DataEngine.IncrementUsageAsync(clicked.Hash);
+        await _engine.IncrementUsageAsync(clicked.Hash);
     }
 
     // 容器(项)为数据生成时：若处于编辑模式且为 Extended 风格，立即把复选框设为可见，
@@ -990,7 +994,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             var box = FindCheckBox(args.ItemContainer);
             if (box != null)
-                box.Visibility = App.DataEngine.Config.ExplorerStyleMultiSelect
+                box.Visibility = _engine.Config.ExplorerStyleMultiSelect
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }
@@ -1095,7 +1099,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 Log("DragItemsStarting: 无可拖出文件（本地路径不存在），跳过设置拖出格式");
             }
-            else if (App.DataEngine.Config.StorageFileDrag)
+            else if (_engine.Config.StorageFileDrag)
             {
                 // 复用 ImageDragHelper：注册 StorageItems（延迟提供）+ 单张非 GIF 的 Bitmap 兜底。
                 // GIF 仅作文件拖出（Bitmap 只静态图，塞 GIF 会变第一帧），保持动图。
@@ -1184,7 +1188,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         try
         {
-            await App.DataEngine.ReorderMemesAsync(_currentCategory, ordered);
+            await _engine.ReorderMemesAsync(_currentCategory, ordered);
             Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
         }
         catch (Exception ex)
@@ -1259,7 +1263,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 await _batchRunner.RunAsync(
                     BatchOperationKind.Move,
                     total,
-                    progress => App.DataEngine.MoveMemesToCategoryAsync(memes, _currentCategory, progress),
+                    progress => _engine.MoveMemesToCategoryAsync(memes, _currentCategory, progress),
                     affectedModels: memes,
                     onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{_currentCategory}」"));
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
@@ -1417,7 +1421,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         await _batchRunner.RunAsync(
             BatchOperationKind.Delete,
             1,
-            progress => App.DataEngine.DeleteMemesAsync(models, progress),
+            progress => _engine.DeleteMemesAsync(models, progress),
             affectedModels: models,
             onUiComplete: () => Log($"右键删除「{vm.Title}」"));
     }
@@ -1453,7 +1457,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var input = await DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
         if (!string.IsNullOrWhiteSpace(input))
         {
-            await App.DataEngine.RenameMemeAsync(vm.Model, input);
+            await _engine.RenameMemeAsync(vm.Model, input);
             Log($"重命名「{vm.Title}」-> 「{input}」");
             // 仅更新该项的显示标题，不重建整个列表（避免滚动条重置/容器刷新）。
             // RenameMemeAsync 已写入 metadata 与内存缓存，这里只通知 UI 刷新 tooltip。
@@ -1465,11 +1469,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 避免同名(hash)文件被静默覆盖导致目标分类原有图片丢失。返回 true 表示可继续移动。
     private async Task<bool> GuardMoveConflictAsync(IEnumerable<MemeModel> memes, string targetCategory)
     {
-        var conflict = await App.DataEngine.FindMoveConflictAsync(memes, targetCategory);
+        var conflict = await _engine.FindMoveConflictAsync(memes, targetCategory);
         if (conflict == null) return true;
 
         // 收集每个冲突项：源图片 + 目标分类中同 hash 的已有图片
-        var targetMemes = App.DataEngine.GetMemes(conflict).ToList();
+        var targetMemes = _engine.GetMemes(conflict).ToList();
         var conflicts = new List<(MemeModel src, MemeModel dst)>();
         foreach (var m in memes)
         {
@@ -1513,7 +1517,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         await _batchRunner.RunAsync(
             BatchOperationKind.Move,
             total,
-            progress => App.DataEngine.MoveMemesToCategoryAsync(models, targetName, progress),
+            progress => _engine.MoveMemesToCategoryAsync(models, targetName, progress),
             affectedModels: models,
             onUiComplete: () => Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」"));
     }
@@ -1581,7 +1585,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 注意：work 的返回值会被 runner 丢弃，故在此用闭包捕获导入结果供日志/弹窗使用
             work: async progress =>
             {
-                result = await App.DataEngine.ImportMemesAsync(list, targetCategory, progress,
+                result = await _engine.ImportMemesAsync(list, targetCategory, progress,
                     // 仅当导入时真正新建了分类目录才回调，UI 据此把新分类加入左侧栏
                     onCategoryCreated: createdName =>
                     {
@@ -1626,7 +1630,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         await _batchRunner.RunAsync(
             BatchOperationKind.Export,
             total,
-            progress => App.DataEngine.ExportMemesAsync(models, folder, progress),
+            progress => _engine.ExportMemesAsync(models, folder, progress),
             onUiComplete: () => Log($"导出完成: {total} 个图片到 {folder}"));
     }
 
@@ -1654,7 +1658,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         await _batchRunner.RunAsync(
             BatchOperationKind.Delete,
             total,
-            progress => App.DataEngine.DeleteMemesAsync(models, progress),
+            progress => _engine.DeleteMemesAsync(models, progress),
             affectedModels: models,
             onUiComplete: () =>
             {
@@ -1709,7 +1713,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 await _batchRunner.RunAsync(
                     BatchOperationKind.Move,
                     total,
-                    progress => App.DataEngine.MoveMemesToCategoryAsync(models, targetName, progress),
+                    progress => _engine.MoveMemesToCategoryAsync(models, targetName, progress),
                     affectedModels: models,
                     onUiComplete: () => Log($"批量移动 {total} 张图片到分类「{targetName}」"));
             };
@@ -1739,7 +1743,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 切换到 Mini 模式（仅当配置允许时，按钮本身也会隐藏）
     private void MiniModeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!App.DataEngine.Config.AllowMiniMode)
+        if (!_engine.Config.AllowMiniMode)
             return;
         App.MainWindow.SwitchMode(AppMode.Mini);
     }
@@ -1748,7 +1752,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     public void ApplyMiniModeVisibilityFromConfig()
     {
         if (MiniModeButton != null)
-            MiniModeButton.Visibility = App.DataEngine.Config.AllowMiniMode
+            MiniModeButton.Visibility = _engine.Config.AllowMiniMode
                 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -1779,7 +1783,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         try
         {
             Log("刷新：重新读取数据目录");
-            await App.DataEngine.InitializeAsync();
+            await _engine.InitializeAsync();
             LoadCategories(); // 内部末尾已调用 RefreshMemes，无需再调一次
         }
         finally
@@ -2094,7 +2098,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
             if (!_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
-                await App.DataEngine.AddCategoryAsync(name);
+                await _engine.AddCategoryAsync(name);
                 _categoryList.Add(new CategoryViewModel(name, 0));
                 Log($"[剪贴板] 新建分类 {name}");
             }
@@ -2208,7 +2212,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
             Log($"[文件监听] 移除 {toRemove.Count} 个已从库消失的图片控件 (分类={focus})");
             var models = toRemove.Select(vm => vm.Model).ToList();
-            App.DataEngine.RemoveMemesFromCache(models);
+            _engine.RemoveMemesFromCache(models);
             RemoveFromCurrentView(models);
             UpdateCategoryCounts();
             await DialogHelper.ShowImageMovedOutAsync(this.XamlRoot);
@@ -2232,7 +2236,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             var fullPaths = added
                 .Where(c => !_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
                     string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
-                .Select(c => Path.Combine(App.DataEngine.BaseDir, c.Category, c.FileName))
+                .Select(c => Path.Combine(_engine.BaseDir, c.Category, c.FileName))
                 .Where(File.Exists)
                 .ToList();
             if (fullPaths.Count > 0)
@@ -2246,7 +2250,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                     {
                         foreach (var fullPath in fullPaths)
                         {
-                            var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
+                            var (model, _) = await _engine.ImportMemeAsync(fullPath, focus);
                             if (model != null)
                                 progress.Report(new BatchProgress(1, 1));
                         }
@@ -2294,7 +2298,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 // 收集真实存在的文件全路径（过滤不存在的）
                 var fullPaths = toAdded
-                    .Select(m => Path.Combine(App.DataEngine.BaseDir, m.To.Category, m.To.FileName))
+                    .Select(m => Path.Combine(_engine.BaseDir, m.To.Category, m.To.FileName))
                     .Where(File.Exists)
                     .ToList();
                 if (fullPaths.Count > 0)
@@ -2308,7 +2312,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                         {
                             foreach (var fullPath in fullPaths)
                             {
-                                var (model, _) = await App.DataEngine.ImportMemeAsync(fullPath, focus);
+                                var (model, _) = await _engine.ImportMemeAsync(fullPath, focus);
                                 if (model != null)
                                     progress.Report(new BatchProgress(1, 1));
                             }
