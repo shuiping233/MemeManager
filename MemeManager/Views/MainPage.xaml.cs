@@ -57,7 +57,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private string? _dragAnchorFileName;
 
     // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
-    private bool _reloading;
 
     // 多选模式：Shift 连续选择的锚点（在 _memeList 中的索引）
     private int _lastShiftAnchor = -1;
@@ -72,7 +71,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
-    private MemeViewModel? _pendingPreviewVm;
     private FrameworkElement? _pendingPreviewAnchor;
 
     // 从配置应用悬停预览触发延时（配置缺失时用默认 400ms）
@@ -514,7 +512,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void HidePreviewPopup(bool immediate = false, string reason = "")
     {
         _previewTimer.Stop();
-        _pendingPreviewVm = null;
+        ViewModel.PendingPreviewVm = null;
         _pendingPreviewAnchor = null;
 
         if (!PreviewPopup.IsOpen)
@@ -743,7 +741,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
         else
         {
-            _pendingPreviewVm = vm;
+            ViewModel.PendingPreviewVm = vm;
             _pendingPreviewAnchor = fe;
             _previewTimer.Start();
         }
@@ -752,7 +750,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void MemeItem_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _previewTimer.Stop();
-        _pendingPreviewVm = null;
+        ViewModel.PendingPreviewVm = null;
         _pendingPreviewAnchor = null;
         // 鼠标离开表情项即关闭预览（移动即取消，不依赖命中测试）
         HidePreviewPopup(reason: "PointerExited");
@@ -786,12 +784,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void PreviewTimer_Tick(object? sender, object e)
     {
-        Log($"[预览] TimerTick -> Show (pending={_pendingPreviewVm?.Title})");
+        Log($"[预览] TimerTick -> Show (pending={ViewModel.PendingPreviewVm?.Title})");
         _previewTimer.Stop();
-        if (_pendingPreviewVm == null || _pendingPreviewAnchor == null) return;
+        if (ViewModel.PendingPreviewVm == null || _pendingPreviewAnchor == null) return;
         if (App.MainWindow.IsClosing || !App.MainWindow.IsAppVisible) return;
 
-        ShowPreviewPopup(_pendingPreviewVm, _pendingPreviewAnchor);
+        ShowPreviewPopup(ViewModel.PendingPreviewVm, _pendingPreviewAnchor);
     }
 
     private void ShowPreviewPopup(MemeViewModel vm, FrameworkElement anchor)
@@ -1033,7 +1031,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         // 全量刷新（F5）重建 ItemsSource 期间禁止发起拖拽：此时 GridView 正在重置集合，
         // 若进入拖拽会让 WinUI 在重建中又操作同一容器而崩溃。直接取消本次拖拽。
-        if (_reloading)
+        if (ViewModel.Reloading)
         {
             e.Cancel = true;
             Log("拖拽被取消：全量刷新进行中，避免重建 ItemsSource 与拖拽冲突导致崩溃");
@@ -1545,7 +1543,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 或网格正处于拖拽重排中（拖拽中重建 ItemsSource 会令 WinUI 崩溃）。
     // 模态窗优先（避免叠加弹窗），写锁与拖拽次之。
     private bool IsBusyBlockingInput() =>
-        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || ViewModel.DraggingMemes != null || _reloading;
+        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || ViewModel.DraggingMemes != null || ViewModel.Reloading;
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
     // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在
@@ -1752,20 +1750,20 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         // 拖拽重排进行中刷新会令 WinUI 崩溃（重建 ItemsSource），写任务进行中重载会与写操作抢数据，
         // 有模态窗时也不应插入刷新，重载自身也不得重入。统一用 IsBusyBlockingInput 拦截。
-        if (IsBusyBlockingInput() || _reloading)
+        if (IsBusyBlockingInput() || ViewModel.Reloading)
         {
             if (_batchRunner.IsWriteActive)
                 _ = DialogHelper.ShowWriteBusyAsync(this.XamlRoot);
             else if (ViewModel.DraggingMemes != null)
                 Log("刷新被忽略：网格拖拽重排进行中，避免重建 ItemsSource 导致崩溃");
-            else if (_reloading)
+            else if (ViewModel.Reloading)
                 Log("刷新被忽略：已有刷新在进行中");
             else
                 Log("刷新被忽略：存在未处理的模态弹窗");
             return;
         }
 
-        _reloading = true;
+        ViewModel.Reloading = true;
         try
         {
             Log("刷新：重新读取数据目录");
@@ -1774,7 +1772,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
         finally
         {
-            _reloading = false;
+            ViewModel.Reloading = false;
         }
     }
 
@@ -1806,20 +1804,19 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // 搜索框输入防抖：避免每次按键都重建表情列表
-    private DispatcherTimer? _searchDebounceTimer;
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-        _searchDebounceTimer.Stop();
-        _searchDebounceTimer.Tick -= SearchDebounce_Tick;
-        _searchDebounceTimer.Tick += SearchDebounce_Tick;
-        _searchDebounceTimer.Start();
+        ViewModel.SearchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        ViewModel.SearchDebounceTimer.Stop();
+        ViewModel.SearchDebounceTimer.Tick -= SearchDebounce_Tick;
+        ViewModel.SearchDebounceTimer.Tick += SearchDebounce_Tick;
+        ViewModel.SearchDebounceTimer.Start();
     }
 
     private void SearchDebounce_Tick(object? sender, object e)
     {
-        _searchDebounceTimer?.Stop();
+        ViewModel.SearchDebounceTimer?.Stop();
         RefreshMemes();
     }
 

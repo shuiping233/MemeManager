@@ -34,6 +34,15 @@ public partial class MainViewModel : ObservableObject
     // 右键菜单上下文：当前右键选中的分类
     public CategoryViewModel? ContextCategory { get; set; }
 
+    // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
+    public bool Reloading { get; set; }
+
+    // 搜索框防抖定时器（输入停止 150ms 后触发刷新）
+    public Microsoft.UI.Xaml.DispatcherTimer? SearchDebounceTimer { get; set; }
+
+    // 悬停放大预览：当前待显示（已延迟、尚未弹出）的表情项
+    public MemeViewModel? PendingPreviewVm { get; set; }
+
     public MainViewModel()
     {
     }
