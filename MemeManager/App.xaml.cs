@@ -6,6 +6,7 @@ using MemeManager.Views;
 using WinRT.Interop;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MemeManager;
 
@@ -17,13 +18,16 @@ public partial class App : Application
     // 单实例互斥体：持有期间禁止第二个实例启动
     private static Mutex? _singleInstanceMutex;
 
-    public static MemeDataEngine DataEngine { get; } = new();
+    public static MemeDataEngine DataEngine => ((App)Current).Services.GetRequiredService<MemeDataEngine>();
 
     public static MainWindow MainWindow => ((App)Current)._window as MainWindow
         ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
 
+    public IServiceProvider Services { get; }
+
     public App()
     {
+        Services = ConfigureServices();
         InitializeComponent();
 
         // 全局崩溃兜底：捕获 UI 线程 / 后台线程 / 未观察 Task 异常
@@ -230,5 +234,16 @@ public partial class App : Application
 
         // 自定义标题栏（含系统最小/最大/关闭按钮）同步按主题上色。
         try { MainWindow.ApplyTitleBarTheme(); } catch { }
+    }
+
+    private static IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+        // 基础设施 / 数据层（核心单例，全项目通过构造器注入获取）
+        services.AddSingleton<MemeDataEngine>();
+        // FileWatcher 是 MemeDataEngine 的成员，随其注入，不单独注册
+        // 业务 Service（Phase 3 逐步补：PasteService / ImageDragHelper / SearchService ...）
+        // ViewModel（Phase 1 起逐步补：MainViewModel ...）
+        return services.BuildServiceProvider();
     }
 }
