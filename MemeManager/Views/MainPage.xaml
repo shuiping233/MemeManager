@@ -193,7 +193,9 @@
                                             <SymbolIcon Symbol="Folder"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem l:Uids.Uid="Category_Rename" Click="CategoryRename_Click">
+                                    <MenuFlyoutItem l:Uids.Uid="Category_Rename"
+                                                    Command="{Binding DataContext.RenameCategoryCommand, ElementName=RootGrid}"
+                                                    CommandParameter="{Binding}">
                                         <MenuFlyoutItem.Icon>
                                             <SymbolIcon Symbol="Rename"/>
                                         </MenuFlyoutItem.Icon>
@@ -220,7 +222,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Row="0" Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Grid.Row="1" Text="{x:Bind Count, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
                             </Grid>
                         </Grid>

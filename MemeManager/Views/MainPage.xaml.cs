@@ -310,36 +310,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    private async void CategoryRename_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextCategory != null)
-            await ShowRenameCategoryDialog(ViewModel.ContextCategory);
-    }
-
-    // 重命名分类对话框：同步重命名物理文件夹并刷新分类列表
-    private async Task ShowRenameCategoryDialog(CategoryViewModel cat)
-    {
-        var newName = await DialogHelper.PromptRenameCategoryAsync(this.XamlRoot, cat.Name);
-        if (string.IsNullOrWhiteSpace(newName)) return;
-        // 同名（不区分大小写）或目标分类已存在都阻止重命名
-        if (newName.Equals(cat.Name, StringComparison.OrdinalIgnoreCase)
-            || ViewModel.CategoryList.Any(c => c.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
-        {
-            await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, newName);
-            return;
-        }
-
-        bool ok = await _engine.RenameCategoryAsync(cat.Name, newName);
-        if (!ok)
-        {
-            await DialogHelper.ShowRenameCategoryFailedAsync(this.XamlRoot);
-            return;
-        }
-        // 重建分类列表（x:Bind 默认 OneTime，需重建以刷新分类名显示），
-        // LoadCategories 内部会按 LastCategory 恢复当前分类并 RefreshMemes
-        LoadCategories();
-    }
-
     // 拖拽图片到分类列表：仅接受内部移动，并高亮可放置
     private void CategoryList_DragOver(object sender, DragEventArgs e)
     {
@@ -1854,7 +1824,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (CategoryList.SelectedItem is CategoryViewModel selCat)
             {
                 e.Handled = true;
-                await ShowRenameCategoryDialog(selCat);
+                await ViewModel.RenameCategoryCommand.ExecuteAsync(selCat);
             }
             return;
         }
