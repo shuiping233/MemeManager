@@ -236,9 +236,6 @@ public partial class MainViewModel : ObservableObject
     // 内部拖拽移动时暂存被拖的 meme 模型列表（非空即表示内部拖拽，区别于外部导入）
     public List<MemeModel>? DraggingMemes { get; set; }
 
-    // 右键菜单上下文：当前右键选中的表情
-    public MemeViewModel? ContextMeme { get; set; }
-
     // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
     public bool Reloading { get; set; }
 

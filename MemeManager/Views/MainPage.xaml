@@ -268,27 +268,37 @@
                            Tapped="MemeItem_Tapped">
                         <Grid.ContextFlyout>
                             <MenuFlyout Opening="MemeItemContextFlyout_Opening">
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Open" Click="MemeOpen_Click">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Open"
+                                                Command="{Binding DataContext.OpenMemeCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}">
                                     <MenuFlyoutItem.Icon>
                                         <SymbolIcon Symbol="OpenFile"/>
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_OpenFolder" Click="MemeOpenFolder_Click">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_OpenFolder"
+                                                Command="{Binding DataContext.OpenMemeFolderCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}">
                                     <MenuFlyoutItem.Icon>
                                         <SymbolIcon Symbol="Folder"/>
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Copy" Click="MemeCopy_Click">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Copy"
+                                                Command="{Binding DataContext.CopyMemeCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}">
                                     <MenuFlyoutItem.Icon>
                                         <SymbolIcon Symbol="Copy"/>
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_MultiSelect" Click="MemeMultiSelect_Click">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_MultiSelect"
+                                                Command="{Binding DataContext.MultiSelectMemeCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE762;"/>
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Rename" Click="MemeRename_Click">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Rename"
+                                                Command="{Binding DataContext.RenameMemeCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}">
                                     <MenuFlyoutItem.Icon>
                                         <SymbolIcon Symbol="Rename"/>
                                     </MenuFlyoutItem.Icon>
@@ -298,7 +308,9 @@
                                         <FontIcon Glyph="&#xE8DE;"/>
                                     </MenuFlyoutSubItem.Icon>
                                 </MenuFlyoutSubItem>
-                                <MenuFlyoutItem l:Uids.Uid="Meme_Delete" Click="MemeDelete_Click">
+                                <MenuFlyoutItem l:Uids.Uid="Meme_Delete"
+                                                Command="{Binding DataContext.DeleteMemeCommand, ElementName=RootGrid}"
+                                                CommandParameter="{Binding}">
                                     <MenuFlyoutItem.Icon>
                                         <SymbolIcon Symbol="Delete"/>
                                     </MenuFlyoutItem.Icon>
@@ -369,14 +381,14 @@
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                 <Button x:Name="SelectAllButton" l:Uids.Uid="Meme_SelectAll" Command="{x:Bind ViewModel.SelectAllCommand}"/>
-                <Button x:Name="BatchImportButton" l:Uids.Uid="Meme_BatchImport" Click="BatchImportButton_Click"/>
-                <Button x:Name="BatchExportButton" l:Uids.Uid="Meme_BatchExport" IsEnabled="False" Click="BatchExportButton_Click"/>
+                <Button x:Name="BatchImportButton" l:Uids.Uid="Meme_BatchImport" Command="{x:Bind ViewModel.BatchImportCommand}"/>
+                <Button x:Name="BatchExportButton" l:Uids.Uid="Meme_BatchExport" IsEnabled="False" Command="{x:Bind ViewModel.BatchExportCommand}"/>
                 <Button x:Name="BatchMoveButton" l:Uids.Uid="Meme_BatchMove" IsEnabled="False">
                     <Button.Flyout>
                         <MenuFlyout x:Name="BatchMoveFlyout" Opening="BatchMoveFlyout_Opening"/>
                     </Button.Flyout>
                 </Button>
-                <Button x:Name="DeleteButton" l:Uids.Uid="Meme_Delete" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" Click="DeleteButton_Click"/>
+                <Button x:Name="DeleteButton" l:Uids.Uid="Meme_Delete" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" Command="{x:Bind ViewModel.BatchDeleteCommand}"/>
             </StackPanel>
         </Grid>
     </Grid>

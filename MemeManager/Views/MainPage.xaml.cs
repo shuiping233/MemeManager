@@ -120,6 +120,17 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.RenameCategoryFailedRequested += cat
             => DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, cat.Name);
 
+        // 2.8：表情项级命令订阅（VM 只发请求，弹窗/批量写/选中项等依赖 Page 状态的逻辑留本页）
+        ViewModel.EnterEditModeAndSelectRequested += vm => EnterEditModeAndSelect(vm);
+        ViewModel.PromptRenameMemeRequested += vm
+            => DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
+        ViewModel.DeleteMemeRequested += vm => _ = DeleteMemeCoreAsync(vm);
+#pragma warning disable CS4014 // 事件订阅为 fire-and-forget，刻意不等待
+        ViewModel.BatchImportRequested += async () => await BatchImportCoreAsync();
+        ViewModel.BatchExportRequested += async () => await BatchExportCoreAsync();
+        ViewModel.BatchDeleteRequested += async () => await DeleteSelectedMemesAsync();
+#pragma warning restore CS4014
+
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
         _batchRunner = new ImageBatchOperationRunner(_batchProgress, DispatcherQueue, new BatchUiContext
@@ -1281,7 +1292,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (fe.DataContext is not MemeViewModel vm)
             return;
 
-        ViewModel.ContextMeme = vm;
         Log("右键单击表情项: " + vm.Title);
 
         // 动态子菜单：列出除当前分类外的所有分类
@@ -1320,24 +1330,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         moveSub.IsEnabled = hasTarget;
     }
 
-    private async void MemeCopy_Click(object sender, RoutedEventArgs e)
+    // 删除单张表情（由 VM DeleteMemeCommand 经事件转发；含确认弹窗 + 写锁 + 后台删除）
+    private async Task DeleteMemeCoreAsync(MemeViewModel vm)
     {
-        if (ViewModel.ContextMeme == null) return;
-        var vm = ViewModel.ContextMeme;
-        await PasteService.CopyImageToClipboardAsync(vm.Model.LocalPath);
-        Log($"已复制「{vm.Title}」到剪贴板");
-    }
-
-    // 右键菜单“多选”：进编辑模式并选中当前图片
-    private void MemeMultiSelect_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextMeme != null) EnterEditModeAndSelect(ViewModel.ContextMeme);
-    }
-
-    private async void MemeDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextMeme == null) return;
-        var vm = ViewModel.ContextMeme;
         if (await DialogHelper.ConfirmDeleteMemeAsync(this.XamlRoot, vm.Title) != ContentDialogResult.Primary)
             return;
 
@@ -1351,45 +1346,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             progress => _engine.DeleteMemesAsync(models, progress),
             affectedModels: models,
             onUiComplete: () => Log($"右键删除「{vm.Title}」"));
-    }
-
-    private void MemeOpen_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextMeme == null) return;
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = ViewModel.ContextMeme.Model.LocalPath,
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            Log($"[打开图片] 失败: {ex.Message}");
-        }
-    }
-
-    // 在文件资源管理器中定位并选中该图片（explorer /select,"路径"）
-    private void MemeOpenFolder_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextMeme == null) return;
-        Utils.OpenInExplorer(ViewModel.ContextMeme.Model.LocalPath, select: true, logTag: "打开所在文件夹");
-    }
-
-    private async void MemeRename_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextMeme == null) return;
-        var vm = ViewModel.ContextMeme;
-        var input = await DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
-        if (!string.IsNullOrWhiteSpace(input))
-        {
-            await _engine.RenameMemeAsync(vm.Model, input);
-            Log($"重命名「{vm.Title}」-> 「{input}」");
-            // 仅更新该项的显示标题，不重建整个列表（避免滚动条重置/容器刷新）。
-            // RenameMemeAsync 已写入 metadata 与内存缓存，这里只通知 UI 刷新 tooltip。
-            vm.Title = input;
-        }
     }
 
     // 移动前的 hash 冲突守卫：若目标分类已存在相同图片则弹模态提示并阻止移动，
@@ -1451,7 +1407,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // ---------- 批量操作 ----------
 
-    private async void BatchImportButton_Click(object sender, RoutedEventArgs e)
+    private async Task BatchImportCoreAsync()
     {
         var files = await PickerHelper.PickMultipleFilesAsync(
             App.MainWindow,
@@ -1536,7 +1492,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private List<MemeViewModel> SelectedMemeViewModels()
         => MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
 
-    private async void BatchExportButton_Click(object sender, RoutedEventArgs e)
+    private async Task BatchExportCoreAsync()
     {
         var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
@@ -1554,11 +1510,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             total,
             progress => _engine.ExportMemesAsync(models, folder, progress),
             onUiComplete: () => Log($"导出完成: {total} 个图片到 {folder}"));
-    }
-
-    private async void DeleteButton_Click(object sender, RoutedEventArgs e)
-    {
-        await DeleteSelectedMemesAsync();
     }
 
     // 删除当前选中的表情：复用删除按钮的确认弹窗 + 写锁守卫 + 后台删除流程。
