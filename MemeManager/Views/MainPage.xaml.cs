@@ -99,7 +99,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // Phase 2.6：新建分类入口从 Click 迁到 Command（与分类右键共用 NewCategoryRequested）
         ViewModel.NewCategoryRequested += async () => await ShowAddCategoryDialog();
         // 2.7：分类数据变更后刷新表情列表（VM 只发通知，刷新逻辑留本页）
-        ViewModel.CategoriesChangedRequested += RefreshMemes;
+        ViewModel.CategoriesChangedRequested += () =>
+        {
+            // 同步分类栏选中态：删除分类后 CurrentCategory 已切到新分类，
+            // 需让 ListView.SelectedItem 跟随，触发 SelectionChanged 恢复焦点/写配置/刷新。
+            CategoryList.SelectedItem = CategoryList.Items.Cast<CategoryViewModel>()
+                .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
+            RefreshMemes();
+        };
         // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
         ViewModel.ConfirmDeleteCategoryRequested += async cat =>
         {

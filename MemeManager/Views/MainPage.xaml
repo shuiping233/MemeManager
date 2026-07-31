@@ -182,7 +182,7 @@
                               DragOver="CategoryListItem_DragOver"
                               Drop="CategoryListItem_Drop">
                             <ToolTipService.ToolTip>
-                                <ToolTip Content="{x:Bind Name}"/>
+                                <ToolTip Content="{x:Bind Name, Mode=OneWay}"/>
                             </ToolTipService.ToolTip>
                             <Grid.ContextFlyout>
                                 <MenuFlyout>
