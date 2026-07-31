@@ -13,7 +13,7 @@ public partial class MainViewModel : ObservableObject
     public event Func<Task>? RefreshRequested;
 
     [RelayCommand]
-    private async Task RefreshAsync()
+    internal async Task RefreshAsync()
     {
         if (RefreshRequested != null)
             await RefreshRequested.Invoke();
@@ -23,7 +23,7 @@ public partial class MainViewModel : ObservableObject
     public event Action? SettingsRequested;
 
     [RelayCommand]
-    private void OpenSettings()
+    internal void OpenSettings()
     {
         SettingsRequested?.Invoke();
     }
