@@ -96,6 +96,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.EditModeRequested += ToggleEditMode;
         // Phase 2.5：全选入口从 Click 迁到 Command；UI 行为仍留本页
         ViewModel.SelectAllRequested += ToggleSelectAll;
+        // Phase 2.6：新建分类入口从 Click 迁到 Command（与分类右键共用 NewCategoryRequested）
+        ViewModel.NewCategoryRequested += async () => await ShowAddCategoryDialog();
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -615,11 +617,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
         }
-    }
-
-    private async void AddCategoryButton_Click(object sender, RoutedEventArgs e)
-    {
-        await ShowAddCategoryDialog();
     }
 
     // 新增分类对话框：成功后在列表末尾追加并选中

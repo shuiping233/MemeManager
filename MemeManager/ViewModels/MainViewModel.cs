@@ -55,6 +55,16 @@ public partial class MainViewModel : ObservableObject
         SelectAllRequested?.Invoke();
     }
 
+    // 新建分类请求：MainPage 订阅并执行 ShowAddCategoryDialog（UI 行为留 Page 层）。
+    // 与 2.7 分类右键的 CategoryNew_Click 共用此入口。
+    public event Action? NewCategoryRequested;
+
+    [RelayCommand]
+    private void NewCategory()
+    {
+        NewCategoryRequested?.Invoke();
+    }
+
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
     [ObservableProperty]
     public partial CategoryKind CurrentCategoryKind { get; set; } = CategoryKind.Normal;
