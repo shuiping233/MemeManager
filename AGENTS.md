@@ -14,8 +14,8 @@
 
 ## MVVM（CommunityToolkit.Mvvm）
 
-- `[RelayCommand]` 生成的命令属性名 **= 方法名 + "Command" 后缀**。XAML 绑定 `Command="{Binding XxxCommand}"` 必须与生成名严格一致，否则运行期报 `property not found`（且不会编译报错，极难排查）。
+- `[RelayCommand]` 生成的命令属性名规则：方法名去掉末尾的 `Async` 后缀（若有）后 + `"Command"` 后缀。XAML 绑定 `Command="{Binding XxxCommand}"` 必须与生成名严格一致，否则运行期报 `property not found`（且不会编译报错，极难排查）。
   - 例：`[RelayCommand] void OpenSettings()` → 生成 `OpenSettingsCommand`（不是 `SettingsCommand`）。
-  - 例：`[RelayCommand] async Task RefreshAsync()` → 生成 `RefreshCommand`。
+  - 例：`[RelayCommand] async Task RefreshAsync()` → 去掉 `Async` → 生成 `RefreshCommand`（不是 `RefreshAsyncCommand`）。
 - `[RelayCommand]` / `[ObservableProperty]` 标注的方法/字段支持 `private`（实测 `private` 方法也能正常生成 Command 属性并绑定，无需改成 `internal`/`public`）。
 - 类必须标记为 `partial`（source generator 要求）。
