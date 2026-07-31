@@ -85,22 +85,22 @@
                 </ToolTipService.ToolTip>
             </ToggleButton>
             <Button x:Name="EditButton" Grid.Column="2" l:Uids.Uid="Main_Edit" Margin="0,0,8,0"
-                Style="{StaticResource AccentButtonStyle}" Command="{Binding ToggleEditModeCommand}">
+                Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.ToggleEditModeCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_EditToolTip"/>
                 </ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="RefreshButton" Grid.Column="3" l:Uids.Uid="Main_Refresh" Margin="0,0,8,0" Command="{Binding RefreshCommand}">
+            <Button x:Name="RefreshButton" Grid.Column="3" l:Uids.Uid="Main_Refresh" Margin="0,0,8,0" Command="{x:Bind ViewModel.RefreshCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_RefreshToolTip"/>
                 </ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="MiniModeButton" Grid.Column="4" l:Uids.Uid="Main_MiniMode" Margin="0,0,8,0" Command="{Binding SwitchToMiniModeCommand}">
+            <Button x:Name="MiniModeButton" Grid.Column="4" l:Uids.Uid="Main_MiniMode" Margin="0,0,8,0" Command="{x:Bind ViewModel.SwitchToMiniModeCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_MiniModeToolTip"/>
                 </ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="SettingsButton" Grid.Column="5" l:Uids.Uid="Main_Settings" Command="{Binding OpenSettingsCommand}">
+            <Button x:Name="SettingsButton" Grid.Column="5" l:Uids.Uid="Main_Settings" Command="{x:Bind ViewModel.OpenSettingsCommand}">
                 <Button.Flyout>
                     <Flyout x:Name="SettingsFlyout"/>
                 </Button.Flyout>
@@ -230,7 +230,7 @@
                 </ListView.ItemTemplate>
             </ListView>
         <Button x:Name="AddCategoryButton" Grid.Row="3" Content="+" FontSize="20"
-            HorizontalAlignment="Stretch" Margin="8" Command="{Binding NewCategoryCommand}">
+            HorizontalAlignment="Stretch" Margin="8" Command="{x:Bind ViewModel.NewCategoryCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_AddCategoryToolTip"/>
                 </ToolTipService.ToolTip>
@@ -368,7 +368,7 @@
               Padding="12"
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button x:Name="SelectAllButton" l:Uids.Uid="Meme_SelectAll" Command="{Binding SelectAllCommand}"/>
+                <Button x:Name="SelectAllButton" l:Uids.Uid="Meme_SelectAll" Command="{x:Bind ViewModel.SelectAllCommand}"/>
                 <Button x:Name="BatchImportButton" l:Uids.Uid="Meme_BatchImport" Click="BatchImportButton_Click"/>
                 <Button x:Name="BatchExportButton" l:Uids.Uid="Meme_BatchExport" IsEnabled="False" Click="BatchExportButton_Click"/>
                 <Button x:Name="BatchMoveButton" l:Uids.Uid="Meme_BatchMove" IsEnabled="False">
