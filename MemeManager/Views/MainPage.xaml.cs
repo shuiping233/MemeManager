@@ -98,6 +98,20 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.SelectAllRequested += ToggleSelectAll;
         // Phase 2.6：新建分类入口从 Click 迁到 Command（与分类右键共用 NewCategoryRequested）
         ViewModel.NewCategoryRequested += async () => await ShowAddCategoryDialog();
+        // 2.7：分类数据变更后刷新表情列表（VM 只发通知，刷新逻辑留本页）
+        ViewModel.CategoriesChangedRequested += RefreshMemes;
+        // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
+        ViewModel.ConfirmDeleteCategoryRequested += async cat =>
+        {
+            var result = await DialogHelper.ConfirmDeleteCategoryAsync(this.XamlRoot, cat.Name);
+            return result == ContentDialogResult.Primary;
+        };
+        // 2.7：重命名分类输入弹窗
+        ViewModel.PromptRenameCategoryRequested += cat
+            => DialogHelper.PromptRenameCategoryAsync(this.XamlRoot, cat.Name);
+        // 2.7：重命名分类失败提示
+        ViewModel.RenameCategoryFailedRequested += cat
+            => DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, cat.Name);
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -296,12 +310,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    private async void CategoryDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextCategory != null)
-            await DeleteCategoryConfirmed(ViewModel.ContextCategory);
-    }
-
     private async void CategoryRename_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.ContextCategory != null)
@@ -330,29 +338,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 重建分类列表（x:Bind 默认 OneTime，需重建以刷新分类名显示），
         // LoadCategories 内部会按 LastCategory 恢复当前分类并 RefreshMemes
         LoadCategories();
-    }
-
-    // 删除分类（含确认对话框与 UI 更新）
-    private async Task DeleteCategoryConfirmed(CategoryViewModel cat)
-    {
-        if (await DialogHelper.ConfirmDeleteCategoryAsync(this.XamlRoot, cat.Name) != ContentDialogResult.Primary)
-            return;
-
-        bool ok = await _engine.DeleteCategoryAsync(cat.Name);
-        if (!ok) return;
-
-        // 从 UI 列表移除
-        for (int i = ViewModel.CategoryList.Count - 1; i >= 0; i--)
-            if (ViewModel.CategoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
-                ViewModel.CategoryList.RemoveAt(i);
-
-        // 若删除的是当前分类，切换到第一项（若有）
-        if (ViewModel.CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
-        {
-            ViewModel.CurrentCategory = ViewModel.CategoryList.FirstOrDefault()?.Name ?? string.Empty;
-            CategoryList.SelectedItem = ViewModel.CategoryList.FirstOrDefault();
-        }
-        RefreshMemes();
     }
 
     // 拖拽图片到分类列表：仅接受内部移动，并高亮可放置
@@ -1892,7 +1877,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (CategoryList.SelectedItem is CategoryViewModel selCat)
             {
                 e.Handled = true;
-                await DeleteCategoryConfirmed(selCat);
+                await ViewModel.DeleteCategoryCommand.ExecuteAsync(selCat);
             }
             return;
         }

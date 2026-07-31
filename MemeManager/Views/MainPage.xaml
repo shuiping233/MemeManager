@@ -198,7 +198,9 @@
                                             <SymbolIcon Symbol="Rename"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
-                                    <MenuFlyoutItem l:Uids.Uid="Category_Delete" Click="CategoryDelete_Click">
+                                    <MenuFlyoutItem l:Uids.Uid="Category_Delete"
+                                                    Command="{Binding DataContext.DeleteCategoryCommand, ElementName=RootGrid}"
+                                                    CommandParameter="{Binding}">
                                         <MenuFlyoutItem.Icon>
                                             <SymbolIcon Symbol="Delete"/>
                                         </MenuFlyoutItem.Icon>
