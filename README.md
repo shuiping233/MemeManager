@@ -175,16 +175,16 @@ Mini模式时, 主窗口置顶状态跟随Full模式的置顶状态, 提供基�
 - [BigJ-00] : 测试人员, 提出Mini模式的建议和ui草稿
 
 - 同类项目
-  - [SuzuEmojy] : 优秀的同类项目, 基于Python3和Qt6开发的表情管理器
-  - [OhMyMeme] : 优秀的同类项目, 基于Python3和Webview2开发的表情管理器, 可从QQ/微信等聊天应用一键导入表情包, 且支持将表情包保存和同步到网络存储服务中
-  - [StickersManager2] : 优秀的同类项目, 基于C++20和QT6开发的表情管理器
+  - [SuzuEmojy] : 同类项目, 基于Python3和Qt6开发的表情管理器, "一个专注于 Windows 的本地表情包管理工具"
+  - [OhMyMeme] : 同类项目, 基于Python3和Webview2开发的表情管理器, 可从QQ/微信等聊天应用一键导入表情包, 且支持将表情包保存和同步到网络存储服务中
+  - [StickersManager2] : 同类项目, 基于C++20和QT6开发的表情管理器
   - [MSearcher] : 较早期的同类项目, 基于Electron开发的表情管理器, "可以快速地整理和搜索你的 meme 图或表情包", 支持OCR重命名
-  - [EmoKit] : 优秀的同类项目, 基于Python3和Qt5和QFluentWidgets开发的表情管理器
+  - [EmoKit] : 同类项目, 基于Python3和Qt5和QFluentWidgets开发的表情管理器
   - [EmoticonTool] : 同类项目, 基于Python3和Qt6开发的表情管理器, "支持全局快捷键唤出，鼠标悬停预览，使用频率统计等功能"
   - [EmojiManager] : 同类项目, 基于dotnet8和webview2开发的表情管理器, "一个配合QQNT使用的本地表情包管理工具"
   - [emoji-manager] : 闭源的同类项目, 架构信息未知, "Windows上的表情包管理器"
-  - [astrbot_plugin_meme_manager] : 优秀的[Astrbot]插件, "一个功能强大的 AstrBot 表情包管理插件，支持 🤖 AI 智能发送与自动收集表情、🖥️ WebUI 管理界面、☁️ 云端同步等特性。"
-  - [astrbot_plugin_smart_imagechat_hub] : 优秀的[Astrbot]插件, "LLM 驱动的 AstrBot 一体化智能图片对话插件"
+  - [astrbot_plugin_meme_manager] : [Astrbot]插件, "一个功能强大的 AstrBot 表情包管理插件，支持 🤖 AI 智能发送与自动收集表情、🖥️ WebUI 管理界面、☁️ 云端同步等特性。"
+  - [astrbot_plugin_smart_imagechat_hub] : [Astrbot]插件, "LLM 驱动的 AstrBot 一体化智能图片对话插件"
 
 [NightSkyTS]: https://github.com/NightSkyTS
 [BigJ-00]: https://github.com/BigJ-00

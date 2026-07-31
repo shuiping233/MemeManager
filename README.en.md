@@ -169,16 +169,16 @@ The app's languages are driven by resource files under `Strings/`. For details o
 - [BigJ-00] : Tester — suggested the Mini mode and provided its UI draft.
 
 - Similar projects
-  - [SuzuEmojy] : An excellent similar project, a meme manager based on Python3 and Qt6.
-  - [OhMyMeme] : An excellent similar project, a meme manager based on Python3 and Webview2, which can import memes from chat apps like QQ/WeChat with one click, and supports saving and syncing memes to cloud storage services.
-  - [StickersManager2] : An excellent similar project, a meme manager based on C++20 and QT6.
+  - [SuzuEmojy] : similar project, a meme manager based on Python3 and Qt6.
+  - [OhMyMeme] : similar project, a meme manager based on Python3 and Webview2, which can import memes from chat apps like QQ/WeChat with one click, and supports saving and syncing memes to cloud storage services.
+  - [StickersManager2] : similar project, a meme manager based on C++20 and QT6.
   - [MSearcher] : An earlier similar project, a meme manager based on Electron, "quickly organize and search your meme images or stickers", supports OCR renaming.
-  - [EmoKit] : An excellent similar project, a meme manager based on Python3, Qt5 and QFluentWidgets.
+  - [EmoKit] : similar project, a meme manager based on Python3, Qt5 and QFluentWidgets.
   - [EmoticonTool] : A similar project, a meme manager based on Python3 and Qt6, "supports global hotkey summon, hover preview, and usage frequency statistics".
   - [EmojiManager] : A similar project, a meme manager based on dotnet8 and webview2, "a local meme manager tool used with QQNT".
   - [emoji-manager] : A closed-source similar project with unknown architecture information, "a meme manager on Windows".
-  - [astrbot_plugin_meme_manager] : An excellent [Astrbot] plugin, "a powerful AstrBot meme management plugin, supporting 🤖 AI smart send & auto-collect memes, 🖥️ WebUI management interface, ☁️ cloud sync and more."
-  - [astrbot_plugin_smart_imagechat_hub] : An excellent [Astrbot] plugin, "an LLM-driven all-in-one smart image chat plugin for AstrBot"
+  - [astrbot_plugin_meme_manager] : [Astrbot] plugin, "a powerful AstrBot meme management plugin, supporting 🤖 AI smart send & auto-collect memes, 🖥️ WebUI management interface, ☁️ cloud sync and more."
+  - [astrbot_plugin_smart_imagechat_hub] : [Astrbot] plugin, "an LLM-driven all-in-one smart image chat plugin for AstrBot"
 
 [NightSkyTS]: https://github.com/NightSkyTS
 [BigJ-00]: https://github.com/BigJ-00
