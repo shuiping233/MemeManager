@@ -130,6 +130,20 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.BatchExportRequested += async () => await BatchExportCoreAsync();
         ViewModel.BatchDeleteRequested += async () => await DeleteSelectedMemesAsync();
 #pragma warning restore CS4014
+        // 2.9：单击表情项转发到 VM 命令；隐藏预览浮窗、发送到外部窗口等 UI 行为留本页
+        ViewModel.HidePreviewRequested += () => HidePreviewPopup(reason: "Tapped");
+        ViewModel.PasteToExternalRequested += async vm =>
+        {
+            var target = App.MainWindow.ResolveExternalPasteTarget();
+            if (target == IntPtr.Zero)
+            {
+                Log("单击(发送模式): 未解析到有效外部窗口，取消本次粘贴");
+                return;
+            }
+            Log($"单击(发送模式): 发送图片 {vm.Title} 到前台窗口 target={target}");
+            await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
+            await _engine.IncrementUsageAsync(vm.Hash);
+        };
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -880,48 +894,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // ---------- 点击表情（非修改模式 = 粘贴；多选模式 = 切换选中） ----------
     // 用 Tapped 而非 PointerPressed：拖拽(CanDrag)会取消 Tapped，避免“先单击粘贴一次、再拖出又粘贴一次”
 
-    private async void MemeItem_Tapped(object sender, TappedRoutedEventArgs e)
+    // 单击表情项：薄适配器，把 Tapped 事件转发给 VM 的 MemeTappedCommand（逻辑已迁入 VM）。
+    private void MemeItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
-        HidePreviewPopup(reason: "Tapped");
-
-        if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel clicked)
-        {
-            Log("MemeItem_Tapped: 取不到 MemeViewModel, sender=" + sender?.GetType().Name);
-            return;
-        }
-
-        int index = ViewModel.MemeList.IndexOf(clicked);
-
-        // ---- 非编辑模式下按住 Shift 点击：直接进编辑模式并选中当前图片，
-        //      后续点击/Shift 连续选交给编辑模式原生逻辑托管。
-        bool shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
-            Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        if (!ViewModel.EditMode && shiftDown)
-        {
-            EnterEditModeAndSelect(clicked);
-            return;
-        }
-
-        // ---- 编辑模式：选中完全交给 GridView 原生(SelectionMode=Multiple)处理，
-        //      Tapped 不再手动切换，避免与控件自带选中逻辑冲突导致要双击。
-        if (ViewModel.EditMode)
-        {
-            ViewModel.LastShiftAnchor = index;
-            return;
-        }
-
-        // ---- 普通模式：发送图片 ----
-        // 目标外部窗口的解析（前台窗口追踪）由 MainWindow 持有（窗口级 Win32 状态）。
-        var target = App.MainWindow.ResolveExternalPasteTarget();
-        if (target == IntPtr.Zero)
-        {
-            Log("单击(发送模式): 未解析到有效外部窗口，取消本次粘贴");
-            return;
-        }
-
-        Log($"单击(发送模式): 发送图片 {clicked.Title} 到前台窗口 target={target}");
-        await PasteService.OutputMemeToCursorAsync(clicked.LocalPath, target);
-        await _engine.IncrementUsageAsync(clicked.Hash);
+        if (sender is FrameworkElement fe && fe.DataContext is MemeViewModel clicked)
+            ViewModel.MemeTappedCommand.Execute(clicked);
     }
 
     // 容器(项)为数据生成时：若处于编辑模式且为 Extended 风格，立即把复选框设为可见，

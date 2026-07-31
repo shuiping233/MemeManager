@@ -4,6 +4,7 @@ using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
 using MemeManager.ViewModels;
+using Microsoft.UI.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 
@@ -211,6 +212,39 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void BatchDelete() => BatchDeleteRequested?.Invoke();
+
+    // 单击表情项（普通模式=发送到外部窗口；Shift+单击=进编辑并选中；编辑模式=原生选中由控件托管）
+    // 隐藏预览浮窗、解析外部窗口并发送等依赖 Page/Window 的 UI 行为通过事件请求本页。
+    public event Action? HidePreviewRequested;
+    public event Action<MemeViewModel>? PasteToExternalRequested;
+
+    [RelayCommand]
+    private void MemeTapped(MemeViewModel vm)
+    {
+        HidePreviewRequested?.Invoke();
+
+        int index = MemeList.IndexOf(vm);
+
+        bool shiftDown = InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        // 非编辑模式下按住 Shift 点击：进编辑模式并选中当前图片
+        if (!EditMode && shiftDown)
+        {
+            EnterEditModeAndSelectRequested?.Invoke(vm);
+            return;
+        }
+
+        // 编辑模式：选中交给 GridView 原生处理，仅记录 Shift 连续选择锚点
+        if (EditMode)
+        {
+            LastShiftAnchor = index;
+            return;
+        }
+
+        // 普通模式：发送到前台外部窗口
+        PasteToExternalRequested?.Invoke(vm);
+    }
 
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
     [ObservableProperty]
