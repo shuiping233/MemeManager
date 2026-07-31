@@ -86,6 +86,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         DataContext = App.GetService<MainViewModel>();
 
+        // Phase 2.1：刷新入口从 Click 迁到 Command；业务逻辑 RefreshDataAsync 仍留本页（只迁入口不搬业务）
+        ViewModel.RefreshRequested += RefreshDataAsync;
+
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
         _batchRunner = new ImageBatchOperationRunner(_batchProgress, DispatcherQueue, new BatchUiContext
@@ -1733,11 +1736,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (MiniModeButton != null)
             MiniModeButton.Visibility = _engine.Config.AllowMiniMode
                 ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
-    {
-        await RefreshDataAsync();
     }
 
     /// <summary>重新读取数据目录并重渲染：分类、表情、缩略图全部刷新</summary>

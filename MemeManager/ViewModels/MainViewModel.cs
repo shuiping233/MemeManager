@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MemeManager.Models;
 using MemeManager.ViewModels;
 using System.Collections.ObjectModel;
@@ -7,6 +8,17 @@ namespace MemeManager.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    // 刷新请求：MainPage 订阅并执行业务逻辑（RefreshDataAsync），VM 只负责暴露 Command 入口。
+    // 这样 Phase 2 只迁入口、不搬业务（业务拆 Service 留到 Phase 3）。
+    public event Func<Task>? RefreshRequested;
+
+    [RelayCommand]
+    private async Task RefreshAsync()
+    {
+        if (RefreshRequested != null)
+            await RefreshRequested.Invoke();
+    }
+
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
     [ObservableProperty]
     public partial CategoryKind CurrentCategoryKind { get; set; } = CategoryKind.Normal;

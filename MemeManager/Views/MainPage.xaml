@@ -90,7 +90,7 @@
                     <ToolTip l:Uids.Uid="Main_EditToolTip"/>
                 </ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="RefreshButton" Grid.Column="3" l:Uids.Uid="Main_Refresh" Margin="0,0,8,0" Click="RefreshButton_Click">
+            <Button x:Name="RefreshButton" Grid.Column="3" l:Uids.Uid="Main_Refresh" Margin="0,0,8,0" Command="{Binding RefreshCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_RefreshToolTip"/>
                 </ToolTipService.ToolTip>
