@@ -112,6 +112,16 @@
 
         <!-- 左侧分类栏 -->
         <Grid Grid.Row="3" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid.ContextFlyout>
+                <MenuFlyout>
+                    <MenuFlyoutItem l:Uids.Uid="Category_New"
+                                    Command="{Binding DataContext.NewCategoryCommand, ElementName=RootGrid}">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="NewFolder"/>
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                </MenuFlyout>
+            </Grid.ContextFlyout>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -165,16 +175,6 @@
                       DragItemsCompleted="CategoryList_DragItemsCompleted"
                       DragOver="CategoryList_DragOver"
                       SelectionChanged="CategoryList_SelectionChanged">
-                <ListView.ContextFlyout>
-                    <MenuFlyout>
-                        <MenuFlyoutItem l:Uids.Uid="Category_New"
-                                        Command="{Binding DataContext.NewCategoryCommand, ElementName=RootGrid}">
-                            <MenuFlyoutItem.Icon>
-                                <SymbolIcon Symbol="NewFolder"/>
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                    </MenuFlyout>
-                </ListView.ContextFlyout>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:CategoryViewModel">
                         <Grid Padding="8,6"
