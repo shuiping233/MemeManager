@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +11,7 @@ using MemeManager.Models;
 using MemeManager.ViewModels;
 using MemeManager.Infrastructure;
 using MemeManager.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 
@@ -41,6 +42,9 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     // 导入成功提示自动恢复为默认文案的延迟时长（毫秒）。
     private const int ImportHintRestoreDelay = 7 * 1000;
 
+    private readonly MemeDataEngine _engine =
+        ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();
+
     public MiniPage()
     {
         InitializeComponent();
@@ -69,10 +73,10 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     private void LoadCategories()
     {
-        var cats = App.DataEngine.GetCategories();
+        var cats = _engine.GetCategories();
         if (cats.Count == 0)
-            App.DataEngine.EnsureDefaultCategory();
-        cats = App.DataEngine.GetCategories();
+            _engine.EnsureDefaultCategory();
+        cats = _engine.GetCategories();
 
         // 复用 Full 的 CategoryViewModel：头部插入“全部表情”虚拟项（Name 空串），
         // 与 Full 的 _allMemesVm 约定一致（空名 = 全部表情）。
@@ -81,10 +85,10 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             new ViewModels.CategoryViewModel("", 0)
         };
         foreach (var c in cats)
-            items.Add(new ViewModels.CategoryViewModel(c, App.DataEngine.GetMemes(c).Count));
+            items.Add(new ViewModels.CategoryViewModel(c, _engine.GetMemes(c).Count));
         CategoryCombo.ItemsSource = items;
 
-        var last = App.DataEngine.Config.LastCategory;
+        var last = _engine.Config.LastCategory;
         if (string.IsNullOrEmpty(last))
         {
             // 上次停留在“全部表情”：选中头部虚拟项。
@@ -116,12 +120,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             if (string.IsNullOrEmpty(vm.Name))
             {
                 _currentCategory = AllMemesCategory;
-                _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = "");
+                _ = _engine.UpdateConfigAsync(c => c.LastCategory = "");
             }
             else
             {
                 _currentCategory = vm.Name;
-                _ = App.DataEngine.UpdateConfigAsync(c => c.LastCategory = vm.Name);
+                _ = _engine.UpdateConfigAsync(c => c.LastCategory = vm.Name);
             }
             ReleaseImages();
         }
@@ -138,7 +142,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     private void LoadPickerMemes()
     {
         // 全部表情视图：GetMemes(null) 返回所有分类（复用引擎既有语义，不过滤）。
-        var models = App.DataEngine.GetMemes(IsAllMemesView ? null : _currentCategory).ToList();
+        var models = _engine.GetMemes(IsAllMemesView ? null : _currentCategory).ToList();
         _pickerMemes = models.Select(m => new MemeViewModel(m)).ToList();
         PickerRepeater.ItemsSource = _pickerMemes;
 
@@ -171,7 +175,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             return;
 
         // 复用 ImageDragHelper：装 StorageItems + 单张非 GIF 的 Bitmap 兜底，GIF 仅文件拖出。
-        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, App.DataEngine.Config.StorageFileDrag);
+        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, _engine.Config.StorageFileDrag);
         Logger.Log($"[Mini] 拖出 1 张图片 ({Path.GetFileName(vm.LocalPath)})");
     }
 
@@ -262,7 +266,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         // 轮询直到不再忙，恢复拖入与提示文字
         DispatcherQueue.TryEnqueue(async () =>
         {
-            while (App.DataEngine.IsBusyWriting)
+            while (_engine.IsBusyWriting)
                 await Task.Delay(150);
             RootGrid.AllowDrop = true;
             MiniDropHintText.Text = Localization.Get("Mini_DropHint");
