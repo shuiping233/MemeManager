@@ -82,7 +82,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private bool _pasteDialogOpen;
 
     private readonly MemeDataEngine _engine =
-        ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();
+        App.GetService<MemeDataEngine>();
 
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
@@ -104,6 +104,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     public MainPage()
     {
         InitializeComponent();
+
+        DataContext = App.GetService<MainViewModel>();
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 

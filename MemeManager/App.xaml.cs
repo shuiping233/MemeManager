@@ -3,6 +3,7 @@ using MemeManager.Models;
 using Microsoft.UI.Xaml.Controls;
 using MemeManager.Infrastructure;
 using MemeManager.Views;
+using MemeManager.ViewModels;
 using WinRT.Interop;
 using System.IO;
 using System.Threading.Tasks;
@@ -18,12 +19,16 @@ public partial class App : Application
     // 单实例互斥体：持有期间禁止第二个实例启动
     private static Mutex? _singleInstanceMutex;
 
-    public static MemeDataEngine DataEngine => ((App)Current).Services.GetRequiredService<MemeDataEngine>();
+    public static MemeDataEngine DataEngine => GetService<MemeDataEngine>();
 
     public static MainWindow MainWindow => ((App)Current)._window as MainWindow
         ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
 
     public IServiceProvider Services { get; }
+
+    /// <summary>从 DI 容器解析服务（Service Locator 过渡封装，以后换 DI 框架只改此处）。</summary>
+    public static T GetService<T>() where T : class
+        => ((App)Current).Services.GetRequiredService<T>();
 
     public App()
     {
@@ -244,6 +249,7 @@ public partial class App : Application
         // FileWatcher 是 MemeDataEngine 的成员，随其注入，不单独注册
         // 业务 Service（Phase 3 逐步补：PasteService / ImageDragHelper / SearchService ...）
         // ViewModel（Phase 1 起逐步补：MainViewModel ...）
+        services.AddSingleton<MainViewModel>();
         return services.BuildServiceProvider();
     }
 }

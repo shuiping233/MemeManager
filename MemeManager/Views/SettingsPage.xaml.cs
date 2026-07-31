@@ -13,7 +13,7 @@ namespace MemeManager.Views;
 public sealed partial class SettingsPage : Page
 {
     private readonly MemeDataEngine _engine =
-        ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();
+        App.GetService<MemeDataEngine>();
 
     // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
     public System.Collections.Generic.IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = new System.Collections.Generic.List<LangHelper.LanguageOption>();

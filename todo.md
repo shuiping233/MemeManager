@@ -82,14 +82,34 @@
 
 > **关键顺序**：先搬状态，后拆 Service——否则 Service 会开始依赖 UI 状态。
 
-### 1.1 创建 MainViewModel 空壳
+### 1.1 创建 MainViewModel 空壳 + 接通 DI（方式 A，不改动 Navigation）
 
-- [ ] 新建 `MainViewModel.cs`，继承 `ObservableObject`
+> **决策（Phase 1.1 前与 AI 讨论确定）**：
+> - Page 由 WinUI `Frame.Navigate(typeof(Page))` 内部 `Activator.CreateInstance` 实例化，**不能走构造器注入**。
+> - 采用**方式 A**：Page 内通过 `App.GetService<T>()` 取 ViewModel（Service Locator 过渡方案，可接受）。
+> - 不改动 Navigation、不改 `OnNavigatedTo`、不拆 Service、不新增业务逻辑迁移。
+> - `App.Services` 保持**实例属性**（承认有状态），新增 `static App.GetService<T>()` 封装，内部走 `((App)Current).Services`，以后换 DI 框架只动 `App`。
+
+- [ ] `App` 加 `static T GetService<T>() where T : class => ((App)Current).Services.GetRequiredService<T>();`
+- [ ] 把已完成的字段式注入 `((App)Application.Current).Services.GetRequiredService<X>()` 批量改为 `App.GetService<X>()`（MiniPage / MainPage / SettingsPage / TrayIcon 调用处等，代码量小，统一清理）
+- [ ] `ConfigureServices()` 加 `services.AddSingleton<MainViewModel>();`
+- [ ] 新建 `MainViewModel.cs`，继承 `ObservableObject`，带空构造器（未来加 `MemeDataEngine` 参数时 diff 清晰）
   ```csharp
-  public partial class MainViewModel : ObservableObject { }
+  public partial class MainViewModel : ObservableObject
+  {
+      public MainViewModel()
+      {
+      }
+  }
   ```
-- [ ] `MainPage` 构造函数中 `DataContext = new MainViewModel();`
-- [ ] `dotnet build` 通过 → commit
+- [ ] `MainPage` 构造函数中 `DataContext = App.GetService<MainViewModel>();`（保持 `RootFrame.Navigate(typeof(MainPage))` 不变）
+- [ ] `dotnet build` 通过 → 独立 commit `refactor: Phase 1.1 创建 MainViewModel 空壳并接通 DI`
+
+**验收标准**：
+- ✅ App 启动正常
+- ✅ MainPage `DataContext` 类型为 `MainViewModel`
+- ✅ 原 Click 事件 / `App.DataEngine` 调用不受影响
+- ✅ 无新增业务逻辑迁移（只接通 DI，不搬任何字段/方法）
 
 ### 1.2 搬简单状态字段
 

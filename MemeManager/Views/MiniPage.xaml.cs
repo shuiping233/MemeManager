@@ -43,7 +43,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     private const int ImportHintRestoreDelay = 7 * 1000;
 
     private readonly MemeDataEngine _engine =
-        ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();
+        App.GetService<MemeDataEngine>();
 
     public MiniPage()
     {
