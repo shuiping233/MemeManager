@@ -2,8 +2,10 @@
 using CommunityToolkit.Mvvm.Input;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
+using MemeManager.Services;
 using MemeManager.ViewModels;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 
 namespace MemeManager.ViewModels;
 
@@ -140,6 +142,75 @@ public partial class MainViewModel : ObservableObject
 
         CategoriesChangedRequested?.Invoke();
     }
+
+    // ---------- 表情操作（2.8）----------
+    // 纯逻辑命令（无需 XamlRoot / Page 状态）直接放 VM；弹窗/批量写等 UI 行为通过下方事件请求 Page 层。
+
+    // 复制图片到剪贴板（纯调用 PasteService）
+    [RelayCommand]
+    private async Task CopyMemeAsync(MemeViewModel vm)
+        => await PasteService.CopyImageToClipboardAsync(vm.Model.LocalPath);
+
+    // 用系统默认程序打开图片（纯进程启动）
+    [RelayCommand]
+    private void OpenMeme(MemeViewModel vm)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = vm.Model.LocalPath,
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    // 在资源管理器中定位并选中图片（纯调用 Utils）
+    [RelayCommand]
+    private void OpenMemeFolder(MemeViewModel vm)
+        => Utils.OpenInExplorer(vm.Model.LocalPath, select: true, logTag: "打开所在文件夹");
+
+    // 右键“多选”：进编辑模式并选中当前图片（纯 UI 行为，留 Page 层）
+    public event Action<MemeViewModel>? EnterEditModeAndSelectRequested;
+
+    [RelayCommand]
+    private void MultiSelectMeme(MemeViewModel vm)
+        => EnterEditModeAndSelectRequested?.Invoke(vm);
+
+    // 重命名表情：输入弹窗（需 XamlRoot）→ 调 DataEngine 改名 → 同步 Title 属性
+    public event Func<MemeViewModel, Task<string?>>? PromptRenameMemeRequested;
+
+    [RelayCommand]
+    private async Task RenameMemeAsync(MemeViewModel vm)
+    {
+        if (PromptRenameMemeRequested == null) return;
+        var input = await PromptRenameMemeRequested(vm);
+        if (string.IsNullOrWhiteSpace(input)) return;
+        await _engine.RenameMemeAsync(vm.Model, input);
+        vm.Title = input;
+    }
+
+    // 删除单张表情（含确认弹窗 + 写锁 + 后台删除，依赖 Page 的 batchRunner，留 Page 层）
+    public event Action<MemeViewModel>? DeleteMemeRequested;
+
+    [RelayCommand]
+    private void DeleteMeme(MemeViewModel vm)
+        => DeleteMemeRequested?.Invoke(vm);
+
+    // 批量操作按钮：导入/导出/删除（涉及文件选择器、选中项、batchRunner，留 Page 层）
+    public event Action? BatchImportRequested;
+    public event Action? BatchExportRequested;
+    public event Action? BatchDeleteRequested;
+
+    [RelayCommand]
+    private void BatchImport() => BatchImportRequested?.Invoke();
+
+    [RelayCommand]
+    private void BatchExport() => BatchExportRequested?.Invoke();
+
+    [RelayCommand]
+    private void BatchDelete() => BatchDeleteRequested?.Invoke();
 
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
     [ObservableProperty]
