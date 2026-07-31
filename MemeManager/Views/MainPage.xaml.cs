@@ -44,7 +44,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // “全部表情”视图下 _currentCategory 的取值（仅用于显示/日志，不参与判断）
     private const string AllMemesCategory = "AllMemes";
 
-    private string _currentCategory = string.Empty;
     private bool _editMode;
 
     // 便捷属性：当前是否处于“全部表情”视图（判断一律走 Kind，不受文件夹名影响）
@@ -54,7 +53,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 全部表情视图没有具体归属分类，落入“未分类”兜底分类（不存在则创建）；
     // 普通分类视图则按当前分类导入。
     private string ImportTargetCategory =>
-        IsAllMemesView ? MemeDataEngine.UncategorizedCategory : _currentCategory;
+        IsAllMemesView ? MemeDataEngine.UncategorizedCategory : ViewModel.CurrentCategory;
 
     // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
     // 仅复用策略(ReuseStrategy.ComputeDragOrder)使用，用于把“拖起项”对齐到
@@ -107,7 +106,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             IsClosing = () => App.MainWindow.IsClosing,
             IsVisible = () => App.MainWindow.IsAppVisible,
-            CurrentCategory = () => _currentCategory,
+            CurrentCategory = () => ViewModel.CurrentCategory,
             IsAllMemesView = () => IsAllMemesView,
             UpdateCategoryCounts = UpdateCategoryCounts,
             RefreshMemes = RefreshMemes,
@@ -215,16 +214,16 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
             AllMemesList.SelectedItem = _allMemesVm;
-            _currentCategory = AllMemesCategory;
+            ViewModel.CurrentCategory = AllMemesCategory;
             ViewModel.CurrentCategoryKind = CategoryKind.All;
         }
         else
         {
             var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
-            if (target != null && !target.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+            if (target != null && !target.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
             {
                 CategoryList.SelectedItem = target;
-                _currentCategory = target.Name;
+                ViewModel.CurrentCategory = target.Name;
                 ViewModel.CurrentCategoryKind = CategoryKind.Normal;
             }
             else if (target != null)
@@ -245,9 +244,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 清除"全部表情"的选中态
             AllMemesList.SelectedItem = null;
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配
-            if (cat.Name.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase))
+            if (cat.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
                 return;
-            _currentCategory = cat.Name;
+            ViewModel.CurrentCategory = cat.Name;
             ViewModel.CurrentCategoryKind = CategoryKind.Normal;
             _ = _engine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
             RefreshMemes();
@@ -301,7 +300,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配。
             if (!IsAllMemesView)
             {
-                _currentCategory = AllMemesCategory;
+                ViewModel.CurrentCategory = AllMemesCategory;
                 ViewModel.CurrentCategoryKind = CategoryKind.All;
                 _ = _engine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
                 RefreshMemes();
@@ -361,9 +360,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 _categoryList.RemoveAt(i);
 
         // 若删除的是当前分类，切换到第一项（若有）
-        if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+        if (ViewModel.CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
         {
-            _currentCategory = _categoryList.FirstOrDefault()?.Name ?? string.Empty;
+            ViewModel.CurrentCategory = _categoryList.FirstOrDefault()?.Name ?? string.Empty;
             CategoryList.SelectedItem = _categoryList.FirstOrDefault();
         }
         RefreshMemes();
@@ -486,7 +485,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             }
             // 隐藏时 CategoryList.ItemsSource 被置空导致选中容器销毁、蓝条/高亮丢失；
             // 重新绑回后必须重新断言选中，待容器生成后再设回以恢复视觉。
-            var sel = _categoryList.FirstOrDefault(c => c.Name == _currentCategory)
+            var sel = _categoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory)
                       ?? _categoryList.FirstOrDefault();
             if (sel != null)
             {
@@ -651,7 +650,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         var keyword = SearchBox.Text?.Trim();
         var memes = _engine.GetMemes(
-            IsAllMemesView ? null : _currentCategory,
+            IsAllMemesView ? null : ViewModel.CurrentCategory,
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
         // 用当前策略刷新表情列表（复用=增量复用 VM，重建=整体 Clear+重建）。
@@ -1184,8 +1183,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         try
         {
-            await _engine.ReorderMemesAsync(_currentCategory, ordered);
-            Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{_currentCategory}」");
+            await _engine.ReorderMemesAsync(ViewModel.CurrentCategory, ordered);
+            Log($"DragItemsCompleted: 重排写回 {ordered.Count} 张图片到分类「{ViewModel.CurrentCategory}」");
         }
         catch (Exception ex)
         {
@@ -1240,7 +1239,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return;
             }
 
-            // “全部表情”视图（_currentCategory 为空）下：拖到网格自身无意义
+            // “全部表情”视图（CurrentCategory 为空）下：拖到网格自身无意义
             // （无单一当前分类可作移动目标），且禁止跨分类重排序。直接忽略，
             // 真正的“移动归属”请拖到左侧分类栏（CategoryListItem_Drop）。
             if (IsAllMemesView)
@@ -1250,7 +1249,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             }
 
             // 非编辑模式：拖到网格（当前分类）视为移动到当前分类（原地，通常无意义但保持行为一致）
-            int moved = memes.Count(m => !m.Category.Equals(_currentCategory, StringComparison.OrdinalIgnoreCase));
+            int moved = memes.Count(m => !m.Category.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
             if (moved > 0)
             {
                 // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
@@ -1259,9 +1258,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 await _batchRunner.RunAsync(
                     BatchOperationKind.Move,
                     total,
-                    progress => _engine.MoveMemesToCategoryAsync(memes, _currentCategory, progress),
+                    progress => _engine.MoveMemesToCategoryAsync(memes, ViewModel.CurrentCategory, progress),
                     affectedModels: memes,
-                    onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{_currentCategory}」"));
+                    onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{ViewModel.CurrentCategory}」"));
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
                 return;
             }
@@ -1316,7 +1315,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         if (paths.Count > 0)
-            Log($"拖入 {paths.Count} 个文件, 目标分类={_currentCategory}");
+            Log($"拖入 {paths.Count} 个文件, 目标分类={ViewModel.CurrentCategory}");
 
         // 异步导入，不阻塞窗口过程
         _ = ImportDroppedFilesAsync(paths);
@@ -1688,7 +1687,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         foreach (var cat in _categoryList)
         {
             // 跳过当前所在分类（移动过去无意义）
-            if (_currentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+            if (ViewModel.CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
                 continue;
             hasTarget = true;
             var targetName = cat.Name;
@@ -2194,7 +2193,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         DispatcherQueue.TryEnqueue(async () =>
         {
             if (App.MainWindow.IsClosing) return;
-            var focus = _currentCategory;
+            var focus = ViewModel.CurrentCategory;
             var names = changes
                 .Where(c => string.Equals(c.Category, focus, StringComparison.OrdinalIgnoreCase))
                 .Select(c => c.FileName)
@@ -2222,7 +2221,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         DispatcherQueue.TryEnqueue(async () =>
         {
             if (App.MainWindow.IsClosing) return;
-            var focus = _currentCategory;
+            var focus = ViewModel.CurrentCategory;
             var added = changes
                 .Where(c => string.Equals(c.Category, focus, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -2266,7 +2265,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         DispatcherQueue.TryEnqueue(async () =>
         {
             if (App.MainWindow.IsClosing) return;
-            var focus = _currentCategory;
+            var focus = ViewModel.CurrentCategory;
 
             // 源为焦点分类：移除对应控件
             var fromNames = moves

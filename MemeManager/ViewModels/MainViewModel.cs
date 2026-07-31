@@ -9,6 +9,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial CategoryKind CurrentCategoryKind { get; set; } = CategoryKind.Normal;
 
+    // 当前选中的分类名（空串 = 全部表情视图），纯 UI 视图状态
+    [ObservableProperty]
+    public partial string CurrentCategory { get; set; } = string.Empty;
+
     public MainViewModel()
     {
     }
