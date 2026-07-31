@@ -12,9 +12,55 @@
   - `.Text` —— `TextBlock`、`MenuFlyoutItem` 等用此字段读取文本时使用。
   - `.Content` —— `Button`、`ToolTip` 等用此字段读取文本时使用。
 
+## XAML 绑定规范（x:Bind 优先）
+
+总体原则：
+
+- **新代码默认优先使用 `x:Bind`**，传统 `Binding` 仅在 `x:Bind` 不适合时使用。
+- `x:Bind` 是 WinUI 3 推荐方式，优势：
+  1. **编译期类型检查**——绑定路径写错直接编译报错，不会像 `Binding` 那样运行期静默失效。
+  2. **性能更好**——不依赖运行时反射查找。
+  3. **不依赖 `DataContext` 继承**——对 `Popup` / `Flyout` / `MenuFlyout` / `ContextFlyout` 等脱离主视觉树的场景更稳定（这正是 2.7 分类右键菜单最初用 `Binding ElementName=RootGrid` 仍偶发失效的根因，`{x:Bind ViewModel.XxxCommand}` 直接解决）。
+
+### 页面级命令/属性
+
+推荐：
+
+```xml
+<Button Command="{x:Bind ViewModel.NewCategoryCommand}" />
+<MenuFlyoutItem Command="{x:Bind ViewModel.NewCategoryCommand}" />
+```
+
+页面必须暴露**强类型** ViewModel 属性（供 `x:Bind` 编译期解析）：
+
+```csharp
+public MainViewModel ViewModel => (MainViewModel)DataContext;
+```
+
+不要写 `{x:Bind DataContext.SomeCommand}`（`DataContext` 类型是 `object`，编译期无法解析）。
+
+### 项级菜单（DataTemplate 内）的 x:Bind 用法
+
+`DataTemplate x:DataType="CategoryViewModel"` 内，`x:Bind` 默认根是**该项 VM**（如 `CategoryViewModel`），不是页面 VM。要调页面 VM 的命令有两个干净做法：
+
+1. **`Command` 走页面 VM，`CommandParameter` 走当前项**（推荐，等价于原 `Binding ElementName=RootGrid` 但更稳）：
+   ```xml
+   <MenuFlyoutItem
+       Command="{x:Bind ViewModel.OpenCategoryFolderCommand}"
+       CommandParameter="{x:Bind}" />
+   ```
+   - `Command` 的 `x:Bind` 根是页面 → `ViewModel` 是页面属性。
+   - `CommandParameter="{x:Bind}"` 根是当前项 VM（`CategoryViewModel`），原样传参。
+   - 对应 VM 方法：`void OpenCategoryFolder(CategoryViewModel cat)`。
+2. 若 `x:Bind` 在模板内无法解析页面 VM（极少数情况），回退用 `Binding`：`Command="{Binding DataContext.XxxCommand, ElementName=RootGrid}"` + `CommandParameter="{Binding}"`，但优先尝试方案 1。
+
+### 不要优先使用 `Binding` 的场景
+
+- `Command="{Binding DataContext.SomeCommand}"` 依赖 DataContext 与视觉树关系，遇到 `PopupRoot` / `Flyout` 容易失效——一律改 `x:Bind ViewModel.SomeCommand`。
+
 ## MVVM（CommunityToolkit.Mvvm）
 
-- `[RelayCommand]` 生成的命令属性名规则：方法名去掉末尾的 `Async` 后缀（若有）后 + `"Command"` 后缀。XAML 绑定 `Command="{Binding XxxCommand}"` 必须与生成名严格一致，否则运行期报 `property not found`（且不会编译报错，极难排查）。
+- `[RelayCommand]` 生成的命令属性名规则：方法名去掉末尾的 `Async` 后缀（若有）后 + `"Command"` 后缀。XAML 绑定 `Command="{x:Bind ViewModel.XxxCommand}"` 必须与生成名严格一致，否则**编译期**即报错（用 `x:Bind` 时此问题不复存在）。
   - 例：`[RelayCommand] void OpenSettings()` → 生成 `OpenSettingsCommand`（不是 `SettingsCommand`）。
   - 例：`[RelayCommand] async Task RefreshAsync()` → 去掉 `Async` → 生成 `RefreshCommand`（不是 `RefreshAsyncCommand`）。
 - `[RelayCommand]` / `[ObservableProperty]` 标注的方法/字段支持 `private`（实测 `private` 方法也能正常生成 Command 属性并绑定，无需改成 `internal`/`public`）。
@@ -46,7 +92,7 @@
 
 > 这是 WinUI MVVM 迁移里最容易踩坑的一类：XAML 同时混合了 `ListView.ItemTemplate + x:DataType + ContextFlyout + Page ViewModel Command`。改这里务必慢，不要批量改。2.7 阶段做对，2.8（`MemeViewModel` 右键菜单）就是直接复制这个模式。
 
-**核心认知：`DataTemplate` 内 `DataContext` 已经变了**
+**核心认知：`DataTemplate` 内 `x:Bind` 默认根已变了，但页面 VM 仍可达**
 
 ```xml
 <ListView.ItemTemplate>
@@ -62,24 +108,32 @@
 </ListView.ItemTemplate>
 ```
 
-这里 `Grid.DataContext` = `CategoryViewModel`，**不是** `MainViewModel`。所以：
+这里模板内 `x:Bind` 默认根是**该项 VM**（`CategoryViewModel`），不是页面 `MainViewModel`。所以：
 
-- ❌ `Command="{Binding DeleteCategoryCommand}"` → 等价于去找 `CategoryViewModel.DeleteCategoryCommand`，大概率编译报错或运行期绑定失败。
-- ✅ 正确写法——用 `ElementName` 指向 Page 根元素（本项目根元素已命名为 `RootGrid`，**不要新增 Root/RootGrid 以外的名字**）：
+- ❌ `Command="{x:Bind DeleteCategoryCommand}"` → 等价于去找 `CategoryViewModel.DeleteCategoryCommand`，编译报错。
+- ✅ **推荐**：`Command` 走页面属性 `ViewModel`，`CommandParameter` 走当前项：
 
 ```xml
 <MenuFlyoutItem
-    Command="{Binding DataContext.DeleteCategoryCommand, ElementName=RootGrid}"
-    CommandParameter="{Binding}" />
+    Command="{x:Bind ViewModel.DeleteCategoryCommand}"
+    CommandParameter="{x:Bind}" />
 ```
 
-- `Command` 走 `RootGrid.DataContext`（= MainViewModel）拿到 Page 级命令
-- `CommandParameter="{Binding}"` 传入当前项 VM（如 `CategoryViewModel`），对应命令方法 `DeleteCategory(CategoryViewModel category)`
-- 形成：`Command` → MainViewModel 的方法；`Parameter` → 当前 CategoryViewModel
+- `Command` 的 `x:Bind` 根是**页面**（页面已暴露强类型 `ViewModel` 属性），直接拿到 MainViewModel 的命令，不受 `PopupRoot`/`Flyout` 脱离视觉树影响。
+- `CommandParameter="{x:Bind}"` 根是当前项 VM（`CategoryViewModel`），原样传参。
+- 对应 VM 方法 `DeleteCategory(CategoryViewModel category)`。
+- 形成：`Command` → MainViewModel 的方法；`Parameter` → 当前 CategoryViewModel。
+
+- ⚠️ 回退方案（仅当 `x:Bind` 在模板内无法解析页面 VM 的极少数情况）：用 `Binding` + `ElementName` 指向 Page 根元素（本项目根元素已命名为 `RootGrid`，**不要新增 Root/RootGrid 以外的名字**）：
+  ```xml
+  <MenuFlyoutItem
+      Command="{Binding DataContext.DeleteCategoryCommand, ElementName=RootGrid}"
+      CommandParameter="{Binding}" />
+  ```
 
 **RootGrid 已存在，不要再新增根元素**
 
-不要为了让绑定成立而新增 `<Page x:Name="Root">` 或 `<Grid x:Name="Root">`，直接用已有的 `RootGrid` 即可。
+页面 VM 用 `x:Bind ViewModel.XxxCommand` 即可解析，不需要新增 `<Page x:Name="Root">` 或 `<Grid x:Name="Root">`。`RootGrid` 仍保留作为回退 `ElementName` 锚点。
 
 **不要把项级操作做成该项 VM 自己的 Command**
 

@@ -63,7 +63,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private readonly MemeDataEngine _engine =
         App.GetService<MemeDataEngine>();
 
-    private MainViewModel ViewModel => (MainViewModel)DataContext;
+    public MainViewModel ViewModel => (MainViewModel)DataContext;
 
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
