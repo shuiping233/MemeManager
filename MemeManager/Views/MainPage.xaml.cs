@@ -286,9 +286,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
     }
 
-    private async void CategoryNew_Click(object sender, RoutedEventArgs e)
-        => await ShowAddCategoryDialog();
-
     private void AllMemesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (AllMemesList.SelectedItem != null)
