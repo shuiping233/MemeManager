@@ -56,9 +56,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 鼠标落点，而非 WinUI 默认的组尾对齐；重建策略忽略此值。
     private string? _dragAnchorFileName;
 
-    // 内部拖拽移动：当前拖拽的 meme 模型列表（非空即表示内部拖拽，区别于外部导入）
-    private List<MemeModel>? _draggingMemes;
-
     // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
     private bool _reloading;
 
@@ -367,7 +364,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 拖拽图片到分类列表：仅接受内部移动，并高亮可放置
     private void CategoryList_DragOver(object sender, DragEventArgs e)
     {
-        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
             // “全部表情”视图下项来自不同分类，禁止拖到分类栏移动归属：显示禁止光标。
             if (IsAllMemesView)
@@ -423,10 +420,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 若它已被 DragItemsCompleted 提前清空（跨控件拖拽事件顺序不确定），
         // 则从 e.DataView 的 StorageItems 还原被拖项，避免依赖共享字段。
         List<MemeModel> memes;
-        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
-            memes = _draggingMemes;
-            _draggingMemes = null;
+            memes = ViewModel.DraggingMemes;
+            ViewModel.DraggingMemes = null;
         }
         else
         {
@@ -603,7 +600,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void CategoryListItem_DragOver(object sender, DragEventArgs e)
     {
-        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
@@ -733,7 +730,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 编辑模式或窗口隐藏时不显示预览
         // 正在拖拽（内部拖出/重排）时不显示预览：避免遮挡鼠标，并杜绝拖拽会话
         // 与预览浮窗异步回调在 native 层交错访问可视化树。
-        if (ViewModel.EditMode || !App.MainWindow.IsAppVisible || App.MainWindow.IsClosing || _draggingMemes != null) return;
+        if (ViewModel.EditMode || !App.MainWindow.IsAppVisible || App.MainWindow.IsClosing || ViewModel.DraggingMemes != null) return;
         // 文件选择器打开期间不弹预览浮窗（避免对话框抢焦点后误触发）
         if (App.MainWindow.IsFilePickerOpen) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
@@ -1018,7 +1015,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void MemeGridView_DragOver(object sender, DragEventArgs e)
     {
         // 内部 item 拖回网格自身（全部表情下禁止任何内部拖拽移动/重排）：显示禁止光标。
-        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
             return;
@@ -1066,10 +1063,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         else
             group = draggedVms;
 
-        _draggingMemes = group.Select(m => m.Model).ToList();
+        ViewModel.DraggingMemes = group.Select(m => m.Model).ToList();
         // 锚点 = 实际拖起的那一张（e.Items[0]），用于重排时让它对齐鼠标落点。
         _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
-        Log($"DragItemsStarting: 拖出 {_draggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
+        Log($"DragItemsStarting: 拖出 {ViewModel.DraggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
 
         // 拖出格式按配置分支：
         //  - StorageFileDrag 关闭（默认，稳定优先）：仅用 SetBitmap + in-mem 流
@@ -1142,8 +1139,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
     private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
     {
-        Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
-        if (_draggingMemes == null) return;
+        Log($"DragItemsCompleted: ViewModel.DraggingMemes={( ViewModel.DraggingMemes?.Count ?? 0 )}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
+        if (ViewModel.DraggingMemes == null) return;
 
         // “全部表情”视图下项来自不同分类，不存在单一分类顺序，禁止重排写回，
         // 避免跨分类顺序被错误地写到某个分类的 metadata；且内部拖拽本就被禁止，
@@ -1152,7 +1149,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             Log("DragItemsCompleted: 当前为“全部表情”视图，跳过重排写回（跨分类不允许重排序）");
             // 清空拖拽态，否则 _draggingMemes 残留会导致 IsBusyBlockingInput 一直为真（F5 被挡等）
-            _draggingMemes = null;
+            ViewModel.DraggingMemes = null;
             _dragAnchorFileName = null;
             return;
         }
@@ -1167,7 +1164,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             _previewTimer.Start();
 
         // 记录整组被拖项（编辑模式多选拖拽时是整组），重排后据此恢复多选状态
-        var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
+        var draggedGroup = ViewModel.DraggingMemes?.ToList() ?? new List<MemeModel>();
 
         // 用当前策略计算写回顺序：复用策略做“锚点对齐”，重建策略沿用 WinUI 默认顺序。
         var orderedFileNames = _listStrategy.ComputeDragOrder(ViewModel.MemeList, draggedGroup, _dragAnchorFileName)
@@ -1212,7 +1209,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 图片被拖出数据目录(外部)导致文件消失，由 FileWatcher 监听并统一处理
         // （差集识别库内移动 vs 库外移出，就地移除失效控件+弹窗），此处无需额外逻辑。
 
-        _draggingMemes = null;
+        ViewModel.DraggingMemes = null;
         _dragAnchorFileName = null;
     }
 
@@ -1222,10 +1219,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var view = e.DataView;
 
         // 内部拖拽
-        if (_draggingMemes != null && _draggingMemes.Count > 0)
+        if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
-            var memes = _draggingMemes;
-            _draggingMemes = null;
+            var memes = ViewModel.DraggingMemes;
+            ViewModel.DraggingMemes = null;
 
             // 编辑模式下，网格内重排交给 WinUI 内置重排（CanReorderItems），
             // 落点在 DragItemsCompleted 里读新顺序写回 Priority，这里不处理。
@@ -1550,7 +1547,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 或网格正处于拖拽重排中（拖拽中重建 ItemsSource 会令 WinUI 崩溃）。
     // 模态窗优先（避免叠加弹窗），写锁与拖拽次之。
     private bool IsBusyBlockingInput() =>
-        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || _draggingMemes != null || _reloading;
+        DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || ViewModel.DraggingMemes != null || _reloading;
 
     // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
     // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在
@@ -1761,7 +1758,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             if (_batchRunner.IsWriteActive)
                 _ = DialogHelper.ShowWriteBusyAsync(this.XamlRoot);
-            else if (_draggingMemes != null)
+            else if (ViewModel.DraggingMemes != null)
                 Log("刷新被忽略：网格拖拽重排进行中，避免重建 ItemsSource 导致崩溃");
             else if (_reloading)
                 Log("刷新被忽略：已有刷新在进行中");

@@ -25,6 +25,9 @@ public partial class MainViewModel : ObservableObject
     // 左侧分类列表（绑定到分类栏），ReadOnly 集合，仅内部增删改
     public ObservableCollection<CategoryViewModel> CategoryList { get; } = new();
 
+    // 内部拖拽移动时暂存被拖的 meme 模型列表（非空即表示内部拖拽，区别于外部导入）
+    public List<MemeModel>? DraggingMemes { get; set; }
+
     public MainViewModel()
     {
     }
