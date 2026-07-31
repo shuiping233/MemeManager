@@ -44,7 +44,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // “全部表情”视图下 _currentCategory 的取值（仅用于显示/日志，不参与判断）
     private const string AllMemesCategory = "AllMemes";
 
-    private bool _editMode;
+
 
     // 便捷属性：当前是否处于“全部表情”视图（判断一律走 Kind，不受文件夹名影响）
     private bool IsAllMemesView => ViewModel.CurrentCategoryKind == CategoryKind.All;
@@ -667,7 +667,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         UpdateCategoryCounts();
 
         // 编辑模式下列表重建(如搜索/刷新)后，重新显示复选框并把原生选中态镜像回新 VM
-        if (_editMode)
+        if (ViewModel.EditMode)
         {
             SetSelectionBoxVisible(true);
             SyncSelectionToViewModels();
@@ -737,7 +737,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 编辑模式或窗口隐藏时不显示预览
         // 正在拖拽（内部拖出/重排）时不显示预览：避免遮挡鼠标，并杜绝拖拽会话
         // 与预览浮窗异步回调在 native 层交错访问可视化树。
-        if (_editMode || !App.MainWindow.IsAppVisible || App.MainWindow.IsClosing || _draggingMemes != null) return;
+        if (ViewModel.EditMode || !App.MainWindow.IsAppVisible || App.MainWindow.IsClosing || _draggingMemes != null) return;
         // 文件选择器打开期间不弹预览浮窗（避免对话框抢焦点后误触发）
         if (App.MainWindow.IsFilePickerOpen) return;
         if (sender is not FrameworkElement fe || fe.DataContext is not MemeViewModel vm) return;
@@ -884,7 +884,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void EditButton_Click(object? sender, RoutedEventArgs? e)
     {
-        if (_editMode)
+        if (ViewModel.EditMode)
         {
             Log("退出多选模式");
             ExitEditMode();
@@ -899,9 +899,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 不再散落设置 _editMode 与各 UI 状态，避免多处野 flag 设置错位。
     private void EnterEditMode()
     {
-        if (_editMode) return;
+        if (ViewModel.EditMode) return;
         Log("进入多选模式");
-        _editMode = true;
+        ViewModel.EditMode = true;
         EditButton.Content = Localization.Get("Meme_Done");
         // 背景/前景的蓝色由 XAML 写死常亮，这里不再处理颜色，仅切换文字与模式
         BatchBar.Visibility = Visibility.Visible;
@@ -952,7 +952,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         //      后续点击/Shift 连续选交给编辑模式原生逻辑托管。
         bool shiftDown = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        if (!_editMode && shiftDown)
+        if (!ViewModel.EditMode && shiftDown)
         {
             EnterEditModeAndSelect(clicked);
             return;
@@ -960,7 +960,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // ---- 编辑模式：选中完全交给 GridView 原生(SelectionMode=Multiple)处理，
         //      Tapped 不再手动切换，避免与控件自带选中逻辑冲突导致要双击。
-        if (_editMode)
+        if (ViewModel.EditMode)
         {
             _lastShiftAnchor = index;
             return;
@@ -985,7 +985,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // Explorer 风格(Multiple)下不显示自绘复选框（用系统自带）。
     private void MemeGridView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
-        if (_editMode && args.Phase == 0 && args.ItemContainer != null)
+        if (ViewModel.EditMode && args.Phase == 0 && args.ItemContainer != null)
         {
             var box = FindCheckBox(args.ItemContainer);
             if (box != null)
@@ -1065,7 +1065,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 所以被拖组 = 当前原生选中项（若拖动的项是选中组一员）；否则只拖当前项。
         List<MemeViewModel> group;
         var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
-        if (_editMode && selected.Count > 0 && draggedVms.Any(v => selected.Contains(v)))
+        if (ViewModel.EditMode && selected.Count > 0 && draggedVms.Any(v => selected.Contains(v)))
             group = selected;
         else
             group = draggedVms;
@@ -1146,7 +1146,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
     private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
     {
-        Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, _editMode={_editMode}, DropResult={e.DropResult}");
+        Log($"DragItemsCompleted: _draggingMemes={( _draggingMemes?.Count ?? 0 )}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
         if (_draggingMemes == null) return;
 
         // “全部表情”视图下项来自不同分类，不存在单一分类顺序，禁止重排写回，
@@ -1194,7 +1194,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // 编辑模式下：重排时 WinUI 会把选中重置为仅被拖动的那一张，导致多选变单选；
         // 这里按拖拽开始时记录的整组(_draggingMemes/draggedGroup)恢复多选高亮。
-        if (_editMode && draggedGroup.Count > 0 && !App.MainWindow.IsClosing)
+        if (ViewModel.EditMode && draggedGroup.Count > 0 && !App.MainWindow.IsClosing)
         {
             try
             {
@@ -1233,7 +1233,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
             // 编辑模式下，网格内重排交给 WinUI 内置重排（CanReorderItems），
             // 落点在 DragItemsCompleted 里读新顺序写回 Priority，这里不处理。
-            if (_editMode)
+            if (ViewModel.EditMode)
             {
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
                 return;
@@ -1495,7 +1495,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         List<MemeViewModel> toMove;
         var selected = MemeGridView.SelectedItems.Cast<MemeViewModel>().ToList();
-        if (_editMode && selected.Count > 0)
+        if (ViewModel.EditMode && selected.Count > 0)
             toMove = selected;
         else
             toMove = new List<MemeViewModel> { vm };
@@ -1879,7 +1879,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // Ctrl+A：编辑模式下全选/取消全选；非编辑模式下自动进编辑模式并全选
         if (ctrl && e.Key == Windows.System.VirtualKey.A)
         {
-            if (!_editMode) EnterEditModeAndSelectAll();
+            if (!ViewModel.EditMode) EnterEditModeAndSelectAll();
             else ToggleSelectAll();
             e.Handled = true;
             return;
@@ -1908,7 +1908,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 若编辑模式但未选中任何图片则不响应。非编辑模式下仍按原逻辑删除选中的分类。
         if (e.Key == Windows.System.VirtualKey.Delete)
         {
-            if (_editMode)
+            if (ViewModel.EditMode)
             {
                 if (SelectedMemeViewModels().Count > 0)
                 {
@@ -1927,7 +1927,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-        if (!_editMode) return;
+        if (!ViewModel.EditMode) return;
 
         if (e.Key == Windows.System.VirtualKey.Escape)
         {
@@ -1943,7 +1943,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void ToggleSelectAll()
     {
-        if (!_editMode) return;
+        if (!ViewModel.EditMode) return;
         bool allSelected = MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
         if (allSelected)
             MemeGridView.SelectedItems.Clear();
@@ -1958,7 +1958,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void UpdateSelectAllButton()
     {
         if (SelectAllButton == null) return;
-        bool allSelected = _editMode && MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
+        bool allSelected = ViewModel.EditMode && MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
         SelectAllButton.Content = allSelected ? Localization.Get("Meme_CancelSelectAll") : Localization.Get("Meme_SelectAll");
     }
 
@@ -2018,7 +2018,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void ExitEditMode()
     {
-        _editMode = false;
+        ViewModel.EditMode = false;
         EditButton.Content = Localization.Get("Meme_Edit");
         BatchBar.Visibility = Visibility.Collapsed;
         // 退出编辑模式：仅关闭原生多选；拖拽重排保持开启（普通模式也允许排序）
@@ -2167,7 +2167,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     public void ResumeInteractions()
     {
         if (App.MainWindow.IsClosing) return;
-        Log($"[防护] ResumeInteractions: _editMode={_editMode}");
+        Log($"[防护] ResumeInteractions: ViewModel.EditMode={ViewModel.EditMode}");
 
         // 恢复 WinUI 拖拽能力：拖出(CanDragItems)与拖拽重排(CanReorderItems)在
         // 普通模式和编辑模式都需要（普通模式也能在窗口内拖动排序并落库）。

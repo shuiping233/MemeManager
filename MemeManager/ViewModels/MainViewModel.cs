@@ -13,6 +13,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial string CurrentCategory { get; set; } = string.Empty;
 
+    // 多选（批量操作）模式开关，纯 UI 视图状态
+    [ObservableProperty]
+    public partial bool EditMode { get; set; }
+
     public MainViewModel()
     {
     }
