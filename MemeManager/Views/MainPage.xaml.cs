@@ -278,14 +278,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             Log($"右键分类项: {ViewModel.ContextCategory.Name}");
     }
 
-    // 在文件资源管理器中打开该分类对应的文件夹
-    private void CategoryOpenFolder_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.ContextCategory == null) return;
-        var dir = System.IO.Path.Combine(_engine.BaseDir, ViewModel.ContextCategory.Name);
-        Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
-    }
-
     private void AllMemesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (AllMemesList.SelectedItem != null)

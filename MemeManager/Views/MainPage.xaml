@@ -186,7 +186,9 @@
                             </ToolTipService.ToolTip>
                             <Grid.ContextFlyout>
                                 <MenuFlyout Opening="CategoryItemContextFlyout_Opening">
-                                    <MenuFlyoutItem l:Uids.Uid="Category_OpenFolder" Click="CategoryOpenFolder_Click">
+                                    <MenuFlyoutItem l:Uids.Uid="Category_OpenFolder"
+                                                    Command="{Binding DataContext.OpenCategoryFolderCommand, ElementName=RootGrid}"
+                                                    CommandParameter="{Binding}">
                                         <MenuFlyoutItem.Icon>
                                             <SymbolIcon Symbol="Folder"/>
                                         </MenuFlyoutItem.Icon>
