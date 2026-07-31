@@ -111,22 +111,26 @@
 - ✅ 原 Click 事件 / `App.DataEngine` 调用不受影响
 - ✅ 无新增业务逻辑迁移（只接通 DI，不搬任何字段/方法）
 
-### 1.2 搬简单状态字段
+### 1.2 搬简单状态字段（纯 UI 状态，不搬业务逻辑）
 
-逐批搬，每批 build + 运行验证：
+> **执行纪律（Phase 1.2 实际采用）**：从大到小逐字段迁移，每个字段独立 commit；只搬纯状态读写，不碰任何业务方法；`MainPage` 用 `ViewModel => (MainViewModel)DataContext` 访问 VM。
 
-- [ ] **第一批**：`_currentCategory` / `_allMemesVm` / `_currentKind` → `[ObservableProperty]`
-  - 验收：左侧分类栏切换正常，"全部表情"视图正常
-- [ ] **第二批**：`_editMode` → `[ObservableProperty]`，XAML 中 `BatchBar.Visibility` 绑定 `{Binding EditMode, Converter=...}`
-  - 验收：点击"修改"按钮 → 底部批量操作栏出现/消失
-- [ ] **第三批**：`_memeList` / `_categoryList` — 这两个是 `ObservableCollection`，不需要 `[ObservableProperty]`，直接暴露为 `public` 属性
-  - 验收：GridView ItemsSource 改为 `{Binding MemeList}`，刷新图片正常显示
-- [ ] **第四批**：右键上下文 `_contextMeme` / `_contextCategory` → ViewModel
-  - 验收：右键菜单操作（复制/删除/重命名/移动到分类）正常
-- [ ] **第五批**：搜索 `_searchDebounceTimer` + `SearchBox.Text` → ViewModel（逻辑暂留 code-behind，只搬状态）
-  - 验收：搜索框输入 → 防抖后刷新列表正常
-- [ ] **第六批**：悬停预览状态 `_pendingPreviewVm` / `_pendingPreviewAnchor` / `_previewTimer` → ViewModel
-  - 验收：鼠标悬停图片 → 400ms 后浮窗出现，移开消失
+- [x] **1.2.1** `_currentCategoryKind`（6处）→ `CurrentCategoryKind` ✅ commit `1fad586`
+- [x] **1.2.2** `_currentCategory`（25处）→ `CurrentCategory` ✅ commit `efed747`
+- [x] **1.2.3** `_editMode`（23处）→ `EditMode` ✅ commit `d20f9de`
+- [x] **1.2.4** `_memeList`(27) + `_categoryList`(26) → `MemeList` / `CategoryList`（ObservableCollection 属性）✅ commit `6555a29`
+- [x] **1.2.5** `_draggingMemes`（23处）→ `DraggingMemes` ✅ commit `40365c8`
+- [x] **1.2.6** `_contextMeme`(13) + `_contextCategory`(10) → `ContextMeme` / `ContextCategory` ✅ commit `e9a18a4`
+- [x] **1.2.7** `_reloading`(7) + `_searchDebounceTimer`(7) + `_pendingPreviewVm`(7) → `Reloading` / `SearchDebounceTimer` / `PendingPreviewVm` ✅ commit `8320d7b`
+- [x] **1.2.8** `_dragAnchorFileName`(6) + `_pendingPreviewAnchor`(6) + `_pasteDialogOpen`(4) + `_lastShiftAnchor`(3) → 对应属性 ✅ commit `8c9a785`
+
+- [ ] **1.2.9** `_allMemesVm`（5处）→ `AllMemesVm` ⏸ **暂缓**
+  - **原因**：它非纯状态——第702行 `_allMemesVm.Count = cache.Count` 直接写 `CategoryViewModel.Count`，且与 `LoadCategories` / `UpdateCategoryCounts` 刷新逻辑耦合（注释明说"触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到"）。
+  - **何时做**：等 **Phase 1.3 把 `CategoryViewModel` 换成 CommunityToolkit `[ObservableProperty]`、`Count` 变为可通知属性之后**，再回头搬。届时计数刷新链路已稳，搬移不会破坏 UI 更新。归到 Phase 1.3 收尾项。
+
+**Phase 1.2 完成标志**：MainPage.xaml.cs 内所有纯 UI 状态字段已迁至 `MainViewModel`（除 `_allMemesVm` 按上述暂缓）；code-behind 仅保留 UI 生命周期/事件/拖拽/预览浮窗逻辑；build 0 警告 0 错误。
+
+> 注：原路线 1.2 提及的 `BatchBar.Visibility` 绑定、`SearchBox.Text` 绑定、`_previewTimer` 等属于"XAML 绑定化"，属后续 Phase 2/3 范畴，不在本次状态迁移内。
 
 ### 1.3 MemeViewModel / CategoryViewModel 换 CommunityToolkit
 
@@ -134,8 +138,10 @@
   - 验收：图片标题修改后 UI 自动刷新，无功能变化
 - [ ] `CategoryViewModel.cs`：同上
   - 验收：分类名修改/计数更新后 UI 自动刷新
+- [ ] **Phase 1.2.9 收尾**：`CategoryViewModel` 改造完成后，补搬 `_allMemesVm`（5处）→ `MainViewModel.AllMemesVm`（见 1.2 暂缓说明）
+  - 验收：左侧"全部表情"项计数随分类内容实时更新，切换正常
 
-**Phase 1 完成标志**：`MainPage.xaml.cs` 减少约 30% 字段声明，所有 UI 状态字段都在 ViewModel 中。
+**Phase 1 完成标志**：`MainPage.xaml.cs` 减少约 30% 字段声明，所有纯 UI 状态字段都在 ViewModel 中（`_allMemesVm` 已在 1.2.9 收尾搬完）。
 
 ---
 
