@@ -381,10 +381,75 @@ public MainPage(MainViewModel vm)
 var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 ```
 
-### 兼容过渡
+### 迁移策略：以文件为单位，逐个消灭 `App.DataEngine`
 
-- [ ] 保留 `App.DataEngine` 静态访问点，内部转发到容器实例（`=> Services.GetRequiredService<MemeDataEngine>()`），避免一次性改几百处旧调用
-- [ ] MainWindow / MainPage 的创建改为从容器取 ViewModel 注入
-- [ ] 验收：`dotnet build` 通过 + 启动后功能与改造前一致（DataEngine 行为不变）
+> **原则**：不在一次提交里改完 100+ 处。先立 DI 骨架（保留 `App.DataEngine` 作为容器转发入口，零风险），然后**按文件逐个**把 `App.DataEngine` 改为构造器注入的实例字段，改完一个文件即提交，该文件对 `App.DataEngine` 的引用必须归零。
 
-**完成标志**：`ConfigureServices()` 就绪，DataEngine / PasteService 等已注册，`App.DataEngine` 静态入口转为容器转发，项目仍可正常运行。此步独立 commit，不夹带任何逻辑迁移。
+**节奏**
+1. 先提交 DI 骨架：`App.Services` + `ConfigureServices()` + 注册 `MemeDataEngine` / `FileWatcher` 等无依赖基础设施；`App.DataEngine` 暂留（先不标 `[Obsolete]`，否则 100 处全冒警告）。
+2. 之后**按文件**逐个迁移：
+   - 给该文件所属类（ViewModel / Page / Helper）增加构造器参数 `MemeDataEngine engine`，存为 `private readonly` 字段。
+   - 把文件内所有 `App.DataEngine.Xxx` 换成注入字段 `engine.Xxx`（注意 `MemeDataEngine.UncategorizedCategory` 这类静态成员仍走类名，不动）。
+   - `dotnet build` 通过 + 对应功能点一遍 → commit（标题带文件名，如 `refactor: DI 注入 MemeViewModel`）。
+3. 全部文件清完后，`App.DataEngine` 静态属性应只剩声明本身 → 直接删除，收尾提交。
+
+**迁移顺序（从叶子到根，先易后难）**：被依赖少的底层文件先改，验证注入模式；大文件最后照抄。
+
+| 顺序 | 文件 | `App.DataEngine` 引用数 | 说明 |
+|---|---|---|---|
+| 1 | `ViewModels/MemeViewModel.cs` | 1 | 叶子 ViewModel，最安全试水 |
+| 2 | `Infrastructure/Logger.cs` | 2 | 注意用 `?.` 防空（当前已是 `App.DataEngine?.`） |
+| 3 | `Infrastructure/EcoQos.cs` | 2 | |
+| 4 | `Infrastructure/LangHelper.cs` | 2 | |
+| 5 | `Infrastructure/TrayIcon.cs` | 1 | |
+| 6 | `Views/ImageDragHelper.cs` | 2 | 静态类 → 需先改为实例类并注册 DI |
+| 7 | `Views/SettingsPage.xaml.cs` | 7 | Page，构造器注入 ViewModel 时一并注入 |
+| 8 | `Views/MiniPage.xaml.cs` | 10 | |
+| 9 | `Views/MainWindow.xaml.cs` | 14 | |
+| 10 | `Views/MainPage.xaml.cs` | 47 | 最大文件，可再按功能拆多笔提交 |
+
+### DI 大户分类：哪些进容器、哪些保持 static
+
+> **结论**：真正的 DI 大户只有 `MemeDataEngine`。其余被大量引用的对象多为**无状态静态工具类**，强行进容器会让 100+ 处调用全改签名，得不偿失——**保持 static 不动**。
+
+| 对象 | 类型 | 被引用 | 分布 | 处理决策 |
+|---|---|---|---|---|
+| **MemeDataEngine** | 实例(=App.DataEngine) | ~100 | 多文件 | ✅ **进容器**（核心，必须） |
+| **Localization** | static class | 86 / 11 | 多 | ❌ 保持 static（无状态工具） |
+| **Logger** | static class | 85 / 16 | 多 | ❌ 保持 static（内部已 `App.DataEngine?.` 容错） |
+| **LangHelper** | static class | 27 / 4 | | ❌ 保持 static（无状态） |
+| **EcoQos** | ? | 7 / 3 | | ❌ 保持 static（无状态） |
+| **Utils** | static class | 7 / 2 | | ❌ 保持 static（无状态） |
+| **ImageDragHelper** | static class | 5 / 2 | | ✅ Phase 3 改实例注入（需传参） |
+| **TrayIcon** | ? | 4 / 1 | | ✅ 可选注册单例 |
+| **PasteService** | static class | 3 / 2 | | ✅ Phase 3 改实例注入 |
+| **StartupManager** | static class | 3 / 2 | | ❌ 保持 static（启动期一次性） |
+| **FileWatcher** | DataEngine 成员 | 3 / 1 | | ✅ 随 DataEngine 注入，不单独注册 |
+
+**决策清单（做完一个勾一个）**
+
+- [ ] `MemeDataEngine` → 注册为 `AddSingleton`，全项目通过构造器注入获取
+- [ ] `Localization` → 保持 static，不进容器
+- [ ] `Logger` → 保持 static，不进容器
+- [ ] `LangHelper` → 保持 static，不进容器
+- [ ] `EcoQos` → 保持 static，不进容器
+- [ ] `Utils` → 保持 static，不进容器
+- [ ] `ImageDragHelper` → Phase 3 改为实例类并 `AddSingleton`
+- [ ] `TrayIcon` → 注册为 `AddSingleton`（可选）
+- [ ] `PasteService` → Phase 3 改为实例类并 `AddSingleton`
+- [ ] `StartupManager` → 保持 static，不进容器
+- [ ] `FileWatcher` → 作为 `MemeDataEngine` 成员随其注入，不单独注册
+
+**迁移纪律（防遗忘 / 防 DI 形同虚设）**
+- 每个文件改完即**该文件零 `App.DataEngine` 引用**；不允许多数改了、少数留着。
+- 禁止在已被重构进 ViewModel/Service 的代码中新增 `App.DataEngine` 调用。
+- 全部文件清零后，删除 `App.DataEngine` 静态属性；届时若还有遗漏引用，build 会直接报错提示。
+- （可选收尾）清零前可在 `App.DataEngine` 上加 `[Obsolete("改用 App.Services.GetRequiredService<MemeDataEngine>()")]`，让残留调用冒警告。
+
+### 首批提交清单
+
+- [ ] **DI-0**：`App` 加 `Services` + `ConfigureServices()`，注册 `MemeDataEngine` / `FileWatcher`（及后续无依赖基础设施）；`App.DataEngine` 暂留作容器转发；build 通过 + 启动功能不变 → 独立 commit
+- [ ] **DI-1 ~ DI-10**：按上表顺序逐文件注入 `MemeDataEngine`、清零该文件引用、功能验证 → 每文件一 commit
+- [ ] **DI-final**：全局 grep `App.DataEngine` 仅剩声明 → 删除静态属性 → commit
+
+**完成标志**：`ConfigureServices()` 就绪且各 Service/ViewModel 已注册；所有业务代码通过构造器注入获取 `MemeDataEngine`；`App.DataEngine` 静态入口已删除；项目仍可正常运行。
