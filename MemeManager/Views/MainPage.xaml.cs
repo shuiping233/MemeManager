@@ -88,6 +88,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // Phase 2.1：刷新入口从 Click 迁到 Command；业务逻辑 RefreshDataAsync 仍留本页（只迁入口不搬业务）
         ViewModel.RefreshRequested += RefreshDataAsync;
+        // Phase 2.2：设置入口从 Click 迁到 Command；弹出浮窗的 UI 行为仍留本页
+        ViewModel.SettingsRequested += ShowSettingsFlyout;
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -1708,7 +1710,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    private void ShowSettingsFlyout()
     {
         var page = new SettingsPage();
         page.RequestClose += (_, _) => SettingsFlyout.Hide();
@@ -1716,10 +1718,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SettingsFlyout.ShowAt(SettingsButton);
     }
 
-    // 托盘菜单“设置”入口（由 MainWindow 转发）：直接弹出设置浮窗
+    // 托盘菜单"设置"入口（由 MainWindow 转发）：直接弹出设置浮窗
     public void OpenSettingsFlyout()
     {
-        SettingsButton_Click(this, new RoutedEventArgs());
+        ShowSettingsFlyout();
     }
 
     // 切换到 Mini 模式（仅当配置允许时，按钮本身也会隐藏）

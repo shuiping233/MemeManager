@@ -19,6 +19,15 @@ public partial class MainViewModel : ObservableObject
             await RefreshRequested.Invoke();
     }
 
+    // 设置浮窗请求：MainPage 订阅并弹出 SettingsFlyout（UI 行为留 Page 层）
+    public event Action? SettingsRequested;
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        SettingsRequested?.Invoke();
+    }
+
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
     [ObservableProperty]
     public partial CategoryKind CurrentCategoryKind { get; set; } = CategoryKind.Normal;

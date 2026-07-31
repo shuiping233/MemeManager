@@ -100,7 +100,7 @@
                     <ToolTip l:Uids.Uid="Main_MiniModeToolTip"/>
                 </ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="SettingsButton" Grid.Column="5" l:Uids.Uid="Main_Settings" Click="SettingsButton_Click">
+            <Button x:Name="SettingsButton" Grid.Column="5" l:Uids.Uid="Main_Settings" Command="{Binding SettingsCommand}">
                 <Button.Flyout>
                     <Flyout x:Name="SettingsFlyout"/>
                 </Button.Flyout>
