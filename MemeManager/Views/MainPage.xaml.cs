@@ -262,22 +262,21 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // 当前右键所操作的分类（由 ContextFlyout.Opening 写入，供各 Click 使用）
-    private CategoryViewModel? _contextCategory;
 
     // 右键分类项：记录当前分类，供 删除/重命名 使用
     private void CategoryItemContextFlyout_Opening(object? sender, object e)
     {
         if (sender is MenuFlyout flyout && flyout.Target is FrameworkElement fe)
-            _contextCategory = fe.DataContext as CategoryViewModel;
-        if (_contextCategory != null)
-            Log($"右键分类项: {_contextCategory.Name}");
+            ViewModel.ContextCategory = fe.DataContext as CategoryViewModel;
+        if (ViewModel.ContextCategory != null)
+            Log($"右键分类项: {ViewModel.ContextCategory.Name}");
     }
 
     // 在文件资源管理器中打开该分类对应的文件夹
     private void CategoryOpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextCategory == null) return;
-        var dir = System.IO.Path.Combine(_engine.BaseDir, _contextCategory.Name);
+        if (ViewModel.ContextCategory == null) return;
+        var dir = System.IO.Path.Combine(_engine.BaseDir, ViewModel.ContextCategory.Name);
         Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
     }
 
@@ -304,14 +303,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private async void CategoryDelete_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextCategory != null)
-            await DeleteCategoryConfirmed(_contextCategory);
+        if (ViewModel.ContextCategory != null)
+            await DeleteCategoryConfirmed(ViewModel.ContextCategory);
     }
 
     private async void CategoryRename_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextCategory != null)
-            await ShowRenameCategoryDialog(_contextCategory);
+        if (ViewModel.ContextCategory != null)
+            await ShowRenameCategoryDialog(ViewModel.ContextCategory);
     }
 
     // 重命名分类对话框：同步重命名物理文件夹并刷新分类列表
@@ -1332,7 +1331,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // ---------- 右键菜单（XAML ContextFlyout 绑定）----------
 
     // 当前右键所操作的表情（由 ContextFlyout.Opening 写入，供各 Click 使用）
-    private MemeViewModel? _contextMeme;
 
     // 表情右键菜单打开时：记录当前表情，并动态填充“移动到其他分类”子菜单
     private void MemeItemContextFlyout_Opening(object? sender, object e)
@@ -1342,7 +1340,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (fe.DataContext is not MemeViewModel vm)
             return;
 
-        _contextMeme = vm;
+        ViewModel.ContextMeme = vm;
         Log("右键单击表情项: " + vm.Title);
 
         // 动态子菜单：列出除当前分类外的所有分类
@@ -1383,8 +1381,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private async void MemeCopy_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMeme == null) return;
-        var vm = _contextMeme;
+        if (ViewModel.ContextMeme == null) return;
+        var vm = ViewModel.ContextMeme;
         await PasteService.CopyImageToClipboardAsync(vm.Model.LocalPath);
         Log($"已复制「{vm.Title}」到剪贴板");
     }
@@ -1392,13 +1390,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 右键菜单“多选”：进编辑模式并选中当前图片
     private void MemeMultiSelect_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMeme != null) EnterEditModeAndSelect(_contextMeme);
+        if (ViewModel.ContextMeme != null) EnterEditModeAndSelect(ViewModel.ContextMeme);
     }
 
     private async void MemeDelete_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMeme == null) return;
-        var vm = _contextMeme;
+        if (ViewModel.ContextMeme == null) return;
+        var vm = ViewModel.ContextMeme;
         if (await DialogHelper.ConfirmDeleteMemeAsync(this.XamlRoot, vm.Title) != ContentDialogResult.Primary)
             return;
 
@@ -1416,12 +1414,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void MemeOpen_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMeme == null) return;
+        if (ViewModel.ContextMeme == null) return;
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = _contextMeme.Model.LocalPath,
+                FileName = ViewModel.ContextMeme.Model.LocalPath,
                 UseShellExecute = true
             });
         }
@@ -1434,14 +1432,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 在文件资源管理器中定位并选中该图片（explorer /select,"路径"）
     private void MemeOpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMeme == null) return;
-        Utils.OpenInExplorer(_contextMeme.Model.LocalPath, select: true, logTag: "打开所在文件夹");
+        if (ViewModel.ContextMeme == null) return;
+        Utils.OpenInExplorer(ViewModel.ContextMeme.Model.LocalPath, select: true, logTag: "打开所在文件夹");
     }
 
     private async void MemeRename_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMeme == null) return;
-        var vm = _contextMeme;
+        if (ViewModel.ContextMeme == null) return;
+        var vm = ViewModel.ContextMeme;
         var input = await DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
         if (!string.IsNullOrWhiteSpace(input))
         {
