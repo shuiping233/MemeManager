@@ -22,10 +22,6 @@ namespace MemeManager.Views;
 
 public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage
 {
-    private readonly ObservableCollection<MemeViewModel> _memeList = new();
-
-    private readonly ObservableCollection<CategoryViewModel> _categoryList = new();
-
     // 初始化"全部表情"固定项（必须在 LoadCategories 之前，因为 LoadCategories
     // 会触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到 _allMemesVm）
     private readonly CategoryViewModel _allMemesVm = new("", 0);
@@ -131,8 +127,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             _engine.Watcher.FilesMoved += OnWatchedFilesMoved;
         }
 
-        CategoryList.ItemsSource = _categoryList;
-        MemeGridView.ItemsSource = _memeList;
+        CategoryList.ItemsSource = ViewModel.CategoryList;
+        MemeGridView.ItemsSource = ViewModel.MemeList;
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
 
@@ -201,7 +197,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 用当前策略同步分类列表（复用=增量复用容器，重建=整体重建）。
         // 具体算法封装在 IMemeListStrategy.SyncCategories 内。
         _listStrategy.SyncCategories(
-            _categoryList,
+            ViewModel.CategoryList,
             _engine.GetCategories(),
             cat => _engine.GetMemes(cat).Count);
 
@@ -219,7 +215,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
         else
         {
-            var target = _categoryList.FirstOrDefault(c => c.Name == last) ?? _categoryList.FirstOrDefault();
+            var target = ViewModel.CategoryList.FirstOrDefault(c => c.Name == last) ?? ViewModel.CategoryList.FirstOrDefault();
             if (target != null && !target.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
             {
                 CategoryList.SelectedItem = target;
@@ -328,7 +324,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (string.IsNullOrWhiteSpace(newName)) return;
         // 同名（不区分大小写）或目标分类已存在都阻止重命名
         if (newName.Equals(cat.Name, StringComparison.OrdinalIgnoreCase)
-            || _categoryList.Any(c => c.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+            || ViewModel.CategoryList.Any(c => c.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
         {
             await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, newName);
             return;
@@ -355,15 +351,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (!ok) return;
 
         // 从 UI 列表移除
-        for (int i = _categoryList.Count - 1; i >= 0; i--)
-            if (_categoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
-                _categoryList.RemoveAt(i);
+        for (int i = ViewModel.CategoryList.Count - 1; i >= 0; i--)
+            if (ViewModel.CategoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+                ViewModel.CategoryList.RemoveAt(i);
 
         // 若删除的是当前分类，切换到第一项（若有）
         if (ViewModel.CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
         {
-            ViewModel.CurrentCategory = _categoryList.FirstOrDefault()?.Name ?? string.Empty;
-            CategoryList.SelectedItem = _categoryList.FirstOrDefault();
+            ViewModel.CurrentCategory = ViewModel.CategoryList.FirstOrDefault()?.Name ?? string.Empty;
+            CategoryList.SelectedItem = ViewModel.CategoryList.FirstOrDefault();
         }
         RefreshMemes();
     }
@@ -409,7 +405,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy)
             return;
 
-        var ordered = _categoryList.Select(c => c.Name).ToList();
+        var ordered = ViewModel.CategoryList.Select(c => c.Name).ToList();
         await _engine.ReorderCategoriesAsync(ordered);
         Log($"分类重排写回 {ordered.Count} 个分类顺序");
     }
@@ -478,15 +474,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         if (visible)
         {
-            if (MemeGridView.ItemsSource != _memeList)
+            if (MemeGridView.ItemsSource != ViewModel.MemeList)
             {
-                CategoryList.ItemsSource = _categoryList;
-                MemeGridView.ItemsSource = _memeList;
+                CategoryList.ItemsSource = ViewModel.CategoryList;
+                MemeGridView.ItemsSource = ViewModel.MemeList;
             }
             // 隐藏时 CategoryList.ItemsSource 被置空导致选中容器销毁、蓝条/高亮丢失；
             // 重新绑回后必须重新断言选中，待容器生成后再设回以恢复视觉。
-            var sel = _categoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory)
-                      ?? _categoryList.FirstOrDefault();
+            var sel = ViewModel.CategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory)
+                      ?? ViewModel.CategoryList.FirstOrDefault();
             if (sel != null)
             {
                 CategoryList.SelectedItem = null;
@@ -507,12 +503,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 避免绑定重求又 new 出纹理）；不置空 ItemsSource——分类容器无需置空，且图片容器
         // 由框架/导航负责卸载，手动 null 反而在切模式导航前扰乱状态（曾导致切回空白）。
         // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
-        foreach (var vm in _memeList)
+        foreach (var vm in ViewModel.MemeList)
             vm.ClearImages();
 
         if (_engine.Config.UseControlReuse)
         {
-            Log($"[内存诊断] 隐藏释放(复用模式): _memeList={_memeList.Count} _categoryList={_categoryList.Count} " +
+            Log($"[内存诊断] 隐藏释放(复用模式): ViewModel.MemeList={ViewModel.MemeList.Count} ViewModel.CategoryList={ViewModel.CategoryList.Count} " +
                 $"VM存活BitmapImage={MemeViewModel.LiveBitmapImageCount} " +
                 $"托管堆={GC.GetTotalMemory(false) / 1024}KB GC代数0/1/2={GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}");
         }
@@ -631,7 +627,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         var name = await DialogHelper.PromptNewCategoryAsync(this.XamlRoot);
         if (string.IsNullOrWhiteSpace(name)) return;
-        if (_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        if (ViewModel.CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
         {
             await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, name);
             return;
@@ -639,8 +635,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         bool added = await _engine.AddCategoryAsync(name);
         if (added)
         {
-            _categoryList.Add(new CategoryViewModel(name, 0));
-            CategoryList.SelectedItem = _categoryList.Last();
+            ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
+            CategoryList.SelectedItem = ViewModel.CategoryList.Last();
         }
     }
 
@@ -654,14 +650,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             string.IsNullOrWhiteSpace(keyword) ? null : keyword);
 
         // 用当前策略刷新表情列表（复用=增量复用 VM，重建=整体 Clear+重建）。
-        _listStrategy.RefreshMemes(_memeList, memes);
+        _listStrategy.RefreshMemes(ViewModel.MemeList, memes);
 
         // 复用语义下记录增量统计，便于诊断（重建模式为全量重建，无增量可记）。
         if (_listStrategy is ReuseStrategy)
         {
             int newCount = memes.Count;
-            int oldCount = _memeList.Count;
-            Log($"[诊断] RefreshMemes VM数={_memeList.Count} 新项数={newCount}");
+            int oldCount = ViewModel.MemeList.Count;
+            Log($"[诊断] RefreshMemes VM数={ViewModel.MemeList.Count} 新项数={newCount}");
         }
 
         UpdateCategoryCounts();
@@ -680,7 +676,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 避免用户误以为图片没加载出来。文本走 i18n。
     private void UpdateEmptyHint()
     {
-        if (_memeList.Count > 0)
+        if (ViewModel.MemeList.Count > 0)
         {
             EmptyHint.Visibility = Visibility.Collapsed;
             return;
@@ -699,9 +695,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         var names = new HashSet<string>(
             removed.Select(m => m.FileName), StringComparer.OrdinalIgnoreCase);
-        for (int i = _memeList.Count - 1; i >= 0; i--)
-            if (names.Contains(_memeList[i].FileName))
-                _memeList.RemoveAt(i);
+        for (int i = ViewModel.MemeList.Count - 1; i >= 0; i--)
+            if (names.Contains(ViewModel.MemeList[i].FileName))
+                ViewModel.MemeList.RemoveAt(i);
 
         UpdateEmptyHint();
     }
@@ -710,7 +706,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         // 直接基于内存缓存计数，避免每个分类都走一次 GetMemes().ToList() 的临时分配
         var cache = _engine.GetAllMemes();
-        foreach (var c in _categoryList)
+        foreach (var c in ViewModel.CategoryList)
             c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
         // 更新"全部表情"总数
         _allMemesVm.Count = cache.Count;
@@ -946,7 +942,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-        int index = _memeList.IndexOf(clicked);
+        int index = ViewModel.MemeList.IndexOf(clicked);
 
         // ---- 非编辑模式下按住 Shift 点击：直接进编辑模式并选中当前图片，
         //      后续点击/Shift 连续选交给编辑模式原生逻辑托管。
@@ -1011,7 +1007,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (App.MainWindow.IsClosing) return;
         var selected = new HashSet<MemeViewModel>(
             MemeGridView.SelectedItems.Cast<MemeViewModel>());
-        foreach (var vm in _memeList)
+        foreach (var vm in ViewModel.MemeList)
             vm.IsSelected = selected.Contains(vm);
     }
 
@@ -1174,8 +1170,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var draggedGroup = _draggingMemes?.ToList() ?? new List<MemeModel>();
 
         // 用当前策略计算写回顺序：复用策略做“锚点对齐”，重建策略沿用 WinUI 默认顺序。
-        var orderedFileNames = _listStrategy.ComputeDragOrder(_memeList, draggedGroup, _dragAnchorFileName)
-            ?? _memeList.Select(m => m.FileName).ToList();
+        var orderedFileNames = _listStrategy.ComputeDragOrder(ViewModel.MemeList, draggedGroup, _dragAnchorFileName)
+            ?? ViewModel.MemeList.Select(m => m.FileName).ToList();
 
         Log($"DragItemsCompleted: 重排完成, 项数={orderedFileNames.Count}");
 
@@ -1199,7 +1195,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             try
             {
                 var vms = draggedGroup
-                    .Select(m => _memeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
+                    .Select(m => ViewModel.MemeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
                     .Where(v => v != null)
                     .ToList()!;
                 MemeGridView.SelectedItems.Clear();
@@ -1376,7 +1372,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         bool hasTarget = false;
-        foreach (var cat in _categoryList)
+        foreach (var cat in ViewModel.CategoryList)
         {
             if (cat.Name.Equals(vm.Category, StringComparison.OrdinalIgnoreCase)) continue;
             hasTarget = true;
@@ -1586,8 +1582,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                     {
                         DispatcherQueue.TryEnqueue(() =>
                         {
-                            if (!_categoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
-                                _categoryList.Add(new CategoryViewModel(createdName, 0));
+                            if (!ViewModel.CategoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
+                                ViewModel.CategoryList.Add(new CategoryViewModel(createdName, 0));
                         });
                     });
             },
@@ -1684,7 +1680,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         bool hasTarget = false;
-        foreach (var cat in _categoryList)
+        foreach (var cat in ViewModel.CategoryList)
         {
             // 跳过当前所在分类（移动过去无意义）
             if (ViewModel.CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
@@ -1944,7 +1940,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void ToggleSelectAll()
     {
         if (!ViewModel.EditMode) return;
-        bool allSelected = MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
+        bool allSelected = MemeGridView.SelectedItems.Count == ViewModel.MemeList.Count && ViewModel.MemeList.Count > 0;
         if (allSelected)
             MemeGridView.SelectedItems.Clear();
         else
@@ -1958,7 +1954,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void UpdateSelectAllButton()
     {
         if (SelectAllButton == null) return;
-        bool allSelected = ViewModel.EditMode && MemeGridView.SelectedItems.Count == _memeList.Count && _memeList.Count > 0;
+        bool allSelected = ViewModel.EditMode && MemeGridView.SelectedItems.Count == ViewModel.MemeList.Count && ViewModel.MemeList.Count > 0;
         SelectAllButton.Content = allSelected ? Localization.Get("Meme_CancelSelectAll") : Localization.Get("Meme_SelectAll");
     }
 
@@ -2028,7 +2024,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SelectAllButton.Content = Localization.Get("Meme_SelectAll");
         // 隐藏并清空复选框指示器
         SetSelectionBoxVisible(false);
-        foreach (var vm in _memeList) vm.IsSelected = false;
+        foreach (var vm in ViewModel.MemeList) vm.IsSelected = false;
     }
 
     // 编辑模式进出时，统一切换所有 item 容器内复选框的可见性。
@@ -2091,10 +2087,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return null;
             }
 
-            if (!_categoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            if (!ViewModel.CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
                 await _engine.AddCategoryAsync(name);
-                _categoryList.Add(new CategoryViewModel(name, 0));
+                ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
                 Log($"[剪贴板] 新建分类 {name}");
             }
             return name;
@@ -2200,7 +2196,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (names.Count == 0) return; // 非焦点分类，跳过
 
-            var toRemove = _memeList
+            var toRemove = ViewModel.MemeList
                 .Where(vm => !string.IsNullOrEmpty(vm.LocalPath) && names.Contains(Path.GetFileName(vm.LocalPath)))
                 .ToList();
             if (toRemove.Count == 0) return;
@@ -2229,7 +2225,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
             // 收集真实存在的文件全路径（过滤已存在于列表的，避免冗余导入）
             var fullPaths = added
-                .Where(c => !_memeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
+                .Where(c => !ViewModel.MemeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
                     string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
                 .Select(c => Path.Combine(_engine.BaseDir, c.Category, c.FileName))
                 .Where(File.Exists)
@@ -2274,7 +2270,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (fromNames.Count > 0)
             {
-                var toRemove = _memeList
+                var toRemove = ViewModel.MemeList
                     .Where(vm => !string.IsNullOrEmpty(vm.LocalPath) && fromNames.Contains(Path.GetFileName(vm.LocalPath)))
                     .ToList();
                 if (toRemove.Count > 0)
