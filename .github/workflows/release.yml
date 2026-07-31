@@ -65,6 +65,38 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          mode: "COMMIT"
+          configurationJson: |
+            {
+              "template": "#{{CHANGELOG}}",
+              "categories": [
+                { "title": "## 🚀 Features", "labels": ["feat"] },
+                { "title": "## 🐛 Fixes", "labels": ["fix", "bugfix"] },
+                { "title": "## ♻️ Refactor", "labels": ["refactor"] },
+                { "title": "## 📝 Docs", "labels": ["docs"] },
+                { "title": "## 🔧 Chore", "labels": ["chore"] },
+                { "title": "## Other", "labels": [] }
+              ],
+              "label_extractor": [
+                {
+                  "pattern": "^(build|chore|ci|docs|feat|fix|bugfix|perf|refactor|revert|style|test)(\\([\\w\\-\\.]+\\))?(!)?: (.+)",
+                  "on_property": "title",
+                  "target": "$1"
+                }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -73,10 +105,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          body: ${{ steps.build_changelog.outputs.changelog }}
           files: |
             artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
             artifacts/MemeManager-win-x64-zip/MemeManager-win-x64-${{ github.ref_name }}.zip
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
