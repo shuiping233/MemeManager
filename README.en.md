@@ -112,7 +112,9 @@ All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported
 
 ## Mini Mode
 
-In Mini mode, the main window is forced to stay on top, providing basic image drag-to-import capability and an "emoji popup" feature similar to regular chat apps. Clicking the "Emoji" button pops up the "emoji popup", where you can send a meme by clicking or dragging the image.
+In Mini mode, the main window's always-on-top state follows the always-on-top state of Full mode.
+
+Mini mode providing basic image drag-to-import capability and an "emoji popup" feature similar to regular chat apps. Clicking the "Emoji" button pops up the "emoji popup", where you can send a meme by clicking or dragging the image.
 
 Apart from the global summon shortcut, no other shortcuts are currently supported in this mode.
 
