@@ -28,6 +28,15 @@ public partial class MainViewModel : ObservableObject
         SettingsRequested?.Invoke();
     }
 
+    // 切换到 Mini 模式请求：MainPage 订阅并调用 MainWindow.SwitchMode（UI 行为留 Page 层）
+    public event Action? MiniModeRequested;
+
+    [RelayCommand]
+    private void SwitchToMiniMode()
+    {
+        MiniModeRequested?.Invoke();
+    }
+
     // 当前视图所属的分类类型（全部表情 / 普通分类），纯 UI 视图状态
     [ObservableProperty]
     public partial CategoryKind CurrentCategoryKind { get; set; } = CategoryKind.Normal;

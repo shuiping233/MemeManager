@@ -95,7 +95,7 @@
                     <ToolTip l:Uids.Uid="Main_RefreshToolTip"/>
                 </ToolTipService.ToolTip>
             </Button>
-            <Button x:Name="MiniModeButton" Grid.Column="4" l:Uids.Uid="Main_MiniMode" Margin="0,0,8,0" Click="MiniModeButton_Click">
+            <Button x:Name="MiniModeButton" Grid.Column="4" l:Uids.Uid="Main_MiniMode" Margin="0,0,8,0" Command="{Binding SwitchToMiniModeCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_MiniModeToolTip"/>
                 </ToolTipService.ToolTip>

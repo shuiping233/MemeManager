@@ -90,6 +90,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.RefreshRequested += RefreshDataAsync;
         // Phase 2.2：设置入口从 Click 迁到 Command；弹出浮窗的 UI 行为仍留本页
         ViewModel.SettingsRequested += ShowSettingsFlyout;
+        // Phase 2.3：Mini 模式入口从 Click 迁到 Command；切窗口模式 UI 行为仍留本页
+        ViewModel.MiniModeRequested += SwitchToMiniMode;
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -1725,7 +1727,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // 切换到 Mini 模式（仅当配置允许时，按钮本身也会隐藏）
-    private void MiniModeButton_Click(object sender, RoutedEventArgs e)
+    private void SwitchToMiniMode()
     {
         if (!_engine.Config.AllowMiniMode)
             return;
