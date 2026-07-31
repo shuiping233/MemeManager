@@ -324,5 +324,67 @@ Repository                         ← 仓库根（.sln 在这）
 
 - [x] **Step 1**：建 `MemeManager/` 子文件夹，移入 `.csproj`、所有源码/XAML、`Assets/`、`Strings/`、`Properties/`
 - [x] **Step 2**：更新 `MemeManager.sln` 中项目路径为 `MemeManager\MemeManager.csproj`，`dotnet build` 通过（0 警告 0 错误）为 `MemeManager\MemeManager.csproj`，`dotnet build` 验证
-- [ ] **Step 3**：在 IDE 中按上表拖入各子文件夹，IDE 自动调整命名空间（`MemeManager.Views`、`MemeManager.Services` 等）
+- [x] **Step 3**：源文件已按上表拖入各子文件夹，命名空间已调整为 `MemeManager.Views` / `.ViewModels` / `.Services` / `.Infrastructure` 等（物理分层完成，逻辑尚未拆分）
 - [ ] **Step 4**：`dotnet build` + 完整功能回归（搜索/导入/删除/移动/拖拽/Mini模式/设置/快捷键）
+
+---
+
+## 前置准备：搭建 DI 容器（Phase 1 之前必做，单独 commit）
+
+> **目标**：在动手改 XAML / code-behind 之前，先把依赖注入骨架立好，让后续每个 ViewModel / Service 都能用构造器注入，而不是 `App.DataEngine` 静态全局。
+
+### 选型约定
+
+- 容器：`Microsoft.Extensions.DependencyInjection`（成熟、全生命周期支持；若已引用 CommunityToolkit.Mvvm 也可改用其 `Ioc.Default`，二选一，早定）
+- **Page / Window 不进容器**：XAML `partial class` 由框架实例化最自然，避免在容器里 `new` 带 XAML 的类型
+- **注入方式**：ViewModel / Service 进容器；Page 通过**构造器注入 ViewModel**，不在 XAML 里 `new ViewModel()`
+- 生命周期：全局单例用 `AddSingleton`；需要每实例隔离的才用 `AddTransient`
+
+### 落地模板
+
+**App.xaml.cs 骨架：**
+
+```csharp
+public partial class App : Application
+{
+    public IServiceProvider Services { get; }
+
+    public App()
+    {
+        Services = ConfigureServices();
+    }
+
+    private static IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+        // 基础设施 / 数据层
+        services.AddSingleton<MemeDataEngine>();
+        services.AddSingleton<FileWatcher>();
+        // 业务 Service（Phase 3 逐步补）
+        services.AddSingleton<PasteService>();
+        // ViewModel（Phase 1 起逐步补）
+        services.AddSingleton<MainViewModel>();
+        return services.BuildServiceProvider();
+    }
+}
+```
+
+**Page 构造器注入（推荐模式）：**
+
+```csharp
+public MainPage(MainViewModel vm)
+{
+    InitializeComponent();
+    DataContext = vm;
+}
+// 创建处：
+var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
+```
+
+### 兼容过渡
+
+- [ ] 保留 `App.DataEngine` 静态访问点，内部转发到容器实例（`=> Services.GetRequiredService<MemeDataEngine>()`），避免一次性改几百处旧调用
+- [ ] MainWindow / MainPage 的创建改为从容器取 ViewModel 注入
+- [ ] 验收：`dotnet build` 通过 + 启动后功能与改造前一致（DataEngine 行为不变）
+
+**完成标志**：`ConfigureServices()` 就绪，DataEngine / PasteService 等已注册，`App.DataEngine` 静态入口转为容器转发，项目仍可正常运行。此步独立 commit，不夹带任何逻辑迁移。
