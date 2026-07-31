@@ -23,8 +23,7 @@ namespace MemeManager.Views;
 public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage
 {
     // 初始化"全部表情"固定项（必须在 LoadCategories 之前，因为 LoadCategories
-    // 会触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到 _allMemesVm）
-    private readonly CategoryViewModel _allMemesVm = new("", 0);
+    // 会触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到 AllMemesVm）
 
     // 批量操作进度条（顶部 InfoBar）封装；构造时绑定 XAML 控件
     private readonly BatchProgressHelper _batchProgress;
@@ -146,7 +145,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         LoadCategories();
 
-        AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { _allMemesVm };
+        AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { ViewModel.AllMemesVm };
     }
 
     // ---------- 分类 ----------
@@ -200,7 +199,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (string.IsNullOrEmpty(last))
         {
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
-            AllMemesList.SelectedItem = _allMemesVm;
+            AllMemesList.SelectedItem = ViewModel.AllMemesVm;
             ViewModel.CurrentCategory = AllMemesCategory;
             ViewModel.CurrentCategoryKind = CategoryKind.All;
         }
@@ -699,7 +698,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         foreach (var c in ViewModel.CategoryList)
             c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
         // 更新"全部表情"总数
-        _allMemesVm.Count = cache.Count;
+        ViewModel.AllMemesVm.Count = cache.Count;
     }
 
     // ---------- 悬停放大预览（Popup）----------
