@@ -124,24 +124,40 @@
 - [x] **1.2.7** `_reloading`(7) + `_searchDebounceTimer`(7) + `_pendingPreviewVm`(7) → `Reloading` / `SearchDebounceTimer` / `PendingPreviewVm` ✅ commit `8320d7b`
 - [x] **1.2.8** `_dragAnchorFileName`(6) + `_pendingPreviewAnchor`(6) + `_pasteDialogOpen`(4) + `_lastShiftAnchor`(3) → 对应属性 ✅ commit `8c9a785`
 
-- [ ] **1.2.9** `_allMemesVm`（5处）→ `AllMemesVm` ⏸ **暂缓**
+- [ ] **`_allMemesVm`**（5处）→ `AllMemesVm` ⏸ **暂缓至 Phase 1.4**
   - **原因**：它非纯状态——第702行 `_allMemesVm.Count = cache.Count` 直接写 `CategoryViewModel.Count`，且与 `LoadCategories` / `UpdateCategoryCounts` 刷新逻辑耦合（注释明说"触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到"）。
-  - **何时做**：等 **Phase 1.3 把 `CategoryViewModel` 换成 CommunityToolkit `[ObservableProperty]`、`Count` 变为可通知属性之后**，再回头搬。届时计数刷新链路已稳，搬移不会破坏 UI 更新。归到 Phase 1.3 收尾项。
+  - **何时做**：等 **Phase 1.3 把 `CategoryViewModel` 换成 CommunityToolkit `[ObservableProperty]`、`Count` 变为可通知属性之后**，在 **Phase 1.4（MainPage 剩余状态清理）** 单独作为一个 commit 收尾。不混入 1.3 的 VM 现代化 commit，保持语义单一。
 
-**Phase 1.2 完成标志**：MainPage.xaml.cs 内所有纯 UI 状态字段已迁至 `MainViewModel`（除 `_allMemesVm` 按上述暂缓）；code-behind 仅保留 UI 生命周期/事件/拖拽/预览浮窗逻辑；build 0 警告 0 错误。
+**Phase 1.2 完成标志**：MainPage.xaml.cs 内所有纯 UI 状态字段已迁至 `MainViewModel`（除 `_allMemesVm` 按上述暂缓至 Phase 1.4）；code-behind 仅保留 UI 生命周期/事件/拖拽/预览浮窗逻辑；build 0 警告 0 错误。
 
 > 注：原路线 1.2 提及的 `BatchBar.Visibility` 绑定、`SearchBox.Text` 绑定、`_previewTimer` 等属于"XAML 绑定化"，属后续 Phase 2/3 范畴，不在本次状态迁移内。
 
-### 1.3 MemeViewModel / CategoryViewModel 换 CommunityToolkit
+### 1.3 MemeViewModel / CategoryViewModel 换 CommunityToolkit（VM 内部现代化，不改业务逻辑）
 
-- [ ] `MemeViewModel.cs`：手动 `INotifyPropertyChanged` → 继承 `ObservableObject`，字段加 `[ObservableProperty]`
-  - 验收：图片标题修改后 UI 自动刷新，无功能变化
-- [ ] `CategoryViewModel.cs`：同上
-  - 验收：分类名修改/计数更新后 UI 自动刷新
-- [ ] **Phase 1.2.9 收尾**：`CategoryViewModel` 改造完成后，补搬 `_allMemesVm`（5处）→ `MainViewModel.AllMemesVm`（见 1.2 暂缓说明）
+> **纪律**：仅做 VM 内部机械升级（手写 INotifyPropertyChanged → ObservableObject + `[ObservableProperty]`），**不重写、不引入新逻辑**。每个 VM 独立 commit。
+
+- [x] **1.3.1** `CategoryViewModel.cs` → `partial class CategoryViewModel : ObservableObject`，`Name`/`Count`/`IsSelected` 加 `[ObservableProperty]`；删除手写 `PropertyChanged` 事件与 `OnPropertyChanged` 方法 ✅
+  - 验收：分类名修改、计数更新、选中状态 UI 自动刷新，无功能变化
+- [ ] **1.3.2** `MemeViewModel.cs` → `partial class MemeViewModel : ObservableObject`
+  - **只改** `Title`、`IsSelected` 为 `[ObservableProperty]`
+  - **不改**：`Hash`/`LocalPath`/`Category`/`FileName`（只读转发属性，非状态，保留）
+  - **保留**：`UpdateModel` 里对 `Hash`/`LocalPath`/`Category`/`FileName`/`Title`/`ImageSource` 的手动 `OnPropertyChanged` 调用（`ObservableObject` 基类提供该方法）
+  - **不动**：`ImageSource`/`PreviewSource` 的惰性加载 + `LiveBitmapImageCount` 副作用（业务逻辑，非纯状态）
+  - 验收：图片标题修改后 UI 刷新、选中状态正常、图片列表显示正常、复用 VM 换源正常
+  - ⚠️ 类声明必须加 `partial`（Toolkit 是 source generator，非 partial 编译报错）
+
+**Phase 1.3 完成标志**：两个 VM 均继承 `ObservableObject`，手写通知代码消除，UI 行为与改造前一致。
+
+---
+
+### 1.4 MainPage 剩余状态清理
+
+- [ ] **1.4.1** 收尾 `_allMemesVm`（5处）→ `MainViewModel.AllMemesVm`
+  - 前置：依赖 1.3.1 完成（`CategoryViewModel.Count` 已是可通知属性）
+  - `MainViewModel` 加 `AllMemesVm` 属性（初始化 `new CategoryViewModel("", 0)`）；`MainPage` 删本地声明，5 处引用改 `ViewModel.AllMemesVm`
   - 验收：左侧"全部表情"项计数随分类内容实时更新，切换正常
 
-**Phase 1 完成标志**：`MainPage.xaml.cs` 减少约 30% 字段声明，所有纯 UI 状态字段都在 ViewModel 中（`_allMemesVm` 已在 1.2.9 收尾搬完）。
+**Phase 1 完成标志**：`MainPage.xaml.cs` 减少约 30% 字段声明，所有纯 UI 状态字段（含 `_allMemesVm`）都在 ViewModel 中；两个 VM 已完成 Toolkit 现代化。
 
 ---
 
