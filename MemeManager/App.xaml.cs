@@ -140,7 +140,7 @@ public partial class App : Application
             await DataEngine.AddCategoryAsync(MemeDataEngine.DefaultCategory);
         }
 
-        _window = new MainWindow();
+        _window = new MainWindow(Services.GetRequiredService<MemeDataEngine>());
         // 必须在 _window 赋值后再导航页面：Page 构造中会访问 App.MainWindow
         ((MainWindow)_window).InitializeMode();
         ApplyTheme();
@@ -169,7 +169,7 @@ public partial class App : Application
         }
 
         // 系统托盘图标
-        _trayIcon = new TrayIcon(WindowNativeHwnd());
+        _trayIcon = new TrayIcon(WindowNativeHwnd(), Services.GetRequiredService<MemeDataEngine>());
         _trayIcon.ShowMainWindow += (_, _) => MainWindow.ShowAndActivate();
         _trayIcon.ToggleMode += (_, _) => MainWindow.ToggleMode();
         _trayIcon.OpenSettings += (_, _) => MainWindow.OpenSettings();

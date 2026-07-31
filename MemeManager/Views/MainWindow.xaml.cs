@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +18,7 @@ namespace MemeManager.Views;
 public sealed partial class MainWindow : Window
 {
     private readonly IntPtr _hWnd;
+    private readonly MemeDataEngine _engine;
     private Microsoft.UI.Windowing.AppWindow? _appWindow;
     private bool _isVisible = true;
     private const int HOTKEY_ID = 9001;
@@ -84,8 +85,9 @@ public sealed partial class MainWindow : Window
         GC.WaitForPendingFinalizers();
     }
 
-    public MainWindow()
+    public MainWindow(MemeDataEngine engine)
     {
+        _engine = engine;
         InitializeComponent();
 
         Title = "MemeManager " + GetInformationalVersion();
@@ -185,8 +187,8 @@ public sealed partial class MainWindow : Window
     public void InitializeMode()
     {
         // 若 config 关闭了 Mini 模式，则不恢复 Mini（强制 Full）。
-        var mode = App.DataEngine.Config.AllowMiniMode
-            ? App.DataEngine.Config.LastAppMode
+        var mode = _engine.Config.AllowMiniMode
+            ? _engine.Config.LastAppMode
             : AppMode.Full;
         SwitchMode(mode, persist: false);
     }
@@ -194,7 +196,7 @@ public sealed partial class MainWindow : Window
     public void SwitchMode(AppMode mode, bool persist = true)
     {
         // 配置不允许 Mini 模式时，任何进入 Mini 的请求都强制转为 Full。
-        if (mode == AppMode.Mini && !App.DataEngine.Config.AllowMiniMode)
+        if (mode == AppMode.Mini && !_engine.Config.AllowMiniMode)
             mode = AppMode.Full;
 
         if (RootFrame.Content != null && _currentMode == mode) return;
@@ -235,7 +237,7 @@ public sealed partial class MainWindow : Window
         Log($"[模式] 已切换到 {mode}");
 
         if (persist)
-            _ = App.DataEngine.UpdateConfigAsync(c => c.LastAppMode = mode);
+            _ = _engine.UpdateConfigAsync(c => c.LastAppMode = mode);
     }
 
     // Full 模式：还原 config.json 中上次保存的宽高；无有效值则用默认。
@@ -323,7 +325,7 @@ public sealed partial class MainWindow : Window
     private void RestoreWindowSize()
     {
         if (_appWindow == null) return;
-        var cfg = App.DataEngine.Config;
+        var cfg = _engine.Config;
 
         int w = (int)Math.Max(400, cfg.WindowWidth);
         int h = (int)Math.Max(300, cfg.WindowHeight);
@@ -342,7 +344,7 @@ public sealed partial class MainWindow : Window
             Log("[窗口] 当前为 Mini 模式，跳过尺寸记录");
             return;
         }
-        var cfg = App.DataEngine.Config;
+        var cfg = _engine.Config;
 
         bool maximized = _appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
         if (maximized)
@@ -358,7 +360,7 @@ public sealed partial class MainWindow : Window
         cfg.WindowSizePreset = ClassifySize(bounds.Width, bounds.Height);
         Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height} (预设={cfg.WindowSizePreset})");
 
-        _ = App.DataEngine.SaveConfigAsync();
+        _ = _engine.SaveConfigAsync();
     }
 
     // 依据宽高映射到最接近的尺寸预设档位（仅用于日志/调试展示）
@@ -469,7 +471,7 @@ public sealed partial class MainWindow : Window
     // 若 config 关闭了 Mini 模式，则该菜单项应已禁用，这里再兜底拦截。
     public void ToggleMode()
     {
-        if (!App.DataEngine.Config.AllowMiniMode)
+        if (!_engine.Config.AllowMiniMode)
             return;
         bool foreground = Visible && NativeMethods.GetForegroundWindow() == _hWnd;
         if (!foreground)
@@ -854,7 +856,7 @@ public sealed partial class MainWindow : Window
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         SuspendWindowInteractions(closing: true);
-        App.DataEngine.Watcher?.Stop();
+        _engine.Watcher?.Stop();
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
         if (_winEventHook != IntPtr.Zero)
@@ -869,7 +871,7 @@ public sealed partial class MainWindow : Window
     private void RegisterConfiguredHotKey()
     {
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
-        var cfg = App.DataEngine.Config;
+        var cfg = _engine.Config;
         NativeMethods.RegisterHotKey(_hWnd, HOTKEY_ID, cfg.HotKeyModifiers, cfg.HotKeyVk);
     }
 
@@ -878,10 +880,10 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void ApplyHotKeyConfig(uint modifiers, ushort vk)
     {
-        App.DataEngine.Config.HotKeyModifiers = modifiers;
-        App.DataEngine.Config.HotKeyVk = vk;
+        _engine.Config.HotKeyModifiers = modifiers;
+        _engine.Config.HotKeyVk = vk;
         RegisterConfiguredHotKey();
-        _ = App.DataEngine.SaveConfigAsync();
+        _ = _engine.SaveConfigAsync();
     }
 
     /// <summary>
@@ -954,7 +956,7 @@ public sealed partial class MainWindow : Window
         if (_appWindow == null) return;
         try
         {
-            var theme = App.DataEngine.Config.Theme;
+            var theme = _engine.Config.Theme;
             _appWindow.TitleBar.PreferredTheme = theme switch
             {
                 ThemeMode.Dark => Microsoft.UI.Windowing.TitleBarTheme.Dark,

@@ -16,6 +16,7 @@ public sealed class TrayIcon : IDisposable
 
     private readonly IntPtr _hwnd;
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
+    private readonly MemeDataEngine _engine;
     private bool _disposed;
 
     // 菜单命令 ID
@@ -29,9 +30,10 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? OpenSettings;
     public event EventHandler? ExitApplication;
 
-    public TrayIcon(IntPtr ownerHwnd)
+    public TrayIcon(IntPtr ownerHwnd, MemeDataEngine engine)
     {
         _hwnd = ownerHwnd;
+        _engine = engine;
 
         _subclassProc = new NativeMethods.SUBCLASSPROC(WndProc);
         NativeMethods.SetWindowSubclass(_hwnd, _subclassProc, TRAY_ICON_ID, IntPtr.Zero);
@@ -91,7 +93,7 @@ public sealed class TrayIcon : IDisposable
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SHOW, Localization.Get("Tray_Show"));
 
         // Mini 模式被配置禁用时，“切换窗口模式”菜单项置灰且不可选。
-        bool allowMini = App.DataEngine.Config.AllowMiniMode;
+        bool allowMini = _engine.Config.AllowMiniMode;
         if (allowMini)
             NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_TOGGLE_MODE, Localization.Get("Tray_ToggleMode"));
         else
