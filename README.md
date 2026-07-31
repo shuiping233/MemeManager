@@ -172,6 +172,7 @@ Mini模式时, 主窗口强制置顶, 提供基础的图片拖拽导入能力, �
 ## 鸣谢
 
 - [NightSkyTS] : 测试人员, 提供了win10测试机器, 提供和反馈了超过半数Bug和优化建议
+- [BigJ-00] : 测试人员, 提出Mini模式的建议和ui草稿
 
 - 同类项目
   - [SuzuEmojy] : 优秀的同类项目, 基于Python3和Qt6开发的表情管理器
@@ -186,6 +187,7 @@ Mini模式时, 主窗口强制置顶, 提供基础的图片拖拽导入能力, �
   - [astrbot_plugin_smart_imagechat_hub] : 优秀的[Astrbot]插件, "LLM 驱动的 AstrBot 一体化智能图片对话插件"
 
 [NightSkyTS]: https://github.com/NightSkyTS
+[BigJ-00]: https://github.com/BigJ-00
 [SuzuEmojy]: https://github.com/IxinorTyan/SuzuEmojy
 [StickersManager2]: https://github.com/igugyj/StickersManager2
 [OhMyMeme]: https://github.com/TNTXZ/OhMyMeme
