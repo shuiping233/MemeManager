@@ -19,3 +19,25 @@
   - 例：`[RelayCommand] async Task RefreshAsync()` → 去掉 `Async` → 生成 `RefreshCommand`（不是 `RefreshAsyncCommand`）。
 - `[RelayCommand]` / `[ObservableProperty]` 标注的方法/字段支持 `private`（实测 `private` 方法也能正常生成 Command 属性并绑定，无需改成 `internal`/`public`）。
 - 类必须标记为 `partial`（source generator 要求）。
+
+### 命令命名与用法规范
+
+**命名按“用户意图”，不要按控件名**（避免 WinForms 思维）：
+- ❌ `RefreshButton_Click` → `RefreshButtonClickCommand`
+- ✅ `RefreshCommand`、`OpenSettingsCommand`、`DeleteSelectedMemesCommand`、`ToggleEditModeCommand`、`SelectAllCommand`
+
+**方法参数用 VM 类型，不要 `object sender`**：
+- ✅ `[RelayCommand] void DeleteMeme(MemeViewModel meme)` → XAML `CommandParameter="{Binding}"` 传入当前项
+- 多参数请包装成请求类（如 `MoveMemeRequest`），不要直接多参
+
+**返回类型**：
+- `void` → 生成 `IRelayCommand`；`Task`/`Task<T>`? 注意：`Task<T>` 不支持，异步请返回 `Task`（生成 `IAsyncRelayCommand`）。需要返回值时拆成内部 `XxxInternalAsync()` 方法。
+- 长耗时异步（导入/批量/扫描）可用 `[RelayCommand(IncludeCancelCommand = true)]` 生成 `XxxCommand` + `CancelXxxCommand` 支持取消。
+
+**CanExecute（按钮自动启用/禁用）**：
+- `[RelayCommand(CanExecute = nameof(CanXxx))]` + 同名 `bool CanXxx()` 方法
+- 某 `[ObservableProperty]` 变化时要刷新命令可用态：`[NotifyCanExecuteChangedFor(nameof(XxxCommand))]` 标在该属性上
+
+**其它约束**：
+- 方法必须是**实例方法**，不能是 `static`（Command 需绑定 VM 实例）
+- 不要手动声明与生成名相同的 `XxxCommand` 属性（会冲突）
