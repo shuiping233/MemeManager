@@ -169,7 +169,7 @@
 > 3. **async 用 Toolkit**：含 IO/导入/删除的 Command 用 `[RelayCommand]` 标记 `async Task`，Toolkit 生成 `IAsyncRelayCommand`，**禁止 `async void`**。
 > 4. **Command 参数用 VM 类型**：`[RelayCommand] void DeleteMeme(MemeViewModel meme)` 而非 `(object sender)`。让 `RoutedEventArgs` 消失，体现 MVVM 价值。
 > 5. **MemeItem_Tapped 暂留 MainViewModel**（当前模板结构复杂），记一笔：未来应下沉到 `MemeViewModel`/`MemeItemViewModel`。
-> 6. **右键菜单（MenuFlyout）绑定坑**：WinUI 的 `MenuFlyout`/`ContextFlyout` 不在视觉树内，传统 `Binding` 依赖 `DataContext` 继承 + `ElementName=RootGrid` 锚点，在空白区域右键时仍可能失效（2.7 实测）。**一律优先用 `x:Bind`**：页面级菜单用 `{x:Bind ViewModel.XxxCommand}`，项级菜单（`DataTemplate` 内）用 `{x:Bind ViewModel.XxxCommand}` + `CommandParameter="{x:Bind}"`。前提：页面暴露强类型 `ViewModel` 属性。详见 AGENTS.md「XAML 绑定规范（x:Bind 优先）」。
+> 6. **右键菜单（MenuFlyout）绑定坑**：WinUI 的 `MenuFlyout`/`ContextFlyout` 不在视觉树内，传统 `Binding` 依赖 `DataContext` 继承 + `ElementName=RootGrid` 锚点，在**空白区域右键**时仍可能失效（2.7 实测），所以**页面级/空白菜单一律用 `x:Bind ViewModel.XxxCommand`**。但 **`DataTemplate` 内项级菜单** `x:Bind` 默认根是项 VM、够不到页面 VM，**标准写法就是用 `Binding`**：`Command="{Binding DataContext.XxxCommand, ElementName=RootGrid}"` + `CommandParameter="{Binding}"`。不要写成 `x:Bind ((MainPage)App.Current.Content)...` 那种绝对路径。详见 AGENTS.md「XAML 绑定规范（x:Bind 优先）」与「项级菜单」节。
 
 按复杂度从低到高，每个按钮改完立即验证（build + 点击/功能点一遍）：
 
@@ -187,18 +187,18 @@
 - [ ] **2.6** `AddCategoryButton_Click` (line 625) → `[RelayCommand]`
   - 验收：新建分类弹窗正常
 - [x] **2.7** 分类右键菜单 (lines 285/292/313/319) → 各 `[RelayCommand]`（**本阶段是 MVVM ContextFlyout 模板，务必慢、不要批量改**；详见 AGENTS.md「DataTemplate / ContextFlyout 内绑定 Page VM 的 Command」与「XAML 绑定规范（x:Bind 优先）」）
-  - **绑定写法（已定，x:Bind 优先）**：
-    - **页面级 / 空白区域菜单**（如 `ListView.ContextFlyout` 的新建分类）用 `{x:Bind ViewModel.XxxCommand}`，**不依赖 ElementName、不受 Flyout 脱离视觉树影响**（2.7 最初用 `Binding ElementName=RootGrid` 在空白右键失效，改 `x:Bind` 后解决）。
-    - **项级菜单**（`DataTemplate x:DataType=CategoryViewModel` 内）：`Command="{x:Bind ViewModel.OpenCategoryFolderCommand}"` + `CommandParameter="{x:Bind}"` 传当前项；`x:Bind` 根是页面 `ViewModel` 属性，参数根是当前项 VM。回退才用 `Binding ElementName=RootGrid`。
+  - **绑定写法（已定）**：
+    - **页面级 / 空白区域菜单**（如 `ListView.ContextFlyout` 的新建分类、顶栏按钮）用 `{x:Bind ViewModel.XxxCommand}`，**不依赖 ElementName、不受 Flyout 脱离视觉树影响**（2.7 最初用 `Binding ElementName=RootGrid` 在空白右键失效，改 `x:Bind` 后解决）。
+    - **项级菜单**（`DataTemplate x:DataType=CategoryViewModel` 内）：`x:Bind` 在模板里默认根是项 VM，无法够到页面 `ViewModel`，所以**标准写法就是用 `Binding`**：`Command="{Binding DataContext.OpenCategoryFolderCommand, ElementName=RootGrid}"` + `CommandParameter="{Binding}"` 传当前项。不要写成 `{x:Bind ((MainPage)App.Current.Content).ViewModel.XxxCommand}` 这种又长又吓人的绝对路径。
   - **不要**给 `CategoryViewModel` 加 `DeleteCommand`/`RenameCommand`——删/重命名/打开文件夹触及 `MemeDataEngine`+文件系统，属页面业务，放 `MainViewModel`，参数用 `CategoryViewModel` 类型。
-  - **两个 ContextFlyout 区分**：`ListView.ContextFlyout`（空白区域菜单，无当前项）直接绑 `x:Bind ViewModel.NewCategoryCommand`，无 `CommandParameter`；`ListView.ItemTemplate` 内项级菜单才有 `CommandParameter="{x:Bind}"`。
+  - **两个 ContextFlyout 区分**：`ListView.ContextFlyout`（空白区域菜单，无当前项）直接绑 `x:Bind ViewModel.NewCategoryCommand`，无 `CommandParameter`；`ListView.ItemTemplate` 内项级菜单才有 `CommandParameter="{Binding}"`（用 `Binding ElementName=RootGrid` 够到页面命令）。
   - **保留 `MenuFlyout Opening` 等 UI 生命周期事件**在 code-behind（设置当前右键对象/动态改菜单状态/判断能否删除），不强行 Command 化。
   - `CategoryOpenFolder_Click` → `OpenCategoryFolderCommand(CategoryViewModel)`
   - `CategoryNew_Click` → `NewCategoryCommand`（无参，走 ListView.ContextFlyout）
   - `CategoryDelete_Click` → `DeleteCategoryCommand(CategoryViewModel)`
   - `CategoryRename_Click` → `RenameCategoryCommand(CategoryViewModel)`
   - 验收：分类右键四个操作均正常；空白区域右键新建正常；`x:DataType` 警告消失且不靠给 CategoryViewModel 加 Command 消警告；页面已暴露强类型 `ViewModel` 属性供 `x:Bind` 解析。
-  - ⚠️ 做对 2.7 后，2.8（`MemeViewModel` 右键菜单）直接复制本模式：项级 Command 走 `x:Bind ViewModel.XxxCommand` + `CommandParameter="{x:Bind}"` 传 `MemeViewModel`，方法 `DeleteMeme(MemeViewModel)` 等。
+  - ⚠️ 做对 2.7 后，2.8（`MemeViewModel` 右键菜单）直接复制本模式：项级 Command 用 `Binding DataContext.XxxCommand, ElementName=RootGrid` 够到 MainViewModel + `CommandParameter="{Binding}"` 传 `MemeViewModel`，方法 `DeleteMeme(MemeViewModel)` 等。
 - [ ] **2.8** 表情右键/批量按钮 (lines 1392–1633) → 各 `[RelayCommand]`（参数用 `MemeViewModel`，见纪律 4）
   - `MemeCopy_Click` → `CopyMemeCommand(MemeViewModel)`
   - `MemeDelete_Click` → `DeleteMemeCommand(MemeViewModel)`

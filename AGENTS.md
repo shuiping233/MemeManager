@@ -39,24 +39,25 @@ public MainViewModel ViewModel => (MainViewModel)DataContext;
 
 不要写 `{x:Bind DataContext.SomeCommand}`（`DataContext` 类型是 `object`，编译期无法解析）。
 
-### 项级菜单（DataTemplate 内）的 x:Bind 用法
+### 项级菜单（DataTemplate 内）绑定页面 VM 的 Command
 
-`DataTemplate x:DataType="CategoryViewModel"` 内，`x:Bind` 默认根是**该项 VM**（如 `CategoryViewModel`），不是页面 VM。要调页面 VM 的命令有两个干净做法：
+`DataTemplate x:DataType="CategoryViewModel"` 内，`x:Bind` 默认根是**该项 VM**（如 `CategoryViewModel`），不是页面 VM。因此**项级菜单无法直接用 `x:Bind ViewModel.XxxCommand`**（编译器会去 `CategoryViewModel` 上找 `ViewModel` 属性而报错）。这种情况**允许且应当使用 `Binding`**：
 
-1. **`Command` 走页面 VM，`CommandParameter` 走当前项**（推荐，等价于原 `Binding ElementName=RootGrid` 但更稳）：
-   ```xml
-   <MenuFlyoutItem
-       Command="{x:Bind ViewModel.OpenCategoryFolderCommand}"
-       CommandParameter="{x:Bind}" />
-   ```
-   - `Command` 的 `x:Bind` 根是页面 → `ViewModel` 是页面属性。
-   - `CommandParameter="{x:Bind}"` 根是当前项 VM（`CategoryViewModel`），原样传参。
-   - 对应 VM 方法：`void OpenCategoryFolder(CategoryViewModel cat)`。
-2. 若 `x:Bind` 在模板内无法解析页面 VM（极少数情况），回退用 `Binding`：`Command="{Binding DataContext.XxxCommand, ElementName=RootGrid}"` + `CommandParameter="{Binding}"`，但优先尝试方案 1。
+```xml
+<MenuFlyoutItem
+    Command="{Binding DataContext.OpenCategoryFolderCommand, ElementName=RootGrid}"
+    CommandParameter="{Binding}" />
+```
+
+- `Command` 走 `RootGrid.DataContext`（= MainViewModel）拿到页面命令
+- `CommandParameter="{Binding}"` 根是当前项 VM（`CategoryViewModel`），原样传参
+- 对应 VM 方法：`void OpenCategoryFolder(CategoryViewModel cat)`
+- 这是 `DataTemplate` 内调页面命令的**标准写法**，不是临时回退（避免写成 `x:Bind ((MainPage)App.Current.Content).ViewModel.XxxCommand` 这种又长又吓人的绝对路径）
 
 ### 不要优先使用 `Binding` 的场景
 
-- `Command="{Binding DataContext.SomeCommand}"` 依赖 DataContext 与视觉树关系，遇到 `PopupRoot` / `Flyout` 容易失效——一律改 `x:Bind ViewModel.SomeCommand`。
+- 页面级 / 空白区域菜单（不在 `DataTemplate` 内）：一律用 `x:Bind ViewModel.SomeCommand`，不要写 `Binding DataContext.SomeCommand`（后者依赖 DataContext 与视觉树关系，遇到 `PopupRoot` / `Flyout` 容易失效）。
+- **例外**：`DataTemplate` 内项级菜单要够到页面 VM 命令时，用 `Binding DataContext.XxxCommand, ElementName=RootGrid`（见上节），这是允许的。
 
 ## MVVM（CommunityToolkit.Mvvm）
 
@@ -108,32 +109,27 @@ public MainViewModel ViewModel => (MainViewModel)DataContext;
 </ListView.ItemTemplate>
 ```
 
-这里模板内 `x:Bind` 默认根是**该项 VM**（`CategoryViewModel`），不是页面 `MainViewModel`。所以：
+这里模板内 `x:Bind` 默认根是**该项 VM**（`CategoryViewModel`），不是页面 `MainViewModel`。因此：
 
 - ❌ `Command="{x:Bind DeleteCategoryCommand}"` → 等价于去找 `CategoryViewModel.DeleteCategoryCommand`，编译报错。
-- ✅ **推荐**：`Command` 走页面属性 `ViewModel`，`CommandParameter` 走当前项：
+- ❌ `Command="{x:Bind ViewModel.DeleteCategoryCommand}"` → 编译器会去 `CategoryViewModel` 上找 `ViewModel` 属性，同样报错（`x:Bind` 在模板内默认根不是页面）。
+- ✅ **标准写法**：用 `Binding` + `ElementName` 指向 Page 根元素（本项目根元素已命名为 `RootGrid`，**不要新增 Root/RootGrid 以外的名字**）：
 
 ```xml
 <MenuFlyoutItem
-    Command="{x:Bind ViewModel.DeleteCategoryCommand}"
-    CommandParameter="{x:Bind}" />
+    Command="{Binding DataContext.DeleteCategoryCommand, ElementName=RootGrid}"
+    CommandParameter="{Binding}" />
 ```
 
-- `Command` 的 `x:Bind` 根是**页面**（页面已暴露强类型 `ViewModel` 属性），直接拿到 MainViewModel 的命令，不受 `PopupRoot`/`Flyout` 脱离视觉树影响。
-- `CommandParameter="{x:Bind}"` 根是当前项 VM（`CategoryViewModel`），原样传参。
+- `Command` 的 `Binding` 根是 `RootGrid.DataContext`（= MainViewModel），拿到页面命令，不受 `PopupRoot`/`Flyout` 脱离视觉树影响。
+- `CommandParameter="{Binding}"` 根是当前项 VM（`CategoryViewModel`），原样传参。
 - 对应 VM 方法 `DeleteCategory(CategoryViewModel category)`。
 - 形成：`Command` → MainViewModel 的方法；`Parameter` → 当前 CategoryViewModel。
-
-- ⚠️ 回退方案（仅当 `x:Bind` 在模板内无法解析页面 VM 的极少数情况）：用 `Binding` + `ElementName` 指向 Page 根元素（本项目根元素已命名为 `RootGrid`，**不要新增 Root/RootGrid 以外的名字**）：
-  ```xml
-  <MenuFlyoutItem
-      Command="{Binding DataContext.DeleteCategoryCommand, ElementName=RootGrid}"
-      CommandParameter="{Binding}" />
-  ```
+- 这是 `DataTemplate` 内调页面命令的**标准写法**，不要为了"全用 x:Bind"而写成 `{x:Bind ((MainPage)App.Current.Content).ViewModel.XxxCommand}` 这种又长又吓人的绝对路径。
 
 **RootGrid 已存在，不要再新增根元素**
 
-页面 VM 用 `x:Bind ViewModel.XxxCommand` 即可解析，不需要新增 `<Page x:Name="Root">` 或 `<Grid x:Name="Root">`。`RootGrid` 仍保留作为回退 `ElementName` 锚点。
+页面 VM 用 `x:Bind ViewModel.XxxCommand` 即可解析（页面级、不在 DataTemplate 内时），不需要新增 `<Page x:Name="Root">` 或 `<Grid x:Name="Root">`。`RootGrid` 作为项级菜单 `Binding ElementName` 的锚点保留。
 
 **不要把项级操作做成该项 VM 自己的 Command**
 
