@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MemeManager.Models;
 using MemeManager.ViewModels;
@@ -13,7 +13,7 @@ public partial class MainViewModel : ObservableObject
     public event Func<Task>? RefreshRequested;
 
     [RelayCommand]
-    internal async Task RefreshAsync()
+    private async Task RefreshAsync()
     {
         if (RefreshRequested != null)
             await RefreshRequested.Invoke();
@@ -23,7 +23,7 @@ public partial class MainViewModel : ObservableObject
     public event Action? SettingsRequested;
 
     [RelayCommand]
-    internal void OpenSettings()
+    private void OpenSettings()
     {
         SettingsRequested?.Invoke();
     }
