@@ -54,15 +54,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
     // 仅复用策略(ReuseStrategy.ComputeDragOrder)使用，用于把“拖起项”对齐到
     // 鼠标落点，而非 WinUI 默认的组尾对齐；重建策略忽略此值。
-    private string? _dragAnchorFileName;
 
     // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
 
     // 多选模式：Shift 连续选择的锚点（在 _memeList 中的索引）
-    private int _lastShiftAnchor = -1;
 
     // 防止粘贴导入的分类对话框重入
-    private bool _pasteDialogOpen;
 
     private readonly MemeDataEngine _engine =
         App.GetService<MemeDataEngine>();
@@ -71,7 +68,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 悬停放大预览：延迟定时器 + 当前待显示项
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
-    private FrameworkElement? _pendingPreviewAnchor;
 
     // 从配置应用悬停预览触发延时（配置缺失时用默认 400ms）
     public void ApplyPreviewDelayFromConfig()
@@ -513,7 +509,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         _previewTimer.Stop();
         ViewModel.PendingPreviewVm = null;
-        _pendingPreviewAnchor = null;
+        ViewModel.PendingPreviewAnchor = null;
 
         if (!PreviewPopup.IsOpen)
         {
@@ -742,7 +738,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         else
         {
             ViewModel.PendingPreviewVm = vm;
-            _pendingPreviewAnchor = fe;
+            ViewModel.PendingPreviewAnchor = fe;
             _previewTimer.Start();
         }
     }
@@ -751,7 +747,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         _previewTimer.Stop();
         ViewModel.PendingPreviewVm = null;
-        _pendingPreviewAnchor = null;
+        ViewModel.PendingPreviewAnchor = null;
         // 鼠标离开表情项即关闭预览（移动即取消，不依赖命中测试）
         HidePreviewPopup(reason: "PointerExited");
     }
@@ -786,10 +782,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         Log($"[预览] TimerTick -> Show (pending={ViewModel.PendingPreviewVm?.Title})");
         _previewTimer.Stop();
-        if (ViewModel.PendingPreviewVm == null || _pendingPreviewAnchor == null) return;
+        if (ViewModel.PendingPreviewVm == null || ViewModel.PendingPreviewAnchor == null) return;
         if (App.MainWindow.IsClosing || !App.MainWindow.IsAppVisible) return;
 
-        ShowPreviewPopup(ViewModel.PendingPreviewVm, _pendingPreviewAnchor);
+        ShowPreviewPopup(ViewModel.PendingPreviewVm, ViewModel.PendingPreviewAnchor);
     }
 
     private void ShowPreviewPopup(MemeViewModel vm, FrameworkElement anchor)
@@ -952,7 +948,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         //      Tapped 不再手动切换，避免与控件自带选中逻辑冲突导致要双击。
         if (ViewModel.EditMode)
         {
-            _lastShiftAnchor = index;
+            ViewModel.LastShiftAnchor = index;
             return;
         }
 
@@ -1062,8 +1058,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         ViewModel.DraggingMemes = group.Select(m => m.Model).ToList();
         // 锚点 = 实际拖起的那一张（e.Items[0]），用于重排时让它对齐鼠标落点。
-        _dragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
-        Log($"DragItemsStarting: 拖出 {ViewModel.DraggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={_dragAnchorFileName})");
+        ViewModel.DragAnchorFileName = draggedVms.Count > 0 ? draggedVms[0].FileName : null;
+        Log($"DragItemsStarting: 拖出 {ViewModel.DraggingMemes.Count} 张图片 (首项 {group[0].Title}, 锚点={ViewModel.DragAnchorFileName})");
 
         // 拖出格式按配置分支：
         //  - StorageFileDrag 关闭（默认，稳定优先）：仅用 SetBitmap + in-mem 流
@@ -1147,7 +1143,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             Log("DragItemsCompleted: 当前为“全部表情”视图，跳过重排写回（跨分类不允许重排序）");
             // 清空拖拽态，否则 _draggingMemes 残留会导致 IsBusyBlockingInput 一直为真（F5 被挡等）
             ViewModel.DraggingMemes = null;
-            _dragAnchorFileName = null;
+            ViewModel.DragAnchorFileName = null;
             return;
         }
 
@@ -1164,7 +1160,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var draggedGroup = ViewModel.DraggingMemes?.ToList() ?? new List<MemeModel>();
 
         // 用当前策略计算写回顺序：复用策略做“锚点对齐”，重建策略沿用 WinUI 默认顺序。
-        var orderedFileNames = _listStrategy.ComputeDragOrder(ViewModel.MemeList, draggedGroup, _dragAnchorFileName)
+        var orderedFileNames = _listStrategy.ComputeDragOrder(ViewModel.MemeList, draggedGroup, ViewModel.DragAnchorFileName)
             ?? ViewModel.MemeList.Select(m => m.FileName).ToList();
 
         Log($"DragItemsCompleted: 重排完成, 项数={orderedFileNames.Count}");
@@ -1207,7 +1203,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // （差集识别库内移动 vs 库外移出，就地移除失效控件+弹窗），此处无需额外逻辑。
 
         ViewModel.DraggingMemes = null;
-        _dragAnchorFileName = null;
+        ViewModel.DragAnchorFileName = null;
     }
 
     private async void MemeGridView_Drop(object sender, DragEventArgs e)
@@ -2012,7 +2008,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 退出编辑模式：仅关闭原生多选；拖拽重排保持开启（普通模式也允许排序）
         MemeGridView.SelectedItems.Clear();
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
-        _lastShiftAnchor = -1;
+        ViewModel.LastShiftAnchor = -1;
         SelectAllButton.Content = Localization.Get("Meme_SelectAll");
         // 隐藏并清空复选框指示器
         SetSelectionBoxVisible(false);
@@ -2063,12 +2059,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private async Task<string?> PromptCategoryForPasteAsync()
     {
         // 防止高速事件重入：对话框已打开时直接返回
-        if (_pasteDialogOpen)
+        if (ViewModel.PasteDialogOpen)
         {
             Log("[剪贴板] 分类对话框重入，跳过");
             return null;
         }
-        _pasteDialogOpen = true;
+        ViewModel.PasteDialogOpen = true;
 
         try
         {
@@ -2089,7 +2085,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
         finally
         {
-            _pasteDialogOpen = false;
+            ViewModel.PasteDialogOpen = false;
         }
     }
 

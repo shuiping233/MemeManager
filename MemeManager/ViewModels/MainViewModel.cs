@@ -43,6 +43,18 @@ public partial class MainViewModel : ObservableObject
     // 悬停放大预览：当前待显示（已延迟、尚未弹出）的表情项
     public MemeViewModel? PendingPreviewVm { get; set; }
 
+    // 悬停放大预览：预览浮窗锚定的 UI 元素（鼠标所在项）
+    public Microsoft.UI.Xaml.FrameworkElement? PendingPreviewAnchor { get; set; }
+
+    // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名
+    public string? DragAnchorFileName { get; set; }
+
+    // 防止粘贴导入的分类对话框重入
+    public bool PasteDialogOpen { get; set; }
+
+    // 多选模式：Shift 连续选择的锚点（在 _memeList 中的索引）
+    public int LastShiftAnchor { get; set; } = -1;
+
     public MainViewModel()
     {
     }
