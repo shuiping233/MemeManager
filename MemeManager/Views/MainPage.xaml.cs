@@ -94,6 +94,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.MiniModeRequested += SwitchToMiniMode;
         // Phase 2.4：编辑模式切换入口从 Click 迁到 Command；UI 行为仍留本页
         ViewModel.EditModeRequested += ToggleEditMode;
+        // Phase 2.5：全选入口从 Click 迁到 Command；UI 行为仍留本页
+        ViewModel.SelectAllRequested += ToggleSelectAll;
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -1511,11 +1513,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // ---------- 批量操作 ----------
-
-    private void SelectAllButton_Click(object sender, RoutedEventArgs e)
-    {
-        ToggleSelectAll();
-    }
 
     private async void BatchImportButton_Click(object sender, RoutedEventArgs e)
     {

@@ -361,7 +361,7 @@
               Padding="12"
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button x:Name="SelectAllButton" l:Uids.Uid="Meme_SelectAll" Click="SelectAllButton_Click"/>
+                <Button x:Name="SelectAllButton" l:Uids.Uid="Meme_SelectAll" Command="{Binding SelectAllCommand}"/>
                 <Button x:Name="BatchImportButton" l:Uids.Uid="Meme_BatchImport" Click="BatchImportButton_Click"/>
                 <Button x:Name="BatchExportButton" l:Uids.Uid="Meme_BatchExport" IsEnabled="False" Click="BatchExportButton_Click"/>
                 <Button x:Name="BatchMoveButton" l:Uids.Uid="Meme_BatchMove" IsEnabled="False">
