@@ -9,40 +9,38 @@
 <img src="https://img.shields.io/badge/Windows-WinUI3-0ba2f3">
 <img src="https://img.shields.io/badge/WindowsAppSDK-2.3.1-0ba2f3">
 
-
 这是一款高效管理和使用表情包的管理工具, 基于`dotnet10` + `WinUI3`开发
 
 </div>
 
-
-![](image/avif-main-window.avif)
-![](image/avif-500-image-import.avif)
-![](image/image-main-window.png)
-![](image/image-edit-mode.png)
-![](image/image-settings-1.png)
-![](image/image-settings-2.png)
-
+![avif-main-window.avif](image/avif-main-window.avif)
+![avif-500-image-import.avif](image/avif-500-image-import.avif)
+![image-main-window.png](image/image-main-window.png)
+![image-edit-mode.png](image/image-edit-mode.png)
+![image-settings-1.png](image/image-settings-1.png)
+![image-settings-2.png](image/image-settings-2.png)
+![mini-mode.png](image/mini-mode.png)
 
 ## 功能特性
 
-- 分类控件和图片控件均支持拖拽, 支持批量拖拽导入图片和批量多选编辑、重排序（重排序需要进入编辑模式）和图片重分类, 可尽情使用符合直觉的拖拽行为管理你的分类和表情包
-- 鼠标悬停图片上即可浮窗大图预览图片与标题, 一眼即可看清表情包内容
-- dotnet10极致的异步IO性能和优异的WinUI3渲染性提供丝滑的操作体验和动画效果, 可以流畅的导入千张图片（取决于硬盘性能）
-- 主窗口关闭后释放大部分控件, 常驻后台线程绝不占用一丁点CPU和GPU性能, 长期关闭主窗口后仅最多30MB不到的专用工作集内存占用
-
+- **极致的拖拽支持**: 分类控件和图片控件均支持拖拽, 支持批量拖拽导入图片和批量多选编辑、重排序（重排序需要进入编辑模式）和图片重分类, 可尽情使用符合直觉的拖拽行为管理你的分类和表情包
+- **流畅的预览浮窗**: 鼠标悬停图片上即可浮窗大图预览图片与标题, 一眼即可看清表情包内容
+- **强大的导入性能**: dotnet10极致的异步IO性能和优异的WinUI3渲染性提供丝滑的操作体验和动画效果, 可以瞬间的导入1000张图片（取决于硬盘性能）
+- **尽可能小的后台占用**: 主窗口关闭后释放大部分控件, 常驻后台线程绝不占用一丁点CPU和GPU性能, 长期关闭主窗口后仅最多30MB不到的专用工作集内存占用
+- **快捷键支持**: 已经尽可能多的支持windows常用快捷键, 目标是能提供windows资源管理器风格的快捷键体验, 具体请参见下文 [快捷键](#快捷键) 的详细描述
+- **Mini模式**: `334x117`的mini小窗口, 既不会占用过多屏幕空间, 也能拥有基础的导入和使用表情包的操作体验, 具体请见下文 [Mini模式](#Mini模式) 的详细描述
 
 ## 使用指南
 
 ### 初次安装
 
-1. 去本仓库的[Release](https://github.com/shuiping233/MemeManager/releases)页面下载最新版本, 带`runtime`的安装包中包含运行时, 此处推荐无`runtime`的安装包, 
+1. 去本仓库的[Release](https://github.com/shuiping233/MemeManager/releases)页面下载最新版本, 带`runtime`的安装包中包含运行时, 此处推荐无`runtime`的安装包,
 
 2. 解压压缩包后, 运行`MemeManager.exe`即可, 由于软件依赖[`Windows App runtime`](https://learn.microsoft.com/zh-cn/windows/apps/windows-app-sdk/downloads)和[`.NET 10 桌面运行时`](https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0), 你需要下载此运行时, 当然你也可以直接运行运行程序, 程序会自动弹窗报错来重定向到你需要下载的依赖下载页面
 
-
 ### 图片导入导出
 
-- 图片导入方式: 
+- 图片导入方式:
   - 多图片拖拽进入主窗口（导入到当前分类）
   - 剪贴板`Ctrl`+`V`
   - 编辑模式批量导入图片
@@ -72,7 +70,6 @@
 > [!TIP]  
 > 导入的图片的`Title`字段均为文件名本身, 而实际保存到数据目录中的文件名是文件`sha256` + `文件后缀名`
 
-
 ### 编辑模式
 
 点击`修改`按钮或`Ctrl`+`E`即可进入编辑模式
@@ -99,7 +96,6 @@
 根据图片的`Title`进行模糊查询, 是只查询当前分类的图片`Title`
 可以使用`Ctrl`+`F`快捷键来快速使用搜索框
 
-
 ### 设置
 
 设置中设置项均简单易懂, 此处不再啰嗦
@@ -108,7 +104,6 @@
 
 设置中的配置项内容均保存在`%LOCALAPPDATA%/MemeManager/config.json`
 导入的图片和日志均保存在指定的数据目录中, 默认数据目录是`%USERPROFILE%/Pictures/MeMeManagerData`
-
 
 ## 快捷键
 
@@ -123,14 +118,21 @@
   - `F5` : 刷新页面（由于控件重用相关的实现, 刷新页面后无内容变化则不会有刷新的动画效果）
   - `F2` : 重命名当前分类名称
   - `Delete` : 删除当前分类, 编辑模式时则是删除选中的图片
-  
+
+## Mini模式
+
+Mini模式时, 主窗口强制置顶, 提供基础的图片拖拽导入能力, 以及类似常规聊天应用的"表情浮窗"功能, 点击"表情"按钮时可以弹出"表情浮窗", 可以用点击图片或拖拽图片的方式发送表情
+
+此模式除全局呼出快捷键外, 暂不支持其他快捷键
+
+> [!TIP]
+> Mini模式的按钮部分即为窗口标题栏, 鼠标单击拖拽即可移动窗口(即使单击拖拽在按钮上也是可以的)
 
 ## 多开唤起主窗口
 
 已经实现二次启动软件后, 会通知旧进程呼出主窗口的功能了
 
 原理是每次程序启动后将`HWND`和`PID`写入到`%LOCALAPPDATA%/MemeManager/instance.lock`以让后面二次启动的程序直到要把呼出主窗口的通知发到哪个`HWND`上, 然后程序通过**Windows 提供的命名互斥体 Mutex**来实现进程是否多开的判断, 当二次启动的进程发现已经开过一个进程后, 立刻读取`instance.lock`获得目标旧进程的`HWND`和`PID`, **用 RegisterWindowMessageW 注册一个跨进程唯一消息 ID**发给已启动的旧进程, 然后不管旧进程是否收到, 立刻静默退出, 旧进程收到消息后自己主动呼出主窗口, 完成整个流程
-
 
 ## 数据目录结构
 
@@ -142,7 +144,7 @@
 
 `log`目录保存程序运行时产生的日志, 文件名为`debug.log`, 日志大小超过5MB之后自动清空后再写入, 不开启保存日志功能是不会保存日志的, `crash.log`是程序崩溃后会产生的特殊的日志
 
-```
+```text
 ├── .metadata.json
 ├── Default
 │   ├── .metadata.json
