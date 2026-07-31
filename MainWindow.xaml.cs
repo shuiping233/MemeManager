@@ -228,9 +228,7 @@ public sealed partial class MainWindow : Window
             case AppMode.Mini:
                 RootFrame.Navigate(typeof(MiniPage), null, new SuppressNavigationTransitionInfo());
                 ResizeForMiniMode();
-                // Mini 模式强制置顶（无论配置开关），且不改写配置里的 TopMost 值；
-                // 切回 Full 时再按配置恢复。
-                ApplyTopMost(true);
+                ApplyTopMost(_topMost);
                 break;
         }
         Log($"[模式] 已切换到 {mode}");
