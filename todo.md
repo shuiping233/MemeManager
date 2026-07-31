@@ -211,7 +211,39 @@
 - [x] **2.9** `MemeItem_Tapped` (line 940) → `[RelayCommand]`（带 `MemeViewModel` 参数，见纪律 5 暂留 MainVM）
   - 验收：单击粘贴、Shift+点击多选正常
 
-**Phase 2 完成标志**：MainPage 上所有"用户意图型操作"的 `_Click` / `_Tapped` 事件处理方法变成 ViewModel 中的 `[RelayCommand]`，XAML 绑定 `Command="{Binding ...}"`；UI 生命周期/拖拽事件（DragOver/Drop/PointerMoved 等）仍保留在 code-behind。MainPage 明显瘦身且**未**变成"第二个巨型 VM"。
+### 2.10 / 2.11 MiniPage 与 SettingsPage 命令化（Phase 2 扩展，方案 A）
+
+> **背景**：MiniPage、SettingsPage 当前没有 ViewModel，所有按钮点击走 code-behind 的 `_Click`。按 Phase 2 纪律补齐——各新建一个 `MiniViewModel` / `SettingsViewModel`（DI 注册 `AddSingleton` + Page `DataContext = App.GetService<T>()` + 公开 `ViewModel` 属性供 `x:Bind`），把"明确用户意图"的按钮迁 `[RelayCommand]`。
+>
+> **方案 A 范围（只迁用户意图型操作，不碰配置绑定）**：
+> - 新建 VM 与 Page 接通 DI（方式同 MainViewModel：Page 内 `App.GetService<T>()` 取，公开 `ViewModel` 属性；`x:Bind ViewModel.XxxCommand` 解析）。
+> - **保留 code-behind**：Toggle 的 `Toggled`（多为"延后保存"空壳，仅 EcoMode 有即时逻辑）、热键录制"开始/取消"状态机（动态换 Click 处理）、文本框校验、拖入导入——这些属 UI 状态/Window 耦合，不是纯命令。
+>
+> **绑定规范**：页面级按钮用 `x:Bind ViewModel.XxxCommand`；若某命令需当前项参数（如 MiniPage 发送图片传 `MemeViewModel`），因不在 DataTemplate 内可直接 `x:Bind ViewModel.SendMemeCommand` + 参数用 `x:Bind`/`Binding` 取项（MiniPage 的 Picker 项用 `Tag` 承载 VM，需薄 Tapped 适配器调命令，参照 MainPage 2.9）。
+
+- [ ] **2.10** MiniPage 命令化
+  - 新建 `MiniViewModel.cs`（`ObservableObject`，构造器内 `App.GetService<MemeDataEngine>()` 过渡取单例，后续统一改构造器注入）
+  - `App.ConfigureServices()` 加 `services.AddSingleton<MiniViewModel>();`；MiniPage 构造器 `DataContext = App.GetService<MiniViewModel>();`；公开 `public MiniViewModel ViewModel => (MiniViewModel)DataContext;`
+  - `ExpandButton_Click` (MiniPage.xaml.cs:198) → `ExpandCommand`：命令发事件 → Page 调 `App.MainWindow.SwitchMode(AppMode.Full)`（与 MainViewModel.SwitchToMiniMode 同模式，Window 调用留 Page）
+  - `PickerItem_Tapped` (MiniPage.xaml.cs:152) → `SendMemeCommand(MemeViewModel)`：PickerFlyout.Hide() 留薄 Tapped 适配器（UI），VM 命令做 `App.MainWindow.ResolveExternalPasteTarget()` + `PasteService.OutputMemeToCursorAsync(vm.LocalPath, target)`（命中外部窗口解析需走事件回 Page，或 MiniViewModel 直接调 `App.MainWindow`? 见下方决策）
+    - ⚠️ 决策：`ResolveExternalPasteTarget` 是 `MainWindow` 实例方法。MiniViewModel 若直接引用 `App.MainWindow` 会引入 VM→Window 耦合，与 MainViewModel 的 `SwitchToMiniMode` 经事件模式不一致。**优先经事件** `SendToExternalRequested(MemeViewModel)` → Page 解析+发送。
+  - XAML：`ExpandButton` 改 `Command="{x:Bind ViewModel.ExpandCommand}"`；`PickerItem` 的 `Tapped` 保留薄适配器调 `ViewModel.SendMemeCommand.Execute(vm)`（因 Tapped 是事件且项 VM 经 `Tag` 承载，不能直绑 ICommand）
+  - 验收：Mini 模式点 Expand 切回完整模式正常；Picker 点图片发送到外部窗口正常
+  - 提交：`refactor: 2.10 MiniPage 命令化`
+
+- [ ] **2.11** SettingsPage 命令化
+  - 新建 `SettingsViewModel.cs`（`ObservableObject`，构造器 `App.GetService<MemeDataEngine>()` 过渡）
+  - `App.ConfigureServices()` 加 `services.AddSingleton<SettingsViewModel>();`；SettingsPage 接通 DataContext + 公开 `ViewModel` 属性
+  - `OpenConfigFolderButton_Click` (SettingsPage.xaml.cs:291) → `OpenConfigFolderCommand`：纯 `Windows.System.Launcher.LaunchFolderPathAsync(MainWindow.AppDataDir)` 可进 VM（需 `MainWindow.AppDataDir` 静态访问）
+  - `OpenMemeDataFolder_Click` (SettingsPage.xaml.cs:294) → `OpenMemeDataFolderCommand(string path?)`：打开 `StoragePathBox.Text` 目录——路径来自 UI 文本框，命令需参数或经事件；因路径是 UI 状态，**经事件** `OpenFolderRequested(string path)` → Page 调 `OpenFolderAsync(path)` 更干净
+  - `BrowseButton_Click` (SettingsPage.xaml.cs:233) → `BrowseCommand`：文件选择器 + `IsFilePickerOpen` + 立即保存 + `ReloadData` 全依赖 Page/Window，**整体经事件** `BrowseFolderRequested` → Page 执行现有逻辑
+  - `CloseButton_Click` (SettingsPage.xaml.cs:399) → `CloseCommand`：关闭设置浮窗属 UI，**经事件** `CloseRequested` → Page 执行
+  - XAML：对应 Button 改 `Command="{x:Bind ViewModel.XxxCommand}"`（Close/Browse/OpenConfig/OpenMemeData 走命令；具体 UI 副作用经事件）
+  - **保留 code-behind**：7 个 Toggle 的 `Toggled`（空壳延后保存 + EcoMode 即时逻辑）、`RecordHotKeyButton` 开始/取消状态机、`StoragePathBox_TextChanged` 校验、`PreviewXxx_TextChanged` 校验、各 `BeforeTextChanging`——属 UI 状态/配置回填，不在本次范围（完整双向绑定属 Phase 3 配置重构）
+  - 验收：设置页打开配置文件夹、打开数据文件夹、浏览选目录并立即保存刷新、点"完成/关闭"关闭浮窗，均正常
+  - 提交：`refactor: 2.11 SettingsPage 命令化`
+
+**Phase 2 完成标志（扩展后）**：MainPage / MiniPage / SettingsPage 三个页面的"用户意图型操作"按钮均迁入对应 ViewModel 的 `[RelayCommand]`（MainPage 已完成 2.1–2.9；MiniPage 2.10；SettingsPage 2.11）；UI 生命周期/拖拽/动态事件（Toggle Toggled、热键录制状态机、文本框校验、Opening 动态菜单等）仍保留在 code-behind。各页面明显瘦身且**未**变成"第二个巨型 VM"。
 
 ---
 
