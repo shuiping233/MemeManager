@@ -168,9 +168,6 @@ public partial class MainViewModel : ObservableObject
     // 右键菜单上下文：当前右键选中的表情
     public MemeViewModel? ContextMeme { get; set; }
 
-    // 右键菜单上下文：当前右键选中的分类
-    public CategoryViewModel? ContextCategory { get; set; }
-
     // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
     public bool Reloading { get; set; }
 

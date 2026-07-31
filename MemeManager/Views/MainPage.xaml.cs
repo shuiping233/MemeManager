@@ -281,17 +281,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         MemeGridView.CanReorderItems = !IsAllMemesView; // 仅全部表情下禁止内部重排
     }
 
-    // 当前右键所操作的分类（由 ContextFlyout.Opening 写入，供各 Click 使用）
-
-    // 右键分类项：记录当前分类，供 删除/重命名 使用
-    private void CategoryItemContextFlyout_Opening(object? sender, object e)
-    {
-        if (sender is MenuFlyout flyout && flyout.Target is FrameworkElement fe)
-            ViewModel.ContextCategory = fe.DataContext as CategoryViewModel;
-        if (ViewModel.ContextCategory != null)
-            Log($"右键分类项: {ViewModel.ContextCategory.Name}");
-    }
-
     private void AllMemesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (AllMemesList.SelectedItem != null)

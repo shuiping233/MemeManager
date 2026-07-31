@@ -185,7 +185,7 @@
                                 <ToolTip Content="{x:Bind Name}"/>
                             </ToolTipService.ToolTip>
                             <Grid.ContextFlyout>
-                                <MenuFlyout Opening="CategoryItemContextFlyout_Opening">
+                                <MenuFlyout>
                                     <MenuFlyoutItem l:Uids.Uid="Category_OpenFolder"
                                                     Command="{Binding DataContext.OpenCategoryFolderCommand, ElementName=RootGrid}"
                                                     CommandParameter="{Binding}">
