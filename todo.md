@@ -225,27 +225,36 @@
 > - **保留 code-behind**：Toggle 的 `Toggled`（多为"延后保存"空壳，仅 EcoMode 有即时逻辑）、热键录制"开始/取消"状态机（动态换 Click 处理）、文本框校验、拖入导入——这些属 UI 状态/Window 耦合，不是纯命令。
 >
 > **绑定规范**：页面级按钮用 `x:Bind ViewModel.XxxCommand`；若某命令需当前项参数（如 MiniPage 发送图片传 `MemeViewModel`），因不在 DataTemplate 内可直接 `x:Bind ViewModel.SendMemeCommand` + 参数用 `x:Bind`/`Binding` 取项（MiniPage 的 Picker 项用 `Tag` 承载 VM，需薄 Tapped 适配器调命令，参照 MainPage 2.9）。
+>
+> **⚠️ 单例 VM 事件订阅纪律（已踩坑修复，务必遵守）**：VM 用 `AddSingleton`，但 Page 每次打开/进入都会重新 `new` 一个实例。若 Page 在构造里把处理方法**订阅**到单例 VM 的 `Requested` 事件（如 `ExpandToFullRequested` / `SendToExternalRequested` / `BrowseFolderRequested` / `OpenFolderRequested` / `CloseRequested`），旧 Page 销毁时**必须反订阅**，否则每打开一次就累积一份处理器，第 N 次打开点一次按钮会触发 N 次。
+> - 订阅理由：VM 不能反向依赖 `MainWindow`（否则 VM 无法独立测试、破坏 MVVM 边界）；VM 只发"请求"事件表达意图，由 Page 在订阅里调用 `App.MainWindow` 等窗口副作用。直接 `App.MainWindow.Xxx()` 写进 VM 是违规。
+> - 反订阅做法：用**具名字段**保存处理器（匿名 lambda 无法 `-=`），在 `Page.Unloaded` 里 `-=` 对应事件并移除 `Unloaded` 自身。
+> - 若今后某 VM 改成"每页一个实例"（非 singleton），此纪律可免，但本项目统一 singleton，故必须执行。
 
-- [ ] **2.10** MiniPage 命令化
-  - 新建 `MiniViewModel.cs`（`ObservableObject`，构造器内 `App.GetService<MemeDataEngine>()` 过渡取单例，后续统一改构造器注入）
+- [x] **2.10** MiniPage 命令化 ✅ 提交 `a8ac555`
+  - 新建 `MiniViewModel.cs`（`ObservableObject`，构造器注入 `MemeDataEngine`）
   - `App.ConfigureServices()` 加 `services.AddSingleton<MiniViewModel>();`；MiniPage 构造器 `DataContext = App.GetService<MiniViewModel>();`；公开 `public MiniViewModel ViewModel => (MiniViewModel)DataContext;`
-  - `ExpandButton_Click` (MiniPage.xaml.cs:198) → `ExpandCommand`：命令发事件 → Page 调 `App.MainWindow.SwitchMode(AppMode.Full)`（与 MainViewModel.SwitchToMiniMode 同模式，Window 调用留 Page）
-  - `PickerItem_Tapped` (MiniPage.xaml.cs:152) → `SendMemeCommand(MemeViewModel)`：PickerFlyout.Hide() 留薄 Tapped 适配器（UI），VM 命令做 `App.MainWindow.ResolveExternalPasteTarget()` + `PasteService.OutputMemeToCursorAsync(vm.LocalPath, target)`（命中外部窗口解析需走事件回 Page，或 MiniViewModel 直接调 `App.MainWindow`? 见下方决策）
-    - ⚠️ 决策：`ResolveExternalPasteTarget` 是 `MainWindow` 实例方法。MiniViewModel 若直接引用 `App.MainWindow` 会引入 VM→Window 耦合，与 MainViewModel 的 `SwitchToMiniMode` 经事件模式不一致。**优先经事件** `SendToExternalRequested(MemeViewModel)` → Page 解析+发送。
-  - XAML：`ExpandButton` 改 `Command="{x:Bind ViewModel.ExpandCommand}"`；`PickerItem` 的 `Tapped` 保留薄适配器调 `ViewModel.SendMemeCommand.Execute(vm)`（因 Tapped 是事件且项 VM 经 `Tag` 承载，不能直绑 ICommand）
+  - `ExpandButton` → `ExpandCommand`：命令发 `ExpandToFullRequested` 事件 → Page 调 `App.MainWindow.SwitchMode(AppMode.Full)`（Window 调用留 Page，VM 不依赖 Window）
+  - `PickerItem_Tapped` 保留薄 Tapped 适配器转调 `SendMemeCommand(MemeViewModel)`；VM 发 `SendToExternalRequested(MemeViewModel)` 事件 → Page 调 `App.MainWindow.ResolveExternalPasteTarget()` + `PasteService.OutputMemeToCursorAsync`
+    - 决策：`ResolveExternalPasteTarget` 是 `MainWindow` 实例方法，MiniViewModel 直接引用会引入 VM→Window 耦合，故**经事件**回 Page 执行（与 MainViewModel 同模式）。
+  - XAML：`ExpandButton` 改 `Command="{x:Bind ViewModel.ExpandCommand}"`；`PickerItem` 的 `Tapped` 适配器调 `ViewModel.SendMemeCommand.Execute(vm)`
   - 验收：Mini 模式点 Expand 切回完整模式正常；Picker 点图片发送到外部窗口正常
-  - 提交：`refactor: 2.10 MiniPage 命令化`
 
-- [ ] **2.11** SettingsPage 命令化
-  - 新建 `SettingsViewModel.cs`（`ObservableObject`，构造器 `App.GetService<MemeDataEngine>()` 过渡）
+- [x] **2.11** SettingsPage 命令化 ✅ 提交 `56effbd`
+  - 新建 `SettingsViewModel.cs`（`ObservableObject`，构造器注入 `MemeDataEngine`）
   - `App.ConfigureServices()` 加 `services.AddSingleton<SettingsViewModel>();`；SettingsPage 接通 DataContext + 公开 `ViewModel` 属性
-  - `OpenConfigFolderButton_Click` (SettingsPage.xaml.cs:291) → `OpenConfigFolderCommand`：纯 `Windows.System.Launcher.LaunchFolderPathAsync(MainWindow.AppDataDir)` 可进 VM（需 `MainWindow.AppDataDir` 静态访问）
-  - `OpenMemeDataFolder_Click` (SettingsPage.xaml.cs:294) → `OpenMemeDataFolderCommand(string path?)`：打开 `StoragePathBox.Text` 目录——路径来自 UI 文本框，命令需参数或经事件；因路径是 UI 状态，**经事件** `OpenFolderRequested(string path)` → Page 调 `OpenFolderAsync(path)` 更干净
-  - `BrowseButton_Click` (SettingsPage.xaml.cs:233) → `BrowseCommand`：文件选择器 + `IsFilePickerOpen` + 立即保存 + `ReloadData` 全依赖 Page/Window，**整体经事件** `BrowseFolderRequested` → Page 执行现有逻辑
-  - `CloseButton_Click` (SettingsPage.xaml.cs:399) → `CloseCommand`：关闭设置浮窗属 UI，**经事件** `CloseRequested` → Page 执行
-  - XAML：对应 Button 改 `Command="{x:Bind ViewModel.XxxCommand}"`（Close/Browse/OpenConfig/OpenMemeData 走命令；具体 UI 副作用经事件）
-  - **保留 code-behind**：7 个 Toggle 的 `Toggled`（空壳延后保存 + EcoMode 即时逻辑）、`RecordHotKeyButton` 开始/取消状态机、`StoragePathBox_TextChanged` 校验、`PreviewXxx_TextChanged` 校验、各 `BeforeTextChanging`——属 UI 状态/配置回填，不在本次范围（完整双向绑定属 Phase 3 配置重构）
+  - `OpenConfigFolderButton` → `OpenConfigFolderCommand`：纯 `Launcher.LaunchFolderPathAsync(MainWindow.AppDataDir)` 直接进 VM（仅依赖 `MainWindow.AppDataDir` 静态访问，不依赖窗口实例）
+  - `OpenMemeDataFolder` → `OpenMemeDataFolderCommand(string path)`：路径来自 UI 文本框，**经事件** `OpenFolderRequested(string path)` → Page 调 `OpenFolderAsync(path)`
+  - `BrowseButton` → `BrowseFolderCommand`：文件选择器 + `IsFilePickerOpen` + 立即保存 + `ReloadData` 全依赖 Page/Window，**整体经事件** `BrowseFolderRequested` → Page 执行
+  - `CloseButton` → `CloseCommand`：关闭设置浮窗属 UI，**经事件** `CloseRequested` → Page 调 `SaveAndCloseAsync`
+  - XAML：对应 Button 改 `Command="{x:Bind ViewModel.XxxCommand}"`（OpenMemeDataFolder 带 `CommandParameter="{x:Bind StoragePathBox.Text}"`）
+  - **保留 code-behind**：7 个 Toggle 的 `Toggled`、`RecordHotKeyButton` 状态机、`StoragePathBox_TextChanged` 校验、各 `PreviewXxx_TextChanged` / `BeforeTextChanging`、语言/主题下拉——属 UI 状态/配置回填
   - 验收：设置页打开配置文件夹、打开数据文件夹、浏览选目录并立即保存刷新、点"完成/关闭"关闭浮窗，均正常
+
+### 2.10/2.11 后续修复：单例 VM 事件订阅累积 ✅ 提交 `4932655`
+- 根因：`MiniViewModel` / `SettingsViewModel` 是 `AddSingleton`，但 MiniPage / SettingsPage 每次进入/打开都重新 `new` 实例，构造里匿名 lambda 订阅的事件处理器逐次累积 → 第 N 次打开点按钮触发 N 次（如打开文件夹 N 次）。
+- 修复：订阅改用**具名字段**，在 `Page.Unloaded` 里 `-=` 反订阅对应事件。两页都已改。
+- 纪律已写入上方「单例 VM 事件订阅纪律」。
   - 提交：`refactor: 2.11 SettingsPage 命令化`
 
 **Phase 2 完成标志（扩展后）**：MainPage / MiniPage / SettingsPage 三个页面的"用户意图型操作"按钮均迁入对应 ViewModel 的 `[RelayCommand]`（MainPage 已完成 2.1–2.9；MiniPage 2.10；SettingsPage 2.11）；UI 生命周期/拖拽/动态事件（Toggle Toggled、热键录制状态机、文本框校验、Opening 动态菜单等）仍保留在 code-behind。各页面明显瘦身且**未**变成"第二个巨型 VM"。
