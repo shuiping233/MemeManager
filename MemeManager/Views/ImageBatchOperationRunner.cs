@@ -48,7 +48,7 @@ public sealed class BatchUiContext
 ///    - Export：不改缓存，无需刷新。
 ///    - Move / Delete：从当前视图移除受影响项 + 更新分类计数。
 /// </summary>
-internal sealed class ImageBatchOperationRunner
+    public sealed class ImageBatchOperationRunner
 {
     // 各操作的进度条显示阈值（低于该数量不弹 InfoBar）
     private const int ImportThreshold = 5;

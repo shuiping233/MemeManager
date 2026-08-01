@@ -21,7 +21,7 @@ public sealed record BatchProgress(
 /// 自行维护时间轴，派生出百分比、处理速度（/s）与 ETA，并降频刷新 UI。
 /// 是否启用、阈值判断由调用方决定，本类只负责显示。
 /// </summary>
-internal sealed class BatchProgressHelper
+public sealed class BatchProgressHelper
 {
     private readonly InfoBar _infoBar;
     private readonly ProgressBar _bar;

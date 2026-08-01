@@ -20,7 +20,7 @@ using MemeManager.ViewModels;
 
 namespace MemeManager.Views;
 
-public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage
+public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage, IImportExportUi
 {
     // 初始化"全部表情"固定项（必须在 LoadCategories 之前，因为 LoadCategories
     // 会触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到 AllMemesVm）
@@ -30,6 +30,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 批量操作统一编排器（后台化 + 进度条 + UI 收尾 + 写锁）
     private readonly ImageBatchOperationRunner _batchRunner;
+
+    // 导入/导出业务服务（Phase 3.2）：承接 RunBatchImportAsync / BatchExportCoreAsync / TryGuardWrite，
+    // 编排仍委托 _batchRunner，UI 弹窗经 IImportExportUi（本页实现）回 Page。
+    private readonly ImportExportService _importExport;
 
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
@@ -157,6 +161,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             RefreshMemes = RefreshMemes,
             RemoveFromCurrentView = RemoveFromCurrentView,
         });
+
+        _importExport = new ImportExportService(_engine, _batchRunner, this);
 
         // 按配置选择列表构建策略（复用 / 重建）。切换在设置页保存后即时应用。
         ApplyListStrategyFromConfig();
@@ -1249,13 +1255,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         await RunBatchImportAsync(paths, ImportTargetCategory);
     }
 
-    // 单张导入重复时，弹窗告知用户与哪张已有图片冲突（展示 title，无则文件名）。
-    private Task ShowSingleImportDuplicateAsync(MemeModel existing) =>
-        DialogHelper.ShowImageDuplicateAsync(
-            this.XamlRoot,
-            ImportTargetCategory,
-            DialogHelper.TruncateLabel(string.IsNullOrWhiteSpace(existing.Title) ? existing.FileName : existing.Title));
-
     // ---------- 右键菜单（XAML ContextFlyout 绑定）----------
 
     // 当前右键所操作的表情（由 ContextFlyout.Opening 写入，供各 Click 使用）
@@ -1400,14 +1399,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 弹出“操作进行中”模态提示并放弃本次操作；否则返回 true 放行。
     // 导出（copy 语义）与文件监听触发的导入不走此守卫。
     private bool TryGuardWrite()
-    {
-        if (_batchRunner.IsWriteActive)
-        {
-            _ = DialogHelper.ShowWriteBusyAsync(this.XamlRoot);
-            return false;
-        }
-        return true;
-    }
+        => _importExport.TryGuardWrite();
+
+    // IImportExportUi：写锁忙提示（服务不引用 XamlRoot，经此回调甩回 Page）。
+    public Task ShowWriteBusyAsync() => DialogHelper.ShowWriteBusyAsync(this.XamlRoot);
 
     // 是否应拦截用户输入（拖入/F5 等）：有任意模态弹窗未处理、已有写任务在跑，
     // 或网格正处于拖拽重排中（拖拽中重建 ItemsSource 会令 WinUI 崩溃）。
@@ -1415,54 +1410,23 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private bool IsBusyBlockingInput() =>
         DialogHelper.IsModalOpen || _batchRunner.IsWriteActive || ViewModel.DraggingMemes != null || ViewModel.Reloading;
 
-    // 后台批量导入：循环搬到线程池执行，逐张汇报进度到顶部 InfoBar；
-    // 结束后由 ImageBatchOperationRunner 统一收尾（更新分类计数，且仅当用户仍停留在
-    // 导入时的分类才刷新右侧网格——分类守卫逻辑内置在 runner 的 Import 分支）。
+    // 后台批量导入：委托 ImportExportService（实际编排仍走 _batchRunner）。
+    // 导入过程中新建分类时，经 onCategoryCreated 回调把新分类加入左侧栏（ViewModel 状态）。
     private async Task RunBatchImportAsync(IEnumerable<string> files, string category)
     {
-        // 导入为写操作：入口先判断写入锁，占用则弹提示并放弃
-        if (!TryGuardWrite()) return;
-
-        var list = files.ToList();
-        int total = list.Count;
-        if (total == 0) return;
-
-        // 捕获导入时的分类名：结束后即使用户切到别的分类，也据此决定是否刷新当前视图
-        string targetCategory = category;
-
-        // 批量导入结果（新增/重复/单张重复模型），由 onUiComplete 在 UI 线程回填
-        (int imported, int duplicate, MemeModel? duplicateModel) result = default;
-
-        await _batchRunner.RunAsync(
-            BatchOperationKind.Import,
-            total,
-            // 注意：work 的返回值会被 runner 丢弃，故在此用闭包捕获导入结果供日志/弹窗使用
-            work: async progress =>
-            {
-                result = await _engine.ImportMemesAsync(list, targetCategory, progress,
-                    // 仅当导入时真正新建了分类目录才回调，UI 据此把新分类加入左侧栏
-                    onCategoryCreated: createdName =>
-                    {
-                        DispatcherQueue.TryEnqueue(() =>
-                        {
-                            if (!ViewModel.CategoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
-                                ViewModel.CategoryList.Add(new CategoryViewModel(createdName, 0));
-                        });
-                    });
-            },
-            targetCategory: targetCategory,
-            onUiComplete: () =>
-            {
-                Log($"导入完成: 新增 {result.imported} 个, 重复跳过 {result.duplicate} 个");
-                // 仅当只选了 1 张且为重复时才弹窗提示；多张重复刻意静默
-                if (list.Count == 1 && result.duplicateModel != null)
-                    _ = ShowSingleImportDuplicateAsync(result.duplicateModel);
-            });
-
-        // 注：result 由 onUiComplete（在 RunAsync 结束前于 UI 线程执行）回填，await 返回后即可用。
-        // 当前日志/弹窗已在 onUiComplete 内完成，此处无需额外处理。
-        _ = result;
+        await _importExport.RunBatchImportAsync(files, category, onCategoryCreated: createdName =>
+        {
+            if (!ViewModel.CategoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
+                ViewModel.CategoryList.Add(new CategoryViewModel(createdName, 0));
+        });
     }
+
+    // IImportExportUi：单张导入重复的提示弹窗（服务不引用 XamlRoot，经此回调甩回 Page）。
+    public Task ShowSingleImportDuplicateAsync(MemeModel existing) =>
+        DialogHelper.ShowImageDuplicateAsync(
+            this.XamlRoot,
+            ImportTargetCategory,
+            DialogHelper.TruncateLabel(string.IsNullOrWhiteSpace(existing.Title) ? existing.FileName : existing.Title));
 
     // 当前 GridView 原生选中的项
     private List<MemeViewModel> SelectedMemeViewModels()
@@ -1477,15 +1441,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (folder == null) return;
 
         var models = selected.Select(m => m.Model).ToList();
-        int total = models.Count;
-        if (total == 0) return;
+        if (models.Count == 0) return;
 
-        // 批量导出按钮：明确为 copy 语义，不占用写入锁（不改缓存/源文件）。
-        await _batchRunner.RunAsync(
-            BatchOperationKind.Export,
-            total,
-            progress => _engine.ExportMemesAsync(models, folder, progress),
-            onUiComplete: () => Log($"导出完成: {total} 个图片到 {folder}"));
+        // 批量导出按钮：明确为 copy 语义，委托 ImportExportService（不占用写入锁）。
+        await _importExport.BatchExportCoreAsync(models, folder);
     }
 
     // 删除当前选中的表情：复用删除按钮的确认弹窗 + 写锁守卫 + 后台删除流程。
