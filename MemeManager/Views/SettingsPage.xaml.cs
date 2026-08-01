@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
+using MemeManager.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage.Pickers;
 using System.Diagnostics;
@@ -18,12 +19,19 @@ public sealed partial class SettingsPage : Page
     // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
     public System.Collections.Generic.IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = new System.Collections.Generic.List<LangHelper.LanguageOption>();
 
+    public SettingsViewModel ViewModel => (SettingsViewModel)DataContext;
+
     public SettingsPage()
     {
         // 语言下拉项需在 InitializeComponent 之前就绪，x:Bind(OneTime) 才能正确绑定。
         LanguageItems = LangHelper.BuildLanguageOptions();
 
         InitializeComponent();
+
+        DataContext = App.GetService<SettingsViewModel>();
+        ViewModel.BrowseFolderRequested += async () => await BrowseFolderAsync();
+        ViewModel.OpenFolderRequested += async path => await OpenFolderAsync(path);
+        ViewModel.CloseRequested += async () => await SaveAndCloseAsync();
 
         LocalizeStaticStrings();
 
@@ -230,7 +238,7 @@ public sealed partial class SettingsPage : Page
         RecordHotKeyButton.Click += RecordHotKeyButton_Click;
     }
 
-    private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+    private async Task BrowseFolderAsync()
     {
         // 打开系统文件选择器期间屏蔽背后图片的悬停预览浮窗，选完再恢复。
         App.MainWindow.IsFilePickerOpen = true;
@@ -287,12 +295,6 @@ public sealed partial class SettingsPage : Page
             Logger.Log($"[Settings] 打开 {path} 文件夹错误: {ex.Message}");
         }
     }
-
-    private async void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e) =>
-        await OpenFolderAsync(MainWindow.AppDataDir);
-
-    private async void OpenMemeDataFolder_Click(object sender, RoutedEventArgs e) =>
-        await OpenFolderAsync(StoragePathBox.Text);
 
     // 用户手动修改路径文本框时校验：目录存在则记录，不存在则提示并回退到进入设置前的有效路径
     private bool _revertingPath;
@@ -395,11 +397,6 @@ public sealed partial class SettingsPage : Page
     // 是否已保存过（避免“完成”点击与浮窗 Closed 事件重复保存）
     private bool _saved;
     public bool IsSaved => _saved;
-
-    private async void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        await SaveAndCloseAsync();
-    }
 
     // 保存并关闭设置页（供“完成”按钮与 Flyout 内 Enter 共用）
     public async Task SaveAndCloseAsync()

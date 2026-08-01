@@ -21,7 +21,7 @@
 
         <StackPanel Grid.Row="1" Spacing="16" MaxWidth="400">
             <Button x:Name="OpenConfigFolderButton" l:Uids.Uid="Settings_OpenConfigFolder"
-                    HorizontalAlignment="Left" Click="OpenConfigFolderButton_Click"/>
+                    HorizontalAlignment="Left" Command="{x:Bind ViewModel.OpenConfigFolderCommand}"/>
 
             <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_Theme" FontWeight="SemiBold"/>
@@ -54,8 +54,10 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="StoragePathBox" Grid.Column="0" IsReadOnly="False" VerticalAlignment="Center" MaxWidth="200" TextChanged="StoragePathBox_TextChanged"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" Spacing="4">
-                        <Button x:Name="BrowseButton" l:Uids.Uid="Settings_Browse" Click="BrowseButton_Click"/>
-                        <Button x:Name="OpenMemeDataFolder" l:Uids.Uid="Settings_OpenMemeDataFolder" Click="OpenMemeDataFolder_Click"/>
+                        <Button x:Name="BrowseButton" l:Uids.Uid="Settings_Browse" Command="{x:Bind ViewModel.BrowseFolderCommand}"/>
+                        <Button x:Name="OpenMemeDataFolder" l:Uids.Uid="Settings_OpenMemeDataFolder"
+                                Command="{x:Bind ViewModel.OpenMemeDataFolderCommand}"
+                                CommandParameter="{x:Bind StoragePathBox.Text}"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -151,7 +153,7 @@
         </StackPanel>
 
         <Button Grid.Row="2" x:Name="CloseButton" l:Uids.Uid="Settings_Done" HorizontalAlignment="Right"
-                Margin="0,16,0,0" Click="CloseButton_Click"
+                Margin="0,16,0,0" Command="{x:Bind ViewModel.CloseCommand}"
                 Style="{StaticResource AccentButtonStyle}"/>
     </Grid>
 </Page>

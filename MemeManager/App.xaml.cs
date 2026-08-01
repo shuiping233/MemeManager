@@ -251,6 +251,7 @@ public partial class App : Application
         // ViewModel（Phase 1 起逐步补：MainViewModel ...）
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MiniViewModel>();
+        services.AddSingleton<SettingsViewModel>();
         return services.BuildServiceProvider();
     }
 }
