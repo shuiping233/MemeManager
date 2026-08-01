@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -111,9 +111,9 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
         // 复用 Full 的 CategoryViewModel：头部插入“全部表情”虚拟项（Name 空串），
         // 与 Full 的 _allMemesVm 约定一致（空名 = 全部表情）。
-        var items = new System.Collections.Generic.List<ViewModels.CategoryViewModel>
+        var items = new List<ViewModels.CategoryViewModel>
         {
-            new ViewModels.CategoryViewModel("", 0)
+            new("", 0)
         };
         foreach (var c in cats)
             items.Add(new ViewModels.CategoryViewModel(c, _engine.GetMemes(c).Count));
