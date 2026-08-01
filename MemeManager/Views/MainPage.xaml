@@ -245,14 +245,14 @@
                   SelectionMode="None"
                   IsItemClickEnabled="False"
                   AllowDrop="True"
-                   CanDragItems="True"
-                   CanReorderItems="False"
-                   DragItemsStarting="MemeGridView_DragItemsStarting"
-                   DragItemsCompleted="MemeGridView_DragItemsCompleted"
-                   DragOver="MemeGridView_DragOver"
-                   Drop="MemeGridView_Drop"
-                   SelectionChanged="MemeGridView_SelectionChanged"
-                   ContainerContentChanging="MemeGridView_ContainerContentChanging">
+                  CanDragItems="True"
+                  CanReorderItems="False"
+                  DragItemsStarting="MemeGridView_DragItemsStarting"
+                  DragItemsCompleted="MemeGridView_DragItemsCompleted"
+                  DragOver="MemeGridView_DragOver"
+                  Drop="MemeGridView_Drop"
+                  SelectionChanged="MemeGridView_SelectionChanged"
+                  ContainerContentChanging="MemeGridView_ContainerContentChanging">
             <GridView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="-1" CacheLength="1"/>
