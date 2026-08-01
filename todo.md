@@ -166,6 +166,11 @@
 > **Phase 2 核心纪律（改造前与 AI 讨论确定，务必遵守）**：
 > 1. **只迁移入口，不搬业务**：`Xxx_Click` 的方法体**原样**移到 VM 的 `[RelayCommand]` 方法里，逻辑一行不改。业务拆 Service 留到 Phase 3。否则会变成"把 102KB code-behind 平移成 100KB ViewModel"的假重构。
 > 2. **不是所有事件都 Command 化**：仅"用户意图型操作"迁移（刷新/设置/Mini/编辑/全选/分类操作/表情操作/点击粘贴）。以下**保留 code-behind 或 Behavior**：`DragStarting`/`DragOver`/`Drop`/`PointerMoved`/`Loaded`/`SizeChanged`/`Composition` 等 UI 生命周期/拖拽事件。
+>    - **拖拽事件处理定位（已与 AI 讨论确定）**：拖拽是"View 决策 + ViewModel 执行"的混合体，**不强行 Command/附加属性化**：
+>      - `DragOver`（设 `AcceptedOperation`/`DragUIOverride.Caption`、临时开关 `CanReorderItems`）属纯 UI 协商 → **留在 code-behind**（它只读 VM 状态如 `DraggingMemes`/`IsAllMemesView`，不调业务方法）。
+>      - `Drop` / `DragItemsCompleted` 负责"执行" → 在 code-behind 里用 `ImageDragHelper.CollectDropPathsAsync(e.DataView)` 把 `DataView` **萃取成纯 `List<string>`**（图片过滤 + Bitmap 落临时文件已在 `ImageDragHelper` 实现，复用、不重写），再交给 VM 命令/方法。VM 永远收纯数据，绝不引用 `Microsoft.UI.Xaml`/`DragEventArgs`。
+>      - **不新增 `DragDropHelper` 附加属性**：现有 `ImageDragHelper` + code-behind `Drop` 已经是合规且解耦的写法（"事件留 View + 数据萃取在 Helper + 业务执行在 VM"），换附加属性绑定只换写法、不提升解耦度，反而重复萃取逻辑。**保持现状**。
+>      - 分类移动/重排的目标（如 `targetCategoryName`、新顺序 `List<string>`）在 View 层从 `sender.DataContext`/集合顺序萃取为纯数据再传 VM，VM 不碰 `CategoryViewModel`/`DragEventArgs`。
 > 3. **async 用 Toolkit**：含 IO/导入/删除的 Command 用 `[RelayCommand]` 标记 `async Task`，Toolkit 生成 `IAsyncRelayCommand`，**禁止 `async void`**。
 > 4. **Command 参数用 VM 类型**：`[RelayCommand] void DeleteMeme(MemeViewModel meme)` 而非 `(object sender)`。让 `RoutedEventArgs` 消失，体现 MVVM 价值。
 > 5. **MemeItem_Tapped 暂留 MainViewModel**（当前模板结构复杂），记一笔：未来应下沉到 `MemeViewModel`/`MemeItemViewModel`。
@@ -295,11 +300,16 @@
   - `LoadCategories()` / `UpdateCategoryCounts()`
 - [ ] 验收：新建/删除/重命名分类正常，分类计数实时更新
 
-### 3.6 拖拽 → ImageDragHelper（已有，改为实例注入）
+### 3.6 拖拽（保持现状，不重构为 Command/Service）
 
-- [ ] `ImageDragHelper` 从 `static` 改为实例类，注册 DI
-- [ ] `CollectDropPathsAsync()` 和 `ConfigureDragOut()` 通过注入调用
-- [ ] 验收：从资源管理器拖图片入库、从 MemeManager 拖图片到 QQ，行为不变
+> **决策（已讨论）**：拖拽逻辑**不搬进 ViewModel、不新增 `DragDropHelper` 附加属性、不拆成独立 Service**。
+> `ImageDragHelper` 是** View 层的 UI 适配器/胶水**（引用 `Windows.Storage`/`DataPackageView`，萃取 `DataView` → `List<string>`），
+> 与 VM 解耦的边界已经清晰：code-behind 的 `Drop`/`DragOver`/`DragItemsCompleted` 调用它拿到纯数据后交给 VM。
+> 强行抽成 Service 或附加属性只会重复萃取逻辑、不提升解耦度。
+
+- [ ] **保持 `ImageDragHelper` 为 `static` 工具类（按 DI 决策清单本就 static 不动）**，不注册 DI。
+- [ ] 维持现状：各 Page code-behind 的 `Drop`/`DragOver`/`DragItemsCompleted` 事件 + `ImageDragHelper.CollectDropPathsAsync`/`ConfigureDragOut` 萃取纯数据 → VM 命令/方法。
+- [ ] 验收：从资源管理器拖图片入库、从 MemeManager 拖图片到 QQ、分类栏内部移动/重排，行为不变。
 
 **Phase 3 完成标志**：`MainPage.xaml.cs` 从 ~2300 行缩减到 ~500 行（只剩 UI 生命周期 + 拖拽事件 + 预览浮窗），ViewModel 约 200 行（纯命令转发）。
 
@@ -493,7 +503,7 @@ var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 | 4 | `Infrastructure/EcoQos.cs` | 2 | 保持 static，不进容器 | ✅ 按决策不动 |
 | 5 | `Infrastructure/LangHelper.cs` | 2 | 保持 static，不进容器 | ✅ 按决策不动 |
 | 6 | `Infrastructure/TrayIcon.cs` | 1 | 实例化由 App `new TrayIcon(hwnd, engine)` 注入 | ✅ 已做(DI-MainWindow 批次) |
-| 7 | `Views/ImageDragHelper.cs` | 2 | 静态类 → Phase 3 改实例类并注册 DI | ⏸ Phase 3 |
+| 7 | `Views/ImageDragHelper.cs` | 2 | 静态类，**保持 static 不动**（View 层 UI 适配器，非 Service） | ✅ 按决策不动 |
 | 8 | `Views/SettingsPage.xaml.cs` | 7 | Page，字段式注入 | ✅ 已做(DI-2) |
 | 9 | `Views/MainWindow.xaml.cs` | 14 | Window，构造器注入 `MemeDataEngine engine` | ✅ 已做(DI-MainWindow 批次) |
 | 10 | `Views/MainPage.xaml.cs` | 47 | 字段式注入；策略类/VM 注入随此一并处理 | ✅ 已做(DI-MainPage) |
@@ -518,7 +528,7 @@ var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 | **LangHelper** | static class | 27 / 4 | | ❌ 保持 static（无状态） |
 | **EcoQos** | ? | 7 / 3 | | ❌ 保持 static（无状态） |
 | **Utils** | static class | 7 / 2 | | ❌ 保持 static（无状态） |
-| **ImageDragHelper** | static class | 5 / 2 | | ✅ Phase 3 改实例注入（需传参） |
+| **ImageDragHelper** | static class | 5 / 2 | | ❌ 保持 static（View 层 UI 适配器，非 Service，不进容器） |
 | **TrayIcon** | ? | 4 / 1 | | ✅ 可选注册单例 |
 | **PasteService** | static class | 3 / 2 | | ✅ Phase 3 改实例注入 |
 | **StartupManager** | static class | 3 / 2 | | ❌ 保持 static（启动期一次性） |
@@ -532,7 +542,7 @@ var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 - [ ] `LangHelper` → 保持 static，不进容器
 - [ ] `EcoQos` → 保持 static，不进容器
 - [ ] `Utils` → 保持 static，不进容器
-- [ ] `ImageDragHelper` → Phase 3 改为实例类并 `AddSingleton`
+- [ ] `ImageDragHelper` → 保持 static（View 层 UI 适配器，非 Service，不进容器；见 Phase 3.6 决策）
 - [ ] `TrayIcon` → 注册为 `AddSingleton`（可选）
 - [ ] `PasteService` → Phase 3 改为实例类并 `AddSingleton`
 - [ ] `StartupManager` → 保持 static，不进容器
@@ -551,7 +561,7 @@ var page = new MainPage(App.Services.GetRequiredService<MainViewModel>());
 - [x] **DI-2**：`Views/SettingsPage.xaml.cs` 字段式注入，清零 7 处 → 同批次或独立 commit
 - [x] **DI-MainWindow 批次**：`MainWindow` 构造器注入 + `TrayIcon` 构造器注入（App new 处传参），清零 14+1 处 → commit
 - [x] **DI-MainPage 批次**：`MainPage` 字段式注入（47处）+ `MemeViewModel`/`RebuildStrategy`/`ReuseStrategy` 构造器注入 + `MiniPage` new 传参，全部清零 → commit
-- [ ] **DI-final**：全局 grep `App.DataEngine` 仅剩 Logger/EcoQos/LangHelper/ImageDragHelper（按决策保持 static 或 Phase 3）的转发引用 → `App.DataEngine` 静态属性**暂不删除**（仍有 static 文件依赖转发）；待 Phase 3 完成 ImageDragHelper 后评估
+- [ ] **DI-final**：全局 grep `App.DataEngine` 仅剩 Logger/EcoQos/LangHelper/ImageDragHelper（按决策保持 static，含 ImageDragHelper 不再 Phase 3 实例化的转发引用）的转发引用 → `App.DataEngine` 静态属性**暂不删除**（仍有 static 文件依赖转发）；待确认无残留业务调用后评估
 
 > **注入方式说明**：Page / Window 由 XAML 导航或框架实例化，无法走构造器注入，统一用字段初始化
 > `private readonly MemeDataEngine _engine = ((App)Application.Current).Services.GetRequiredService<MemeDataEngine>();`
