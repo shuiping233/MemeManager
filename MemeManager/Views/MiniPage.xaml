@@ -140,7 +140,7 @@
             <Button x:Name="ExpandButton"
                     Grid.Column="1"
                     HorizontalAlignment="Right"
-                    Click="ExpandButton_Click">
+                    Command="{x:Bind ViewModel.ExpandCommand}">
                 <SymbolIcon Symbol="FullScreen"/>
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Mini_Expand"/>

@@ -45,9 +45,24 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     private readonly MemeDataEngine _engine =
         App.GetService<MemeDataEngine>();
 
+    public MiniViewModel ViewModel => (MiniViewModel)DataContext;
+
     public MiniPage()
     {
         InitializeComponent();
+        DataContext = App.GetService<MiniViewModel>();
+        ViewModel.ExpandToFullRequested += () => App.MainWindow.SwitchMode(AppMode.Full);
+        ViewModel.SendToExternalRequested += async vm =>
+        {
+            var target = App.MainWindow.ResolveExternalPasteTarget();
+            if (target == IntPtr.Zero)
+            {
+                Logger.Log("[Mini] 点击发送：未解析到有效外部窗口，取消本次粘贴");
+                return;
+            }
+            Logger.Log($"[Mini] 点击发送图片 ({Path.GetFileName(vm.LocalPath)}) -> 目标={target:X}");
+            await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
+        };
         Loaded += MiniPage_Loaded;
         Unloaded += MiniPage_Unloaded;
     }
@@ -149,7 +164,9 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         PickerEmptyHint.Visibility = _pickerMemes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private async void PickerItem_Tapped(object sender, TappedRoutedEventArgs e)
+    // 薄适配器：Picker 项 VM 经 Tag 承载（不在 DataTemplate 内、无法直绑 ICommand），
+    // 这里把 Tapped 事件转发给 VM 的 SendMemeCommand（实际发送逻辑经 SendToExternalRequested 事件回 Page）。
+    private void PickerItem_Tapped(object sender, TappedRoutedEventArgs e)
     {
         if (sender is not FrameworkElement fe || fe.Tag is not MemeViewModel vm)
             return;
@@ -159,10 +176,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         // ResolveExternalPasteTarget 会优先返回 _fgTimer 记录的外部窗口（Mini 模式下回退到
         // 本窗口获得焦点前的前台=外部应用，避免把图粘贴回自己身上）。
         PickerFlyout.Hide();
-
-        var target = App.MainWindow.ResolveExternalPasteTarget();
-        Logger.Log($"[Mini] 点击发送图片 ({Path.GetFileName(vm.LocalPath)}) -> 目标={target:X}");
-        await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
+        ViewModel.SendMemeCommand.Execute(vm);
     }
 
     // 从 Picker 拖出图片到外部（QQ/输入框等）：复用 MainPage 的稳定单图拖出逻辑。
@@ -193,12 +207,6 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
                 vm.ClearImages();
         }
         PickerRepeater.ItemsSource = null;
-    }
-
-    private void ExpandButton_Click(object sender, RoutedEventArgs e)
-    {
-        // 替代系统最大化：切回完整模式
-        App.MainWindow.SwitchMode(AppMode.Full);
     }
 
     // ---------- 拖入导入（XAML DataPackage + Win32 WM_DROPFILES 转发）----------

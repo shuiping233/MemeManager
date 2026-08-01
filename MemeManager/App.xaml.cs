@@ -250,6 +250,7 @@ public partial class App : Application
         // 业务 Service（Phase 3 逐步补：PasteService / ImageDragHelper / SearchService ...）
         // ViewModel（Phase 1 起逐步补：MainViewModel ...）
         services.AddSingleton<MainViewModel>();
+        services.AddSingleton<MiniViewModel>();
         return services.BuildServiceProvider();
     }
 }
