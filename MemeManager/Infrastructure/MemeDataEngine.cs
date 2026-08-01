@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,24 +15,24 @@ namespace MemeManager.Infrastructure;
 
 public class MemeDataEngine
 {
-    // Ä¬ÈÏ·ÖÀàÃû£¨UI ³õ´ÎÆô¶¯¡¢ÎŞÈÎºÎ·ÖÀàÊ±´´½¨£©¡£Í³Ò»ÔÚ´Ë¶¨Òå£¬±ÜÃâ "Default" ×ÖÃæÁ¿É¢Âä¡£
+    // é»˜è®¤åˆ†ç±»åï¼ˆUI åˆæ¬¡å¯åŠ¨ã€æ— ä»»ä½•åˆ†ç±»æ—¶åˆ›å»ºï¼‰ã€‚ç»Ÿä¸€åœ¨æ­¤å®šä¹‰ï¼Œé¿å… "Default" å­—é¢é‡æ•£è½ã€‚
     public const string DefaultCategory = "Default";
 
-    // Ä¬ÈÏÊı¾İÄ¿Â¼Ãû£¨Î»ÓÚ¡°Í¼Æ¬¡±¿â»ò LocalApplicationData ÏÂ£©¡£Í³Ò»ÔÚ´Ë¶¨Òå£¬±ÜÃâ "MeMeManagerData" ×ÖÃæÁ¿É¢Âä¡£
+    // é»˜è®¤æ•°æ®ç›®å½•åï¼ˆä½äºâ€œå›¾ç‰‡â€åº“æˆ– LocalApplicationData ä¸‹ï¼‰ã€‚ç»Ÿä¸€åœ¨æ­¤å®šä¹‰ï¼Œé¿å… "MeMeManagerData" å­—é¢é‡æ•£è½ã€‚
     public const string DefaultDataFolderName = "MeMeManagerData";
 
-    // µ¼Èë²¢ĞĞ¶È£º½×¶Î1£¨Ëã hash+È¥ÖØÅĞ¶¨£©Óë½×¶Î2£¨File.Copy£©¸÷×ÔµÄ²¢·¢ÉÏÏŞ¡£
-    // ¼æ¹Ë SSD ÍÌÍÂÓë¾ä±úÕ¼ÓÃ£¬ºóĞøµ÷ÓÅÖ±½Ó¸Ä´Ë´¦¡£
+    // å¯¼å…¥å¹¶è¡Œåº¦ï¼šé˜¶æ®µ1ï¼ˆç®— hash+å»é‡åˆ¤å®šï¼‰ä¸é˜¶æ®µ2ï¼ˆFile.Copyï¼‰å„è‡ªçš„å¹¶å‘ä¸Šé™ã€‚
+    // å…¼é¡¾ SSD ååä¸å¥æŸ„å ç”¨ï¼Œåç»­è°ƒä¼˜ç›´æ¥æ”¹æ­¤å¤„ã€‚
     private const int ImportParallelism = 16;
 
-    // ·ÖÀàÔªÊı¾İÎÄ¼şÃû£¨Ã¿¸ö·ÖÀàÄ¿Â¼ÏÂµÄ .metadata.json£©
+    // åˆ†ç±»å…ƒæ•°æ®æ–‡ä»¶åï¼ˆæ¯ä¸ªåˆ†ç±»ç›®å½•ä¸‹çš„ .metadata.jsonï¼‰
     private const string MetadataFileName = ".metadata.json";
 
-    // ·ÖÀàÃûÎª¿Õ/·Ç·¨Ê±µÄ¶µµ×·ÖÀàÃû£¨×ß i18n£©£¬¹«¿ª¹© UI ²ãÔÚ¡°È«²¿±íÇé¡±ÊÓÍ¼ÏÂ
-    // ½«Íâ²¿ÍÏÈëµÄÍ¼Æ¬¹éÈë´Ë·ÖÀà£¨¶ø·ÇÎóÓÃÊÓÍ¼±ê¼ÇÖµ£©¡£
+    // åˆ†ç±»åä¸ºç©º/éæ³•æ—¶çš„å…œåº•åˆ†ç±»åï¼ˆèµ° i18nï¼‰ï¼Œå…¬å¼€ä¾› UI å±‚åœ¨â€œå…¨éƒ¨è¡¨æƒ…â€è§†å›¾ä¸‹
+    // å°†å¤–éƒ¨æ‹–å…¥çš„å›¾ç‰‡å½’å…¥æ­¤åˆ†ç±»ï¼ˆè€Œéè¯¯ç”¨è§†å›¾æ ‡è®°å€¼ï¼‰ã€‚
     public static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
 
-    // Ğ´ÅÌ JSON£ºËõ½ø¿É¶Á + ÖĞÎÄ²»×ªÒå£¨±ãÓÚÈË¹¤²é¿´/ĞŞ¸Ä£©
+    // å†™ç›˜ JSONï¼šç¼©è¿›å¯è¯» + ä¸­æ–‡ä¸è½¬ä¹‰ï¼ˆä¾¿äºäººå·¥æŸ¥çœ‹/ä¿®æ”¹ï¼‰
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -44,23 +44,23 @@ public class MemeDataEngine
 
     private string _baseDir;
 
-    // Ğ´/µ¼ÈëÃ¦±êÖ¾£º±£Ö¤Í¬Ò»Ê±¿ÌÖ»ÓĞÒ»¸öµ¼ÈëĞ´ÈÎÎñÔÚ½øĞĞ£¨Êı¾İ°²È«£©¡£
-    // MainPage Í¨¹ı×Ô´øµÄ ImageBatchOperationRunner ÒÑÓĞËø£»Mini µÈÃ»ÓĞ runner µÄÈë¿Ú
-    // Í³Ò»×ß ImportMemesSafeAsync£¬ÓÉ±¾±êÖ¾¶µµ×¾Ü¾ø²¢·¢µ¼Èë¡£Ò²¿É¹© UI ÅĞ¶ÏÊÇ·ñ¡°µ¼ÈëÖĞ¡±¡£
+    // å†™/å¯¼å…¥å¿™æ ‡å¿—ï¼šä¿è¯åŒä¸€æ—¶åˆ»åªæœ‰ä¸€ä¸ªå¯¼å…¥å†™ä»»åŠ¡åœ¨è¿›è¡Œï¼ˆæ•°æ®å®‰å…¨ï¼‰ã€‚
+    // MainPage é€šè¿‡è‡ªå¸¦çš„ ImageBatchOperationRunner å·²æœ‰é”ï¼›Mini ç­‰æ²¡æœ‰ runner çš„å…¥å£
+    // ç»Ÿä¸€èµ° ImportMemesSafeAsyncï¼Œç”±æœ¬æ ‡å¿—å…œåº•æ‹’ç»å¹¶å‘å¯¼å…¥ã€‚ä¹Ÿå¯ä¾› UI åˆ¤æ–­æ˜¯å¦â€œå¯¼å…¥ä¸­â€ã€‚
     private int _writeBusy;
     public bool IsBusyWriting => _writeBusy != 0;
 
     private readonly List<MemeModel> _memeCache = new();
 
-    // Êı¾İÄ¿Â¼ÎÄ¼ş¼àÌı£ºÌ½²âÍ¼Æ¬ÎÄ¼ş´Ó¿âÖĞÏûÊ§£¨Íâ²¿ÍÏ³ö/±»É¾£©£¬
-    // Í¨¹ıÊÂ¼ş°Ñ½á¹û½»¸ø UI ²ã´¦Àí£¨Óë UI ½âñî£©¡£
+    // æ•°æ®ç›®å½•æ–‡ä»¶ç›‘å¬ï¼šæ¢æµ‹å›¾ç‰‡æ–‡ä»¶ä»åº“ä¸­æ¶ˆå¤±ï¼ˆå¤–éƒ¨æ‹–å‡º/è¢«åˆ ï¼‰ï¼Œ
+    // é€šè¿‡äº‹ä»¶æŠŠç»“æœäº¤ç»™ UI å±‚å¤„ç†ï¼ˆä¸ UI è§£è€¦ï¼‰ã€‚
     public FileWatcher? Watcher { get; private set; }
 
 
-    // ±êÌâ·´²é Map£ºtitle(Ğ¡Ğ´) -> ¸Ã title ¶ÔÓ¦µÄÎÄ¼şÃûÁĞ±í
+    // æ ‡é¢˜åæŸ¥ Mapï¼štitle(å°å†™) -> è¯¥ title å¯¹åº”çš„æ–‡ä»¶ååˆ—è¡¨
     private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
 
-    // ·ÖÀàË³Ğò£º·ÖÀàÃû(Ğ¡Ğ´, ¼´ÎÄ¼ş¼ĞÃû) -> ÓÅÏÈ¼¶£¨ÖµÔ½´óÔ½¿¿Ç°£©
+    // åˆ†ç±»é¡ºåºï¼šåˆ†ç±»å(å°å†™, å³æ–‡ä»¶å¤¹å) -> ä¼˜å…ˆçº§ï¼ˆå€¼è¶Šå¤§è¶Šé å‰ï¼‰
     private readonly Dictionary<string, uint> _categoryOrder = new(StringComparer.OrdinalIgnoreCase);
 
     public string BaseDir => _baseDir;
@@ -74,27 +74,27 @@ public class MemeDataEngine
 
     public static string DefaultStoragePath()
     {
-        // ÓÅÏÈÓÃ¡°Í¼Æ¬¡±¿â£»ÈôÆäÎª¿Õ/Î´ÅäÖÃ£¨Ä³Ğ©¾«¼òÏµÍ³»òÓò»·¾³»á·µ»Ø¿Õ´®£©£¬
-        // »ØÍËµ½ LocalApplicationData£¬±ÜÃâÆ´½Ó³öÏà¶ÔÂ·¾¶»òÓ¦ÓÃ×ÔÉíÄ¿Â¼¡£
+        // ä¼˜å…ˆç”¨â€œå›¾ç‰‡â€åº“ï¼›è‹¥å…¶ä¸ºç©º/æœªé…ç½®ï¼ˆæŸäº›ç²¾ç®€ç³»ç»Ÿæˆ–åŸŸç¯å¢ƒä¼šè¿”å›ç©ºä¸²ï¼‰ï¼Œ
+        // å›é€€åˆ° LocalApplicationDataï¼Œé¿å…æ‹¼æ¥å‡ºç›¸å¯¹è·¯å¾„æˆ–åº”ç”¨è‡ªèº«ç›®å½•ã€‚
         var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
         if (string.IsNullOrWhiteSpace(pictures) || !Path.IsPathRooted(pictures))
             pictures = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         return Path.Combine(pictures, DefaultDataFolderName);
     }
 
-    // ½âÎöÊµ¼ÊÊı¾İÄ¿Â¼£ºÈ·±£¾ø¶ÔÇÒ¾ø²»ÂäÔÚÓ¦ÓÃ×ÔÉíÄ¿Â¼ÄÚ£¨·ÀÖ¹°ÑÊı¾İ/·ÖÀàĞ´µ½ exe Ä¿Â¼ÏÂ
-    // µ¼ÖÂÎŞĞ´È¨ÏŞ±ÀÀ££¬Èç D:\MemeManager\Default ±»¾Ü£©¡£¿Õ/·Ç·¨/µÈÓÚÓ¦ÓÃÄ¿Â¼Ê±»ØÍËµ½Ä¬ÈÏÂ·¾¶¡£
+    // è§£æå®é™…æ•°æ®ç›®å½•ï¼šç¡®ä¿ç»å¯¹ä¸”ç»ä¸è½åœ¨åº”ç”¨è‡ªèº«ç›®å½•å†…ï¼ˆé˜²æ­¢æŠŠæ•°æ®/åˆ†ç±»å†™åˆ° exe ç›®å½•ä¸‹
+    // å¯¼è‡´æ— å†™æƒé™å´©æºƒï¼Œå¦‚ D:\MemeManager\Default è¢«æ‹’ï¼‰ã€‚ç©º/éæ³•/ç­‰äºåº”ç”¨ç›®å½•æ—¶å›é€€åˆ°é»˜è®¤è·¯å¾„ã€‚
     private static string ResolveBaseDir(string? storagePath)
     {
         string? candidate = string.IsNullOrWhiteSpace(storagePath) ? null : storagePath.Trim();
         if (!string.IsNullOrWhiteSpace(candidate) && !Path.IsPathRooted(candidate))
-            candidate = null; // ¾Ü¾øÏà¶ÔÂ·¾¶£¬±ÜÃâÏà¶Ô exe Ä¿Â¼
+            candidate = null; // æ‹’ç»ç›¸å¯¹è·¯å¾„ï¼Œé¿å…ç›¸å¯¹ exe ç›®å½•
 
         var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         if (!string.IsNullOrWhiteSpace(candidate))
         {
             var cand = Path.GetFullPath(candidate).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            // ÈôºòÑ¡Â·¾¶ÂäÔÚÓ¦ÓÃÄ¿Â¼ÄÚ£¨º¬Ó¦ÓÃÄ¿Â¼±¾Éí£©£¬»ØÍËÄ¬ÈÏ£¬±ÜÃâÎÛÈ¾/ÎŞÈ¨ÏŞ¡£
+            // è‹¥å€™é€‰è·¯å¾„è½åœ¨åº”ç”¨ç›®å½•å†…ï¼ˆå«åº”ç”¨ç›®å½•æœ¬èº«ï¼‰ï¼Œå›é€€é»˜è®¤ï¼Œé¿å…æ±¡æŸ“/æ— æƒé™ã€‚
             if (cand.Equals(appDir, StringComparison.OrdinalIgnoreCase)
                 || cand.StartsWith(appDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 candidate = null;
@@ -103,8 +103,8 @@ public class MemeDataEngine
         return string.IsNullOrWhiteSpace(candidate) ? DefaultStoragePath() : candidate;
     }
 
-    // ÅĞ¶Ï¸ø¶¨Â·¾¶ÊÇ·ñÂäÔÚÓ¦ÓÃ×ÔÉíÄ¿Â¼ÄÚ£¨º¬Ó¦ÓÃÄ¿Â¼±¾Éí£©¡£¹©ÉÏ²ãÔÚÓÃ»§Ö÷¶¯ÉèÖÃÄ¿Â¼Ê±
-    // ÌáÊ¾¡°²»ÄÜÉèÎªÓ¦ÓÃÎÄ¼ş¼Ğ¡±¡£
+    // åˆ¤æ–­ç»™å®šè·¯å¾„æ˜¯å¦è½åœ¨åº”ç”¨è‡ªèº«ç›®å½•å†…ï¼ˆå«åº”ç”¨ç›®å½•æœ¬èº«ï¼‰ã€‚ä¾›ä¸Šå±‚åœ¨ç”¨æˆ·ä¸»åŠ¨è®¾ç½®ç›®å½•æ—¶
+    // æç¤ºâ€œä¸èƒ½è®¾ä¸ºåº”ç”¨æ–‡ä»¶å¤¹â€ã€‚
     public static bool IsInsideAppDir(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
@@ -115,18 +115,18 @@ public class MemeDataEngine
             || cand.StartsWith(appDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ×î½üÒ»´Î´´½¨Ä¬ÈÏ·ÖÀà£¨AddCategoryAsync£©Ê±µÄĞ´Ê§°ÜÏêÇé£»Îª¿Õ±íÊ¾³É¹¦¡£
-    // ¹©Æô¶¯Á÷³ÌÔÚ´°¿Ú¾ÍĞ÷ºóµ¯´°ÌáÊ¾ÓÃ»§£¨±£Ö¤³ÌĞòÈÔÄÜÆô¶¯£¬·½±ãÈ¥ÉèÖÃÀï¸ÄÄ¿Â¼£©¡£
+    // æœ€è¿‘ä¸€æ¬¡åˆ›å»ºé»˜è®¤åˆ†ç±»ï¼ˆAddCategoryAsyncï¼‰æ—¶çš„å†™å¤±è´¥è¯¦æƒ…ï¼›ä¸ºç©ºè¡¨ç¤ºæˆåŠŸã€‚
+    // ä¾›å¯åŠ¨æµç¨‹åœ¨çª—å£å°±ç»ªåå¼¹çª—æç¤ºç”¨æˆ·ï¼ˆä¿è¯ç¨‹åºä»èƒ½å¯åŠ¨ï¼Œæ–¹ä¾¿å»è®¾ç½®é‡Œæ”¹ç›®å½•ï¼‰ã€‚
     public string? LastDefaultCategoryWriteError { get; private set; }
 
-    // ---------- ÅäÖÃ ----------
+    // ---------- é…ç½® ----------
 
     public async Task InitializeAsync()
     {
         LoadConfig();
 
         _baseDir = ResolveBaseDir(Config.StoragePath);
-        // ÈôÊµ¼ÊÊ¹ÓÃµÄÄ¿Â¼ÓëÅäÖÃÖĞ¼ÇÂ¼µÄ²»Ò»ÖÂ£¨±»»ØÍË£©£¬Í¬²½ĞŞÕıÅäÖÃÒÔÃâÏÂ´ÎÖØ¸´²È¿Ó¡£
+        // è‹¥å®é™…ä½¿ç”¨çš„ç›®å½•ä¸é…ç½®ä¸­è®°å½•çš„ä¸ä¸€è‡´ï¼ˆè¢«å›é€€ï¼‰ï¼ŒåŒæ­¥ä¿®æ­£é…ç½®ä»¥å…ä¸‹æ¬¡é‡å¤è¸©å‘ã€‚
         if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
             Config.StoragePath = _baseDir;
         Directory.CreateDirectory(_baseDir);
@@ -134,16 +134,16 @@ public class MemeDataEngine
         await LoadCategoryOrderAsync();
         await LoadAllMetadataAsync();
 
-        // ³õÊ¼»¯Íê³É¡¢Ä¿Â¼¾ÍĞ÷ºóÔÙÆô¶¯ÎÄ¼ş¼àÌı£¬±ÜÃâÆô¶¯ÆÚÊÂ¼ş·ç±©
+        // åˆå§‹åŒ–å®Œæˆã€ç›®å½•å°±ç»ªåå†å¯åŠ¨æ–‡ä»¶ç›‘å¬ï¼Œé¿å…å¯åŠ¨æœŸäº‹ä»¶é£æš´
         Watcher = new FileWatcher(_baseDir);
         Watcher.Start();
     }
 
-    // ÅäÖÃÎÄ¼ş¹Ì¶¨±£´æÔÚ %LOCALAPPDATA% ÏÂ£¨ÓëÊı¾İÄ¿Â¼½âñî£©£¬·ñÔòÇ¨ÒÆÊı¾İÄ¿Â¼ºó¶ş´ÎÆô¶¯¶Á²»µ½ÅäÖÃ
+    // é…ç½®æ–‡ä»¶å›ºå®šä¿å­˜åœ¨ %LOCALAPPDATA% ä¸‹ï¼ˆä¸æ•°æ®ç›®å½•è§£è€¦ï¼‰ï¼Œå¦åˆ™è¿ç§»æ•°æ®ç›®å½•åäºŒæ¬¡å¯åŠ¨è¯»ä¸åˆ°é…ç½®
     private static string ConfigDir => MainWindow.AppDataDir;
     private string ConfigPath => MainWindow.ConfigPath;
 
-    // ·ÖÀàË³ĞòÎÄ¼şÎ»ÓÚ¡°Êı¾İ±£´æÄ¿Â¼/.metadata.json¡±£¨Óë·ÖÀà×ÓÎÄ¼ş¼ĞÄÚµÄ .metadata.json ²»Í¬²ã¼¶£©
+    // åˆ†ç±»é¡ºåºæ–‡ä»¶ä½äºâ€œæ•°æ®ä¿å­˜ç›®å½•/.metadata.jsonâ€ï¼ˆä¸åˆ†ç±»å­æ–‡ä»¶å¤¹å†…çš„ .metadata.json ä¸åŒå±‚çº§ï¼‰
     private string CategoryOrderPath => Path.Combine(_baseDir, MetadataFileName);
 
     private void LoadConfig()
@@ -164,7 +164,7 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ¶ÁÈ¡ÅäÖÃÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] è¯»å–é…ç½®å¤±è´¥: {ex.Message}");
         }
 
         if (string.IsNullOrWhiteSpace(Config.StoragePath))
@@ -181,7 +181,7 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ±£´æÅäÖÃÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] ä¿å­˜é…ç½®å¤±è´¥: {ex.Message}");
         }
     }
 
@@ -190,7 +190,7 @@ public class MemeDataEngine
         patch(Config);
 
         string newBase = ResolveBaseDir(Config.StoragePath);
-        // ÈôÓÃ»§Ñ¡µÄÂ·¾¶ÂäÔÚÓ¦ÓÃ×ÔÉíÄ¿Â¼ÄÚ»ò·Ç·¨£¬»ØÍËÄ¬ÈÏ²¢Ğ´»ØÅäÖÃ¡£
+        // è‹¥ç”¨æˆ·é€‰çš„è·¯å¾„è½åœ¨åº”ç”¨è‡ªèº«ç›®å½•å†…æˆ–éæ³•ï¼Œå›é€€é»˜è®¤å¹¶å†™å›é…ç½®ã€‚
         if (!string.Equals(newBase, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
             Config.StoragePath = newBase;
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
@@ -198,16 +198,16 @@ public class MemeDataEngine
 
         await SaveConfigAsync();
 
-        // ½öµ±´æ·ÅÂ·¾¶ÕæÕı±ä»¯Ê±²ÅÖØĞÂ¼ÓÔØ¸ÃÂ·¾¶ÏÂµÄÔªÊı¾İ
+        // ä»…å½“å­˜æ”¾è·¯å¾„çœŸæ­£å˜åŒ–æ—¶æ‰é‡æ–°åŠ è½½è¯¥è·¯å¾„ä¸‹çš„å…ƒæ•°æ®
         if (changed)
             await LoadAllMetadataAsync();
     }
 
-    // ---------- ¼ÓÔØ ----------
+    // ---------- åŠ è½½ ----------
 
     private async Task LoadAllMetadataAsync()
     {
-        // ÔÚºóÌ¨Ïß³Ì£¨´ø EcoQoS ½ÚÁ÷£©Ö´ĞĞÄ¿Â¼É¨ÃèÓëÔªÊı¾İ¼ÓÔØ£¬±ÜÃâ×èÈû UI¡£
+        // åœ¨åå°çº¿ç¨‹ï¼ˆå¸¦ EcoQoS èŠ‚æµï¼‰æ‰§è¡Œç›®å½•æ‰«æä¸å…ƒæ•°æ®åŠ è½½ï¼Œé¿å…é˜»å¡ UIã€‚
         await EcoQos.RunAsync(() =>
         {
             LoadAllMetadataCore();
@@ -279,14 +279,14 @@ public class MemeDataEngine
         list.Add(meme.FileName);
     }
 
-    // ---------- ²éÑ¯ ----------
+    // ---------- æŸ¥è¯¢ ----------
 
     public IReadOnlyList<MemeModel> GetAllMemes() => _memeCache.ToList();
 
     public IReadOnlyList<MemeModel> GetMemes(string? category = null, string? keyword = null)
     {
-        // ¿ìÕÕºóÔÙ×öÑÓ³Ù LINQ Ã¶¾Ù£¬±ÜÃâÃ¶¾Ù¹ı³ÌÖĞ _memeCache ±»ÆäËüÏß³Ì£¨µ¼Èë/É¾³ı/ÎÄ¼ş¼àÌı£©
-        // ²¢·¢ĞŞ¸Äµ¼ÖÂ ¡°Collection was modified¡± ±ÀÀ£¡£
+        // å¿«ç…§åå†åšå»¶è¿Ÿ LINQ æšä¸¾ï¼Œé¿å…æšä¸¾è¿‡ç¨‹ä¸­ _memeCache è¢«å…¶å®ƒçº¿ç¨‹ï¼ˆå¯¼å…¥/åˆ é™¤/æ–‡ä»¶ç›‘å¬ï¼‰
+        // å¹¶å‘ä¿®æ”¹å¯¼è‡´ â€œCollection was modifiedâ€ å´©æºƒã€‚
         IEnumerable<MemeModel> query = _memeCache.ToList();
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -299,15 +299,15 @@ public class MemeDataEngine
                 m.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
         }
 
-        // Priority ÖµÔ½´óÔ½¿¿Ç°£¨×ó²à/¿ªÍ·£©£»Í¬Öµ°´µ¼ÈëÊ±¼äĞÂ¡ú¾É
+        // Priority å€¼è¶Šå¤§è¶Šé å‰ï¼ˆå·¦ä¾§/å¼€å¤´ï¼‰ï¼›åŒå€¼æŒ‰å¯¼å…¥æ—¶é—´æ–°â†’æ—§
         return query.OrderByDescending(m => m.Priority).ThenByDescending(m => m.DateAdded).ToList();
     }
 
     public IReadOnlyList<string> GetCategories()
     {
-        // ·ÖÀà = ÄÚ´æÖĞÒÑÓĞ·ÖÀà ¡È ´ÅÅÌÉÏÊµ¼Ê´æÔÚµÄ·ÖÀàÎÄ¼ş¼Ğ
+        // åˆ†ç±» = å†…å­˜ä¸­å·²æœ‰åˆ†ç±» âˆª ç£ç›˜ä¸Šå®é™…å­˜åœ¨çš„åˆ†ç±»æ–‡ä»¶å¤¹
         var set = new System.Collections.Generic.SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        // ÏÈ¿ìÕÕÔÙÃ¶¾Ù£¬±ÜÃâÃ¶¾Ù¹ı³ÌÖĞ _memeCache ±»²¢·¢ĞŞ¸Äµ¼ÖÂ±ÀÀ£
+        // å…ˆå¿«ç…§å†æšä¸¾ï¼Œé¿å…æšä¸¾è¿‡ç¨‹ä¸­ _memeCache è¢«å¹¶å‘ä¿®æ”¹å¯¼è‡´å´©æºƒ
         foreach (var m in _memeCache.ToList())
             if (!string.IsNullOrWhiteSpace(m.Category)) set.Add(m.Category);
 
@@ -315,14 +315,14 @@ public class MemeDataEngine
         {
             foreach (var dir in Directory.GetDirectories(_baseDir))
             {
-                // ½ö½«º¬ÓĞ .metadata.json µÄÎÄ¼ş¼ĞÊÓÎªÓĞĞ§·ÖÀà
+                // ä»…å°†å«æœ‰ .metadata.json çš„æ–‡ä»¶å¤¹è§†ä¸ºæœ‰æ•ˆåˆ†ç±»
                 if (File.Exists(Path.Combine(dir, MetadataFileName)))
                     set.Add(Path.GetFileName(dir));
             }
         }
 
         var result = set.ToList();
-        // °´ÓÅÏÈ¼¶½µĞò£¨ÖµÔ½´óÔ½¿¿Ç°£©£¬Í¬ÓÅÏÈ¼¶°´Ãû³ÆÎÈ¶¨ÅÅĞò
+        // æŒ‰ä¼˜å…ˆçº§é™åºï¼ˆå€¼è¶Šå¤§è¶Šé å‰ï¼‰ï¼ŒåŒä¼˜å…ˆçº§æŒ‰åç§°ç¨³å®šæ’åº
         result.Sort((a, b) =>
         {
             int pa = _categoryOrder.TryGetValue(a, out var va) ? (int)va : 0;
@@ -333,7 +333,7 @@ public class MemeDataEngine
         return result;
     }
 
-    // ---------- ·ÖÀàË³Ğò£¨ÍÏ×§ÖØÅÅ£© ----------
+    // ---------- åˆ†ç±»é¡ºåºï¼ˆæ‹–æ‹½é‡æ’ï¼‰ ----------
 
     private async Task LoadCategoryOrderAsync()
     {
@@ -354,7 +354,7 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ¶ÁÈ¡·ÖÀàË³ĞòÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] è¯»å–åˆ†ç±»é¡ºåºå¤±è´¥: {ex.Message}");
         }
     }
 
@@ -374,12 +374,12 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ±£´æ·ÖÀàË³ĞòÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] ä¿å­˜åˆ†ç±»é¡ºåºå¤±è´¥: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// °´¸ø¶¨·ÖÀàÃûË³ĞòÕûÌåÖØËãÓÅÏÈ¼¶£¨ÁĞ±í×îÇ°=×î´óÓÅÏÈ¼¶£¬ÒÀ´Îµİ¼õ£©£¬Ğ´»Ø .metadata.json¡£
+    /// æŒ‰ç»™å®šåˆ†ç±»åé¡ºåºæ•´ä½“é‡ç®—ä¼˜å…ˆçº§ï¼ˆåˆ—è¡¨æœ€å‰=æœ€å¤§ä¼˜å…ˆçº§ï¼Œä¾æ¬¡é€’å‡ï¼‰ï¼Œå†™å› .metadata.jsonã€‚
     /// </summary>
     public async Task ReorderCategoriesAsync(IReadOnlyList<string> orderedNames)
     {
@@ -389,7 +389,7 @@ public class MemeDataEngine
         await SaveCategoryOrderAsync();
     }
 
-    // Í¨¹ı±êÌâ·´²éÎÄ¼şÃûÁĞ±í
+    // é€šè¿‡æ ‡é¢˜åæŸ¥æ–‡ä»¶ååˆ—è¡¨
     public IReadOnlyList<string> ReverseLookupByTitle(string title)
     {
         if (_titleReverseMap.TryGetValue(title, out var list))
@@ -397,7 +397,7 @@ public class MemeDataEngine
         return new List<string>();
     }
 
-    // ---------- µ¼Èë ----------
+    // ---------- å¯¼å…¥ ----------
 
     public async Task<(MemeModel? model, bool duplicate)> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
     {
@@ -409,10 +409,10 @@ public class MemeDataEngine
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            // È¥ÖØ£ºÍ¬·ÖÀàÏÂÎÄ¼şÃûÒÑ´æÔÚÔòÊÓÎªÖØ¸´¡£
-            // ×¢Òâ£º»º´æÃüÖĞµ«´ÅÅÌÎÄ¼şÒÑ²»´æÔÚ£¨ÈçÔø±»ÍÏ³öµ½Íâ²¿ÎÄ¼ş¼Ğ±»ÒÆ×ß£©µÄ£¬
-            // ²»µ±×÷ÖØ¸´¡ª¡ª·ñÔòÖØĞÂµ¼ÈëÍ¬Ò»ÕÅÍ¼»á±»ÎóÅĞ¡°ÒÑ´æÔÚ¡±¡£´ËÊ±ÏÈÇå³ı¸Ã½©Ê¬»º´æ
-            // ¼ÇÂ¼£¬ÔÙ°´ĞÂµ¼ÈëÁ÷³Ì¸²¸ÇĞ´Èë£¬±£Ö¤¿âÓë´ÅÅÌÒ»ÖÂ¡£
+            // å»é‡ï¼šåŒåˆ†ç±»ä¸‹æ–‡ä»¶åå·²å­˜åœ¨åˆ™è§†ä¸ºé‡å¤ã€‚
+            // æ³¨æ„ï¼šç¼“å­˜å‘½ä¸­ä½†ç£ç›˜æ–‡ä»¶å·²ä¸å­˜åœ¨ï¼ˆå¦‚æ›¾è¢«æ‹–å‡ºåˆ°å¤–éƒ¨æ–‡ä»¶å¤¹è¢«ç§»èµ°ï¼‰çš„ï¼Œ
+            // ä¸å½“ä½œé‡å¤â€”â€”å¦åˆ™é‡æ–°å¯¼å…¥åŒä¸€å¼ å›¾ä¼šè¢«è¯¯åˆ¤â€œå·²å­˜åœ¨â€ã€‚æ­¤æ—¶å…ˆæ¸…é™¤è¯¥åƒµå°¸ç¼“å­˜
+            // è®°å½•ï¼Œå†æŒ‰æ–°å¯¼å…¥æµç¨‹è¦†ç›–å†™å…¥ï¼Œä¿è¯åº“ä¸ç£ç›˜ä¸€è‡´ã€‚
             var categoryDir = Path.Combine(_baseDir, SanitizeCategory(category));
             var targetPath = Path.Combine(categoryDir, fileName);
             var existing = _memeCache.FirstOrDefault(m =>
@@ -421,7 +421,7 @@ public class MemeDataEngine
             {
                 if (!File.Exists(existing.LocalPath))
                 {
-                    Logger.Log($"[Engine] »º´æÃüÖĞµ«´ÅÅÌÎÄ¼şÒÑÈ±Ê§(¿ÉÄÜÔø±»ÒÆ³ö): ÎÄ¼ş={fileName} ·ÖÀà={category}£¬Çå³ı½©Ê¬»º´æºóÖØĞÂµ¼Èë");
+                    Logger.Log($"[Engine] ç¼“å­˜å‘½ä¸­ä½†ç£ç›˜æ–‡ä»¶å·²ç¼ºå¤±(å¯èƒ½æ›¾è¢«ç§»å‡º): æ–‡ä»¶={fileName} åˆ†ç±»={category}ï¼Œæ¸…é™¤åƒµå°¸ç¼“å­˜åé‡æ–°å¯¼å…¥");
                     _memeCache.Remove(existing);
                     if (!string.IsNullOrWhiteSpace(existing.Title) &&
                         _titleReverseMap.TryGetValue(existing.Title, out var rev))
@@ -432,7 +432,7 @@ public class MemeDataEngine
                 }
                 else
                 {
-                    Logger.Log($"[Engine] µ¼ÈëÖØ¸´Ìø¹ı: ÎÄ¼ş={fileName} Ô´Â·¾¶={sourcePath} Ä¿±ê·ÖÀà={category} (ÒÑ´æÔÚÓÚ·ÖÀà¡¸{existing.Category}¡¹)");
+                    Logger.Log($"[Engine] å¯¼å…¥é‡å¤è·³è¿‡: æ–‡ä»¶={fileName} æºè·¯å¾„={sourcePath} ç›®æ ‡åˆ†ç±»={category} (å·²å­˜åœ¨äºåˆ†ç±»ã€Œ{existing.Category}ã€)");
                     return (existing, true);
                 }
             }
@@ -442,7 +442,7 @@ public class MemeDataEngine
 
             var meta = await LoadCategoryMetadataAsync(categoryDir);
 
-            // ĞÂµ¼ÈëÍ¼Æ¬µÄÓÅÏÈ¼¶ = µ±Ç°·ÖÀàÒÑÓĞ×î´óÓÅÏÈ¼¶ + 1£¨ºóµ¼ÈëÅÅºóÃæ£©
+            // æ–°å¯¼å…¥å›¾ç‰‡çš„ä¼˜å…ˆçº§ = å½“å‰åˆ†ç±»å·²æœ‰æœ€å¤§ä¼˜å…ˆçº§ + 1ï¼ˆåå¯¼å…¥æ’åé¢ï¼‰
             uint maxPriority = 0;
             foreach (var entry in meta.Items.Values)
                 if (entry.Priority > maxPriority) maxPriority = entry.Priority;
@@ -474,15 +474,15 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] µ¼Èë±íÇé°üÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] å¯¼å…¥è¡¨æƒ…åŒ…å¤±è´¥: {ex.Message}");
             return (null, false);
         }
     }
 
-    // ÅúÁ¿µ¼Èë£ºÓë ImportMemeAsync µ¥ÕÅÂß¼­Ò»ÖÂ£¬µ«Ä¿±ê·ÖÀàµÄ .metadata.json
-    // Ö»¼ÓÔØ/±£´æÒ»´Î£¨¶ø·ÇÖğÕÅ¸÷¶ÁĞ´Ò»´Î£©£¬²¢°´·ÖÀàÔ¤½¨ÎÄ¼şÃûË÷Òı×ö O(1) È¥ÖØ£¬
-    // ±ÜÃâÅúÁ¿µ¼ÈëÊ±´óÁ¿ÈßÓà´ÅÅÌ IO Óë O(n2) É¨Ãè¡£·µ»ØĞÂÔöÊı¡¢ÖØ¸´Êı¼°£¨½öµ±ÕûÌåÎªµ¥ÕÅ
-    // ÇÒÖØ¸´Ê±µÄ£©ÖØ¸´Ä£ĞÍ£¬¹©µ÷ÓÃ·½µ¯´°ÌáÊ¾¡£
+    // æ‰¹é‡å¯¼å…¥ï¼šä¸ ImportMemeAsync å•å¼ é€»è¾‘ä¸€è‡´ï¼Œä½†ç›®æ ‡åˆ†ç±»çš„ .metadata.json
+    // åªåŠ è½½/ä¿å­˜ä¸€æ¬¡ï¼ˆè€Œéé€å¼ å„è¯»å†™ä¸€æ¬¡ï¼‰ï¼Œå¹¶æŒ‰åˆ†ç±»é¢„å»ºæ–‡ä»¶åç´¢å¼•åš O(1) å»é‡ï¼Œ
+    // é¿å…æ‰¹é‡å¯¼å…¥æ—¶å¤§é‡å†—ä½™ç£ç›˜ IO ä¸ O(n2) æ‰«æã€‚è¿”å›æ–°å¢æ•°ã€é‡å¤æ•°åŠï¼ˆä»…å½“æ•´ä½“ä¸ºå•å¼ 
+    // ä¸”é‡å¤æ—¶çš„ï¼‰é‡å¤æ¨¡å‹ï¼Œä¾›è°ƒç”¨æ–¹å¼¹çª—æç¤ºã€‚
     public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesAsync(
         IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null,
         Action<string>? onCategoryCreated = null)
@@ -493,16 +493,16 @@ public class MemeDataEngine
 
         var safeTarget = SanitizeCategory(category);
         var categoryDir = Path.Combine(_baseDir, safeTarget);
-        // ½öÔÚ·ÖÀàÄ¿Â¼Ô­±¾²»´æÔÚ£¨¼´±¾´ÎĞÂ½¨£©Ê±Í¨ÖªÉÏ²ã£¬±ãÓÚ UI ¼´Ê±Ë¢ĞÂ·ÖÀàÀ¸¡£
+        // ä»…åœ¨åˆ†ç±»ç›®å½•åŸæœ¬ä¸å­˜åœ¨ï¼ˆå³æœ¬æ¬¡æ–°å»ºï¼‰æ—¶é€šçŸ¥ä¸Šå±‚ï¼Œä¾¿äº UI å³æ—¶åˆ·æ–°åˆ†ç±»æ ã€‚
         bool created = !Directory.Exists(categoryDir);
         Directory.CreateDirectory(categoryDir);
         if (created) onCategoryCreated?.Invoke(safeTarget);
 
-        // Ä¿±ê·ÖÀà metadata ½ö¼ÓÔØÒ»´Î
+        // ç›®æ ‡åˆ†ç±» metadata ä»…åŠ è½½ä¸€æ¬¡
         var meta = await LoadCategoryMetadataAsync(categoryDir);
 
-        // Ô¤½¨¡°ÎÄ¼şÃû -> »º´æÏî¡±Ë÷Òı£¨½ö±¾·ÖÀà£©£¬O(1) È¥ÖØ£¬±ÜÃâÖğÕÅÏßĞÔÉ¨Ãè¡£
-        // ²¢ĞĞ½×¶ÎÖ»¶ÁÈ¡Ëü£¨ÅĞ¶¨ÖØ¸´£©£¬¾ø²»Ğ´Èë£»Ğ´ÈëÁôµ½½×¶Î3´®ĞĞ¡£
+        // é¢„å»ºâ€œæ–‡ä»¶å -> ç¼“å­˜é¡¹â€ç´¢å¼•ï¼ˆä»…æœ¬åˆ†ç±»ï¼‰ï¼ŒO(1) å»é‡ï¼Œé¿å…é€å¼ çº¿æ€§æ‰«æã€‚
+        // å¹¶è¡Œé˜¶æ®µåªè¯»å–å®ƒï¼ˆåˆ¤å®šé‡å¤ï¼‰ï¼Œç»ä¸å†™å…¥ï¼›å†™å…¥ç•™åˆ°é˜¶æ®µ3ä¸²è¡Œã€‚
         var existingByFile = _memeCache
             .Where(m => m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(m => m.FileName, m => m, StringComparer.OrdinalIgnoreCase);
@@ -510,10 +510,10 @@ public class MemeDataEngine
         int imported = 0, duplicate = 0;
         MemeModel? duplicateModel = null;
 
-        // Ã¿ÕÅµÄÅĞ¶¨/ÂäµØ½á¹ûÈİÆ÷£¨²¢ĞĞ½×¶ÎÌî³ä£¬²»´¥Åö¹²Ïí×Öµä£©¡£
+        // æ¯å¼ çš„åˆ¤å®š/è½åœ°ç»“æœå®¹å™¨ï¼ˆå¹¶è¡Œé˜¶æ®µå¡«å……ï¼Œä¸è§¦ç¢°å…±äº«å­—å…¸ï¼‰ã€‚
         var plans = new List<ImportPlan>(list.Count);
 
-        // ---------- ½×¶Î1£º²¢ĞĞËã hash + È¥ÖØÅĞ¶¨£¨Ö»¶Á existingByFile£©----------
+        // ---------- é˜¶æ®µ1ï¼šå¹¶è¡Œç®— hash + å»é‡åˆ¤å®šï¼ˆåªè¯» existingByFileï¼‰----------
         var po = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, po, async (sourcePath, _) =>
         {
@@ -523,16 +523,16 @@ public class MemeDataEngine
             try { hash = await CalculateSha256Async(sourcePath); }
             catch (Exception ex)
             {
-                Logger.Log($"[Engine] µ¼ÈëËã¹şÏ£Ê§°Ü: {sourcePath} {ex.Message}");
+                Logger.Log($"[Engine] å¯¼å…¥ç®—å“ˆå¸Œå¤±è´¥: {sourcePath} {ex.Message}");
                 return;
             }
 
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            // ²éÔ¤½¨Ë÷ÒıÅĞ¶¨ÖØ¸´£¨Ö»¶Á£¬Ïß³Ì°²È«£©
+            // æŸ¥é¢„å»ºç´¢å¼•åˆ¤å®šé‡å¤ï¼ˆåªè¯»ï¼Œçº¿ç¨‹å®‰å…¨ï¼‰
             bool isDuplicate = false;
-            bool zombie = false;   // »º´æÃüÖĞµ«´ÅÅÌÎÄ¼şÈ±Ê§£¬ĞèÔÚ½×¶Î3ÇåÀíºó¸²¸Ç
+            bool zombie = false;   // ç¼“å­˜å‘½ä¸­ä½†ç£ç›˜æ–‡ä»¶ç¼ºå¤±ï¼Œéœ€åœ¨é˜¶æ®µ3æ¸…ç†åè¦†ç›–
             if (existingByFile.TryGetValue(fileName, out var existing))
             {
                 if (File.Exists(existing.LocalPath))
@@ -545,14 +545,14 @@ public class MemeDataEngine
                 plans.Add(new ImportPlan(sourcePath, hash, ext, fileName, isDuplicate, zombie));
         });
 
-        // ½ø¶È¼ÆÊıÆ÷£º½×¶Î1/½×¶Î2 Ã¿Íê³ÉÒ»Ïî£¨º¬ÖØ¸´/Ìø¹ı/Ê§°Ü£©¼ÆÊıÒ»´Î£¬½×¶Î3 ²»ÔÙ±¨£¬±ÜÃâÖØ¸´¼ÆÊı¡£
+        // è¿›åº¦è®¡æ•°å™¨ï¼šé˜¶æ®µ1/é˜¶æ®µ2 æ¯å®Œæˆä¸€é¡¹ï¼ˆå«é‡å¤/è·³è¿‡/å¤±è´¥ï¼‰è®¡æ•°ä¸€æ¬¡ï¼Œé˜¶æ®µ3 ä¸å†æŠ¥ï¼Œé¿å…é‡å¤è®¡æ•°ã€‚
         long ioDone = 0;
 
-        // ---------- ½×¶Î2£º²¢ĞĞ¸´ÖÆÎÄ¼ş£¨IO ²¢ĞĞ£¬²»Åö¹²Ïí×´Ì¬£©----------
+        // ---------- é˜¶æ®µ2ï¼šå¹¶è¡Œå¤åˆ¶æ–‡ä»¶ï¼ˆIO å¹¶è¡Œï¼Œä¸ç¢°å…±äº«çŠ¶æ€ï¼‰----------
         var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(plans, copyPo, async (plan, _) =>
         {
-            if (!plan.IsDuplicate)   // ÖØ¸´ÏîÖ±½ÓÌø¹ı£¬ÎŞĞë¸´ÖÆ
+            if (!plan.IsDuplicate)   // é‡å¤é¡¹ç›´æ¥è·³è¿‡ï¼Œæ— é¡»å¤åˆ¶
             {
                 try
                 {
@@ -562,17 +562,17 @@ public class MemeDataEngine
                 }
                 catch (Exception ex)
                 {
-                    // Ê§°Ü¾²Ä¬´òÈÕÖ¾Ìø¹ı£¨ÑØÓÃÏÖ×´£¬²»µ¯´°£©
-                    Logger.Log($"[Engine] µ¼Èë¸´ÖÆÊ§°Ü: {plan.SourcePath} {ex.Message}");
+                    // å¤±è´¥é™é»˜æ‰“æ—¥å¿—è·³è¿‡ï¼ˆæ²¿ç”¨ç°çŠ¶ï¼Œä¸å¼¹çª—ï¼‰
+                    Logger.Log($"[Engine] å¯¼å…¥å¤åˆ¶å¤±è´¥: {plan.SourcePath} {ex.Message}");
                     plan.CopyOk = false;
                 }
             }
-            // ¸ÃÏî IO ´¦ÀíÍê±Ï£¨ÎŞÂÛ¸´ÖÆ/ÖØ¸´/Ê§°Ü£©£¬½ø¶È +1
+            // è¯¥é¡¹ IO å¤„ç†å®Œæ¯•ï¼ˆæ— è®ºå¤åˆ¶/é‡å¤/å¤±è´¥ï¼‰ï¼Œè¿›åº¦ +1
             var d = (uint)Interlocked.Increment(ref ioDone);
             progress?.Report(new BatchProgress(d, total));
         });
 
-        // ---------- ½×¶Î3£º´®ĞĞÂäµØ£¨Ğ´ metadata/cache£¬´¿ÄÚ´æ¼«¿ì£©----------
+        // ---------- é˜¶æ®µ3ï¼šä¸²è¡Œè½åœ°ï¼ˆå†™ metadata/cacheï¼Œçº¯å†…å­˜æå¿«ï¼‰----------
         foreach (var plan in plans)
         {
             if (plan.IsDuplicate)
@@ -584,11 +584,11 @@ public class MemeDataEngine
 
             if (!plan.CopyOk)
             {
-                // ¸´ÖÆÊ§°ÜµÄÏî²»Ğ´Èë metadata/cache
+                // å¤åˆ¶å¤±è´¥çš„é¡¹ä¸å†™å…¥ metadata/cache
                 continue;
             }
 
-            // ½©Ê¬»º´æ£ºÏÈÇåµôÈ±Ê§ÎÄ¼şµÄ¾É»º´æ£¨½ö´®ĞĞ½×¶Î²Ù×÷¹²Ïí×Öµä£©
+            // åƒµå°¸ç¼“å­˜ï¼šå…ˆæ¸…æ‰ç¼ºå¤±æ–‡ä»¶çš„æ—§ç¼“å­˜ï¼ˆä»…ä¸²è¡Œé˜¶æ®µæ“ä½œå…±äº«å­—å…¸ï¼‰
             if (plan.Zombie && existingByFile.TryGetValue(plan.FileName, out var dead))
             {
                 _memeCache.Remove(dead);
@@ -627,26 +627,26 @@ public class MemeDataEngine
 
             _memeCache.Add(model);
             IndexTitle(model);
-            existingByFile[plan.FileName] = model;   // Í¬Åú´ÎÄÚºóĞøÖØ¸´Ò²ÄÜÊ¶±ğ
+            existingByFile[plan.FileName] = model;   // åŒæ‰¹æ¬¡å†…åç»­é‡å¤ä¹Ÿèƒ½è¯†åˆ«
             imported++;
         }
 
-        // ÕûÅú½öĞ´»ØÒ»´Î metadata
+        // æ•´æ‰¹ä»…å†™å›ä¸€æ¬¡ metadata
         await SaveCategoryMetadataAsync(categoryDir, meta);
         return (imported, duplicate, duplicateModel);
     }
 
     /// <summary>
-    /// ´ø¡°Ğ´Ã¦¡±ÊØÎÀµÄµ¼ÈëÈë¿Ú£ºÍ¬Ò»Ê±¿Ì½öÔÊĞíÒ»¸öµ¼ÈëĞ´ÈÎÎñ½øĞĞ£¨Êı¾İ°²È«£©¡£
-    /// ÒÑÔÚ½øĞĞÖĞÊ±Ö±½Ó·µ»Ø (0,0,null) ±íÊ¾±»¾Ü£¨UI ¾İ´ËÌáÊ¾¡°µ¼Èë½øĞĞÖĞ¡±²¢ºöÂÔ±¾´ÎÍÏÈë£©¡£
-    /// Mini µÈÎŞ ImageBatchOperationRunner µÄÈë¿ÚÍ³Ò»×ßÕâÀï£»MainPage ×Ô´ø runner Ëø£¬²»Ç¿ÖÆ¸ÄÓÃ¡£
+    /// å¸¦â€œå†™å¿™â€å®ˆå«çš„å¯¼å…¥å…¥å£ï¼šåŒä¸€æ—¶åˆ»ä»…å…è®¸ä¸€ä¸ªå¯¼å…¥å†™ä»»åŠ¡è¿›è¡Œï¼ˆæ•°æ®å®‰å…¨ï¼‰ã€‚
+    /// å·²åœ¨è¿›è¡Œä¸­æ—¶ç›´æ¥è¿”å› (0,0,null) è¡¨ç¤ºè¢«æ‹’ï¼ˆUI æ®æ­¤æç¤ºâ€œå¯¼å…¥è¿›è¡Œä¸­â€å¹¶å¿½ç•¥æœ¬æ¬¡æ‹–å…¥ï¼‰ã€‚
+    /// Mini ç­‰æ—  ImageBatchOperationRunner çš„å…¥å£ç»Ÿä¸€èµ°è¿™é‡Œï¼›MainPage è‡ªå¸¦ runner é”ï¼Œä¸å¼ºåˆ¶æ”¹ç”¨ã€‚
     /// </summary>
     public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesSafeAsync(
         IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null,
         Action<string>? onCategoryCreated = null)
     {
         if (Interlocked.Exchange(ref _writeBusy, 1) != 0)
-            return (0, 0, null); // ÒÑÓĞµ¼ÈëÈÎÎñÔÚÅÜ£¬¾Ü¾ø±¾´Î
+            return (0, 0, null); // å·²æœ‰å¯¼å…¥ä»»åŠ¡åœ¨è·‘ï¼Œæ‹’ç»æœ¬æ¬¡
         try
         {
             return await ImportMemesAsync(sourcePaths, category, progress, onCategoryCreated);
@@ -657,7 +657,7 @@ public class MemeDataEngine
         }
     }
 
-    // µ¼Èëµ¥ÕÅµÄÅĞ¶¨/ÂäµØ¼Æ»®£¨²¢ĞĞ½×¶ÎÌî³ä£¬½×¶Î3´®ĞĞÏû·Ñ£©
+    // å¯¼å…¥å•å¼ çš„åˆ¤å®š/è½åœ°è®¡åˆ’ï¼ˆå¹¶è¡Œé˜¶æ®µå¡«å……ï¼Œé˜¶æ®µ3ä¸²è¡Œæ¶ˆè´¹ï¼‰
     private sealed record ImportPlan(
         string SourcePath,
         string Hash,
@@ -669,17 +669,17 @@ public class MemeDataEngine
         public bool CopyOk;
     }
 
-    // ---------- µ¼³ö ----------
+    // ---------- å¯¼å‡º ----------
 
     public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir, IProgress<BatchProgress>? progress = null)
     {
         Directory.CreateDirectory(targetDir);
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        // ½ø¶È¼ÆÊıÆ÷£º½×¶Î1 Ã¿Íê³ÉÒ»Ïî£¨¸´ÖÆ IO Íê±Ï£©¼ÆÊıÒ»´Î
+        // è¿›åº¦è®¡æ•°å™¨ï¼šé˜¶æ®µ1 æ¯å®Œæˆä¸€é¡¹ï¼ˆå¤åˆ¶ IO å®Œæ¯•ï¼‰è®¡æ•°ä¸€æ¬¡
         long ioDone = 0;
 
-        // ²¢ĞĞ¸´ÖÆÎÄ¼ş£¨IO ²¢ĞĞ£¬»¥²»ÒÀÀµ£¬ÎŞ¹²Ïí×´Ì¬£»Ê§°Ü¾²Ä¬ºöÂÔ£©
+        // å¹¶è¡Œå¤åˆ¶æ–‡ä»¶ï¼ˆIO å¹¶è¡Œï¼Œäº’ä¸ä¾èµ–ï¼Œæ— å…±äº«çŠ¶æ€ï¼›å¤±è´¥é™é»˜å¿½ç•¥ï¼‰
         var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, copyPo, async (meme, _) =>
         {
@@ -693,33 +693,33 @@ public class MemeDataEngine
             }
             catch (Exception ex)
             {
-                Logger.Log($"[Engine] µ¼³ö¸´ÖÆÊ§°Ü: {meme.LocalPath} {ex.Message}");
+                Logger.Log($"[Engine] å¯¼å‡ºå¤åˆ¶å¤±è´¥: {meme.LocalPath} {ex.Message}");
             }
             var d = (uint)Interlocked.Increment(ref ioDone);
             progress?.Report(new BatchProgress(d, total));
         });
     }
 
-    // ---------- ÒÆ¶¯µ½ÆäËû·ÖÀà ----------
+    // ---------- ç§»åŠ¨åˆ°å…¶ä»–åˆ†ç±» ----------
 
     /// <summary>
-    /// ¼ì²âÒÆ¶¯³åÍ»£ºÈô´ıÒÆ¶¯µÄÈÎÒâ±íÇé£¨ÅÅ³ı±¾¾ÍÔÚÄ¿±ê·ÖÀàµÄÏî£©Æä hash ÒÑ´æÔÚÓÚ
-    /// Ä¿±ê·ÖÀà£¬Ôò·µ»Ø¸Ã·ÖÀàÃû£»·ñÔò·µ»Ø null¡£ÓÃÓÚÔÚÕæÕıÒÆ¶¯Ç°ÌáÊ¾ÓÃ»§£¬±ÜÃâ
-    /// Í¬Ãû(hash)ÎÄ¼ş±»¾²Ä¬¸²¸Çµ¼ÖÂÄ¿±ê·ÖÀàÔ­ÓĞÍ¼Æ¬¶ªÊ§¡£
+    /// æ£€æµ‹ç§»åŠ¨å†²çªï¼šè‹¥å¾…ç§»åŠ¨çš„ä»»æ„è¡¨æƒ…ï¼ˆæ’é™¤æœ¬å°±åœ¨ç›®æ ‡åˆ†ç±»çš„é¡¹ï¼‰å…¶ hash å·²å­˜åœ¨äº
+    /// ç›®æ ‡åˆ†ç±»ï¼Œåˆ™è¿”å›è¯¥åˆ†ç±»åï¼›å¦åˆ™è¿”å› nullã€‚ç”¨äºåœ¨çœŸæ­£ç§»åŠ¨å‰æç¤ºç”¨æˆ·ï¼Œé¿å…
+    /// åŒå(hash)æ–‡ä»¶è¢«é™é»˜è¦†ç›–å¯¼è‡´ç›®æ ‡åˆ†ç±»åŸæœ‰å›¾ç‰‡ä¸¢å¤±ã€‚
     /// </summary>
     public async Task<string?> FindMoveConflictAsync(IEnumerable<MemeModel> memes, string targetCategory)
     {
         var safeTarget = SanitizeCategory(targetCategory);
         try
         {
-            // Ä¿±ê·ÖÀàÒÑÓĞµÄËùÓĞ hash£¨ÎŞĞè°´ Category ¹ıÂË£ºGetMemes(target) ·µ»ØÏî±¾¾ÍÊôÓÚ target£©
+            // ç›®æ ‡åˆ†ç±»å·²æœ‰çš„æ‰€æœ‰ hashï¼ˆæ— éœ€æŒ‰ Category è¿‡æ»¤ï¼šGetMemes(target) è¿”å›é¡¹æœ¬å°±å±äº targetï¼‰
             var existingHashes = GetMemes(safeTarget)
                 .Select(m => m.Hash)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var m in memes)
             {
-                // ±¾¾ÍÔÚÄ¿±ê·ÖÀàµÄÏîÒÆ¶¯¸ø×Ô¼º£¬²»Ëã³åÍ»£¨MoveMemesToCategoryAsync Ò²»áÌø¹ı£©
+                // æœ¬å°±åœ¨ç›®æ ‡åˆ†ç±»çš„é¡¹ç§»åŠ¨ç»™è‡ªå·±ï¼Œä¸ç®—å†²çªï¼ˆMoveMemesToCategoryAsync ä¹Ÿä¼šè·³è¿‡ï¼‰
                 if (m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
                     continue;
                 if (existingHashes.Contains(m.Hash))
@@ -728,14 +728,14 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ¼ì²âÒÆ¶¯³åÍ»Ê§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] æ£€æµ‹ç§»åŠ¨å†²çªå¤±è´¥: {ex.Message}");
         }
         return null;
     }
 
     /// <summary>
-    /// ½«Ò»Åú±íÇéÒÆ¶¯µ½Ä¿±ê·ÖÀà£ºÒÆ¶¯ÎïÀíÎÄ¼ş¡¢¸üĞÂÁ½·ÖÀàµÄ metadata ÓëÄÚ´æ»º´æ¡£
-    /// ÈôÄ¿±ê·ÖÀà²»´æÔÚ»á×Ô¶¯´´½¨¡£
+    /// å°†ä¸€æ‰¹è¡¨æƒ…ç§»åŠ¨åˆ°ç›®æ ‡åˆ†ç±»ï¼šç§»åŠ¨ç‰©ç†æ–‡ä»¶ã€æ›´æ–°ä¸¤åˆ†ç±»çš„ metadata ä¸å†…å­˜ç¼“å­˜ã€‚
+    /// è‹¥ç›®æ ‡åˆ†ç±»ä¸å­˜åœ¨ä¼šè‡ªåŠ¨åˆ›å»ºã€‚
     /// </summary>
     public async Task MoveMemesToCategoryAsync(IEnumerable<MemeModel> memes, string targetCategory, IProgress<BatchProgress>? progress = null)
     {
@@ -744,20 +744,20 @@ public class MemeDataEngine
         Directory.CreateDirectory(targetDir);
         var targetMeta = await LoadCategoryMetadataAsync(targetDir);
 
-        // Ä¿±ê·ÖÀàµ±Ç°×î´óÓÅÏÈ¼¶£»ÒÆÈëÏîÒÀ´Î +1£¬Ê¹ÆäÅÅµ½Ä¿±ê·ÖÀà×îÇ°
-        // £¨Priority Ô½´óÔ½¿¿Ç°£¬Óëµ¼Èë/ÖØÅÅÓïÒåÒ»ÖÂ£©¡£
+        // ç›®æ ‡åˆ†ç±»å½“å‰æœ€å¤§ä¼˜å…ˆçº§ï¼›ç§»å…¥é¡¹ä¾æ¬¡ +1ï¼Œä½¿å…¶æ’åˆ°ç›®æ ‡åˆ†ç±»æœ€å‰
+        // ï¼ˆPriority è¶Šå¤§è¶Šé å‰ï¼Œä¸å¯¼å…¥/é‡æ’è¯­ä¹‰ä¸€è‡´ï¼‰ã€‚
         uint targetMaxPriority = 0;
         foreach (var entry in targetMeta.Items.Values)
             if (entry.Priority > targetMaxPriority) targetMaxPriority = entry.Priority;
 
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        // ½ø¶È¼ÆÊıÆ÷£º½×¶Î1 Ã¿Íê³ÉÒ»Ïî£¨ÒÆ¶¯ IO Íê±Ï£¬º¬Ìø¹ı/Ê§°Ü£©¼ÆÊıÒ»´Î£¬½×¶Î2 ²»ÔÙ±¨£¬±ÜÃâÖØ¸´¼ÆÊı¡£
+        // è¿›åº¦è®¡æ•°å™¨ï¼šé˜¶æ®µ1 æ¯å®Œæˆä¸€é¡¹ï¼ˆç§»åŠ¨ IO å®Œæ¯•ï¼Œå«è·³è¿‡/å¤±è´¥ï¼‰è®¡æ•°ä¸€æ¬¡ï¼Œé˜¶æ®µ2 ä¸å†æŠ¥ï¼Œé¿å…é‡å¤è®¡æ•°ã€‚
         long ioDone = 0;
 
-        // ¸÷Ô´·ÖÀàµÄ metadata ½ö¼ÓÔØ/±£´æÒ»´Î£¨±ÜÃâÖğÕÅ¶ÁĞ´ .metadata.json£©¡£
-        // Key = Ô´Ä¿Â¼Â·¾¶£¬Value = (metadata, ÊÇ·ñÒÑ±»ĞŞ¸ÄĞèĞ´»Ø)¡£
-        // ÏÈ°´È¥ÖØµÄÔ´Ä¿Â¼Í³Ò»Òì²½¼ÓÔØÒ»´Î£¬±ÜÃâÔÚÑ­»·ÄÚ»ìÓÃÍ¬²½µÈ´ı¡£
+        // å„æºåˆ†ç±»çš„ metadata ä»…åŠ è½½/ä¿å­˜ä¸€æ¬¡ï¼ˆé¿å…é€å¼ è¯»å†™ .metadata.jsonï¼‰ã€‚
+        // Key = æºç›®å½•è·¯å¾„ï¼ŒValue = (metadata, æ˜¯å¦å·²è¢«ä¿®æ”¹éœ€å†™å›)ã€‚
+        // å…ˆæŒ‰å»é‡çš„æºç›®å½•ç»Ÿä¸€å¼‚æ­¥åŠ è½½ä¸€æ¬¡ï¼Œé¿å…åœ¨å¾ªç¯å†…æ··ç”¨åŒæ­¥ç­‰å¾…ã€‚
         var sourceDirs = list
             .Where(m => !m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .Select(m => Path.Combine(_baseDir, SanitizeCategory(m.Category)))
@@ -767,16 +767,16 @@ public class MemeDataEngine
         foreach (var dir in sourceDirs)
             sourceMetas[dir] = (await LoadCategoryMetadataAsync(dir), false);
 
-        // Ã¿ÕÅÒÆ¶¯µÄÅĞ¶¨/ÂäµØ¼Æ»®£¨²¢ĞĞ½×¶ÎÌî³ä£¬½×¶Î2´®ĞĞÏû·Ñ£¬²»´¥Åö¹²Ïí×Öµä£©
+        // æ¯å¼ ç§»åŠ¨çš„åˆ¤å®š/è½åœ°è®¡åˆ’ï¼ˆå¹¶è¡Œé˜¶æ®µå¡«å……ï¼Œé˜¶æ®µ2ä¸²è¡Œæ¶ˆè´¹ï¼Œä¸è§¦ç¢°å…±äº«å­—å…¸ï¼‰
         var plans = new List<MovePlan>(list.Count);
 
-        // ---------- ½×¶Î1£º²¢ĞĞÒÆ¶¯ÎïÀíÎÄ¼ş£¨IO ²¢ĞĞ£¬»¥²»ÒÀÀµ£©----------
+        // ---------- é˜¶æ®µ1ï¼šå¹¶è¡Œç§»åŠ¨ç‰©ç†æ–‡ä»¶ï¼ˆIO å¹¶è¡Œï¼Œäº’ä¸ä¾èµ–ï¼‰----------
         var movePo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, movePo, async (meme, _) =>
         {
             try
             {
-                // ÒÑÔÚÄ¿±ê·ÖÀà£º±ê¼ÇÌø¹ı
+                // å·²åœ¨ç›®æ ‡åˆ†ç±»ï¼šæ ‡è®°è·³è¿‡
                 if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
                 {
                     lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedSameTarget));
@@ -784,11 +784,11 @@ public class MemeDataEngine
                 }
 
                 var destPath = Path.Combine(targetDir, meme.FileName);
-                // Ä¿±êÒÑ´æÔÚÍ¬Ãû(hash)ÎÄ¼ş£ºÌø¹ıÒÆ¶¯£¬²»¸²¸Ç£¨Í¬Ãû=Í¬ÄÚÈİ£¬Ô­ÎÄ¼ş±£Áô£¬
-                // ±ÜÃâ¼´Ê¹ÊØÎÀ±»ÈÆ¹ıÒ²¾²Ä¬¶ªÊ§Ä¿±ê·ÖÀàÔ­ÓĞÍ¼Æ¬£©¡£
+                // ç›®æ ‡å·²å­˜åœ¨åŒå(hash)æ–‡ä»¶ï¼šè·³è¿‡ç§»åŠ¨ï¼Œä¸è¦†ç›–ï¼ˆåŒå=åŒå†…å®¹ï¼ŒåŸæ–‡ä»¶ä¿ç•™ï¼Œ
+                // é¿å…å³ä½¿å®ˆå«è¢«ç»•è¿‡ä¹Ÿé™é»˜ä¸¢å¤±ç›®æ ‡åˆ†ç±»åŸæœ‰å›¾ç‰‡ï¼‰ã€‚
                 if (File.Exists(destPath))
                 {
-                    Logger.Log($"[Engine] ÒÆ¶¯Ìø¹ı(Ä¿±êÒÑ´æÔÚ): ÎÄ¼ş={meme.FileName} Ô´·ÖÀà=\"{meme.Category}\" -> Ä¿±ê=\"{safeTarget}\"");
+                    Logger.Log($"[Engine] ç§»åŠ¨è·³è¿‡(ç›®æ ‡å·²å­˜åœ¨): æ–‡ä»¶={meme.FileName} æºåˆ†ç±»=\"{meme.Category}\" -> ç›®æ ‡=\"{safeTarget}\"");
                     lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedExists));
                     return;
                 }
@@ -801,7 +801,7 @@ public class MemeDataEngine
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"[Engine] ÒÆ¶¯ÎÄ¼şÊ§°Ü {meme.FileName}: {ex.Message}");
+                    Logger.Log($"[Engine] ç§»åŠ¨æ–‡ä»¶å¤±è´¥ {meme.FileName}: {ex.Message}");
                     lock (plans) plans.Add(new MovePlan(meme, MoveResult.Failed));
                 }
             }
@@ -812,7 +812,7 @@ public class MemeDataEngine
             }
         });
 
-        // ---------- ½×¶Î2£º´®ĞĞÂäµØ£¨Ğ´ metadata/cache£¬´¿ÄÚ´æ¼«¿ì£©----------
+        // ---------- é˜¶æ®µ2ï¼šä¸²è¡Œè½åœ°ï¼ˆå†™ metadata/cacheï¼Œçº¯å†…å­˜æå¿«ï¼‰----------
         foreach (var plan in plans)
         {
             var meme = plan.Meme;
@@ -831,7 +831,7 @@ public class MemeDataEngine
                         sourceMetas[sourceDir] = (sm.meta, true);
                     }
 
-                    // Ä¿±ê·ÖÀà metadata£¨ÒÆÈëÏîÖÃ¶¥£ºÓÅÏÈ¼¶ = µ±Ç°×î´ó + 1£©
+                    // ç›®æ ‡åˆ†ç±» metadataï¼ˆç§»å…¥é¡¹ç½®é¡¶ï¼šä¼˜å…ˆçº§ = å½“å‰æœ€å¤§ + 1ï¼‰
                     targetMeta.Items[meme.FileName] = new MemeMetaEntry
                     {
                         Title = meme.Title,
@@ -839,7 +839,7 @@ public class MemeDataEngine
                         Priority = ++targetMaxPriority
                     };
 
-                    // ¸üĞÂÄÚ´æ»º´æ
+                    // æ›´æ–°å†…å­˜ç¼“å­˜
                     meme.Category = safeTarget;
                     meme.LocalPath = plan.DestPath!;
                     meme.Priority = targetMaxPriority;
@@ -848,14 +848,14 @@ public class MemeDataEngine
             }
         }
 
-        // ½ö¸÷Ô´·ÖÀàÓëÄ¿±ê·ÖÀà¸÷Ğ´»ØÒ»´Î metadata£¨¶ø·ÇÖğÕÅĞ´»Ø£©
+        // ä»…å„æºåˆ†ç±»ä¸ç›®æ ‡åˆ†ç±»å„å†™å›ä¸€æ¬¡ metadataï¼ˆè€Œéé€å¼ å†™å›ï¼‰
         await SaveCategoryMetadataAsync(targetDir, targetMeta);
         foreach (var (dir, entry) in sourceMetas)
             if (entry.dirty)
                 await SaveCategoryMetadataAsync(dir, entry.meta);
     }
 
-    // ÒÆ¶¯µ¥ÕÅµÄÅĞ¶¨/ÂäµØ¼Æ»®£¨²¢ĞĞ½×¶ÎÌî³ä£¬½×¶Î2´®ĞĞÏû·Ñ£©
+    // ç§»åŠ¨å•å¼ çš„åˆ¤å®š/è½åœ°è®¡åˆ’ï¼ˆå¹¶è¡Œé˜¶æ®µå¡«å……ï¼Œé˜¶æ®µ2ä¸²è¡Œæ¶ˆè´¹ï¼‰
     private sealed record MovePlan(
         MemeModel Meme,
         MoveResult Result,
@@ -869,11 +869,11 @@ public class MemeDataEngine
         Failed
     }
 
-    // ---------- ÖØÃüÃû·ÖÀà ----------
+    // ---------- é‡å‘½ååˆ†ç±» ----------
 
     /// <summary>
-    /// ÖØÃüÃû·ÖÀà£ºÖØÃüÃû¶ÔÓ¦µÄÎïÀíÎÄ¼ş¼Ğ£¬²¢¸üĞÂ¸Ã·ÖÀàÏÂËùÓĞ±íÇéµÄ
-    /// Category Óë LocalPath£¨Â·¾¶ÖĞµÄÄ¿Â¼²¿·Ö£©£¬ÒÔ¼° Config.LastCategory¡£
+    /// é‡å‘½ååˆ†ç±»ï¼šé‡å‘½åå¯¹åº”çš„ç‰©ç†æ–‡ä»¶å¤¹ï¼Œå¹¶æ›´æ–°è¯¥åˆ†ç±»ä¸‹æ‰€æœ‰è¡¨æƒ…çš„
+    /// Category ä¸ LocalPathï¼ˆè·¯å¾„ä¸­çš„ç›®å½•éƒ¨åˆ†ï¼‰ï¼Œä»¥åŠ Config.LastCategoryã€‚
     /// </summary>
     public async Task<bool> RenameCategoryAsync(string oldName, string newName)
     {
@@ -885,7 +885,7 @@ public class MemeDataEngine
         var oldDir = Path.Combine(_baseDir, safeOld);
         var newDir = Path.Combine(_baseDir, safeNew);
         if (!Directory.Exists(oldDir)) return false;
-        if (Directory.Exists(newDir)) return false; // Ä¿±êÒÑ´æÔÚ£¬±ÜÃâ¸²¸Ç
+        if (Directory.Exists(newDir)) return false; // ç›®æ ‡å·²å­˜åœ¨ï¼Œé¿å…è¦†ç›–
 
         try
         {
@@ -893,11 +893,11 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ÖØÃüÃû·ÖÀàÎÄ¼ş¼ĞÊ§°Ü {oldName}->{newName}: {ex.Message}");
+            Logger.Log($"[Engine] é‡å‘½ååˆ†ç±»æ–‡ä»¶å¤¹å¤±è´¥ {oldName}->{newName}: {ex.Message}");
             return false;
         }
 
-        // ¸üĞÂÄÚ´æ»º´æÖĞ¸Ã·ÖÀàÏÂ±íÇéµÄÂ·¾¶Óë·ÖÀàÃû
+        // æ›´æ–°å†…å­˜ç¼“å­˜ä¸­è¯¥åˆ†ç±»ä¸‹è¡¨æƒ…çš„è·¯å¾„ä¸åˆ†ç±»å
         foreach (var m in _memeCache)
         {
             if (m.Category.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
@@ -907,14 +907,14 @@ public class MemeDataEngine
             }
         }
 
-        // Èôµ±Ç°¼ÇÂ¼µÄÉÏ´Î·ÖÀàÊÇ±»ÖØÃüÃûµÄ£¬Í¬²½¸üĞÂ
+        // è‹¥å½“å‰è®°å½•çš„ä¸Šæ¬¡åˆ†ç±»æ˜¯è¢«é‡å‘½åçš„ï¼ŒåŒæ­¥æ›´æ–°
         if (Config.LastCategory.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
         {
             Config.LastCategory = safeNew;
             await SaveConfigAsync();
         }
 
-        // Í¬²½¸üĞÂ·ÖÀàË³Ğò±íÖĞµÄ key£¨±£ÁôÔ­ÓÅÏÈ¼¶£©
+        // åŒæ­¥æ›´æ–°åˆ†ç±»é¡ºåºè¡¨ä¸­çš„ keyï¼ˆä¿ç•™åŸä¼˜å…ˆçº§ï¼‰
         if (_categoryOrder.TryGetValue(safeOld, out var prio))
         {
             _categoryOrder.Remove(safeOld);
@@ -922,30 +922,30 @@ public class MemeDataEngine
             await SaveCategoryOrderAsync();
         }
 
-        Logger.Log($"[Engine] ÖØÃüÃû·ÖÀà: {oldName} -> {newName}");
+        Logger.Log($"[Engine] é‡å‘½ååˆ†ç±»: {oldName} -> {newName}");
         return true;
     }
 
-    // ---------- ÖØÅÅ£¨ÍÏ×§µ÷ÕûË³Ğò£© ----------
+    // ---------- é‡æ’ï¼ˆæ‹–æ‹½è°ƒæ•´é¡ºåºï¼‰ ----------
 
     /// <summary>
-    /// °´¸ø¶¨ÎÄ¼şÃûË³Ğò£¨ÒÑÊÇÄ¿±êË³Ğò£©ÕûÌåÖØËã¸Ã·ÖÀàµÄ Priority Îª 1,2,3...
-    /// ²¢Ğ´»Ø metadata ÓëÄÚ´æ»º´æ¡£
+    /// æŒ‰ç»™å®šæ–‡ä»¶åé¡ºåºï¼ˆå·²æ˜¯ç›®æ ‡é¡ºåºï¼‰æ•´ä½“é‡ç®—è¯¥åˆ†ç±»çš„ Priority ä¸º 1,2,3...
+    /// å¹¶å†™å› metadata ä¸å†…å­˜ç¼“å­˜ã€‚
     /// </summary>
     public async Task ReorderMemesAsync(string category, IReadOnlyList<string> orderedFileNames)
     {
         var dir = Path.Combine(_baseDir, SanitizeCategory(category));
         var meta = await LoadCategoryMetadataAsync(dir);
 
-        // °´¸ø¶¨Ë³ĞòÕûÌåÖØËã£ºÁĞ±í×îÇ°£¨Ë÷Òı0£©ÄÃ×î´óÓÅÏÈ¼¶£¬ÒÀ´Îµİ¼õ£¬
-        // ÒÔÆõºÏ¡°Priority Ô½´óÔ½¿¿Ç°£¨×ó£©¡±µÄÕ¹Ê¾¹æÔò
+        // æŒ‰ç»™å®šé¡ºåºæ•´ä½“é‡ç®—ï¼šåˆ—è¡¨æœ€å‰ï¼ˆç´¢å¼•0ï¼‰æ‹¿æœ€å¤§ä¼˜å…ˆçº§ï¼Œä¾æ¬¡é€’å‡ï¼Œ
+        // ä»¥å¥‘åˆâ€œPriority è¶Šå¤§è¶Šé å‰ï¼ˆå·¦ï¼‰â€çš„å±•ç¤ºè§„åˆ™
         uint p = (uint)orderedFileNames.Count;
         foreach (var fileName in orderedFileNames)
         {
             if (meta.Items.TryGetValue(fileName, out var entry))
                 entry.Priority = p--;
         }
-        // ¶µµ×£ºÁĞ±íÖĞÎ´º­¸ÇµÄ item£¨ÀíÂÛÉÏ²»Ó¦³öÏÖ£©£¬Ë³ÑÓ²¹ÉÏ¸üĞ¡µÄÖµ
+        // å…œåº•ï¼šåˆ—è¡¨ä¸­æœªæ¶µç›–çš„ itemï¼ˆç†è®ºä¸Šä¸åº”å‡ºç°ï¼‰ï¼Œé¡ºå»¶è¡¥ä¸Šæ›´å°çš„å€¼
         uint tail = 0;
         foreach (var kv in meta.Items)
             if (kv.Value.Priority == 0 && !orderedFileNames.Contains(kv.Key))
@@ -963,7 +963,7 @@ public class MemeDataEngine
         }
     }
 
-    // ---------- ÖØÃüÃû£¨½ö¸Ä metadata ÀïµÄ title£© ----------
+    // ---------- é‡å‘½åï¼ˆä»…æ”¹ metadata é‡Œçš„ titleï¼‰ ----------
 
     public async Task RenameMemeAsync(MemeModel meme, string newTitle)
     {
@@ -978,7 +978,7 @@ public class MemeDataEngine
 
         await SaveCategoryMetadataAsync(dir, meta);
 
-        // ¸üĞÂÄÚ´æ»º´æÓë±êÌâ·´²é±í
+        // æ›´æ–°å†…å­˜ç¼“å­˜ä¸æ ‡é¢˜åæŸ¥è¡¨
         if (_titleReverseMap.TryGetValue(meme.Title, out var list))
         {
             list.Remove(meme.FileName);
@@ -988,13 +988,13 @@ public class MemeDataEngine
         IndexTitle(meme);
     }
 
-    // ---------- É¾³ı ----------
+    // ---------- åˆ é™¤ ----------
 
     public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes, IProgress<BatchProgress>? progress = null)
     {
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        // ½ø¶È¼ÆÊıÆ÷£º½×¶Î1 Ã¿Íê³ÉÒ»Ïî£¨É¾³ı IO Íê±Ï£©¼ÆÊıÒ»´Î£¬½×¶Î2 ²»ÔÙ±¨£¬±ÜÃâÖØ¸´¼ÆÊı¡£
+        // è¿›åº¦è®¡æ•°å™¨ï¼šé˜¶æ®µ1 æ¯å®Œæˆä¸€é¡¹ï¼ˆåˆ é™¤ IO å®Œæ¯•ï¼‰è®¡æ•°ä¸€æ¬¡ï¼Œé˜¶æ®µ2 ä¸å†æŠ¥ï¼Œé¿å…é‡å¤è®¡æ•°ã€‚
         long ioDone = 0;
         var byCategory = list.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
         foreach (var group in byCategory)
@@ -1003,20 +1003,20 @@ public class MemeDataEngine
             var meta = await LoadCategoryMetadataAsync(categoryDir);
             var groupList = group.ToList();
 
-            // ½×¶Î1£º²¢ĞĞÉ¾³ıÎïÀíÎÄ¼ş£¨IO ²¢ĞĞ£¬»¥²»ÒÀÀµ£»Ê§°Ü¾²Ä¬ºöÂÔ£©
+            // é˜¶æ®µ1ï¼šå¹¶è¡Œåˆ é™¤ç‰©ç†æ–‡ä»¶ï¼ˆIO å¹¶è¡Œï¼Œäº’ä¸ä¾èµ–ï¼›å¤±è´¥é™é»˜å¿½ç•¥ï¼‰
             var delPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
             await Parallel.ForEachAsync(groupList, delPo, async (meme, _) =>
             {
                 try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); }
                 catch (Exception ex)
                 {
-                    Logger.Log($"[Engine] É¾³ıÎÄ¼şÊ§°Ü: {meme.LocalPath} {ex.Message}");
+                    Logger.Log($"[Engine] åˆ é™¤æ–‡ä»¶å¤±è´¥: {meme.LocalPath} {ex.Message}");
                 }
                 var d = (uint)Interlocked.Increment(ref ioDone);
                 progress?.Report(new BatchProgress(d, total));
             });
 
-            // ½×¶Î2£º´®ĞĞ¸üĞÂÄÚ´æ»º´æÓë metadata£¨¹²Ïí×Öµä/¼¯ºÏ±ØĞë´®ĞĞ£¬´¿ÄÚ´æ¼«¿ì£©
+            // é˜¶æ®µ2ï¼šä¸²è¡Œæ›´æ–°å†…å­˜ç¼“å­˜ä¸ metadataï¼ˆå…±äº«å­—å…¸/é›†åˆå¿…é¡»ä¸²è¡Œï¼Œçº¯å†…å­˜æå¿«ï¼‰
             foreach (var meme in groupList)
             {
                 meta.Items.Remove(meme.FileName);
@@ -1033,7 +1033,7 @@ public class MemeDataEngine
         }
     }
 
-    // ½ö´ÓÄÚ´æ»º´æÒÆ³ı£¨ÎÄ¼şÒÑÏûÊ§¡¢metadata ÓÉ¼àÌıË¢ĞÂ¸ºÔğ£©£¬¹©ÎÄ¼ş¼àÌı»Øµ÷Ê¹ÓÃ
+    // ä»…ä»å†…å­˜ç¼“å­˜ç§»é™¤ï¼ˆæ–‡ä»¶å·²æ¶ˆå¤±ã€metadata ç”±ç›‘å¬åˆ·æ–°è´Ÿè´£ï¼‰ï¼Œä¾›æ–‡ä»¶ç›‘å¬å›è°ƒä½¿ç”¨
     public void RemoveMemesFromCache(IEnumerable<MemeModel> memes)
     {
         foreach (var meme in memes)
@@ -1048,7 +1048,7 @@ public class MemeDataEngine
         }
     }
 
-    // ---------- ·ÖÀà¹ÜÀí ----------
+    // ---------- åˆ†ç±»ç®¡ç† ----------
 
     public async Task<bool> AddCategoryAsync(string category)
     {
@@ -1058,23 +1058,23 @@ public class MemeDataEngine
         {
             Directory.CreateDirectory(dir);
             await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
-            // ĞÂ·ÖÀàÄ¬ÈÏÓÅÏÈ¼¶ 0£¨ÅÅÔÚÍ¬ÓÅÏÈ¼¶×îºó£©£¬²¢³Ö¾Ã»¯Ë³Ğò
+            // æ–°åˆ†ç±»é»˜è®¤ä¼˜å…ˆçº§ 0ï¼ˆæ’åœ¨åŒä¼˜å…ˆçº§æœ€åï¼‰ï¼Œå¹¶æŒä¹…åŒ–é¡ºåº
             _categoryOrder[category] = 0;
             await SaveCategoryOrderAsync();
-            Logger.Log($"[Engine] ´´½¨·ÖÀà: {category}");
+            Logger.Log($"[Engine] åˆ›å»ºåˆ†ç±»: {category}");
             return true;
         }
         catch (Exception ex)
         {
-            // Ğ´ÈëÊ§°Ü£¨ÎŞĞ´È¨ÏŞµÈ£©²»Å×Òì³££¬±£Ö¤µ÷ÓÃ·½£¨ÓÈÆäÊÇÆô¶¯Á÷³Ì£©ÄÜ¼ÌĞøÆô¶¯£»
-            // ¼ÇÂ¼ÏêÇé¹©ÉÏ²ãµ¯´°ÌáÊ¾ÓÃ»§È¥ÉèÖÃÀï¸ÄÄ¿Â¼¡£
+            // å†™å…¥å¤±è´¥ï¼ˆæ— å†™æƒé™ç­‰ï¼‰ä¸æŠ›å¼‚å¸¸ï¼Œä¿è¯è°ƒç”¨æ–¹ï¼ˆå°¤å…¶æ˜¯å¯åŠ¨æµç¨‹ï¼‰èƒ½ç»§ç»­å¯åŠ¨ï¼›
+            // è®°å½•è¯¦æƒ…ä¾›ä¸Šå±‚å¼¹çª—æç¤ºç”¨æˆ·å»è®¾ç½®é‡Œæ”¹ç›®å½•ã€‚
             LastDefaultCategoryWriteError = $"{dir}: {ex.GetType().Name}: {ex.Message}";
-            Logger.Log($"[Engine] ´´½¨·ÖÀàÊ§°Ü({category}): {LastDefaultCategoryWriteError}");
+            Logger.Log($"[Engine] åˆ›å»ºåˆ†ç±»å¤±è´¥({category}): {LastDefaultCategoryWriteError}");
             return false;
         }
     }
 
-    // Í¬²½È·±£´æÔÚ Default ·ÖÀà£¨¹© UI Ïß³ÌµÄ LoadCategories µ÷ÓÃ£¬±ÜÃâ async ËÀËø£©
+    // åŒæ­¥ç¡®ä¿å­˜åœ¨ Default åˆ†ç±»ï¼ˆä¾› UI çº¿ç¨‹çš„ LoadCategories è°ƒç”¨ï¼Œé¿å… async æ­»é”ï¼‰
     public void EnsureDefaultCategory()
     {
         var dir = Path.Combine(_baseDir, SanitizeCategory(DefaultCategory));
@@ -1090,11 +1090,11 @@ public class MemeDataEngine
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] ´´½¨Ä¬ÈÏ·ÖÀàÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] åˆ›å»ºé»˜è®¤åˆ†ç±»å¤±è´¥: {ex.Message}");
         }
     }
 
-    // ---------- ·ÖÀàÉ¾³ı ----------
+    // ---------- åˆ†ç±»åˆ é™¤ ----------
 
     public async Task<bool> DeleteCategoryAsync(string category)
     {
@@ -1103,7 +1103,7 @@ public class MemeDataEngine
 
         try
         {
-            // 1. ´ÓÄÚ´æ»º´æÒÆ³ı¸Ã·ÖÀàÏÂËùÓĞ±íÇé£¬²¢ÇåÀí±êÌâ·´²é Map
+            // 1. ä»å†…å­˜ç¼“å­˜ç§»é™¤è¯¥åˆ†ç±»ä¸‹æ‰€æœ‰è¡¨æƒ…ï¼Œå¹¶æ¸…ç†æ ‡é¢˜åæŸ¥ Map
             var toRemove = _memeCache.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var m in toRemove)
             {
@@ -1116,24 +1116,24 @@ public class MemeDataEngine
                 }
             }
 
-            // 2. É¾³ıÕû¸ö·ÖÀàÎÄ¼ş¼Ğ£¨Í¼Æ¬ + .metadata.json£©
+            // 2. åˆ é™¤æ•´ä¸ªåˆ†ç±»æ–‡ä»¶å¤¹ï¼ˆå›¾ç‰‡ + .metadata.jsonï¼‰
             Directory.Delete(dir, recursive: true);
 
-            // 3. ´Ó·ÖÀàË³Ğò±íÒÆ³ı¸Ã·ÖÀà
+            // 3. ä»åˆ†ç±»é¡ºåºè¡¨ç§»é™¤è¯¥åˆ†ç±»
             _categoryOrder.Remove(SanitizeCategory(category));
             await SaveCategoryOrderAsync();
 
-            Logger.Log($"[Engine] É¾³ı·ÖÀà: {category}");
+            Logger.Log($"[Engine] åˆ é™¤åˆ†ç±»: {category}");
             return true;
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Engine] É¾³ı·ÖÀàÊ§°Ü: {ex.Message}");
+            Logger.Log($"[Engine] åˆ é™¤åˆ†ç±»å¤±è´¥: {ex.Message}");
             return false;
         }
     }
 
-    // ---------- metadata ¶ÁĞ´ ----------
+    // ---------- metadata è¯»å†™ ----------
 
     private async Task<CategoryMetadata> LoadCategoryMetadataAsync(string categoryDir)
     {
@@ -1159,7 +1159,7 @@ public class MemeDataEngine
         await File.WriteAllTextAsync(metaPath, json);
     }
 
-    // ---------- ¹¤¾ß ----------
+    // ---------- å·¥å…· ----------
 
     private static string SanitizeCategory(string category)
     {
