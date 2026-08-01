@@ -146,8 +146,12 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        string oldName = cat.Name;
         cat.Name = newName;
-        if (CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+        // 注意：必须用改名前的旧名判断“被重命名的分类是否就是当前正在查看的分类”，
+        // 不能用改名后的 cat.Name（那永远不等于 CurrentCategory 的旧值），否则 CurrentCategory 不更新、
+        // 分类栏按旧名重新选中会找不到项，导致重命名后高亮丢失。
+        if (CurrentCategory.Equals(oldName, StringComparison.OrdinalIgnoreCase))
             CurrentCategory = newName;
 
         CategoriesChangedRequested?.Invoke();
