@@ -20,7 +20,7 @@ using MemeManager.ViewModels;
 
 namespace MemeManager.Views;
 
-public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage, IImportExportUi
+public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasablePage, IImportExportUi, IMemeOperationUi
 {
     // 初始化"全部表情"固定项（必须在 LoadCategories 之前，因为 LoadCategories
     // 会触发 SelectionChanged → RefreshMemes → UpdateCategoryCounts 用到 AllMemesVm）
@@ -37,6 +37,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
     private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
+
+    // 表情写操作服务（Phase 3.4）：承接删除 / 移动 / 移动冲突守卫；编排仍委托 _batchRunner，UI 弹窗经 IMemeOperationUi（本页实现）。
+    private readonly MemeOperationService _memeOps;
 
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
@@ -166,6 +169,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         });
 
         _importExport = new ImportExportService(_engine, _batchRunner, this);
+        _memeOps = new MemeOperationService(_engine, _batchRunner, this);
 
         // 按配置选择列表构建策略（复用 / 重建）。切换在设置页保存后即时应用。
         ApplyListStrategyFromConfig();
@@ -422,18 +426,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         int moved = memes.Count(m => !m.Category.Equals(targetCat.Name, StringComparison.OrdinalIgnoreCase));
         if (moved > 0)
         {
-            // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
-            if (!TryGuardWrite()) return;
-            if (!await GuardMoveConflictAsync(memes, targetCat.Name))
-                return;
-            int total = memes.Count;
-            // 后台执行移动，结束后由 runner 统一移除当前视图中的已移动项（移出当前分类）
-            await _batchRunner.RunAsync(
-                BatchOperationKind.Move,
-                total,
-                progress => _engine.MoveMemesToCategoryAsync(memes, targetCat.Name, progress),
-                affectedModels: memes,
-                onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{targetCat.Name}」"));
+            // 写锁守卫 + 冲突守卫 + 后台移动均委托 MemeOperationService
+            await _memeOps.MoveMemesAsync(memes, targetCat.Name);
         }
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
@@ -1181,15 +1175,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             int moved = memes.Count(m => !m.Category.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
             if (moved > 0)
             {
-                // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
-                if (!TryGuardWrite()) return;
-                int total = memes.Count;
-                await _batchRunner.RunAsync(
-                    BatchOperationKind.Move,
-                    total,
-                    progress => _engine.MoveMemesToCategoryAsync(memes, ViewModel.CurrentCategory, progress),
-                    affectedModels: memes,
-                    onUiComplete: () => Log($"Drop: 内部移动 {moved} 张图片到分类「{ViewModel.CurrentCategory}」"));
+                // 写锁守卫 + 冲突守卫 + 后台移动均委托 MemeOperationService
+                await _memeOps.MoveMemesAsync(memes, ViewModel.CurrentCategory);
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
                 return;
             }
@@ -1310,51 +1297,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 删除单张表情（由 VM DeleteMemeCommand 经事件转发；含确认弹窗 + 写锁 + 后台删除）
     private async Task DeleteMemeCoreAsync(MemeViewModel vm)
-    {
-        if (await DialogHelper.ConfirmDeleteMemeAsync(this.XamlRoot, vm.Title) != ContentDialogResult.Primary)
-            return;
+        => await _memeOps.DeleteMemeAsync(vm.Model);
 
-        // 删除为写操作：入口先判断写入锁，占用则弹提示并放弃
-        if (!TryGuardWrite()) return;
-
-        var models = new[] { vm.Model };
-        await _batchRunner.RunAsync(
-            BatchOperationKind.Delete,
-            1,
-            progress => _engine.DeleteMemesAsync(models, progress),
-            affectedModels: models,
-            onUiComplete: () => Log($"右键删除「{vm.Title}」"));
-    }
-
-    // 移动前的 hash 冲突守卫：若目标分类已存在相同图片则弹模态提示并阻止移动，
-    // 避免同名(hash)文件被静默覆盖导致目标分类原有图片丢失。返回 true 表示可继续移动。
-    private async Task<bool> GuardMoveConflictAsync(IEnumerable<MemeModel> memes, string targetCategory)
-    {
-        var conflict = await _engine.FindMoveConflictAsync(memes, targetCategory);
-        if (conflict == null) return true;
-
-        // 收集每个冲突项：源图片 + 目标分类中同 hash 的已有图片
-        var targetMemes = _engine.GetMemes(conflict).ToList();
-        var conflicts = new List<(MemeModel src, MemeModel dst)>();
-        foreach (var m in memes)
-        {
-            if (m.Category.Equals(conflict, StringComparison.OrdinalIgnoreCase)) continue;
-            var dst = targetMemes.FirstOrDefault(x => x.Hash.Equals(m.Hash, StringComparison.OrdinalIgnoreCase));
-            if (dst != null) conflicts.Add((m, dst));
-        }
-
-        static string Label(MemeModel m)
-        {
-            var s = string.IsNullOrWhiteSpace(m.Title) ? m.FileName : m.Title;
-            return DialogHelper.TruncateLabel(s);
-        }
-        foreach (var (src, dst) in conflicts)
-            Log($"[移动冲突] 阻止移动: \"{Label(src)}\"({src.FileName}, 源分类=\"{src.Category}\") -> \"{Label(dst)}\"({dst.FileName}, 目标分类=\"{conflict}\")");
-
-        var pairs = conflicts.Select(c => (Label(c.src), Label(c.dst)));
-        await DialogHelper.ShowMoveConflictAsync(this.XamlRoot, conflict, pairs);
-        return false;
-    }
+    // IMemeOperationUi：单张删除确认弹窗（服务不引用 XamlRoot，经此回调甩回 Page）。
+    public Task<bool> ConfirmDeleteMemeAsync(string title) =>
+        DialogHelper.ConfirmDeleteMemeAsync(this.XamlRoot, title).ContinueWith(t => t.Result == ContentDialogResult.Primary, TaskScheduler.Default);
 
     // 移动表情到其他分类（编辑模式且有选中项则移动所有选中项，否则只移动当前项）
     private async void MoveMemeToCategory(MemeViewModel vm, string targetName)
@@ -1366,22 +1313,22 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         else
             toMove = new List<MemeViewModel> { vm };
 
-        // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
-        if (!TryGuardWrite()) return;
-
-        var models = toMove.Select(m => m.Model).ToList();
-        if (!await GuardMoveConflictAsync(models, targetName))
-            return;
-
-        int total = models.Count;
-        // 后台执行移动，结束后由 runner 统一移除当前视图中的已移动项（移出当前分类）
-        await _batchRunner.RunAsync(
-            BatchOperationKind.Move,
-            total,
-            progress => _engine.MoveMemesToCategoryAsync(models, targetName, progress),
-            affectedModels: models,
-            onUiComplete: () => Log($"右键移动 {toMove.Count} 张图片到分类「{targetName}」"));
+        // 写锁守卫 + 冲突守卫 + 后台移动均委托 MemeOperationService（含 GuardMoveConflictAsync）。
+        await _memeOps.MoveMemesAsync(toMove.Select(m => m.Model), targetName);
     }
+
+    // IMemeOperationUi：批量删除确认弹窗。
+    public Task<bool> ConfirmDeleteMemesAsync(int count) =>
+        DialogHelper.ConfirmDeleteMemesAsync(this.XamlRoot, count).ContinueWith(t => t.Result == ContentDialogResult.Primary, TaskScheduler.Default);
+
+    // IMemeOperationUi：移动冲突弹窗。
+    public Task ShowMoveConflictAsync(string targetCategory, IEnumerable<(string src, string dst)> pairs) =>
+        DialogHelper.ShowMoveConflictAsync(this.XamlRoot, targetCategory, pairs);
+
+    // IMemeOperationUi：删除完成后清空网格选中态。
+    public void OnDeleteComplete() => MemeGridView.SelectedItems.Clear();
+
+    // 注：ShowWriteBusyAsync 已在 IImportExportUi 实现处提供（两接口签名相同，单一实现即可满足）。
 
     // ---------- 批量操作 ----------
 
@@ -1456,26 +1403,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         var selected = SelectedMemeViewModels();
         if (selected.Count == 0) return;
-
-        if (await DialogHelper.ConfirmDeleteMemesAsync(this.XamlRoot, selected.Count) != ContentDialogResult.Primary)
-            return;
-
-        // 删除为写操作：入口先判断写入锁，占用则弹提示并放弃
-        if (!TryGuardWrite()) return;
-
-        var models = selected.Select(m => m.Model).ToList();
-        int total = models.Count;
-
-        await _batchRunner.RunAsync(
-            BatchOperationKind.Delete,
-            total,
-            progress => _engine.DeleteMemesAsync(models, progress),
-            affectedModels: models,
-            onUiComplete: () =>
-            {
-                MemeGridView.SelectedItems.Clear();
-                Log($"删除完成: {total} 个图片");
-            });
+        await _memeOps.DeleteMemesAsync(selected.Select(m => m.Model).ToList());
     }
 
     // 批量移动到：弹出分类下拉，点击后将选中项移动到该分类
@@ -1511,22 +1439,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             item.Click += async (_, __) =>
             {
                 var models = selected.Select(m => m.Model).ToList();
-
-                // 移动为写操作：入口先判断写入锁，占用则弹提示并放弃
-                if (!TryGuardWrite()) return;
-
-                if (!await GuardMoveConflictAsync(models, targetName))
-                    return;
-
-                int total = models.Count;
-
-                // 后台执行移动，结束后由 runner 统一移除当前视图中的已移动项（移出当前分类）
-                await _batchRunner.RunAsync(
-                    BatchOperationKind.Move,
-                    total,
-                    progress => _engine.MoveMemesToCategoryAsync(models, targetName, progress),
-                    affectedModels: models,
-                    onUiComplete: () => Log($"批量移动 {total} 张图片到分类「{targetName}」"));
+                // 写锁守卫 + 冲突守卫 + 后台移动均委托 MemeOperationService
+                await _memeOps.MoveMemesAsync(models, targetName);
             };
             BatchMoveFlyout.Items.Add(item);
         }
