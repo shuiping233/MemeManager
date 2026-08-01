@@ -45,6 +45,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     private readonly MemeDataEngine _engine =
         App.GetService<MemeDataEngine>();
 
+    private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
+
     public MiniViewModel ViewModel => (MiniViewModel)DataContext;
 
     // 单例 VM 的事件订阅需在页面卸载时反订阅，否则每次进入 Mini 模式都新增一份处理器而累积
@@ -66,7 +68,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
                 return;
             }
             Logger.Log($"[Mini] 点击发送图片 ({Path.GetFileName(vm.LocalPath)}) -> 目标={target:X}");
-            await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
+            await _clipboard.OutputMemeToCursorAsync(vm.LocalPath, target);
         };
         ViewModel.ExpandToFullRequested += _onExpandToFull;
         ViewModel.SendToExternalRequested += _onSendToExternal;

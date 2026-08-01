@@ -76,6 +76,9 @@ public partial class MainViewModel : ObservableObject
     // 搜索/列表查询服务（Phase 3.1）：承接"按分类 + 关键词查询表情"的查询语义。
     private readonly SearchService _search = App.GetService<SearchService>();
 
+    // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
+    private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
+
     // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
     public event Action? CategoriesChangedRequested;
 
@@ -150,10 +153,10 @@ public partial class MainViewModel : ObservableObject
     // ---------- 表情操作（2.8）----------
     // 纯逻辑命令（无需 XamlRoot / Page 状态）直接放 VM；弹窗/批量写等 UI 行为通过下方事件请求 Page 层。
 
-    // 复制图片到剪贴板（纯调用 PasteService）
+    // 复制图片到剪贴板（纯调用 ClipboardService）
     [RelayCommand]
     private async Task CopyMemeAsync(MemeViewModel vm)
-        => await PasteService.CopyImageToClipboardAsync(vm.Model.LocalPath);
+        => await _clipboard.CopyImageToClipboardAsync(vm.Model.LocalPath);
 
     // 用系统默认程序打开图片（纯进程启动）
     [RelayCommand]

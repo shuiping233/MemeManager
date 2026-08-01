@@ -254,6 +254,7 @@ public partial class App : Application
         services.AddSingleton<MiniViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<SearchService>();
+        services.AddSingleton<ClipboardService>();
         return services.BuildServiceProvider();
     }
 }

@@ -35,6 +35,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 编排仍委托 _batchRunner，UI 弹窗经 IImportExportUi（本页实现）回 Page。
     private readonly ImportExportService _importExport;
 
+    // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
+    private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
+
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
@@ -145,7 +148,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return;
             }
             Log($"单击(发送模式): 发送图片 {vm.Title} 到前台窗口 target={target}");
-            await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
+            await _clipboard.OutputMemeToCursorAsync(vm.LocalPath, target);
             await _engine.IncrementUsageAsync(vm.Hash);
         };
 
