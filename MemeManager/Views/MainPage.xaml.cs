@@ -41,6 +41,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 表情写操作服务（Phase 3.4）：承接删除 / 移动 / 移动冲突守卫；编排仍委托 _batchRunner，UI 弹窗经 IMemeOperationUi（本页实现）。
     private readonly MemeOperationService _memeOps;
 
+    // 分类管理服务（Phase 3.5）：承接分类增删改 + 计数计算。
+    private readonly CategoryService _categories = App.GetService<CategoryService>();
+
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
@@ -597,7 +600,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, name);
             return;
         }
-        bool added = await _engine.AddCategoryAsync(name);
+        bool added = await _categories.AddCategoryAsync(name);
         if (added)
         {
             ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
@@ -668,12 +671,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void UpdateCategoryCounts()
     {
-        // 直接基于内存缓存计数，避免每个分类都走一次 GetMemes().ToList() 的临时分配
-        var cache = _engine.GetAllMemes();
+        // 计数计算委托 CategoryService（基于内存缓存），此处仅把结果写回 VM 对象
+        var (counts, total) = _categories.ComputeCounts();
         foreach (var c in ViewModel.CategoryList)
-            c.Count = cache.Count(m => m.Category.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
+            if (counts.TryGetValue(c.Name, out int n))
+                c.Count = n;
         // 更新"全部表情"总数
-        ViewModel.AllMemesVm.Count = cache.Count;
+        ViewModel.AllMemesVm.Count = total;
     }
 
     // ---------- 悬停放大预览（Popup）----------
@@ -1817,7 +1821,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
             if (!ViewModel.CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
-                await _engine.AddCategoryAsync(name);
+                await _categories.AddCategoryAsync(name);
                 ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
                 Log($"[剪贴板] 新建分类 {name}");
             }

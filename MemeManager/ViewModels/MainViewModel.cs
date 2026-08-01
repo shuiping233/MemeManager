@@ -79,6 +79,9 @@ public partial class MainViewModel : ObservableObject
     // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
     private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
 
+    // 分类管理服务（Phase 3.5）：承接分类增删改 + 计数计算，统一走 DataEngine。
+    private readonly CategoryService _categories = App.GetService<CategoryService>();
+
     // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
     public event Action? CategoriesChangedRequested;
 
@@ -106,7 +109,7 @@ public partial class MainViewModel : ObservableObject
         if (ConfirmDeleteCategoryRequested == null || !await ConfirmDeleteCategoryRequested(cat))
             return;
 
-        bool ok = await _engine.DeleteCategoryAsync(cat.Name);
+        bool ok = await _categories.DeleteCategoryAsync(cat.Name);
         if (!ok) return;
 
         for (int i = CategoryList.Count - 1; i >= 0; i--)
@@ -136,7 +139,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        bool ok = await _engine.RenameCategoryAsync(cat.Name, newName);
+        bool ok = await _categories.RenameCategoryAsync(cat.Name, newName);
         if (!ok)
         {
             RenameCategoryFailedRequested?.Invoke(cat);
