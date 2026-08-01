@@ -865,8 +865,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         EditButton.Content = Localization.Get("Meme_Done");
         // 背景/前景的蓝色由 XAML 写死常亮，这里不再处理颜色，仅切换文字与模式
         BatchBar.Visibility = Visibility.Visible;
-        // 编辑模式开启内置重排：落点由 WinUI 自己算准
-        MemeGridView.CanReorderItems = true;
+        // 编辑模式不再单独开启重排：重排能力统一由 SyncMemeDragState 收口
+        // （普通分类视图允许、全部表情视图禁止），避免进编辑模式时误开全部表情的重排。
         // 多选模式由配置决定：
         //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
         //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
@@ -1896,7 +1896,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 恢复 WinUI 拖拽能力：拖出(CanDragItems)与拖拽重排(CanReorderItems)在
         // 普通模式和编辑模式都需要（普通模式也能在窗口内拖动排序并落库）。
         CategoryList.CanReorderItems = true;
-        MemeGridView.CanReorderItems = true;
+        // 注意：MemeGridView.CanReorderItems 不在此处无条件开启——下方 SyncMemeDragState()
+        // 会根据 IsAllMemesView 正确设置（全部表情视图下保持 False），避免覆盖重排限制。
         MemeGridView.AllowDrop = true;
         CategoryList.CanDragItems = true;
         CategoryList.AllowDrop = true;
