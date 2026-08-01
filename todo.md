@@ -267,47 +267,53 @@
 
 ### 3.1 搜索 → SearchService
 
-- [ ] 新建 `SearchService.cs`，搬入：
+- [x] 新建 `SearchService.cs`，搬入：
   - `SearchBox_TextChanged` 防抖逻辑
   - `RefreshMemes()` 中搜索过滤部分
   - `_searchDebounceTimer`
-- [ ] `MainViewModel` 注入 `SearchService`
-- [ ] 验收：搜索框输入关键词 → 列表过滤正常，清空搜索 → 恢复全量；防抖 150ms 行为不变
+- [x] `MainViewModel` 注入 `SearchService`
+- [x] 验收：搜索框输入关键词 → 列表过滤正常，清空搜索 → 恢复全量；防抖 150ms 行为不变
+  - ✅ commit `579da69`
 
 ### 3.2 导入/导出 → ImportExportService（合并原 ImportService + 批量导出 + 粘贴导入）
 
-- [ ] 新建 `ImportExportService.cs`，搬入：
-  - `RunBatchImportAsync()` 整段（lines 1561–1611）
+- [x] 新建 `ImportExportService.cs`，搬入：
+  - `RunBatchImportAsync()` 整段
   - `PasteFromClipboardViaShortcutAsync()` 的剪贴板读取 + 导入逻辑
-  - `BatchExportButton_Click` 导出逻辑 (line 1613)
+  - `BatchExportButton_Click` 导出逻辑
   - `TryGuardWrite()` 写入锁守卫（提取为独立 helper 或放 Service 基类）
-- [ ] `MainViewModel` 注入 `ImportExportService`
-- [ ] 验收：批量导入按钮 → 进度条 → 完成后图片出现；Ctrl+V 粘贴导入正常；批量导出正常；写入锁并发守卫正常
+- [x] `MainViewModel` 注入 `ImportExportService`
+- [x] 验收：批量导入按钮 → 进度条 → 完成后图片出现；Ctrl+V 粘贴导入正常；批量导出正常；写入锁并发守卫正常
+  - ✅ commit `0983b05`（MainPage 实现 IImportExportUi；ImageBatchOperationRunner/BatchProgressHelper 改 public）
 
 ### 3.3 剪贴板 → ClipboardService（原 PasteService，改为实例注入）
 
-- [ ] `PasteService` 重命名为 `ClipboardService`（静态类 → 实例类），语义涵盖"复制剪贴板"与"发送到外部窗口"（后者本质是塞剪贴板 + 模拟 Ctrl+V，依赖键盘焦点而非鼠标光标）。
-- [ ] 注册到 DI 容器（`App.xaml.cs`）
-- [ ] `MainViewModel` / `MiniViewModel` 注入 `ClipboardService`
-- [ ] 验收：复制/粘贴发送功能不变
+- [x] `PasteService` 重命名为 `ClipboardService`（静态类 → 实例类），语义涵盖"复制剪贴板"与"发送到外部窗口"。
+- [x] 注册到 DI 容器（`App.xaml.cs`）
+- [x] `MainViewModel` / `MiniViewModel` 注入 `ClipboardService`
+- [x] 验收：复制/粘贴发送功能不变
+  - ✅ commit `3e66587`
 
 ### 3.4 删除 & 移动 & 重命名 → MemeOperationService（名字保留，不改 ImageInternal）
 
-- [ ] 新建 `MemeOperationService.cs`，搬入：
-  - `DeleteSelectedMemesAsync()` (line 1637+)
-  - `MemeDelete_Click` 右键删除逻辑 (line 1406)
+- [x] 新建 `MemeOperationService.cs`，搬入：
+  - `DeleteSelectedMemesAsync()`
+  - `MemeDelete_Click` 右键删除逻辑
   - `MoveMemeToCategory()` 移动逻辑
   - `MemeRename_Click` → `App.DataEngine.RenameMemeAsync()` 重命名逻辑
-- [ ] 验收：删除单张/批量 → 确认弹窗 → 图片移除；移动到其他分类正常；重命名正常
+- [x] 验收：删除单张/批量 → 确认弹窗 → 图片移除；移动到其他分类正常；重命名正常
+  - ✅ commit `e8c9907`（MainPage 实现 IMemeOperationUi；删除/移动/冲突守卫迁入，重命名留 VM）
 
 ### 3.5 分类管理 → CategoryService
 
-- [ ] 新建 `CategoryService.cs`，搬入：
+- [x] 新建 `CategoryService.cs`，搬入：
   - `ShowAddCategoryDialog()` / `AddCategoryButton_Click`
   - `DeleteCategoryConfirmed()` / `CategoryDelete_Click`
   - `ShowRenameCategoryDialog()` / `CategoryRename_Click`
-  - `LoadCategories()` / `UpdateCategoryCounts()`
-- [ ] 验收：新建/删除/重命名分类正常，分类计数实时更新
+  - `LoadCategories()` / `UpdateCategoryCounts()`（注：LoadCategories 因强耦合 UI/当前视图保留在 Page；UpdateCategoryCounts 改调 ComputeCounts；新增 ComputeCounts 纯查询）
+- [x] 验收：新建/删除/重命名分类正常，分类计数实时更新
+  - ✅ commit `296eb3e`
+  - ⚠️ 后续修复：重命名当前分类后选中高亮丢失（CurrentCategory 未跟随更新）✅ commit `e61aac4`
 
 ### 3.6 拖拽（保持现状，不重构为 Command/Service）
 
@@ -316,9 +322,10 @@
 > 与 VM 解耦的边界已经清晰：code-behind 的 `Drop`/`DragOver`/`DragItemsCompleted` 调用它拿到纯数据后交给 VM。
 > 强行抽成 Service 或附加属性只会重复萃取逻辑、不提升解耦度。
 
-- [ ] **保持 `ViewDragService`（原 `ImageDragHelper`）为 `static` 工具类（按 DI 决策清单本就 static 不动）**，不注册 DI。
-- [ ] 维持现状：各 Page code-behind 的 `Drop`/`DragOver`/`DragItemsCompleted` 事件 + `ViewDragService.CollectDropPathsAsync`/`ConfigureDragOut` 萃取纯数据 → VM 命令/方法。
-- [ ] 验收：从资源管理器拖图片入库、从 MemeManager 拖图片到 QQ、分类栏内部移动/重排，行为不变。
+- [x] **保持 `ViewDragService`（原 `ImageDragHelper`）为 `static` 工具类（按 DI 决策清单本就 static 不动）**，不注册 DI。
+- [x] 维持现状：各 Page code-behind 的 `Drop`/`DragOver`/`DragItemsCompleted` 事件 + `ViewDragService.CollectDropPathsAsync`/`ConfigureDragOut` 萃取纯数据 → VM 命令/方法。
+- [x] 验收：从资源管理器拖图片入库、从 MemeManager 拖图片到 QQ、分类栏内部移动/重排，行为不变。
+  - 注：QQ 富文本输入框拖入 / QQ 复制图片粘贴，因 TX 不暴露文件句柄（GetStorageItemsAsync 抛 COMException 或仅给 HTML/富文本格式），暂不做兜底，保持现状（非图片内容已有弹窗提示）。
 
 **Phase 3 完成标志**：`MainPage.xaml.cs` 从 ~2300 行缩减到 ~500 行（只剩 UI 生命周期 + 拖拽事件 + 预览浮窗），ViewModel 约 200 行（纯命令转发）。
 
