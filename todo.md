@@ -331,22 +331,21 @@
 
 ---
 
-## Phase 4：拆分 MemeDataEngine（风险最高，最后做）
+## Phase 4：拆分 MemeDataEngine（经评估 => 不做全量大拆，仅抽 ConfigService）
 
-当前 `MemeDataEngine`（~1000行）= Repository + Service + Config。Phase 3 的各 Service 仍直接依赖 `App.DataEngine`，Phase 4 把它们切到 `MemeRepository`：
+> **结论（与用户讨论确定，2026-08）**：
+> `MemeDataEngine` 本身作为**数据访问层（Repository/DAO）** 职责已自洽——它只管"图片数据 + 元数据读写"，不依赖 UI/ViewModel、已单例化、经 DI 注入（`App.GetService<MemeDataEngine>()`）。Phase 3 已将业务编排迁到 5 个 Service（Search/ImportExport/Clipboard/MemeOperation/Category），形成"Service=业务编排、Engine=数据持久化"的清晰分层。再往下把 Engine 内部的"文件 IO + 缓存更新 + metadata"这三件天然纠缠的事硬撕开，只会增加缓存一致性风险（如删除计数类问题）、运行行为零变化、用户无感——属过度工程。**故 Phase 4 的"抽 MemeRepository / 把写操作迁入各 Service / 引擎降级 Facade"三项目标不做。**
+>
+> **唯一保留的拆分：`ConfigService`**（见 4.2）——因为应用配置（`AppConfig` 读写、`StoragePath`、分类顺序文件路径解析）与"图片数据/元数据"是两回事，且调用方不止引擎（设置页、MainPage 都改配置），挤在引擎里边界不清。抽离后引擎只关心数据目录 `_baseDir`，不再持有 `Config` 对象，且配置不碰 `_memeCache`、零缓存风险，是最干净的软柿子。
 
-- [ ] **4.1** 从 `MemeDataEngine` 抽 `MemeRepository`：
-  - 搬入：`_memeCache`、`_titleReverseMap`、`GetAllMemes()`、`GetMemes()`、`GetCategories()`、`ReverseLookupByTitle()`、`AddCategoryAsync()`、metadata 读写、`LoadAllMetadataCore()`
-  - 暴露为只读查询接口，写操作（`ImportMemesAsync`、`DeleteMemesAsync` 等）暂留 `MemeDataEngine`
-  - 验收：`dotnet build` → 分类/图片展示正常
-- [ ] **4.2** 配置管理独立：
-  - `AppConfig` 加载/保存从 `MemeDataEngine` 抽出 → `ConfigService`（或直接放 `Infrastructure`）
-  - 验收：设置页修改配置 → 重启后保留
-- [ ] **4.3** 写操作（导入/删除/移动/重命名/导出）逐步从 `MemeDataEngine` 迁入对应 Service
-  - 验收：每迁一个写操作，对应功能正常
-- [ ] **4.4** `MemeDataEngine` 降级为 Facade：只转发调用，不自己干活
-  - 为保持兼容可以让旧调用方继续用，内部转发到新 Service/Repository
-  - 验收：所有功能正常，`MemeDataEngine` 行数缩减到 ~100 行
+- [x] **4.1** ~~从 `MemeDataEngine` 抽 `MemeRepository`~~ —— **不做**（Engine 作为数据层已满足解耦，见上方结论）
+- [ ] **4.2** 配置管理独立 → `ConfigService`（**保留，做**）：
+  - 从 `MemeDataEngine` 抽出：`AppConfig` 字段、`LoadConfig()`、`SaveConfigAsync()`、`UpdateConfigAsync()`、`ConfigDir`/`ConfigPath`/`CategoryOrderPath`（配置/分类顺序文件路径解析）
+  - `ConfigService` 注册 DI（`AddSingleton`），引擎与设置页/MainPage 改注入 `ConfigService`
+  - 引擎保留 `_baseDir`（数据目录），`InitializeAsync` 从 `ConfigService` 取 `StoragePath` 解析 `_baseDir`
+  - 验收：设置页修改 `StoragePath`/配置 → 重启后保留；`LastCategory` 写入正常；分类顺序持久化正常；`dotnet build` 0 警告 0 错误
+- [x] **4.3** ~~写操作迁入各 Service~~ —— **不做**（见结论）
+- [x] **4.4** ~~引擎降级 Facade~~ —— **不做**（引擎作为数据访问层保留现状）
 
 ---
 

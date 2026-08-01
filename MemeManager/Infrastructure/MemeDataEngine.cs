@@ -64,7 +64,11 @@ public class MemeDataEngine
     private readonly Dictionary<string, uint> _categoryOrder = new(StringComparer.OrdinalIgnoreCase);
 
     public string BaseDir => _baseDir;
-    public AppConfig Config { get; private set; } = new();
+
+    // 配置交由 ConfigService 持有（Phase 4 拆分）；引擎仅做 pass-through 委托，
+    // 自身不再拥有 AppConfig 对象，也不负责配置文件的读写。
+    private readonly ConfigService _config = App.GetService<ConfigService>();
+    public AppConfig Config { get => _config.Config; set => _config.Config = value; }
 
     public MemeDataEngine()
     {
@@ -139,64 +143,29 @@ public class MemeDataEngine
         Watcher.Start();
     }
 
-    // 配置文件固定保存在 %LOCALAPPDATA% 下（与数据目录解耦），否则迁移数据目录后二次启动读不到配置
-    private static string ConfigDir => MainWindow.AppDataDir;
-    private string ConfigPath => MainWindow.ConfigPath;
-
     // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
     private string CategoryOrderPath => Path.Combine(_baseDir, MetadataFileName);
 
-    private void LoadConfig()
-    {
-        try
-        {
-            Directory.CreateDirectory(ConfigDir);
+    // 配置加载/保存已委托 ConfigService（见本类 _config 字段）；保留同名方法供 InitializeAsync
+    // 与既有调用方（MainWindow/SettingsPage 等经 _engine.SaveConfigAsync）无感衔接。
+    private void LoadConfig() => _config.LoadConfig();
 
-            if (File.Exists(ConfigPath))
-            {
-                var json = File.ReadAllText(ConfigPath);
-                if (!string.IsNullOrWhiteSpace(json))
-                {
-                    var cfg = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
-                    if (cfg != null) Config = cfg;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[Engine] 读取配置失败: {ex.Message}");
-        }
+    public Task SaveConfigAsync() => _config.SaveConfigAsync();
 
-        if (string.IsNullOrWhiteSpace(Config.StoragePath))
-            Config.StoragePath = DefaultStoragePath();
-    }
-
-    public async Task SaveConfigAsync()
-    {
-        try
-        {
-            Directory.CreateDirectory(ConfigDir);
-            var json = JsonSerializer.Serialize(Config, JsonOptions);
-            await File.WriteAllTextAsync(ConfigPath, json);
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[Engine] 保存配置失败: {ex.Message}");
-        }
-    }
-
+    // 打补丁配置并持久化（委托 ConfigService），随后处理数据目录解析与（必要时）元数据重载——
+    // 这部分属于引擎职责（数据目录归属），不归入 ConfigService。
     public async Task UpdateConfigAsync(Action<AppConfig> patch)
     {
-        patch(Config);
+        await _config.UpdateConfigAsync(patch);
 
-        string newBase = ResolveBaseDir(Config.StoragePath);
+        string newBase = ResolveBaseDir(_config.Config.StoragePath);
         // 若用户选的路径落在应用自身目录内或非法，回退默认并写回配置。
-        if (!string.Equals(newBase, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
-            Config.StoragePath = newBase;
+        if (!string.Equals(newBase, _config.Config.StoragePath, StringComparison.OrdinalIgnoreCase))
+            _config.Config.StoragePath = newBase;
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
         _baseDir = newBase;
 
-        await SaveConfigAsync();
+        await _config.SaveConfigAsync();
 
         // 仅当存放路径真正变化时才重新加载该路径下的元数据
         if (changed)

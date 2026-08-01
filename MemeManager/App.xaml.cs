@@ -246,6 +246,7 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
         // 基础设施 / 数据层（核心单例，全项目通过构造器注入获取）
+        services.AddSingleton<ConfigService>();   // 应用配置（从 MemeDataEngine 拆出），须先于 MemeDataEngine 注册
         services.AddSingleton<MemeDataEngine>();
         // FileWatcher 是 MemeDataEngine 的成员，随其注入，不单独注册
         // 业务 Service（Phase 3 逐步补：ClipboardService / ViewDragService / SearchService / ImportExportService / MemeOperationService / CategoryService ...）
