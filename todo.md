@@ -1,4 +1,4 @@
-# MemeManager 重构路线
+﻿# MemeManager 重构路线
 
 > **总目标**：让 `MainPage.xaml.cs`（2323行/102KB）只负责页面，让 `MemeDataEngine`（~1000行）只负责数据。
 >
@@ -339,7 +339,7 @@
 > **唯一保留的拆分：`ConfigService`**（见 4.2）——因为应用配置（`AppConfig` 读写、`StoragePath`、分类顺序文件路径解析）与"图片数据/元数据"是两回事，且调用方不止引擎（设置页、MainPage 都改配置），挤在引擎里边界不清。抽离后引擎只关心数据目录 `_baseDir`，不再持有 `Config` 对象，且配置不碰 `_memeCache`、零缓存风险，是最干净的软柿子。
 
 - [x] **4.1** ~~从 `MemeDataEngine` 抽 `MemeRepository`~~ —— **不做**（Engine 作为数据层已满足解耦，见上方结论）
-- [ ] **4.2** 配置管理独立 → `ConfigService`（**保留，做**）：
+- [x] **4.2** 配置管理独立 → `ConfigService`（**保留，做**）：
   - 从 `MemeDataEngine` 抽出：`AppConfig` 字段、`LoadConfig()`、`SaveConfigAsync()`、`UpdateConfigAsync()`、`ConfigDir`/`ConfigPath`/`CategoryOrderPath`（配置/分类顺序文件路径解析）
   - `ConfigService` 注册 DI（`AddSingleton`），引擎与设置页/MainPage 改注入 `ConfigService`
   - 引擎保留 `_baseDir`（数据目录），`InitializeAsync` 从 `ConfigService` 取 `StoragePath` 解析 `_baseDir`
