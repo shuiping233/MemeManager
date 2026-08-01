@@ -21,6 +21,12 @@ public sealed partial class SettingsPage : Page
 
     public SettingsViewModel ViewModel => (SettingsViewModel)DataContext;
 
+    // 单例 VM 的事件订阅需在页面卸载时反订阅，否则每次打开设置浮窗都会新增一份处理器而累积
+    // （SettingsViewModel 是 AddSingleton，页却是每次重新实例化的）。
+    private readonly Action _onBrowseFolder;
+    private readonly Action<string> _onOpenFolder;
+    private readonly Action _onClose;
+
     public SettingsPage()
     {
         // 语言下拉项需在 InitializeComponent 之前就绪，x:Bind(OneTime) 才能正确绑定。
@@ -29,9 +35,14 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
 
         DataContext = App.GetService<SettingsViewModel>();
-        ViewModel.BrowseFolderRequested += async () => await BrowseFolderAsync();
-        ViewModel.OpenFolderRequested += async path => await OpenFolderAsync(path);
-        ViewModel.CloseRequested += async () => await SaveAndCloseAsync();
+        _onBrowseFolder = () => _ = BrowseFolderAsync();
+        _onOpenFolder = path => _ = OpenFolderAsync(path);
+        _onClose = () => _ = SaveAndCloseAsync();
+        ViewModel.BrowseFolderRequested += _onBrowseFolder;
+        ViewModel.OpenFolderRequested += _onOpenFolder;
+        ViewModel.CloseRequested += _onClose;
+
+        Unloaded += SettingsPage_Unloaded;
 
         LocalizeStaticStrings();
 
@@ -154,6 +165,18 @@ public sealed partial class SettingsPage : Page
         // 进入设置页时把焦点放到“完成”按钮上，避免焦点落在首个可聚焦控件
         // （主题 ComboBox）导致回车变成打开下拉菜单而非确认。
         CloseButton.Focus(FocusState.Programmatic);
+    }
+
+    private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        // 反订阅单例 VM 的事件，避免处理器累积（每次打开设置浮窗会新建本页实例）。
+        if (DataContext is SettingsViewModel vm)
+        {
+            vm.BrowseFolderRequested -= _onBrowseFolder;
+            vm.OpenFolderRequested -= _onOpenFolder;
+            vm.CloseRequested -= _onClose;
+        }
+        Unloaded -= SettingsPage_Unloaded;
     }
 
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)

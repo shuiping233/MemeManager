@@ -47,12 +47,17 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     public MiniViewModel ViewModel => (MiniViewModel)DataContext;
 
+    // 单例 VM 的事件订阅需在页面卸载时反订阅，否则每次进入 Mini 模式都新增一份处理器而累积
+    // （MiniViewModel 是 AddSingleton，页却是每次重新实例化的）。
+    private readonly Action _onExpandToFull;
+    private readonly Action<MemeViewModel> _onSendToExternal;
+
     public MiniPage()
     {
         InitializeComponent();
         DataContext = App.GetService<MiniViewModel>();
-        ViewModel.ExpandToFullRequested += () => App.MainWindow.SwitchMode(AppMode.Full);
-        ViewModel.SendToExternalRequested += async vm =>
+        _onExpandToFull = () => App.MainWindow.SwitchMode(AppMode.Full);
+        _onSendToExternal = async vm =>
         {
             var target = App.MainWindow.ResolveExternalPasteTarget();
             if (target == IntPtr.Zero)
@@ -63,6 +68,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             Logger.Log($"[Mini] 点击发送图片 ({Path.GetFileName(vm.LocalPath)}) -> 目标={target:X}");
             await PasteService.OutputMemeToCursorAsync(vm.LocalPath, target);
         };
+        ViewModel.ExpandToFullRequested += _onExpandToFull;
+        ViewModel.SendToExternalRequested += _onSendToExternal;
         Loaded += MiniPage_Loaded;
         Unloaded += MiniPage_Unloaded;
     }
@@ -82,6 +89,13 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
     {
+        // 反订阅单例 VM 的事件，避免处理器累积（每次进入 Mini 模式会新建本页实例）。
+        if (DataContext is MiniViewModel vm)
+        {
+            vm.ExpandToFullRequested -= _onExpandToFull;
+            vm.SendToExternalRequested -= _onSendToExternal;
+        }
+        Unloaded -= MiniPage_Unloaded;
     }
 
     // ---------- 分类下拉 ----------
