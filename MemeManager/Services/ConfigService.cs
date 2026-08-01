@@ -4,10 +4,11 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Views;
 
-namespace MemeManager.Infrastructure;
+namespace MemeManager.Services;
 
 // 应用配置管理（从 MemeDataEngine 拆出）：持有 AppConfig、负责配置文件的加载/保存与打补丁持久化。
 // 与“图片数据/元数据”解耦——本类不碰任何 meme 缓存，仅管应用设置（StoragePath / 主题 / 热键 / 语言等）。
