@@ -447,16 +447,19 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         if (visible)
         {
-            if (MemeGridView.ItemsSource != ViewModel.MemeList)
+            bool rebind = MemeGridView.ItemsSource != ViewModel.MemeList;
+            if (rebind)
             {
                 CategoryList.ItemsSource = ViewModel.CategoryList;
                 MemeGridView.ItemsSource = ViewModel.MemeList;
             }
             // 隐藏时 CategoryList.ItemsSource 被置空导致选中容器销毁、蓝条/高亮丢失；
             // 重新绑回后必须重新断言选中，待容器生成后再设回以恢复视觉。
+            // 但若 ItemsSource 未重绑且 sel 已是当前选中项，则跳过：避免无谓的
+            // 取消选中→重新选中视觉切换（容器回收 + 鼠标悬停易触发 ListViewBaseItemChrome 崩溃）。
             var sel = ViewModel.CategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory)
                       ?? ViewModel.CategoryList.FirstOrDefault();
-            if (sel != null)
+            if (sel != null && (rebind || CategoryList.SelectedItem != sel))
             {
                 CategoryList.SelectedItem = null;
                 DispatcherQueue.TryEnqueue(() => { CategoryList.SelectedItem = sel; });
