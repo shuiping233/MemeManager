@@ -607,9 +607,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void RefreshMemes()
     {
         var keyword = SearchBox.Text?.Trim();
-        var memes = _engine.GetMemes(
-            IsAllMemesView ? null : ViewModel.CurrentCategory,
-            string.IsNullOrWhiteSpace(keyword) ? null : keyword);
+        var memes = ViewModel.QueryMemes(
+            IsAllMemesView ? null : ViewModel.CurrentCategory, keyword);
 
         // 用当前策略刷新表情列表（复用=增量复用 VM，重建=整体 Clear+重建）。
         _listStrategy.RefreshMemes(ViewModel.MemeList, memes);

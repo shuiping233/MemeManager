@@ -73,6 +73,9 @@ public partial class MainViewModel : ObservableObject
     // 仅做业务判断 + 调 DataEngine + 维护 CategoryList 集合；弹窗类 UI 行为通过下方事件请求 Page 层。
     private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
 
+    // 搜索/列表查询服务（Phase 3.1）：承接"按分类 + 关键词查询表情"的查询语义。
+    private readonly SearchService _search = App.GetService<SearchService>();
+
     // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
     public event Action? CategoriesChangedRequested;
 
@@ -294,4 +297,9 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
     }
+
+    // 搜索/列表查询：把"按分类 + 关键词查表情"的查询语义交给 SearchService，
+    // 避免 Page 直接调 DataEngine。keyword 为空/空白时引擎不做过滤。
+    public IReadOnlyList<MemeModel> QueryMemes(string? category, string? keyword)
+        => _search.Query(category, keyword);
 }

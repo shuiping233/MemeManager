@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using MemeManager.Infrastructure;
 using MemeManager.Views;
 using MemeManager.ViewModels;
+using MemeManager.Services;
 using WinRT.Interop;
 using System.IO;
 using System.Threading.Tasks;
@@ -252,6 +253,7 @@ public partial class App : Application
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MiniViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<SearchService>();
         return services.BuildServiceProvider();
     }
 }
