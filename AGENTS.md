@@ -89,6 +89,35 @@ public MainViewModel ViewModel => (MainViewModel)DataContext;
 - 方法必须是**实例方法**，不能是 `static`（Command 需绑定 VM 实例）
 - 不要手动声明与生成名相同的 `XxxCommand` 属性（会冲突）
 
+### VM → Page 的事件桥接纪律（单例 VM 必须反订阅）
+
+VM 需要触发"依赖窗口/视觉树/XamlRoot 的副作用"（切窗口模式、解析外部窗口句柄、弹文件选择器、关浮窗等）时，**不能**在 VM 里直接写 `App.MainWindow.Xxx()`——那会引入 VM→Window 反向依赖，破坏 MVVM 边界且让 VM 无法独立测试。
+
+正确做法：VM 只发一个"请求"事件（如 `ExpandToFullRequested` / `SendToExternalRequested` / `BrowseFolderRequested` / `OpenFolderRequested` / `CloseRequested`），由 Page 在订阅里调用 `App.MainWindow` 等具体实现。VM 表达意图，Page 负责接线。这等价于一种手写、事件形式的极简消息隧道，与 DI 的依赖倒置同构。
+
+⚠️ **单例 VM + 重建 Page 的订阅累积坑（已踩并修复）**：本项目 VM 统一 `AddSingleton`，但 Page（如 `SettingsPage` / `MiniPage`）每次打开/进入都会重新 `new` 实例。若 Page 在构造里把处理方法订阅到单例 VM 的事件上，旧 Page 销毁时**必须反订阅**，否则每打开一次就累积一份处理器，第 N 次打开点一次按钮会触发 N 次。
+
+规范：
+- **用具名字段保存处理器**（匿名 lambda 无法 `-=`），不要写 `ViewModel.XxxRequested += async () => ...` 这种无法反订阅的写法。
+- 在 `Page.Unloaded` 里 `-=` 对应事件，并移除 `Unloaded` 自身：
+  ```csharp
+  private readonly Action _onExpandToFull;
+  public MiniPage()
+  {
+      _onExpandToFull = () => App.MainWindow.SwitchMode(AppMode.Full);
+      ViewModel.ExpandToFullRequested += _onExpandToFull;
+      Unloaded += MiniPage_Unloaded;
+  }
+  private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
+  {
+      if (DataContext is MiniViewModel vm)
+          vm.ExpandToFullRequested -= _onExpandToFull;
+      Unloaded -= MiniPage_Unloaded;
+  }
+  ```
+- 例外：纯系统 API（如 `Launcher.LaunchFolderPathAsync`）不依赖窗口实例，可直接进 VM（参考 `SettingsViewModel.OpenConfigFolderCommand`），无需走事件。
+- 若今后某 VM 改为"每页一个实例"（非 singleton），此纪律可免；但本项目统一 singleton，务必执行。
+
 ### DataTemplate / ContextFlyout 内绑定 Page VM 的 Command（WinUI 高频坑）
 
 > 这是 WinUI MVVM 迁移里最容易踩坑的一类：XAML 同时混合了 `ListView.ItemTemplate + x:DataType + ContextFlyout + Page ViewModel Command`。改这里务必慢，不要批量改。2.7 阶段做对，2.8（`MemeViewModel` 右键菜单）就是直接复制这个模式。
