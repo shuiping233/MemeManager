@@ -210,6 +210,9 @@
   <data name="About_SourceLink.Content" xml:space="preserve">
     <value>项目源代码</value>
   </data>
+  <data name="About_StarHint.Text" xml:space="preserve">
+    <value>如果您觉得此项目好用的话，可以到项目 GitHub 仓库上点一个 ⭐ 以表支持。</value>
+  </data>
   <data name="Settings_HotKey.Text" xml:space="preserve">
     <value>呼出快捷键</value>
   </data>

@@ -210,6 +210,9 @@
   <data name="About_SourceLink.Content" xml:space="preserve">
     <value>Source code</value>
   </data>
+  <data name="About_StarHint.Text" xml:space="preserve">
+    <value>If you find this project useful, please give it a ⭐ on the GitHub repository to show your support.</value>
+  </data>
   <data name="Settings_HotKey.Text" xml:space="preserve">
     <value>Invocation hotkey</value>
   </data>

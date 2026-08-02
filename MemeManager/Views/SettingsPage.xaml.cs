@@ -225,6 +225,13 @@ public sealed partial class SettingsPage : Page
             Margin = new Thickness(0, 0, 0, 6),
         };
 
+        var star = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = Localization.Get("About_StarHint"),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+
         var link = new HyperlinkButton
         {
             Content = Localization.Get("About_SourceLink"),
@@ -237,6 +244,7 @@ public sealed partial class SettingsPage : Page
         panel.Children.Add(desc);
         panel.Children.Add(license);
         panel.Children.Add(author);
+        panel.Children.Add(star);
         panel.Children.Add(link);
 
         var dialog = new ContentDialog
