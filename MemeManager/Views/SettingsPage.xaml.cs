@@ -329,7 +329,7 @@ public sealed partial class SettingsPage : Page
         // 空字符串暂不打扰（用户可能正在输入中）
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        if (System.IO.Directory.Exists(text))
+        if (Directory.Exists(text))
         {
             // 有效路径：仅记录，真正保存延后到点击“完成”
             return;
@@ -359,7 +359,7 @@ public sealed partial class SettingsPage : Page
         string? newStoragePath = null;
         bool pathChanged = false;
         var typedPath = StoragePathBox.Text?.Trim() ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(typedPath) && System.IO.Directory.Exists(typedPath))
+        if (!string.IsNullOrWhiteSpace(typedPath) && Directory.Exists(typedPath))
         {
             newStoragePath = typedPath;
             pathChanged = true;
