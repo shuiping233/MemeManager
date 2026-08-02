@@ -1,19 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using MemeManager.Models;
 using MemeManager.ViewModels;
 using MemeManager.Infrastructure;
 using MemeManager.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage;
 
 namespace MemeManager.Views;
 

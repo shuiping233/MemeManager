@@ -956,12 +956,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 内部 item 拖回网格自身（全部表情下禁止任何内部拖拽移动/重排）：显示禁止光标。
         if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            e.AcceptedOperation = DataPackageOperation.None;
             return;
         }
 
         // 接受外部拖入（如从文件管理器拖图片进来做导入），确保 Drop 能触发。
-        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.AcceptedOperation = DataPackageOperation.Copy;
         e.DragUIOverride.IsCaptionVisible = false;
     }
 
