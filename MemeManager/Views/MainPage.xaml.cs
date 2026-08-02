@@ -257,7 +257,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // restoreSelectionFromConfig=true：初次加载/启动，按 config 的 LastCategory 恢复选中（防抖可能未落盘，但启动时不依赖内存）。
     // restoreSelectionFromConfig=false：刷新/重载（如 F5、设置保存），此时内存中的当前分类才是真值，
-    // 不能用尚未 flush 的旧 config 覆盖（否则会把刚切走的分类又切回去，见 #17 相关回归）。
+    // 不能用尚未 flush 的旧 config 覆盖（否则会把刚切走的分类又切回去，见 https://github.com/shuiping233/MemeManager/issues/16 相关回归）。
     private void LoadCategories(bool restoreSelectionFromConfig = true)
     {
         // 若没有任何分类文件夹，默认创建一个 "Default"
