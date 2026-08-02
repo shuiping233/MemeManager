@@ -15,10 +15,11 @@
 
 </div>
 
-![avif-main-window.avif](image/avif-main-window.avif)
-![avif-500-image-import.avif](image/avif-500-image-import.avif)
-![image-main-window.png](image/image-main-window.png)
-![image-edit-mode.png](image/image-edit-mode.png)
+![main-window.avif](image/main-window.avif)
+![800-image-import.avif](image/800-image-import.avif)
+![drag-action.avif](image/drag-action.avif)
+![image-main-window.webp](image/image-main-window.webp)
+![image-edit-mode.webp](image/image-edit-mode.webp)
 ![image-settings-1.png](image/image-settings-1.png)
 ![image-settings-2.png](image/image-settings-2.png)
 ![mini-mode.png](image/mini-mode.png)
