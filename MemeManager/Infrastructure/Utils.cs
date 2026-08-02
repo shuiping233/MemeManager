@@ -1,7 +1,9 @@
+﻿using MemeManager.Models;
+using Microsoft.UI.Xaml;
 using System;
 using System.Diagnostics;
 using System.IO;
-using Microsoft.UI.Xaml;
+using System.Reflection;
 using Windows.Foundation;
 
 namespace MemeManager.Infrastructure;
@@ -124,6 +126,29 @@ public static class Utils
         {
             Logger.Log($"[{logTag}] 打开资源管理器失败: {ex.Message}");
         }
+    }
+
+    public static string GetInformationalVersion()
+    {
+        var attr = Assembly
+            .GetExecutingAssembly()
+            .GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)
+            .Cast<AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault();
+        var v = attr?.InformationalVersion ?? string.Empty;
+        var plus = v.IndexOf('+');
+        return plus >= 0 ? v[..plus] : v;
+    }
+
+    // 依据宽高映射到最接近的尺寸预设档位（仅用于日志/调试展示）
+    public static WindowSizePreset ClassifySize(int w, int h)
+    {
+        return (w, h) switch
+        {
+            ( <= 800, <= 620) => WindowSizePreset.Small,
+            ( >= 1150, >= 880) => WindowSizePreset.Large,
+            _ => WindowSizePreset.Medium
+        };
     }
 }
 

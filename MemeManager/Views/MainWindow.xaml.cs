@@ -61,6 +61,9 @@ public sealed partial class MainWindow : Window
     // Mini 模式无边框：是否已把内容扩展到标题栏区域（仅 Mini 期间为 true）
     private bool _titleBarExtended;
 
+
+    public static string WindowTitle => $"{AppName} {Utils.GetInformationalVersion()}";
+
     // ---------- 供 Page 层访问的窗口级状态 ----------
 
     public bool IsClosing => _isClosing;
@@ -90,14 +93,14 @@ public sealed partial class MainWindow : Window
         _engine = engine;
         InitializeComponent();
 
-        Title = $"{AppName} {GetInformationalVersion()}";
+        Title = WindowTitle;
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
         // 写入实例锁文件（HWND + PID），供重复启动的新实例精准呼出旧窗口
         PersistInstanceLock();
 
-        SetTaskbarIcon();
+        TrayIcon.SetTaskbarIcon(_hWnd, TrayIcon.LoadAppIcon(AppIconPath));
 
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
         // 启动默认置顶：始终加 TOPMOST 扩展样式（用户可在会话内手动关闭）
@@ -165,18 +168,7 @@ public sealed partial class MainWindow : Window
         };
     }
 
-    private static string GetInformationalVersion()
-    {
-        var attr = (System.Reflection.AssemblyInformationalVersionAttribute?)System.Reflection
-            .Assembly
-            .GetExecutingAssembly()
-            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-            .Cast<System.Reflection.AssemblyInformationalVersionAttribute>()
-            .FirstOrDefault();
-        var v = attr?.InformationalVersion ?? string.Empty;
-        var plus = v.IndexOf('+');
-        return plus >= 0 ? v[..plus] : v;
-    }
+
 
     private static void Log(string msg) => Logger.Log($"[MemeManager] {msg}");
 
@@ -307,11 +299,11 @@ public sealed partial class MainWindow : Window
     /// 目前仅 Mini 模式使用（注册 DragBar）；Full 模式用系统标题栏，不注册。
     /// 传 null 取消注册。
     /// </summary>
-    public void SetTitleBarElement(Microsoft.UI.Xaml.UIElement? titleBar)
+    public void SetTitleBarElement(UIElement? titleBar)
     {
         try
         {
-            this.SetTitleBar(titleBar);
+            SetTitleBar(titleBar);
         }
         catch (Exception ex)
         {
@@ -357,22 +349,13 @@ public sealed partial class MainWindow : Window
         cfg.WindowWidth = bounds.Width;
         cfg.WindowHeight = bounds.Height;
         cfg.WindowMaximized = false;
-        cfg.WindowSizePreset = ClassifySize(bounds.Width, bounds.Height);
+        cfg.WindowSizePreset = Utils.ClassifySize(bounds.Width, bounds.Height);
         Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height} (预设={cfg.WindowSizePreset})");
 
         _ = _engine.SaveConfigAsync();
     }
 
-    // 依据宽高映射到最接近的尺寸预设档位（仅用于日志/调试展示）
-    private static WindowSizePreset ClassifySize(int w, int h)
-    {
-        return (w, h) switch
-        {
-            (<= 800, <= 620) => WindowSizePreset.Small,
-            (>= 1150, >= 880) => WindowSizePreset.Large,
-            _ => WindowSizePreset.Medium
-        };
-    }
+
 
     // ---------- 供 Page 层调用的窗口级服务 ----------
 
@@ -414,7 +397,7 @@ public sealed partial class MainWindow : Window
     {
         // 默认兜底：相对窗口的“无限”区域（即不限制），避免窗口位置取不到时把浮窗夹死。
         var fallback = new Windows.Foundation.Rect(
-            -this.Bounds.X, -this.Bounds.Y,
+            -Bounds.X, -Bounds.Y,
             double.PositiveInfinity, double.PositiveInfinity);
         try
         {
@@ -631,28 +614,6 @@ public sealed partial class MainWindow : Window
         ShowWindow(activate: false);
     }
 
-    /// <summary>
-    /// 手动将图标设到窗口，使独立发布（非 MSIX）时任务栏/标题栏也显示 Logo。
-    /// WinUI 3 不会自动从 EXE 图标继承窗口图标，需通过 WM_SETICON 显式设置。
-    /// </summary>
-    private void SetTaskbarIcon()
-    {
-        try
-        {
-            var hIcon = LoadAppIcon();
-            if (hIcon == IntPtr.Zero)
-                return;
-
-            // 同时设置大/小两套，任务栏用 small，标题栏/alt-tab 用 big
-            NativeMethods.SendMessage(_hWnd, NativeMethods.WM_SETICON, (IntPtr)NativeMethods.ICON_SMALL, hIcon);
-            NativeMethods.SendMessage(_hWnd, NativeMethods.WM_SETICON, (IntPtr)NativeMethods.ICON_BIG, hIcon);
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[MemeManager] 设置窗口图标失败: {ex}");
-        }
-    }
-
     // 应用显示名（标题条、对话框等共用）。
     public const string AppName = "MemeManager";
 
@@ -664,47 +625,11 @@ public sealed partial class MainWindow : Window
     public static string ConfigPath => Path.Combine(AppDataDir, ConfigFileName);
     public static string InstanceLockPath => Path.Combine(AppDataDir, InstanceLockFileName);
 
-    // 窗口标题文本：AppName + 程序集 InformationalVersion（CI 传 -p:AppVersion=vX.Y.Z，否则本地时间戳 dev build）。
-    // dev build 形如 "... dev build+<hash>"，把 "+" 及其后的 hash 去掉，只保留可读部分。
-    public static string WindowTitle
-    {
-        get
-        {
-            var ver = typeof(MainWindow).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            if (ver != null)
-            {
-                int plus = ver.IndexOf('+');
-                if (plus >= 0) ver = ver.Substring(0, plus);
-                return $"{AppName} {ver}";
-            }
-            return AppName;
-        }
-    }
-
     // AppIcon.ico 路径（发布/调试均会拷贝到 Assets 下），托盘图标与标题条 Logo 共用。
     public static string AppIconPath =>
         Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
 
-    private IntPtr LoadAppIcon()
-    {
-        // 从 exe 运行目录的 AppIcon.ico 文件加载（LoadImage 已验证可用）
-        var path = AppIconPath;
-        if (File.Exists(path))
-        {
-            var h = NativeMethods.LoadImage(
-                IntPtr.Zero, path, NativeMethods.IMAGE_ICON, 0, 0,
-                NativeMethods.LR_LOADFROMFILE | NativeMethods.LR_DEFAULTSIZE);
-            if (h != IntPtr.Zero)
-                return h;
-        }
-
-        Logger.Log("[MemeManager] 未找到 AppIcon.ico");
-        return IntPtr.Zero;
-    }
-
     // ---------- Win32 层拖入文件（WM_DROPFILES）----------
-
     private void HandleDropFiles(IntPtr hDrop)
     {
         // 注意：此函数在窗口过程(WM_DROPFILES)回调内同步执行，
@@ -906,18 +831,41 @@ public sealed partial class MainWindow : Window
         // 常见按键手动映射（GetKeyNameText 依赖扫描码，部分组合会返回空）
         switch (vk)
         {
-            case 0x41: return "A"; case 0x42: return "B"; case 0x43: return "C";
-            case 0x44: return "D"; case 0x45: return "E"; case 0x46: return "F";
-            case 0x47: return "G"; case 0x48: return "H"; case 0x49: return "I";
-            case 0x4A: return "J"; case 0x4B: return "K"; case 0x4C: return "L";
-            case 0x4D: return "M"; case 0x4E: return "N"; case 0x4F: return "O";
-            case 0x50: return "P"; case 0x51: return "Q"; case 0x52: return "R";
-            case 0x53: return "S"; case 0x54: return "T"; case 0x55: return "U";
-            case 0x56: return "V"; case 0x57: return "W"; case 0x58: return "X";
-            case 0x59: return "Y"; case 0x5A: return "Z";
-            case 0x30: return "0"; case 0x31: return "1"; case 0x32: return "2";
-            case 0x33: return "3"; case 0x34: return "4"; case 0x35: return "5";
-            case 0x36: return "6"; case 0x37: return "7"; case 0x38: return "8";
+            case 0x41: return "A";
+            case 0x42: return "B";
+            case 0x43: return "C";
+            case 0x44: return "D";
+            case 0x45: return "E";
+            case 0x46: return "F";
+            case 0x47: return "G";
+            case 0x48: return "H";
+            case 0x49: return "I";
+            case 0x4A: return "J";
+            case 0x4B: return "K";
+            case 0x4C: return "L";
+            case 0x4D: return "M";
+            case 0x4E: return "N";
+            case 0x4F: return "O";
+            case 0x50: return "P";
+            case 0x51: return "Q";
+            case 0x52: return "R";
+            case 0x53: return "S";
+            case 0x54: return "T";
+            case 0x55: return "U";
+            case 0x56: return "V";
+            case 0x57: return "W";
+            case 0x58: return "X";
+            case 0x59: return "Y";
+            case 0x5A: return "Z";
+            case 0x30: return "0";
+            case 0x31: return "1";
+            case 0x32: return "2";
+            case 0x33: return "3";
+            case 0x34: return "4";
+            case 0x35: return "5";
+            case 0x36: return "6";
+            case 0x37: return "7";
+            case 0x38: return "8";
             case 0x39: return "9";
             case >= 0x70 and <= 0x87: return "F" + (vk - 0x6F); // F1..F24
         }
@@ -939,9 +887,17 @@ public sealed partial class MainWindow : Window
         // OEM / 标点等：用 OEM 映射表自行推断
         return vk switch
         {
-            0xBE => ".", 0xBC => ",", 0xBB => "=", 0xBD => "-",
-            0xBA => ";", 0xDE => "'", 0xC0 => "`", 0xDB => "[",
-            0xDD => "]", 0xDC => "\\", 0xE2 => "\\",
+            0xBE => ".",
+            0xBC => ",",
+            0xBB => "=",
+            0xBD => "-",
+            0xBA => ";",
+            0xDE => "'",
+            0xC0 => "`",
+            0xDB => "[",
+            0xDD => "]",
+            0xDC => "\\",
+            0xE2 => "\\",
             _ => "0x" + vk.ToString("X2")
         };
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using MemeManager.Views;
@@ -85,6 +85,44 @@ public sealed class TrayIcon : IDisposable
         return NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
+    /// <summary>
+    /// 手动将图标设到窗口，使独立发布（非 MSIX）时任务栏/标题栏也显示 Logo。
+    /// WinUI 3 不会自动从 EXE 图标继承窗口图标，需通过 WM_SETICON 显式设置。
+    /// </summary>
+    public static void SetTaskbarIcon(IntPtr _hWnd , IntPtr hIcon)
+    {
+        try
+        {
+            if (hIcon == IntPtr.Zero)
+                return;
+
+            // 同时设置大/小两套，任务栏用 small，标题栏/alt-tab 用 big
+            NativeMethods.SendMessage(_hWnd, NativeMethods.WM_SETICON, (IntPtr)NativeMethods.ICON_SMALL, hIcon);
+            NativeMethods.SendMessage(_hWnd, NativeMethods.WM_SETICON, (IntPtr)NativeMethods.ICON_BIG, hIcon);
+        }
+        catch (Exception ex)
+        {
+            Log($"设置窗口图标失败: {ex}");
+        }
+    }
+
+    public static IntPtr LoadAppIcon(string appIconPath)
+    {
+        // 从 exe 运行目录的 AppIcon.ico 文件加载（LoadImage 已验证可用）
+        var path = appIconPath;
+        if (File.Exists(path))
+        {
+            var h = NativeMethods.LoadImage(
+                IntPtr.Zero, path, NativeMethods.IMAGE_ICON, 0, 0,
+                NativeMethods.LR_LOADFROMFILE | NativeMethods.LR_DEFAULTSIZE);
+            if (h != IntPtr.Zero)
+                return h;
+        }
+
+        Log("未找到 AppIcon.ico");
+        return IntPtr.Zero;
+    }
+
     private void ShowContextMenu()
     {
         var hMenu = NativeMethods.CreatePopupMenu();
@@ -117,7 +155,7 @@ public sealed class TrayIcon : IDisposable
         }
     }
 
-    private static void Log(string msg) => Logger.Log($"[MemeManager.Tray] {msg}");
+    private static void Log(string msg) => Logger.Log($"[TrayIcon] {msg}");
 
     private static IntPtr LoadIconFromFile(string path)
     {
