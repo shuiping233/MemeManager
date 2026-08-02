@@ -10,7 +10,7 @@ using System.Diagnostics;
 
 namespace MemeManager.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel(MemeDataEngine engine, SearchService search, ClipboardService clipboard, CategoryService categories) : ObservableObject
 {
     // 刷新请求：MainPage 订阅并执行业务逻辑（RefreshDataAsync），VM 只负责暴露 Command 入口。
     // 这样 Phase 2 只迁入口、不搬业务（业务拆 Service 留到 Phase 3）。
@@ -69,19 +69,6 @@ public partial class MainViewModel : ObservableObject
         NewCategoryRequested?.Invoke();
     }
 
-    // 分类页业务（2.7）：直接注入 MemeDataEngine 单例（过渡方案，后续统一改构造器注入）。
-    // 仅做业务判断 + 调 DataEngine + 维护 CategoryList 集合；弹窗类 UI 行为通过下方事件请求 Page 层。
-    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
-
-    // 搜索/列表查询服务（Phase 3.1）：承接"按分类 + 关键词查询表情"的查询语义。
-    private readonly SearchService _search = App.GetService<SearchService>();
-
-    // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
-    private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
-
-    // 分类管理服务（Phase 3.5）：承接分类增删改 + 计数计算，统一走 DataEngine。
-    private readonly CategoryService _categories = App.GetService<CategoryService>();
-
     // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
     public event Action? CategoriesChangedRequested;
 
@@ -98,7 +85,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenCategoryFolder(CategoryViewModel cat)
     {
-        var dir = System.IO.Path.Combine(_engine.BaseDir, cat.Name);
+        var dir = Path.Combine(engine.BaseDir, cat.Name);
         Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
     }
 
@@ -109,7 +96,7 @@ public partial class MainViewModel : ObservableObject
         if (ConfirmDeleteCategoryRequested == null || !await ConfirmDeleteCategoryRequested(cat))
             return;
 
-        bool ok = await _categories.DeleteCategoryAsync(cat.Name);
+        bool ok = await categories.DeleteCategoryAsync(cat.Name);
         if (!ok) return;
 
         for (int i = CategoryList.Count - 1; i >= 0; i--)
@@ -139,7 +126,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        bool ok = await _categories.RenameCategoryAsync(cat.Name, newName);
+        bool ok = await categories.RenameCategoryAsync(cat.Name, newName);
         if (!ok)
         {
             RenameCategoryFailedRequested?.Invoke(cat);
@@ -163,7 +150,7 @@ public partial class MainViewModel : ObservableObject
     // 复制图片到剪贴板（纯调用 ClipboardService）
     [RelayCommand]
     private async Task CopyMemeAsync(MemeViewModel vm)
-        => await _clipboard.CopyImageToClipboardAsync(vm.Model.LocalPath);
+        => await clipboard.CopyImageToClipboardAsync(vm.Model.LocalPath);
 
     // 用系统默认程序打开图片（纯进程启动）
     [RelayCommand]
@@ -201,7 +188,7 @@ public partial class MainViewModel : ObservableObject
         if (PromptRenameMemeRequested == null) return;
         var input = await PromptRenameMemeRequested(vm);
         if (string.IsNullOrWhiteSpace(input)) return;
-        await _engine.RenameMemeAsync(vm.Model, input);
+        await engine.RenameMemeAsync(vm.Model, input);
         vm.Title = input;
     }
 
@@ -304,12 +291,8 @@ public partial class MainViewModel : ObservableObject
     // 多选模式：Shift 连续选择的锚点（在 _memeList 中的索引）
     public int LastShiftAnchor { get; set; } = -1;
 
-    public MainViewModel()
-    {
-    }
-
     // 搜索/列表查询：把"按分类 + 关键词查表情"的查询语义交给 SearchService，
     // 避免 Page 直接调 DataEngine。keyword 为空/空白时引擎不做过滤。
     public IReadOnlyList<MemeModel> QueryMemes(string? category, string? keyword)
-        => _search.Query(category, keyword);
+        => search.Query(category, keyword);
 }
