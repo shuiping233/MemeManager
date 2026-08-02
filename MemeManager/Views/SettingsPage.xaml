@@ -20,12 +20,14 @@
         <TextBlock Grid.Row="0" l:Uids.Uid="Settings_Title" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
         <StackPanel Grid.Row="1" Spacing="16" MaxWidth="400">
-            <Button x:Name="OpenConfigFolderButton" l:Uids.Uid="Settings_OpenConfigFolder"
-                    HorizontalAlignment="Left" Command="{x:Bind ViewModel.OpenConfigFolderCommand}"/>
-
             <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="OpenConfigFolderButton" l:Uids.Uid="Settings_OpenConfigFolder"
+                        HorizontalAlignment="Left" Command="{x:Bind ViewModel.OpenConfigFolderCommand}"/>
                 <Button x:Name="OpenLogFolderButton" l:Uids.Uid="Settings_OpenLogFolder"
                         Command="{x:Bind ViewModel.OpenLogFolderCommand}"/>
+            </StackPanel>
+            
+            <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Name="FeedbackButton" l:Uids.Uid="Settings_Feedback"
                         Command="{x:Bind ViewModel.FeedbackCommand}"/>
                 <Button x:Name="AboutButton" l:Uids.Uid="Settings_About"
