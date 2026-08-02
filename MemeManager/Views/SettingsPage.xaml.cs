@@ -8,6 +8,7 @@ using MemeManager.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage.Pickers;
 using System.Diagnostics;
+using MemeManager.Services;
 
 namespace MemeManager.Views;
 
@@ -17,7 +18,9 @@ public sealed partial class SettingsPage : Page
         App.GetService<MemeDataEngine>();
 
     // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
-    public System.Collections.Generic.IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = new System.Collections.Generic.List<LangHelper.LanguageOption>();
+    public IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = [];
+
+    private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
     public SettingsViewModel ViewModel => (SettingsViewModel)DataContext;
 
@@ -46,7 +49,7 @@ public sealed partial class SettingsPage : Page
 
         LocalizeStaticStrings();
 
-        var cfg = _engine.Config;
+        var cfg = ConfigService.Config;
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
@@ -92,7 +95,7 @@ public sealed partial class SettingsPage : Page
     {
         // 即选即预览：立刻切换主题，无需点“完成”
         var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
-        _engine.Config.Theme = theme;
+        ConfigService.Config.Theme = theme;
         App.ApplyTheme();
     }
 
@@ -109,12 +112,13 @@ public sealed partial class SettingsPage : Page
 
         // 真正切换语言（库支持运行时切换，无需重启）；统一走 LangHelper（已写入配置）。
         LangHelper.SetLanguage(code);
+        ConfigService.Config.Language = code;
 
         // 切换语言后，下拉项自身的显示名需重新取 resw 文案刷新（原地更新，避免重设
         // ItemsSource 触发 ComboBox 重新选择并递归触发 SelectionChanged）。
         LangHelper.RefreshLanguageOptions(LanguageItems);
 
-        await _engine.SaveConfigAsync();
+        await ConfigService.SaveConfigAsync();
 
         UpdateLanguageStatus();
     }
@@ -249,7 +253,7 @@ public sealed partial class SettingsPage : Page
     private void CancelRecord_Click(object sender, RoutedEventArgs e)
     {
         StopRecording();
-        var cfg = _engine.Config;
+        var cfg = ConfigService.Config;
         HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
     }
 
@@ -365,7 +369,7 @@ public sealed partial class SettingsPage : Page
             pathChanged = true;
         }
 
-        var prev = _engine.Config;
+        var prev = ConfigService.Config;
         double prevW = prev.PreviewMaxWidth, prevH = prev.PreviewMaxHeight;
         int prevDelay = prev.PreviewDelayMs;
 

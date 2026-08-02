@@ -39,7 +39,7 @@ public class MemeDataEngine(ConfigService _config)
 
     public string BaseDir => _baseDir;
 
-    public AppConfig Config { get => _config.Config; set => _config.Config = value; }
+    private AppConfig Config { get => _config.Config; set => _config.Config = value; }
 
     // 解析实际数据目录：确保绝对且绝不落在应用自身目录内（防止把数据/分类写到 exe 目录下
     // 导致无写权限崩溃，如 D:\MemeManager\Default 被拒）。空/非法/等于应用目录时回退到默认路径。
@@ -108,7 +108,7 @@ public class MemeDataEngine(ConfigService _config)
     // 与既有调用方（MainWindow/SettingsPage 等经 _engine.SaveConfigAsync）无感衔接。
     private void LoadConfig() => _config.LoadConfig();
 
-    public Task SaveConfigAsync() => _config.SaveConfigAsync();
+    private async Task SaveConfigAsync() => await _config.SaveConfigAsync();
 
     // 打补丁配置并持久化（委托 ConfigService），随后处理数据目录解析与（必要时）元数据重载——
     // 这部分属于引擎职责（数据目录归属），不归入 ConfigService。

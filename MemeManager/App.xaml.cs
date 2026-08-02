@@ -137,7 +137,7 @@ public partial class App : Application
 
         // 配置读取完毕后立即应用语言：首次启动跟随系统，否则用配置值。
         // 必须在创建主窗口前完成，使主窗口一出来就是正确文案。
-        LangHelper.ApplyConfiguredLanguage();
+        LangHelper.SetLanguage(ConfigService.Config.Language);
 
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
         if (DataEngine.GetCategories().Count == 0)
@@ -220,7 +220,7 @@ public partial class App : Application
     public static void ApplyTheme()
     {
         if (MainWindow is null) return;
-        var theme = DataEngine.Config.Theme;
+        var theme = ConfigService.Config.Theme;
         ElementTheme applied = theme switch
         {
             ThemeMode.Light => ElementTheme.Light,

@@ -1,9 +1,10 @@
-﻿using System;
+﻿using MemeManager.Models;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using MemeManager.Models;
+using Windows.Globalization;
 
 namespace MemeManager.Infrastructure;
 
@@ -140,7 +141,7 @@ public static class LangHelper
     }
 
     // 下拉索引 -> 语言代码。0(跟随系统) 返回空字符串，表示“使用系统语言”。
-    public static string? LangCodeFromIndex(int idx, System.Collections.Generic.IList<LanguageOption> options)
+    public static string? LangCodeFromIndex(int idx, IList<LanguageOption> options)
     {
         if (idx < 0 || idx >= options.Count)
             return SystemLanguage;
@@ -149,7 +150,7 @@ public static class LangHelper
     }
 
     // 语言代码(含 null/空=跟随系统) -> 下拉索引。
-    public static int IndexFromLangCode(string? code, System.Collections.Generic.IList<LanguageOption> options)
+    public static int IndexFromLangCode(string? code, IList<LanguageOption> options)
     {
         if (string.IsNullOrWhiteSpace(code))
             return 0; // 首项固定为“跟随系统”
@@ -161,14 +162,6 @@ public static class LangHelper
         return 0;
     }
 
-    // 应用“配置中的语言”：首次启动(配置为 null)跟随系统，否则用配置值。
-    // 在 App 启动、配置读取完毕后立即调用，使主窗口一出来就是正确文案。
-    public static void ApplyConfiguredLanguage()
-    {
-        var effective = ResolveEffectiveLanguage(App.DataEngine.Config.Language);
-        SetLanguage(effective);
-    }
-
     // 运行时切换语言：写入配置并立即生效（库支持不重启切换）。
     // 传 null/空/"system" 均表示“跟随系统”，统一持久化为 "system"。
     public static void SetLanguage(string? code)
@@ -177,10 +170,6 @@ public static class LangHelper
         {
             var effective = ResolveEffectiveLanguage(code);
             Localization.Instance?.SetLanguage(effective);
-            // 持久化：跟随系统写作 "system"，避免配置里出现易误解的 null。
-            App.DataEngine.Config.Language = string.IsNullOrWhiteSpace(code) || code!.Equals(SystemLanguage, StringComparison.OrdinalIgnoreCase)
-                ? SystemLanguage
-                : code;
         }
         catch (Exception ex)
         {

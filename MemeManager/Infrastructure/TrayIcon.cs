@@ -1,7 +1,8 @@
-﻿using System;
+﻿using MemeManager.Services;
+using MemeManager.Views;
+using System;
 using System.Runtime.InteropServices;
 using System.Text;
-using MemeManager.Views;
 
 namespace MemeManager.Infrastructure;
 
@@ -29,6 +30,10 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? ToggleMode;
     public event EventHandler? OpenSettings;
     public event EventHandler? ExitApplication;
+
+    private static ConfigService ConfigService => App.GetService<ConfigService>();
+    private static bool AllowMiniMode => ConfigService.Config.AllowMiniMode; 
+
 
     public TrayIcon(IntPtr ownerHwnd, MemeDataEngine engine)
     {
@@ -131,7 +136,7 @@ public sealed class TrayIcon : IDisposable
         NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_SHOW, Localization.Get("Tray_Show"));
 
         // Mini 模式被配置禁用时，“切换窗口模式”菜单项置灰且不可选。
-        bool allowMini = _engine.Config.AllowMiniMode;
+        bool allowMini = AllowMiniMode;
         if (allowMini)
             NativeMethods.AppendMenu(hMenu, MF_STRING, CMD_TOGGLE_MODE, Localization.Get("Tray_ToggleMode"));
         else

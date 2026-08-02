@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using MemeManager.Models;
@@ -84,14 +84,14 @@ public sealed class ReuseStrategy : IMemeListStrategy
         if (list is not IList<MemeViewModel> l)
         {
             list.Clear();
-            foreach (var m in memeArr) list.Add(new MemeViewModel(m, _engine));
+            foreach (var m in memeArr) list.Add(new MemeViewModel(m));
             return;
         }
 
         int oldCount = l.Count;
         if (oldCount == 0)
         {
-            foreach (var m in memeArr) l.Add(new MemeViewModel(m, _engine));
+            foreach (var m in memeArr) l.Add(new MemeViewModel(m));
             return;
         }
 
@@ -104,7 +104,7 @@ public sealed class ReuseStrategy : IMemeListStrategy
 
         if (newCount > oldCount)
         {
-            for (int i = oldCount; i < newCount; i++) l.Add(new MemeViewModel(memeArr[i], _engine));
+            for (int i = oldCount; i < newCount; i++) l.Add(new MemeViewModel(memeArr[i]));
         }
         else if (newCount < oldCount)
         {

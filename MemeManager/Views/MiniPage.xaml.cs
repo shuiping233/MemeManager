@@ -22,6 +22,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     // Picker 打开时才按需加载的缩略图列表（避免后台常驻解码）。
     private List<MemeViewModel> _pickerMemes = [];
 
+    private readonly ConfigService ConfigService = App.GetService<ConfigService>();
+
     // Mini 模式当前选中的分类；空串 / AllMemesCategory 表示“全部表情”视图。
     private string _currentCategory = AppConstants.AllMemesCategory;
 
@@ -100,7 +102,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             items.Add(new ViewModels.CategoryViewModel(c, _engine.GetMemes(c).Count));
         CategoryCombo.ItemsSource = items;
 
-        var last = _engine.Config.LastCategory;
+        var last = ConfigService.Config.LastCategory;
         if (string.IsNullOrEmpty(last))
         {
             // 上次停留在“全部表情”：选中头部虚拟项。
@@ -155,7 +157,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     {
         // 全部表情视图：GetMemes(null) 返回所有分类（复用引擎既有语义，不过滤）。
         var models = _engine.GetMemes(IsAllMemesView ? null : _currentCategory).ToList();
-        _pickerMemes = models.Select(m => new MemeViewModel(m, _engine)).ToList();
+        _pickerMemes = models.Select(m => new MemeViewModel(m)).ToList();
         PickerRepeater.ItemsSource = _pickerMemes;
 
         PickerEmptyHint.Visibility = _pickerMemes.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -186,7 +188,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             return;
 
         // 复用 ImageDragHelper：装 StorageItems + 单张非 GIF 的 Bitmap 兜底，GIF 仅文件拖出。
-        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, _engine.Config.StorageFileDrag);
+        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, ConfigService.Config.StorageFileDrag);
         Logger.Log($"[Mini] 拖出 1 张图片 ({Path.GetFileName(vm.LocalPath)})");
     }
 

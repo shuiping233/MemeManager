@@ -40,6 +40,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 分类管理服务（Phase 3.5）：承接分类增删改 + 计数计算。
     private readonly CategoryService _categories = App.GetService<CategoryService>();
 
+    private readonly ConfigService ConfigService = App.GetService<ConfigService>();
+
     // 列表构建/维护策略：复用(ReuseStrategy) 或 重建(RebuildStrategy)。
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
@@ -77,7 +79,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         try
         {
-            var cfg = _engine.Config;
+            var cfg = ConfigService.Config;
             int ms = cfg?.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400;
             _previewTimer.Interval = TimeSpan.FromMilliseconds(ms);
         }
@@ -189,26 +191,24 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
         ViewModel.ConfirmDeleteCategoryRequested = async cat =>
         {
-            var result = await DialogHelper.ConfirmDeleteCategoryAsync(this.XamlRoot, cat.Name);
+            var result = await DialogHelper.ConfirmDeleteCategoryAsync(XamlRoot, cat.Name);
             return result == ContentDialogResult.Primary;
         };
         // 2.7：重命名分类输入弹窗
         ViewModel.PromptRenameCategoryRequested = cat
-            => DialogHelper.PromptRenameCategoryAsync(this.XamlRoot, cat.Name);
+            => DialogHelper.PromptRenameCategoryAsync(XamlRoot, cat.Name);
         // 2.7：重命名分类失败提示
         ViewModel.RenameCategoryFailedRequested = cat
-            => DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, cat.Name);
+            => DialogHelper.ShowCategoryExistsAsync(XamlRoot, cat.Name);
 
         // 2.8：表情项级命令（VM 只发请求，弹窗/批量写/选中项等依赖 Page 状态的逻辑留本页）
         ViewModel.EnterEditModeAndSelectRequested = vm => EnterEditModeAndSelect(vm);
         ViewModel.PromptRenameMemeRequested = vm
-            => DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
+            => DialogHelper.PromptRenameMemeAsync(XamlRoot, vm.Title);
         ViewModel.DeleteMemeRequested = vm => _ = DeleteMemeCoreAsync(vm);
-#pragma warning disable CS4014 // 委托赋值为 fire-and-forget，刻意不等待
         ViewModel.BatchImportRequested = async () => await BatchImportCoreAsync();
         ViewModel.BatchExportRequested = async () => await BatchExportCoreAsync();
         ViewModel.BatchDeleteRequested = async () => await DeleteSelectedMemesAsync();
-#pragma warning restore CS4014
         // 2.9：单击表情项转发到 VM 命令；隐藏预览浮窗、发送到外部窗口等 UI 行为留本页
         ViewModel.HidePreviewRequested = () => HidePreviewPopup(reason: "Tapped");
         ViewModel.PasteToExternalRequested = async vm =>
@@ -241,7 +241,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 复用模式切换会打日志，便于观察内存/行为变化。
     public void ApplyListStrategyFromConfig()
     {
-        bool reuse = _engine.Config.UseControlReuse;
+        bool reuse = ConfigService.Config.UseControlReuse;
         var prev = _listStrategy;
         _listStrategy = CreateStrategy(reuse);
         if (prev != null)
@@ -272,7 +272,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
         // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
         // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
-        var last = _engine.Config.LastCategory;
+        var last = ConfigService.Config.LastCategory;
         if (string.IsNullOrEmpty(last))
         {
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
@@ -484,7 +484,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         foreach (var vm in ViewModel.MemeList)
             vm.ClearImages();
 
-        if (_engine.Config.UseControlReuse)
+        if (ConfigService.Config.UseControlReuse)
         {
             Log($"[内存诊断] 隐藏释放(复用模式): ViewModel.MemeList={ViewModel.MemeList.Count} ViewModel.CategoryList={ViewModel.CategoryList.Count} " +
                 $"VM存活BitmapImage={MemeViewModel.LiveBitmapImageCount} " +
@@ -879,7 +879,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 多选模式由配置决定：
         //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
         //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
-        bool explorerStyle = _engine.Config.ExplorerStyleMultiSelect;
+        bool explorerStyle = ConfigService.Config.ExplorerStyleMultiSelect;
         MemeGridView.SelectionMode = explorerStyle
             ? ListViewSelectionMode.Extended
             : ListViewSelectionMode.Multiple;
@@ -921,7 +921,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             var box = FindCheckBox(args.ItemContainer);
             if (box != null)
-                box.Visibility = _engine.Config.ExplorerStyleMultiSelect
+                box.Visibility = ConfigService.Config.ExplorerStyleMultiSelect
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }
@@ -1026,7 +1026,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 Log("DragItemsStarting: 无可拖出文件（本地路径不存在），跳过设置拖出格式");
             }
-            else if (_engine.Config.StorageFileDrag)
+            else if (ConfigService.Config.StorageFileDrag)
             {
                 // 复用 ImageDragHelper：注册 StorageItems（延迟提供）+ 单张非 GIF 的 Bitmap 兜底。
                 // GIF 仅作文件拖出（Bitmap 只静态图，塞 GIF 会变第一帧），保持动图。
@@ -1477,7 +1477,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 切换到 Mini 模式（仅当配置允许时，按钮本身也会隐藏）
     private void SwitchToMiniMode()
     {
-        if (!_engine.Config.AllowMiniMode)
+        if (!ConfigService.Config.AllowMiniMode)
             return;
         App.MainWindow.SwitchMode(AppMode.Mini);
     }
@@ -1486,7 +1486,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     public void ApplyMiniModeVisibilityFromConfig()
     {
         if (MiniModeButton != null)
-            MiniModeButton.Visibility = _engine.Config.AllowMiniMode
+            MiniModeButton.Visibility = ConfigService.Config.AllowMiniMode
                 ? Visibility.Visible : Visibility.Collapsed;
     }
 

@@ -1,7 +1,4 @@
-using System.Collections.Generic;
-using System.Linq;
-using MemeManager.Models;
-using MemeManager.ViewModels;
+﻿using MemeManager.ViewModels;
 
 namespace MemeManager.Models;
 

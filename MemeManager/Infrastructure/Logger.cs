@@ -1,6 +1,4 @@
-using System;
-using System.IO;
-using System.Threading;
+﻿using MemeManager.Services;
 
 namespace MemeManager.Infrastructure;
 
@@ -13,14 +11,16 @@ public static class Logger
     private static readonly object _lock = new();
     private const long MaxFileBytes = 5 * 1024 * 1024; // 单文件上限 5MB
 
+    private static ConfigService ConfigService => App.GetService<ConfigService>();
+    private static bool SaveLogEnabled => ConfigService.Config?.SaveLogFile ?? false;
+
     public static void Log(string message)
     {
         System.Diagnostics.Debug.WriteLine(message);
 
         try
         {
-            var cfg = App.DataEngine?.Config;
-            if (cfg is null || !cfg.SaveLogFile)
+            if (!SaveLogEnabled)
                 return;
 
             var baseDir = App.DataEngine?.BaseDir;

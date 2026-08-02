@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using MemeManager.Models;
-using MemeManager.ViewModels;
+﻿using MemeManager.ViewModels;
 using MemeManager.Infrastructure;
 
 namespace MemeManager.Models;
@@ -33,7 +29,7 @@ public sealed class RebuildStrategy : IMemeListStrategy
     {
         list.Clear();
         foreach (var m in memes)
-            list.Add(new MemeViewModel(m, _engine));
+            list.Add(new MemeViewModel(m));
     }
 
     public List<string>? ComputeDragOrder(IList<MemeViewModel> list, IEnumerable<MemeModel> draggingGroup, string? anchorFileName)

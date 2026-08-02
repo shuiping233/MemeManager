@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using WinRT.Interop;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
+using MemeManager.Services;
 
 namespace MemeManager.Views;
 
@@ -15,6 +16,8 @@ public sealed partial class MainWindow : Window
 {
     private readonly IntPtr _hWnd;
     private readonly MemeDataEngine _engine;
+    private readonly ConfigService ConfigService = App.GetService<ConfigService>();
+
     private Microsoft.UI.Windowing.AppWindow? _appWindow;
     private bool _isVisible = true;
     private const int HOTKEY_ID = 9001;
@@ -101,7 +104,7 @@ public sealed partial class MainWindow : Window
         // 启动默认置顶：始终加 TOPMOST 扩展样式（用户可在会话内手动关闭）
         NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
-        HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, _engine.Config.HotKeyModifiers, _engine.Config.HotKeyVk);
+        HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, ConfigService.Config.HotKeyModifiers, ConfigService.Config.HotKeyVk);
 
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
@@ -174,8 +177,8 @@ public sealed partial class MainWindow : Window
     public void InitializeMode()
     {
         // 若 config 关闭了 Mini 模式，则不恢复 Mini（强制 Full）。
-        var mode = _engine.Config.AllowMiniMode
-            ? _engine.Config.LastAppMode
+        var mode = ConfigService.Config.AllowMiniMode
+            ? ConfigService.Config.LastAppMode
             : AppMode.Full;
         SwitchMode(mode, persist: false);
     }
@@ -183,7 +186,7 @@ public sealed partial class MainWindow : Window
     public void SwitchMode(AppMode mode, bool persist = true)
     {
         // 配置不允许 Mini 模式时，任何进入 Mini 的请求都强制转为 Full。
-        if (mode == AppMode.Mini && !_engine.Config.AllowMiniMode)
+        if (mode == AppMode.Mini && !ConfigService.Config.AllowMiniMode)
             mode = AppMode.Full;
 
         if (RootFrame.Content != null && _currentMode == mode) return;
@@ -312,7 +315,7 @@ public sealed partial class MainWindow : Window
     private void RestoreWindowSize()
     {
         if (_appWindow == null) return;
-        var cfg = _engine.Config;
+        var cfg = ConfigService.Config;
 
         int w = (int)Math.Max(400, cfg.WindowWidth);
         int h = (int)Math.Max(300, cfg.WindowHeight);
@@ -331,7 +334,7 @@ public sealed partial class MainWindow : Window
             Log("[窗口] 当前为 Mini 模式，跳过尺寸记录");
             return;
         }
-        var cfg = _engine.Config;
+        var cfg = ConfigService.Config;
 
         bool maximized = _appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
         if (maximized)
@@ -347,7 +350,7 @@ public sealed partial class MainWindow : Window
         cfg.WindowSizePreset = Utils.ClassifySize(bounds.Width, bounds.Height);
         Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height} (预设={cfg.WindowSizePreset})");
 
-        _ = _engine.SaveConfigAsync();
+        _ = ConfigService.SaveConfigAsync();
     }
 
 
@@ -449,7 +452,7 @@ public sealed partial class MainWindow : Window
     // 若 config 关闭了 Mini 模式，则该菜单项应已禁用，这里再兜底拦截。
     public void ToggleMode()
     {
-        if (!_engine.Config.AllowMiniMode)
+        if (!ConfigService.Config.AllowMiniMode)
             return;
         bool foreground = Visible && NativeMethods.GetForegroundWindow() == _hWnd;
         if (!foreground)
@@ -778,10 +781,10 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void ApplyHotKeyConfig(uint modifiers, ushort vk)
     {
-        _engine.Config.HotKeyModifiers = modifiers;
-        _engine.Config.HotKeyVk = vk;
+        ConfigService.Config.HotKeyModifiers = modifiers;
+        ConfigService.Config.HotKeyVk = vk;
         HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, modifiers, vk);
-        _ = _engine.SaveConfigAsync();
+        _ = ConfigService.SaveConfigAsync();
     }
 
     // ---------- 标题栏主题（简单自定义） ----------
@@ -794,7 +797,7 @@ public sealed partial class MainWindow : Window
         if (_appWindow == null) return;
         try
         {
-            var theme = _engine.Config.Theme;
+            var theme = ConfigService.Config.Theme;
             _appWindow.TitleBar.PreferredTheme = theme switch
             {
                 ThemeMode.Dark => Microsoft.UI.Windowing.TitleBarTheme.Dark,

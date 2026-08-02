@@ -1,10 +1,8 @@
-using System;
-using System.IO;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media.Imaging;
+﻿using Microsoft.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
+using MemeManager.Services;
 
 namespace MemeManager.ViewModels
 {
@@ -72,7 +70,7 @@ namespace MemeManager.ViewModels
                 {
                     _previewSource = new BitmapImage();
                     LiveBitmapImageCount++;
-                    var max = GetPreviewMaxSize();
+                    var max = GetPreviewMaxSize(ConfigService.Config.PreviewMaxWidth, ConfigService.Config.PreviewMaxHeight);
                     var (w, h) = Utils.FitWithin(
                         GetNativePixelSize().width, GetNativePixelSize().height,
                         max.width, max.height);
@@ -92,20 +90,16 @@ namespace MemeManager.ViewModels
         }
 
         // 预览图最大分辨率：优先取配置，配置缺失时回退到 Utils 默认常量。
-        private (double width, double height) GetPreviewMaxSize()
+        private (double width, double height) GetPreviewMaxSize(double maxWidth = 0, double maxHeight = 0)
         {
             double w = Utils.PreviewMaxWidth;
             double h = Utils.PreviewMaxHeight;
-            try
+
+            if (maxWidth > 0 && maxHeight > 0)
             {
-                var cfg = _engine.Config;
-                if (cfg != null && cfg.PreviewMaxWidth > 0 && cfg.PreviewMaxHeight > 0)
-                {
-                    w = cfg.PreviewMaxWidth;
-                    h = cfg.PreviewMaxHeight;
-                }
+                w = maxWidth;
+                h = maxHeight;
             }
-            catch { }
             return (w, h);
         }
 
@@ -133,19 +127,18 @@ namespace MemeManager.ViewModels
         public (double width, double height) GetPreviewOutputSize()
         {
             var (nw, nh) = GetPreviewNaturalSize();
-            var max = GetPreviewMaxSize();
+            var max = GetPreviewMaxSize(ConfigService.Config.PreviewMaxWidth, ConfigService.Config.PreviewMaxHeight);
             var (w, h) = Utils.FitWithin(nw, nh, max.width, max.height);
             if (w >= nw && h >= nh) return (nw, nh);
             return (Math.Round(w), Math.Round(h));
         }
 
-        private readonly MemeDataEngine _engine;
+        private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
-        public MemeViewModel(MemeModel model, MemeDataEngine engine)
+        public MemeViewModel(MemeModel model)
         {
             _model = model;
             Title = model.Title;
-            _engine = engine;
         }
 
         // 多选模式(Extended)下的选中镜像：仅作视觉指示（右上角复选框），
