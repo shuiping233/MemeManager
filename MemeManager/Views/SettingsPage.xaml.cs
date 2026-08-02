@@ -336,9 +336,9 @@ public sealed partial class SettingsPage : Page
         }
 
         // 目录不存在：弹窗提示并回退到进入设置前保存的有效路径
-        await DialogHelper.ShowPathNotFoundAsync(this.XamlRoot, text);
+        await DialogHelper.ShowPathNotFoundAsync(XamlRoot, text);
 
-        var fallback = _originalStoragePath ?? MemeDataEngine.DefaultStoragePath();
+        var fallback = _originalStoragePath ?? Utils.DefaultDataStoragePath();
         _revertingPath = true;
         StoragePathBox.Text = fallback;
         _revertingPath = false;

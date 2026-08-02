@@ -150,6 +150,16 @@ public static class Utils
             _ => WindowSizePreset.Medium
         };
     }
+
+    public static string DefaultDataStoragePath()
+    {
+        // 优先用“图片”库；若其为空/未配置（某些精简系统或域环境会返回空串），
+        // 回退到 LocalApplicationData，避免拼接出相对路径或应用自身目录。
+        var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        if (string.IsNullOrWhiteSpace(pictures) || !Path.IsPathRooted(pictures))
+            pictures = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(pictures, AppConstants.DefaultDataFolderName);
+    }
 }
 
 /// <summary>Popup 相对锚点的摆放方向。</summary>

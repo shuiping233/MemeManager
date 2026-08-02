@@ -1,13 +1,10 @@
 ﻿using Microsoft.UI.Xaml;
 using MemeManager.Models;
-using Microsoft.UI.Xaml.Controls;
 using MemeManager.Infrastructure;
 using MemeManager.Views;
 using MemeManager.ViewModels;
 using MemeManager.Services;
 using WinRT.Interop;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MemeManager;
@@ -61,7 +58,7 @@ public partial class App : Application
     {
         try
         {
-            var baseDir = MemeDataEngine.DefaultStoragePath();
+            var baseDir = Utils.DefaultDataStoragePath();
             var logDir = Path.Combine(baseDir, "log");
             Directory.CreateDirectory(logDir);
             var crashPath = Path.Combine(logDir, "crash.log");
@@ -117,8 +114,7 @@ public partial class App : Application
             if (hwnd != IntPtr.Zero)
             {
                 // PID 校验：避免 HWND 被系统复用给无关窗口时误唤醒
-                uint ownerPid;
-                NativeMethods.GetWindowThreadProcessId(hwnd, out ownerPid);
+                _ = NativeMethods.GetWindowThreadProcessId(hwnd, out uint ownerPid);
                 if (ownerPid == pid && NativeMethods.IsWindow(hwnd))
                 {
                     uint showMsg = NativeMethods.RegisterWindowMessageW(ShowExistingMsgTag);
@@ -145,7 +141,7 @@ public partial class App : Application
         // 若没有任何分类，则初始化一个默认分类，避免界面空荡
         if (DataEngine.GetCategories().Count == 0)
         {
-            await DataEngine.AddCategoryAsync(MemeDataEngine.DefaultCategory);
+            await DataEngine.AddCategoryAsync(AppConstants.DefaultCategory);
         }
 
         _window = new MainWindow(Services.GetRequiredService<MemeDataEngine>());
@@ -186,7 +182,7 @@ public partial class App : Application
 
     private static IntPtr WindowNativeHwnd()
     {
-        return WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
+        return WindowNative.GetWindowHandle(MainWindow);
     }
 
     // 实例锁文件：记录当前运行实例的主窗口 HWND 与 PID，供重复启动的新实例精准呼出旧窗口。

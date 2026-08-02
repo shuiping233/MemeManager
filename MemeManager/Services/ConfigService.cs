@@ -15,15 +15,7 @@ namespace MemeManager.Services;
 // 数据目录（_baseDir）的解析与元数据重载仍属 MemeDataEngine 职责，不在本类。
 public class ConfigService
 {
-    // 写盘 JSON：缩进可读 + 中文不转义（与引擎原配置序列化选项一致）
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        IndentCharacter = ' ',
-        IndentSize = 4,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        Converters = { new JsonStringEnumConverter() }
-    };
+    private static JsonSerializerOptions JsonOptions => AppConstants.JsonOptions;
 
     public AppConfig Config { get; set; } = new();
 
@@ -54,7 +46,7 @@ public class ConfigService
         }
 
         if (string.IsNullOrWhiteSpace(Config.StoragePath))
-            Config.StoragePath = MemeDataEngine.DefaultStoragePath();
+            Config.StoragePath = Utils.DefaultDataStoragePath();
     }
 
     // 保存配置到磁盘（容错：失败仅记日志）。

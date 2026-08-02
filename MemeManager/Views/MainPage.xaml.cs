@@ -52,7 +52,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 全部表情视图没有具体归属分类，落入“未分类”兜底分类（不存在则创建）；
     // 普通分类视图则按当前分类导入。
     private string ImportTargetCategory =>
-        IsAllMemesView ? MemeDataEngine.UncategorizedCategory : ViewModel.CurrentCategory;
+        IsAllMemesView ? AppConstants.UncategorizedCategory : ViewModel.CurrentCategory;
 
     // 拖拽重排锚点：本次拖起的那一张（e.Items[0]）的文件名。
     // 仅复用策略(ReuseStrategy.ComputeDragOrder)使用，用于把“拖起项”对齐到

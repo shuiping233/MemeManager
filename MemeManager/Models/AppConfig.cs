@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace MemeManager.Models;
+﻿namespace MemeManager.Models;
 
 public enum ThemeMode
 {

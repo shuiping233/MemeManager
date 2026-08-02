@@ -1,4 +1,8 @@
-﻿namespace MemeManager.Infrastructure;
+﻿using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace MemeManager.Infrastructure;
 
 public static class AppConstants
 {
@@ -19,5 +23,28 @@ public static class AppConstants
     public static string WindowTitle => $"{AppName} {Utils.GetInformationalVersion()}";
 
     public const string AllMemesCategory = "AllMemes";
+
+    // 默认分类名（UI 初次启动、无任何分类时创建）。统一在此定义，避免 "Default" 字面量散落。
+    public const string DefaultCategory = "Default";
+
+    // 默认数据目录名（位于“图片”库或 LocalApplicationData 下）。统一在此定义，避免 "MeMeManagerData" 字面量散落。
+    public const string DefaultDataFolderName = "MeMeManagerData";
+
+    // 分类元数据文件名（每个分类目录下的 .metadata.json）
+    public const string MetadataFileName = ".metadata.json";
+
+    // 分类名为空/非法时的兜底分类名（走 i18n），公开供 UI 层在“全部表情”视图下
+    // 将外部拖入的图片归入此分类（而非误用视图标记值）。
+    public static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
+
+    // 写盘 JSON：缩进可读 + 中文不转义（与引擎原配置序列化选项一致）
+    public static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        IndentCharacter = ' ',
+        IndentSize = 4,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter() }
+    };
 }
 

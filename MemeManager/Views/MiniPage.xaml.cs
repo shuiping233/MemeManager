@@ -31,7 +31,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     // 拖入/导入时的目标分类：全部表情视图落入“未分类”，否则按当前分类（复用 Full 规则）。
     private string ImportTargetCategory =>
-        IsAllMemesView ? MemeDataEngine.UncategorizedCategory : _currentCategory;
+        IsAllMemesView ? AppConstants.UncategorizedCategory : _currentCategory;
 
     // 用于取消上一次“提示文字自动恢复”的定时任务，避免多条消息互相抢占。
     private System.Threading.CancellationTokenSource? _hintRestoreCts;

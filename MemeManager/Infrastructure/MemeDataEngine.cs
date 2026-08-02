@@ -1,49 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 using MemeManager.Models;
 using MemeManager.Services;
 using MemeManager.Views;
 
 namespace MemeManager.Infrastructure;
 
-public class MemeDataEngine
+public class MemeDataEngine(ConfigService _config)
 {
-    // 默认分类名（UI 初次启动、无任何分类时创建）。统一在此定义，避免 "Default" 字面量散落。
-    public const string DefaultCategory = "Default";
-
-    // 默认数据目录名（位于“图片”库或 LocalApplicationData 下）。统一在此定义，避免 "MeMeManagerData" 字面量散落。
-    public const string DefaultDataFolderName = "MeMeManagerData";
-
     // 导入并行度：阶段1（算 hash+去重判定）与阶段2（File.Copy）各自的并发上限。
     // 兼顾 SSD 吞吐与句柄占用，后续调优直接改此处。
     private const int ImportParallelism = 16;
 
-    // 分类元数据文件名（每个分类目录下的 .metadata.json）
-    private const string MetadataFileName = ".metadata.json";
-
-    // 分类名为空/非法时的兜底分类名（走 i18n），公开供 UI 层在“全部表情”视图下
-    // 将外部拖入的图片归入此分类（而非误用视图标记值）。
-    public static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
-
     // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        IndentCharacter = ' ',
-        IndentSize = 4,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        Converters = { new JsonStringEnumConverter() }
-    };
+    private static JsonSerializerOptions JsonOptions => AppConstants.JsonOptions;
 
-    private string _baseDir;
+    private string _baseDir = Utils.DefaultDataStoragePath();
 
     // 写/导入忙标志：保证同一时刻只有一个导入写任务在进行（数据安全）。
     // MainPage 通过自带的 ImageBatchOperationRunner 已有锁；Mini 等没有 runner 的入口
@@ -66,26 +41,7 @@ public class MemeDataEngine
 
     public string BaseDir => _baseDir;
 
-    // 配置交由 ConfigService 持有（Phase 4 拆分）；引擎仅做 pass-through 委托，
-    // 自身不再拥有 AppConfig 对象，也不负责配置文件的读写。
-    private readonly ConfigService _config = App.GetService<ConfigService>();
     public AppConfig Config { get => _config.Config; set => _config.Config = value; }
-
-    public MemeDataEngine()
-    {
-        _baseDir = DefaultStoragePath();
-        Config.StoragePath = _baseDir;
-    }
-
-    public static string DefaultStoragePath()
-    {
-        // 优先用“图片”库；若其为空/未配置（某些精简系统或域环境会返回空串），
-        // 回退到 LocalApplicationData，避免拼接出相对路径或应用自身目录。
-        var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-        if (string.IsNullOrWhiteSpace(pictures) || !Path.IsPathRooted(pictures))
-            pictures = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(pictures, DefaultDataFolderName);
-    }
 
     // 解析实际数据目录：确保绝对且绝不落在应用自身目录内（防止把数据/分类写到 exe 目录下
     // 导致无写权限崩溃，如 D:\MemeManager\Default 被拒）。空/非法/等于应用目录时回退到默认路径。
@@ -105,7 +61,7 @@ public class MemeDataEngine
                 candidate = null;
         }
 
-        return string.IsNullOrWhiteSpace(candidate) ? DefaultStoragePath() : candidate;
+        return string.IsNullOrWhiteSpace(candidate) ? Utils.DefaultDataStoragePath() : candidate;
     }
 
     // 判断给定路径是否落在应用自身目录内（含应用目录本身）。供上层在用户主动设置目录时
@@ -130,6 +86,9 @@ public class MemeDataEngine
     {
         LoadConfig();
 
+        if (string.IsNullOrWhiteSpace(Config.StoragePath))
+            Config.StoragePath = _baseDir;
+
         _baseDir = ResolveBaseDir(Config.StoragePath);
         // 若实际使用的目录与配置中记录的不一致（被回退），同步修正配置以免下次重复踩坑。
         if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
@@ -145,7 +104,7 @@ public class MemeDataEngine
     }
 
     // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
-    private string CategoryOrderPath => Path.Combine(_baseDir, MetadataFileName);
+    private string CategoryOrderPath => Path.Combine(_baseDir, AppConstants.MetadataFileName);
 
     // 配置加载/保存已委托 ConfigService（见本类 _config 字段）；保留同名方法供 InitializeAsync
     // 与既有调用方（MainWindow/SettingsPage 等经 _engine.SaveConfigAsync）无感衔接。
@@ -193,7 +152,7 @@ public class MemeDataEngine
         foreach (var dir in dirs)
         {
             var category = Path.GetFileName(dir);
-            var metaPath = Path.Combine(dir, MetadataFileName);
+            var metaPath = Path.Combine(dir, AppConstants.MetadataFileName);
             CategoryMetadata meta;
             if (File.Exists(metaPath))
             {
@@ -286,7 +245,7 @@ public class MemeDataEngine
             foreach (var dir in Directory.GetDirectories(_baseDir))
             {
                 // 仅将含有 .metadata.json 的文件夹视为有效分类
-                if (File.Exists(Path.Combine(dir, MetadataFileName)))
+                if (File.Exists(Path.Combine(dir, AppConstants.MetadataFileName)))
                     set.Add(Path.GetFileName(dir));
             }
         }
@@ -1047,12 +1006,12 @@ public class MemeDataEngine
     // 同步确保存在 Default 分类（供 UI 线程的 LoadCategories 调用，避免 async 死锁）
     public void EnsureDefaultCategory()
     {
-        var dir = Path.Combine(_baseDir, SanitizeCategory(DefaultCategory));
+        var dir = Path.Combine(_baseDir, SanitizeCategory(AppConstants.DefaultCategory));
         if (Directory.Exists(dir)) return;
         Directory.CreateDirectory(dir);
         try
         {
-            var metaPath = Path.Combine(dir, MetadataFileName);
+            var metaPath = Path.Combine(dir, AppConstants.MetadataFileName);
             if (!File.Exists(metaPath))
                 File.WriteAllTextAsync(metaPath,
                     JsonSerializer.Serialize(new CategoryMetadata(), JsonOptions))
@@ -1107,7 +1066,7 @@ public class MemeDataEngine
 
     private async Task<CategoryMetadata> LoadCategoryMetadataAsync(string categoryDir)
     {
-        var metaPath = Path.Combine(categoryDir, MetadataFileName);
+        var metaPath = Path.Combine(categoryDir, AppConstants.MetadataFileName);
         if (!File.Exists(metaPath)) return new CategoryMetadata();
         try
         {
@@ -1124,7 +1083,7 @@ public class MemeDataEngine
     private async Task SaveCategoryMetadataAsync(string categoryDir, CategoryMetadata meta)
     {
         Directory.CreateDirectory(categoryDir);
-        var metaPath = Path.Combine(categoryDir, MetadataFileName);
+        var metaPath = Path.Combine(categoryDir, AppConstants.MetadataFileName);
         var json = JsonSerializer.Serialize(meta, JsonOptions);
         await File.WriteAllTextAsync(metaPath, json);
     }
@@ -1135,7 +1094,7 @@ public class MemeDataEngine
     {
         var invalid = Path.GetInvalidFileNameChars();
         var cleaned = new string([.. category.Where(c => !invalid.Contains(c))]).Trim();
-        return string.IsNullOrWhiteSpace(cleaned) ? UncategorizedCategory : cleaned;
+        return string.IsNullOrWhiteSpace(cleaned) ? AppConstants.UncategorizedCategory : cleaned;
     }
 
     private static async Task<string> CalculateSha256Async(string filePath)
