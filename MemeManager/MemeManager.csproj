@@ -26,6 +26,8 @@
     <PublishAot>false</PublishAot>
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+
 
     <!-- 保留栈追踪与全球化，确保 WinUI / COM 互操作正常运行 -->
     <InvariantGlobalization>false</InvariantGlobalization>
