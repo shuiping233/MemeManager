@@ -163,25 +163,6 @@ public partial class App : Application
             ((MainWindow)_window).ShowWithoutActivate();
         }
 
-        // 若启动时创建默认数据目录失败（无写权限等），程序已照常启动；
-        // 窗口就绪后用对话框提醒用户去设置里改数据目录（DialogHelper 需 XamlRoot，故放此处）。
-        if (DataEngine.LastDefaultCategoryWriteError != null)
-        {
-            var xamlRoot = ((MainWindow)_window).Content?.XamlRoot;
-            if (xamlRoot != null)
-                await DialogHelper.ShowDefaultDirWriteFailedAsync(
-                    xamlRoot, DataEngine.BaseDir, DataEngine.LastDefaultCategoryWriteError);
-        }
-
-        // 启动时配置的数据目录无效（不存在或非文件夹），已回退默认路径：提醒用户。
-        if (DataEngine.LastBaseDirRevertError != null)
-        {
-            var xamlRoot = ((MainWindow)_window).Content?.XamlRoot;
-            if (xamlRoot != null)
-                await DialogHelper.ShowBaseDirRevertedAsync(
-                    xamlRoot, DataEngine.LastBaseDirRevertError, DataEngine.BaseDir);
-        }
-
         // 系统托盘图标
         _trayIcon = new TrayIcon(WindowNativeHwnd(), Services.GetRequiredService<MemeDataEngine>());
         _trayIcon.ShowMainWindow += (_, _) => MainWindow.ShowAndActivate();

@@ -145,6 +145,10 @@ public sealed partial class MainWindow : Window
 
         Closed += Window_Closed;
 
+        // 窗口内容(RootFrame) Loaded 后 XamlRoot 才就绪，此时弹启动诊断信息（数据目录写入失败 / 无效目录回退），
+        // 避免在 App 启动流里 XamlRoot 为 null 导致弹窗失败。
+        RootFrame.Loaded += MainWindow_Loaded;
+
         // 键盘事件挂在内容根（与重构前 root 一致）：它是 Page 的祖先的祖先，
         // 无论焦点在 GridView 内部多深，按键都会冒泡到此处，转发给当前页面处理
         // （Ctrl+V 导入、Esc/Enter 多选等）。注意不能只挂在 RootFrame 上，
@@ -772,6 +776,22 @@ public sealed partial class MainWindow : Window
             NativeMethods.UnhookWinEvent(_winEventHook);
             _winEventHook = IntPtr.Zero;
         }
+    }
+
+    // RootFrame Loaded 后 XamlRoot 已就绪：弹出启动期数据目录相关诊断信息。
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        RootFrame.Loaded -= MainWindow_Loaded;
+        var xamlRoot = RootFrame.XamlRoot;
+        if (xamlRoot == null) return;
+
+        if (_engine.LastBaseDirRevertError != null)
+            await DialogHelper.ShowBaseDirRevertedAsync(
+                xamlRoot, _engine.LastBaseDirRevertError, _engine.BaseDir);
+
+        if (_engine.LastDefaultCategoryWriteError != null)
+            await DialogHelper.ShowDefaultDirWriteFailedAsync(
+                xamlRoot, _engine.BaseDir, _engine.LastDefaultCategoryWriteError);
     }
 
     // ---------- 全局快捷键 ----------
