@@ -68,7 +68,7 @@ public static class AboutPage
         var depSdk = MakeLink("About_Dep_AppSdk", "https://learn.microsoft.com/windows/apps/windows-app-sdk/");
         var depLoc = MakeLink("About_Dep_Localizer", "https://github.com/AndrewKeepCoding/WinUI3Localizer");
 
-        var panel = new StackPanel { Spacing = 0 };
+        var panel = new StackPanel { Spacing = 0 , MaxWidth = 350 };
         panel.Children.Add(logo);
         panel.Children.Add(desc);
         panel.Children.Add(license);
