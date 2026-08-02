@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -90,7 +90,7 @@ public sealed partial class MainWindow : Window
         _engine = engine;
         InitializeComponent();
 
-        Title = "MemeManager " + GetInformationalVersion();
+        Title = $"{AppName} {GetInformationalVersion()}";
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
