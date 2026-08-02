@@ -73,8 +73,8 @@ public class AppConfig
     // StorageFile 拖拽支持（拖出为文件，恢复动态 GIF 等到 QQ 的能力）：
     // false（默认）：禁用。拖出仅用进程内 Bitmap 流（稳定，但 GIF 拖到 QQ 会变静态图）。
     // true：启用。拖出时写入 StorageFile，支持作为文件拖出（动态 GIF 正常），
-    //       但快速连续拖拽可能触发跨公寓 COM 释放导致程序闪退。
-    public bool StorageFileDrag { get; set; } = false;
+    //       使用异步 SetProvider 方案后, 未见用户反馈拖拽时会闪退崩溃了, 估保持默认开启
+    public bool StorageFileDrag { get; set; } = true;
 }
 
 // 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）

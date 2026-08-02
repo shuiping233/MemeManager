@@ -244,7 +244,7 @@
     <value>When enabled, dragged memes are sent as files, so animated GIFs etc. work in external apps like QQ</value>
   </data>
   <data name="Settings_StorageFileDragHint2.Text" xml:space="preserve">
-    <value>Off by default (stability first): when off, only image stream is dragged; GIF to QQ becomes static, NTQQ drag unsupported</value>
+    <value>On by default: when off, only image stream is dragged; GIF to QQ becomes static, NTQQ drag unsupported</value>
   </data>
   <data name="Settings_StorageFileDragWarning.Text" xml:space="preserve">
     <value>Warning: enabling may cause crashes on rapid consecutive drags, more severe on Win10. Use at your own risk</value>

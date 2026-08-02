@@ -132,7 +132,7 @@
                 <controls:LocalizedToggleSwitch x:Name="StorageFileDragToggle" Toggled="StorageFileDragToggle_Toggled"/>
                 <TextBlock l:Uids.Uid="Settings_StorageFileDragHint1" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
                 <TextBlock l:Uids.Uid="Settings_StorageFileDragHint2" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
-                <TextBlock l:Uids.Uid="Settings_StorageFileDragWarning" FontSize="11" Opacity="0.9" Foreground="{ThemeResource SystemErrorTextColor}" TextWrapping="Wrap"/>
+                <!--<TextBlock l:Uids.Uid="Settings_StorageFileDragWarning" FontSize="11" Opacity="0.9" Foreground="{ThemeResource SystemErrorTextColor}" TextWrapping="Wrap"/>-->
             </StackPanel>
 
             <StackPanel Spacing="6">
