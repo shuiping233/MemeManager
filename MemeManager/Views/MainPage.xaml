@@ -330,11 +330,7 @@
                                   VerticalAlignment="Top"
                                   Margin="0,-6,0,0"
                                   MinWidth="0"
-                                  Padding="0"
-                                  Foreground="{ThemeResource SystemBaseHighColor}"
-                                  BorderBrush="{ThemeResource SystemBaseHighColor}"
-                                  Background="{ThemeResource SystemRevealChromeWhiteColor}"
-                                  CornerRadius="3"/>
+                                  Padding="0"/>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>
