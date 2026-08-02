@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -48,11 +44,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 按配置“启用控件复用策略”在两者间切换，切换立即生效于下一次刷新。
     // 构造函数内会立即按配置初始化；此处给默认实例以满足非空字段。
     private IMemeListStrategy _listStrategy = null!;
-
-    // “全部表情”视图下 _currentCategory 的取值（仅用于显示/日志，不参与判断）
-    private const string AllMemesCategory = "AllMemes";
-
-
 
     // 便捷属性：当前是否处于“全部表情”视图（判断一律走 Kind，不受文件夹名影响）
     private bool IsAllMemesView => ViewModel.CurrentCategoryKind == CategoryKind.All;
@@ -275,7 +266,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
             AllMemesList.SelectedItem = ViewModel.AllMemesVm;
-            ViewModel.CurrentCategory = AllMemesCategory;
+            ViewModel.CurrentCategory = AppConstants.AllMemesCategory;
             ViewModel.CurrentCategoryKind = CategoryKind.All;
         }
         else
@@ -338,7 +329,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配。
             if (!IsAllMemesView)
             {
-                ViewModel.CurrentCategory = AllMemesCategory;
+                ViewModel.CurrentCategory = AppConstants.AllMemesCategory;
                 ViewModel.CurrentCategoryKind = CategoryKind.All;
                 _ = _engine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
                 RefreshMemes();

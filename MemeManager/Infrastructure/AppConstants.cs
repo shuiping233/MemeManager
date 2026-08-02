@@ -17,5 +17,7 @@ public static class AppConstants
     public static string IconPath =>
         Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
     public static string WindowTitle => $"{AppName} {Utils.GetInformationalVersion()}";
+
+    public const string AllMemesCategory = "AllMemes";
 }
 

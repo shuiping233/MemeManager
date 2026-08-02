@@ -20,17 +20,14 @@ namespace MemeManager.Views;
 public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasablePage
 {
     // Picker 打开时才按需加载的缩略图列表（避免后台常驻解码）。
-    private List<MemeViewModel> _pickerMemes = new();
-
-    // “全部表情”视图下 _currentCategory 的取值（与 Full 一致：仅用于显示/日志，不参与判断）。
-    private const string AllMemesCategory = "AllMemes";
+    private List<MemeViewModel> _pickerMemes = [];
 
     // Mini 模式当前选中的分类；空串 / AllMemesCategory 表示“全部表情”视图。
-    private string _currentCategory = AllMemesCategory;
+    private string _currentCategory = AppConstants.AllMemesCategory;
 
     // 是否处于“全部表情”视图（导入落到未分类，与 Full 一致）。
     private bool IsAllMemesView => string.IsNullOrEmpty(_currentCategory)
-                                   || _currentCategory == AllMemesCategory;
+                                   || _currentCategory == AppConstants.AllMemesCategory;
 
     // 拖入/导入时的目标分类：全部表情视图落入“未分类”，否则按当前分类（复用 Full 规则）。
     private string ImportTargetCategory =>
@@ -124,7 +121,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         {
             // 上次停留在“全部表情”：选中头部虚拟项。
             CategoryCombo.SelectedIndex = 0;
-            _currentCategory = AllMemesCategory;
+            _currentCategory = AppConstants.AllMemesCategory;
         }
         else
         {
@@ -138,7 +135,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             else
             {
                 CategoryCombo.SelectedIndex = 0;
-                _currentCategory = AllMemesCategory;
+                _currentCategory = AppConstants.AllMemesCategory;
             }
         }
     }
@@ -150,7 +147,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             // 空名 = “全部表情”视图（与 Full 约定一致）。
             if (string.IsNullOrEmpty(vm.Name))
             {
-                _currentCategory = AllMemesCategory;
+                _currentCategory = AppConstants.AllMemesCategory;
                 _ = _engine.UpdateConfigAsync(c => c.LastCategory = "");
             }
             else
