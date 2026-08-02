@@ -1,8 +1,6 @@
 ﻿using System.Linq;
 using System.Security.Cryptography;
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MemeManager.Models;
 using MemeManager.Services;
 using MemeManager.Views;
