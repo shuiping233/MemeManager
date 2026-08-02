@@ -297,6 +297,21 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         RefreshMemes();
         SyncMemeDragState();
+
+        // 若当前处于编辑模式（如设置里切换了多选风格后重载），需重新应用 SelectionMode 与复选框，
+        // 否则 SelectionMode 停留在旧值、复选框可能消失或重复（#23）。
+        if (ViewModel.EditMode)
+            ReapplyEditModeState();
+    }
+
+    // 重新应用编辑模式下的列表选择模式与自绘复选框可见性（配置可能已变更）。
+    private void ReapplyEditModeState()
+    {
+        bool explorerStyle = ConfigService.Config.ExplorerStyleMultiSelect;
+        MemeGridView.SelectionMode = explorerStyle
+            ? ListViewSelectionMode.Extended
+            : ListViewSelectionMode.Multiple;
+        ApplySelectionBoxVisibility();
     }
 
     private void CategoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -633,10 +648,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         UpdateCategoryCounts();
 
-        // 编辑模式下列表重建(如搜索/刷新)后，重新显示复选框并把原生选中态镜像回新 VM
+        // 编辑模式下列表重建(如搜索/刷新)后，按当前配置重新显示/隐藏复选框并把原生选中态镜像回新 VM
         if (ViewModel.EditMode)
         {
-            SetSelectionBoxVisible(true);
+            ApplySelectionBoxVisibility();
             SyncSelectionToViewModels();
         }
 
@@ -883,7 +898,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             ? ListViewSelectionMode.Extended
             : ListViewSelectionMode.Multiple;
         // 仅 Extended 模式显示我们自绘的复选框
-        SetSelectionBoxVisible(explorerStyle);
+        ApplySelectionBoxVisibility();
     }
 
     // 进编辑模式并选中指定图片（Shift+点击 / 右键“多选”共用）
@@ -916,11 +931,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // Explorer 风格(Multiple)下不显示自绘复选框（用系统自带）。
     private void MemeGridView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
-        if (ViewModel.EditMode && args.Phase == 0 && args.ItemContainer != null)
+        if (args.Phase == 0 && args.ItemContainer != null)
         {
             var box = FindCheckBox(args.ItemContainer);
             if (box != null)
-                box.Visibility = ConfigService.Config.ExplorerStyleMultiSelect
+                box.Visibility = (ViewModel.EditMode && ConfigService.Config.ExplorerStyleMultiSelect)
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }
@@ -1758,8 +1773,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         MemeGridView.SelectionMode = ListViewSelectionMode.None;
         ViewModel.LastShiftAnchor = -1;
         SelectAllButton.Content = Localization.Get("Meme_SelectAll");
-        // 隐藏并清空复选框指示器
-        SetSelectionBoxVisible(false);
+        ApplySelectionBoxVisibility();
         foreach (var vm in ViewModel.MemeList) vm.IsSelected = false;
     }
 
@@ -1767,6 +1781,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 复选框本身 IsHitTestVisible=False，仅作选中指示，不拦截 Tapped/拖拽。
     // 由于 GridView 虚拟化，容器可能尚未实现，故在下一帧(Dispatcher)再遍历，
     // 并通过可视化树查找 CheckBox（DataTemplate 内 x:Name 不会提升为页面字段）。
+    // 统一入口：仅当处于编辑模式且开启"资源管理器风格多选"时才显示自绘右上角复选框。
+    // 所有切换入口（进/退编辑、列表刷新、设置变更）都经此，避免状态不一致导致的
+    // 复选框消失/残留（#23）。
+    private void ApplySelectionBoxVisibility()
+    {
+        bool show = ViewModel.EditMode && ConfigService.Config.ExplorerStyleMultiSelect;
+        SetSelectionBoxVisible(show);
+    }
+
     private void SetSelectionBoxVisible(bool visible)
     {
         if (App.MainWindow.IsClosing) return;
