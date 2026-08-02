@@ -14,7 +14,7 @@ public partial class SettingsViewModel() : ObservableObject
     [RelayCommand]
     private async Task OpenConfigFolderAsync()
     {
-        var path = AppConstants.DefaultAppDataDir;
+        var path = AppConstants.AppDataDirPath;
         if (string.IsNullOrWhiteSpace(path)) return;
         try
         {

@@ -59,7 +59,7 @@ public partial class App : Application
     {
         try
         {
-            var baseDir = Utils.DefaultDataStoragePath();
+            var baseDir = AppConstants.DefaultMemeDataStoragePath();
             var logDir = Path.Combine(baseDir, "log");
             Directory.CreateDirectory(logDir);
             var crashPath = Path.Combine(logDir, "crash.log");
@@ -89,7 +89,7 @@ public partial class App : Application
         Environment.Exit(1);
     }
 
-    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         // ---------- 单实例检查 ----------
         const string mutexName = @"Global\MemeManager_SingleInstance";

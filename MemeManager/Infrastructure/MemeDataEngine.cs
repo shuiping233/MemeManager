@@ -16,7 +16,7 @@ public class MemeDataEngine(ConfigService _config)
     // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
     private static JsonSerializerOptions JsonOptions => AppConstants.JsonOptions;
 
-    private string _baseDir = Utils.DefaultDataStoragePath();
+    private string _baseDir = AppConstants.DefaultMemeDataStoragePath();
 
     // 写/导入忙标志：保证同一时刻只有一个导入写任务在进行（数据安全）。
     // MainPage 通过自带的 ImageBatchOperationRunner 已有锁；Mini 等没有 runner 的入口
@@ -49,7 +49,7 @@ public class MemeDataEngine(ConfigService _config)
         if (!string.IsNullOrWhiteSpace(candidate) && !Path.IsPathRooted(candidate))
             candidate = null; // 拒绝相对路径，避免相对 exe 目录
 
-        return string.IsNullOrWhiteSpace(candidate) ? Utils.DefaultDataStoragePath() : candidate;
+        return string.IsNullOrWhiteSpace(candidate) ? AppConstants.DefaultMemeDataStoragePath() : candidate;
     }
 
     // 最近一次创建默认分类（AddCategoryAsync）时的写失败详情；为空表示成功。
@@ -76,7 +76,7 @@ public class MemeDataEngine(ConfigService _config)
             && !Directory.Exists(Config.StoragePath))
         {
             string bad = Config.StoragePath;
-            _baseDir = Utils.DefaultDataStoragePath();
+            _baseDir = AppConstants.DefaultMemeDataStoragePath();
             Config.StoragePath = _baseDir;
             LastBaseDirRevertError = bad;
             Logger.Log($"[Engine] 配置的数据目录无效(不存在或非文件夹)，已回退默认: {bad} -> {_baseDir}");

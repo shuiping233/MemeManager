@@ -20,7 +20,7 @@ public class ConfigService
     public AppConfig Config { get; set; } = new();
 
     // 配置文件固定保存在 %LOCALAPPDATA% 下（与数据目录解耦），否则迁移数据目录后二次启动读不到配置
-    private static string ConfigDir => AppConstants.DefaultAppDataDir;
+    private static string ConfigDir => AppConstants.AppDataDirPath;
     private static string ConfigPath => AppConstants.ConfigPath;
 
     // 加载配置：读文件反序列化；缺失/为空时用默认存储路径兜底。
@@ -46,7 +46,7 @@ public class ConfigService
         }
 
         if (string.IsNullOrWhiteSpace(Config.StoragePath))
-            Config.StoragePath = Utils.DefaultDataStoragePath();
+            Config.StoragePath = AppConstants.DefaultMemeDataStoragePath();
 
         // 记录已落盘的配置副本，供 SaveConfigAsync 的值相等比对（避免启动即重复写盘）。
         _lastWrittenConfig = Config with { };

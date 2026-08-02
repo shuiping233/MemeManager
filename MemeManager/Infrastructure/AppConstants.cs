@@ -12,10 +12,12 @@ public static class AppConstants
     // 配置/锁文件所在目录与文件名（%LOCALAPPDATA%\AppName 下），供各模块复用，避免散落字面量。
     public const string ConfigFileName = "config.json";
     public const string InstanceLockFileName = "instance.lock";
-    public static string DefaultAppDataDir =>
+
+    // 注意, 这个是appdata目录, 默认表情包数据目录请用 DefaultMemeDataStoragePath
+    public static string AppDataDirPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName);
-    public static string ConfigPath => Path.Combine(DefaultAppDataDir, ConfigFileName);
-    public static string InstanceLockPath => Path.Combine(DefaultAppDataDir, InstanceLockFileName);
+    public static string ConfigPath => Path.Combine(AppDataDirPath, ConfigFileName);
+    public static string InstanceLockPath => Path.Combine(AppDataDirPath, InstanceLockFileName);
 
     // AppIcon.ico 路径（发布/调试均会拷贝到 Assets 下），托盘图标与标题条 Logo 共用。
     public static string IconPath =>
@@ -26,7 +28,17 @@ public static class AppConstants
     public const string DefaultCategory = "Default";
 
     // 默认数据目录名（位于“图片”库或 LocalApplicationData 下）。统一在此定义，避免 "MeMeManagerData" 字面量散落。
-    public const string DefaultDataFolderName = "MeMeManagerData";
+    public const string DefaultMemeDataFolderName = "MeMeManagerData";
+
+    public static string DefaultMemeDataStoragePath()
+    {
+        // 优先用“图片”库；若其为空/未配置（某些精简系统或域环境会返回空串），
+        // 回退到 LocalApplicationData，避免拼接出相对路径或应用自身目录。
+        var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        if (string.IsNullOrWhiteSpace(pictures) || !Path.IsPathRooted(pictures))
+            pictures = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(pictures, AppConstants.DefaultMemeDataFolderName);
+    }
 
     // 分类元数据文件名（每个分类目录下的 .metadata.json）
     public const string MetadataFileName = ".metadata.json";

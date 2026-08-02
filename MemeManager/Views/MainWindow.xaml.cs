@@ -477,7 +477,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            Directory.CreateDirectory(AppConstants.DefaultAppDataDir);
+            Directory.CreateDirectory(AppConstants.AppDataDirPath);
             var pid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
             File.WriteAllText(AppConstants.InstanceLockPath,
                 $"{(long)_hWnd}\n{pid}");
@@ -799,9 +799,11 @@ public sealed partial class MainWindow : Window
         if (xamlRoot == null) return;
 
         if (_engine.LastBaseDirRevertError != null)
+            // 首次启动不弹窗，避免干扰用户首次使用。
+            if (!_engine.LastBaseDirRevertError.Equals(AppConstants.DefaultMemeDataStoragePath()))
             await DialogHelper.ShowBaseDirRevertedAsync(
                 xamlRoot, _engine.LastBaseDirRevertError, _engine.BaseDir);
-
+        
         if (_engine.LastDefaultCategoryWriteError != null)
             await DialogHelper.ShowDefaultDirWriteFailedAsync(
                 xamlRoot, _engine.BaseDir, _engine.LastDefaultCategoryWriteError);
