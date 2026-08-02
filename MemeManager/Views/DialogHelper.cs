@@ -254,4 +254,24 @@ public static class DialogHelper
     public static Task ShowBaseDirRevertedAsync(XamlRoot xamlRoot, string badPath, string defaultPath) =>
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_BaseDirReverted_Title"),
             string.Format(Localization.Get("Dialog_BaseDirReverted_Message"), badPath, defaultPath));
+
+    // 通用安全弹窗：统一处理 XamlRoot 为空、模态计数与主题，供自定义内容弹窗（如关于框）复用，
+    // 避免各调用方重复样板，并保证 IsModalOpen 计数一致（入口层据此拦截叠加）。
+    public static async Task SafeShowAsync(ContentDialog dialog)
+    {
+        if (dialog.XamlRoot == null) return;
+        Interlocked.Increment(ref _openDialogs);
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[DialogHelper] 弹窗失败(title={dialog.Title}): {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _openDialogs);
+        }
+    }
 }

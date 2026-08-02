@@ -189,6 +189,27 @@
   <data name="Settings_OpenConfigFolder.Content" xml:space="preserve">
     <value>Open settings folder</value>
   </data>
+  <data name="Settings_OpenLogFolder.Content" xml:space="preserve">
+    <value>Open log folder</value>
+  </data>
+  <data name="Settings_Feedback.Content" xml:space="preserve">
+    <value>Feedback</value>
+  </data>
+  <data name="Settings_About.Content" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="About_Description.Text" xml:space="preserve">
+    <value>MemeManager is an efficient tool for managing and using memes, built with .NET 10 + WinUI 3.</value>
+  </data>
+  <data name="About_License.Text" xml:space="preserve">
+    <value>This project is open source under the MIT License.</value>
+  </data>
+  <data name="About_Author.Text" xml:space="preserve">
+    <value>Author: {0}</value>
+  </data>
+  <data name="About_SourceLink.Content" xml:space="preserve">
+    <value>Source code</value>
+  </data>
   <data name="Settings_HotKey.Text" xml:space="preserve">
     <value>Invocation hotkey</value>
   </data>

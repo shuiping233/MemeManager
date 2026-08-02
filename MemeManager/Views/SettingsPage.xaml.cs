@@ -1,5 +1,7 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Media.Imaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.ViewModels;
@@ -24,6 +26,7 @@ public sealed partial class SettingsPage : Page
     private readonly Action _onBrowseFolder;
     private readonly Action<string> _onOpenFolder;
     private readonly Action _onClose;
+    private readonly Action _onAbout;
 
     public SettingsPage()
     {
@@ -36,9 +39,11 @@ public sealed partial class SettingsPage : Page
         _onBrowseFolder = () => _ = BrowseFolderAsync();
         _onOpenFolder = path => _ = OpenFolderAsync(path);
         _onClose = () => _ = SaveAndCloseAsync();
+        _onAbout = () => _ = ShowAboutAsync();
         ViewModel.BrowseFolderRequested += _onBrowseFolder;
         ViewModel.OpenFolderRequested += _onOpenFolder;
         ViewModel.CloseRequested += _onClose;
+        ViewModel.AboutRequested += _onAbout;
 
         Unloaded += SettingsPage_Unloaded;
 
@@ -180,8 +185,71 @@ public sealed partial class SettingsPage : Page
             vm.BrowseFolderRequested -= _onBrowseFolder;
             vm.OpenFolderRequested -= _onOpenFolder;
             vm.CloseRequested -= _onClose;
+            vm.AboutRequested -= _onAbout;
         }
         Unloaded -= SettingsPage_Unloaded;
+    }
+
+    // 关于弹窗：展示 Logo、应用简介、开源许可、项目源码超链接与作者（经典 Windows 风格关于框）。
+    private async Task ShowAboutAsync()
+    {
+        if (XamlRoot == null) return;
+
+        var logo = new Image
+        {
+            Width = 48,
+            Height = 48,
+            Margin = new Thickness(0, 0, 0, 12),
+            Source = new BitmapImage(new Uri(AppConstants.IconPath)),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+
+        var desc = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = Localization.Get("About_Description"),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+
+        var license = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = Localization.Get("About_License"),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+
+        var author = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Text = string.Format(Localization.Get("About_Author"), "shuiping233"),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+
+        var link = new HyperlinkButton
+        {
+            Content = Localization.Get("About_SourceLink"),
+            NavigateUri = new Uri("https://github.com/shuiping233/MemeManager"),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+
+        var panel = new StackPanel { Spacing = 0 };
+        panel.Children.Add(logo);
+        panel.Children.Add(desc);
+        panel.Children.Add(license);
+        panel.Children.Add(author);
+        panel.Children.Add(link);
+
+        var dialog = new ContentDialog
+        {
+            Title = Localization.Get("Settings_About"),
+            Content = panel,
+            CloseButtonText = Localization.Get("Dialog_OK"),
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            RequestedTheme = DialogHelper.DialogTheme,
+        };
+
+        await DialogHelper.SafeShowAsync(dialog);
     }
 
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
