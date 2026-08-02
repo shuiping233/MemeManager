@@ -779,9 +779,12 @@ public sealed partial class MainWindow : Window
     }
 
     // RootFrame Loaded 后 XamlRoot 已就绪：弹出启动期数据目录相关诊断信息。
+    // 仅 Full 模式弹（Mini 模式空间小、非主交互界面，跳过以免干扰）。
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         RootFrame.Loaded -= MainWindow_Loaded;
+        if (_currentMode != AppMode.Full) return;
+
         var xamlRoot = RootFrame.XamlRoot;
         if (xamlRoot == null) return;
 
