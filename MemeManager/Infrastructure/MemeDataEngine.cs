@@ -56,6 +56,9 @@ public class MemeDataEngine(ConfigService _config)
     // 供启动流程在窗口就绪后弹窗提示用户（保证程序仍能启动，方便去设置里改目录）。
     public string? LastDefaultCategoryWriteError { get; private set; }
 
+    // 启动时发现配置中的数据目录不存在或不是文件夹，已回退默认路径时的提示信息；为空表示未回退。
+    public string? LastBaseDirRevertError { get; private set; }
+
     // ---------- 配置 ----------
 
     public async Task InitializeAsync()
@@ -66,9 +69,22 @@ public class MemeDataEngine(ConfigService _config)
             Config.StoragePath = _baseDir;
 
         _baseDir = ResolveBaseDir(Config.StoragePath);
-        // 若实际使用的目录与配置中记录的不一致（被回退），同步修正配置以免下次重复踩坑。
-        if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
+
+        // 若配置里填了具体路径（非空），但该路径不存在或不是文件夹，认为配置损坏/失效，
+        // 回退到默认数据目录并提示用户（保证程序正常启动，数据不丢在奇怪的地方）。
+        if (!string.IsNullOrWhiteSpace(Config.StoragePath)
+            && !Directory.Exists(Config.StoragePath))
+        {
+            string bad = Config.StoragePath;
+            _baseDir = Utils.DefaultDataStoragePath();
             Config.StoragePath = _baseDir;
+            LastBaseDirRevertError = bad;
+            Logger.Log($"[Engine] 配置的数据目录无效(不存在或非文件夹)，已回退默认: {bad} -> {_baseDir}");
+        }
+        // 若实际使用的目录与配置中记录的不一致（被回退），同步修正配置以免下次重复踩坑。
+        else if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
+            Config.StoragePath = _baseDir;
+
         Directory.CreateDirectory(_baseDir);
 
         await LoadCategoryOrderAsync();

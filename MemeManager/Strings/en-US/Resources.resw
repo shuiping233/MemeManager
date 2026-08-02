@@ -436,6 +436,12 @@ All memes and folders under it will be deleted.</value>
   <data name="Dialog_DefaultDirWriteFailed_Message" xml:space="preserve">
     <value>Could not create or write data under: {0}. Error detail: {1}. The app can still start normally, but new data may not be saved. Please change the data directory in Settings to a location where you have write permission (e.g. D:\MemeManagerData).</value>
   </data>
+  <data name="Dialog_BaseDirReverted_Title" xml:space="preserve">
+    <value>Data directory reset to default</value>
+  </data>
+  <data name="Dialog_BaseDirReverted_Message" xml:space="preserve">
+    <value>The configured data directory "{0}" does not exist or is not a folder. It has been reset to the default path "{1}". If needed, please adjust the data directory again in Settings.</value>
+  </data>
   <data name="Main_Search.PlaceholderText" xml:space="preserve">
     <value>Search memes...</value>
   </data>

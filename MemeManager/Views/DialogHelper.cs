@@ -249,4 +249,9 @@ public static class DialogHelper
     public static Task ShowDefaultDirWriteFailedAsync(XamlRoot xamlRoot, string dir, string detail) =>
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_DefaultDirWriteFailed_Title"),
             string.Format(Localization.Get("Dialog_DefaultDirWriteFailed_Message"), dir, detail), selectable: true);
+
+    // 启动时发现配置的数据目录不存在或不是文件夹，已回退默认路径。
+    public static Task ShowBaseDirRevertedAsync(XamlRoot xamlRoot, string badPath, string defaultPath) =>
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_BaseDirReverted_Title"),
+            string.Format(Localization.Get("Dialog_BaseDirReverted_Message"), badPath, defaultPath));
 }

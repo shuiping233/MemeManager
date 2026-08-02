@@ -173,6 +173,15 @@ public partial class App : Application
                     xamlRoot, DataEngine.BaseDir, DataEngine.LastDefaultCategoryWriteError);
         }
 
+        // 启动时配置的数据目录无效（不存在或非文件夹），已回退默认路径：提醒用户。
+        if (DataEngine.LastBaseDirRevertError != null)
+        {
+            var xamlRoot = ((MainWindow)_window).Content?.XamlRoot;
+            if (xamlRoot != null)
+                await DialogHelper.ShowBaseDirRevertedAsync(
+                    xamlRoot, DataEngine.LastBaseDirRevertError, DataEngine.BaseDir);
+        }
+
         // 系统托盘图标
         _trayIcon = new TrayIcon(WindowNativeHwnd(), Services.GetRequiredService<MemeDataEngine>());
         _trayIcon.ShowMainWindow += (_, _) => MainWindow.ShowAndActivate();
