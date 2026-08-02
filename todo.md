@@ -108,3 +108,40 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 
 - `MemeDataEngine` 作为数据访问层职责已自洽，不再往下硬拆 Repository / 写操作迁入 Service / 引擎降级 Facade
   （只会增加缓存一致性风险、运行行为零变化、用户无感）。唯一抽离的是 `ConfigService`（配置与图片数据是两回事）。
+
+---
+
+## MainPage 瘦身任务清单（屎山清空 / 收尾）
+
+> **背景**：Phase 0–4 已把业务逻辑搬到 5 个 Service 并命令化按钮。`MainPage.xaml.cs` 现在约 2054 行，
+> 剩下主要是 UI 接线代码（事件 handler、Popup、拖拽视觉、选中态镜像）——本就该在 Page。本次瘦身目标：
+> **消除重复 + 收敛冗余 + 兑现单例事件反订阅纪律（R3）**，不把 UI 事件 handler 硬搬走。
+>
+> **已确认决策**：O5（Page 与 VM 各自 `App.GetService<X>()` 取同一单例）**保持各自 DI，不改**
+> （多一行赋值无功能危害，避免新增 VM→Page 反向依赖）。
+
+### 已完成
+
+- [x] **S0** 扫描 `MainPage.xaml.cs` 与 `MainViewModel.cs`，产出搬迁分析（XAML 事件 handler 清单、孤儿/冗余 O1–O5、重复块 D1–D3、8 步顺序、风险 R1/R2/R3）
+
+### 待做（零/低风险清理）
+
+- [ ] **S1** 删除纯注释死代码（L47-50 `_listStrategy` 啰嗦注释、L66-74 无代码体的字段说明注释等）
+- [ ] **S2** 合并 `OpenSettingsFlyout` 空壳(O2)：`MainWindow` 改调 `ShowSettingsFlyout`，删 MainPage L1470
+- [ ] **S3** 内联 `EnterEditModeAndSelectAll`(O4)：`Root_KeyDown` Ctrl+A 分支直接 `EnterEditMode(); ToggleSelectAll();`，删 L897-901
+- [ ] **S4** 统一 `AllMemesCategory` 常量到 VM(O1)：`MainViewModel` 加 `public const string AllMemesCategory = "AllMemes";`，Page 删私有常量 L53，引用改 `MainViewModel.AllMemesCategory`
+- [ ] **S5** 抽出"全部表情禁移提示"+"分类子菜单填充"共享辅助(D1/D2)，收敛 `MemeItemContextFlyout_Opening` 与 `BatchMoveFlyout_Opening`
+- [ ] **S6** 抽出文件监听导入块共享方法(D3)：合并 `OnWatchedFilesAdded`/`OnWatchedFilesMoved` 同构体
+
+### 高优先级（R3 纪律）
+
+- [ ] **S7** 构造函数 18 个匿名 lambda 订阅改具名字段 + `Unloaded` 反订阅（单例 VM 事件累积坑，必做）
+
+### 待决策（高风险，需用户点头）
+
+- [ ] **S8** O8：分类/表情重排写回搬进 Service（`CategoryService.ReorderAsync` / `MemeOperationService.ReorderMemesAsync`）；涉及 R1 选中态崩溃
+- [ ] **S9** `MemeItem_Tapped` 改 XAML Command 绑定（删 L907，xaml 用 `x:Bind ViewModel.MemeTappedCommand`）；涉及 R2 拖拽 failfast
+
+### 已取消
+
+- [x] **S10** O5（Page 与 VM 重复持有 Service）：**保持各自 DI，不改**（决策已完成）
