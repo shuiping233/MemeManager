@@ -1,14 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MemeManager.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MemeManager.ViewModels;
 
 // 设置页 ViewModel：仅承载"明确用户意图"的命令；配置双向绑定/UI 状态（Toggle/文本框/热键录制）
 // 仍留 SettingsPage code-behind（见 Phase 2.11 方案 A 范围）。涉及 Window/文件选择器/XamlRoot 的
 // 副作用经事件回 Page 执行。
-public partial class SettingsViewModel(MemeDataEngine engine) : ObservableObject
+public partial class SettingsViewModel() : ObservableObject
 {
 
     // 打开配置文件夹：纯 Launcher 调用，可直接进 VM（依赖 MainWindow.AppDataDir 静态访问）。
