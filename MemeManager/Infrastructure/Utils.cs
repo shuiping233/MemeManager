@@ -13,9 +13,9 @@ namespace MemeManager.Infrastructure;
 /// </summary>
 public static class Utils
 {
-    // 预览图允许的最大尺寸（超过则等比压缩）
-    public const double PreviewMaxWidth = 800;
-    public const double PreviewMaxHeight = 600;
+    // 预览图允许的默认最大尺寸（超过则等比压缩）
+    public const double PreviewMaxWidth = 640;
+    public const double PreviewMaxHeight = 480;
 
     /// <summary>
     /// 计算把一张 originalW x originalH 的图片塞进 maxW x maxH 框内的目标尺寸。
