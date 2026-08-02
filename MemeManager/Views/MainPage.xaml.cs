@@ -161,6 +161,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { ViewModel.AllMemesVm };
 
         LoadCategories();
+
+        // 页面重建（Full↔Mini 切换会 new 新 MainPage）后与单例 VM 的编辑模式状态对齐：
+        // 若 VM 仍处于编辑模式，补齐编辑模式 UI（按钮文案/批量栏），
+        // 避免出现"非编辑外观 + 右上角复选框"的错位显示（复选框中残留 bug）。
+        if (ViewModel.EditMode)
+        {
+            EditButton.Content = Localization.Get("Meme_Done");
+            BatchBar.Visibility = Visibility.Visible;
+        }
     }
 
     // 把 VM 的"请求"委托属性接到本页的 UI 实现。全部用 '=' 赋值（非 +=）：MainViewModel 是
@@ -1833,8 +1842,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    private void ExitEditMode()
+    internal void ExitEditMode()
     {
+        // 幂等：非编辑模式下直接返回，供 MainWindow.SwitchMode 等新调用方安全调用。
+        if (!ViewModel.EditMode) return;
         ViewModel.EditMode = false;
         EditButton.Content = Localization.Get("Meme_Edit");
         BatchBar.Visibility = Visibility.Collapsed;

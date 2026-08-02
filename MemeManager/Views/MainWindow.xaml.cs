@@ -200,6 +200,10 @@ public sealed partial class MainWindow : Window
         {
             SaveWindowSize();
             MainPage.FlushLastCategory();
+            // 离开 Full 模式即结束多选（编辑）会话：Mini 无批量操作，会话跨模式无意义。
+            // 否则单例 VM 的 EditMode 会残留，Mini→Full 重建 MainPage 时渲染出
+            // "非编辑外观 + 右上角复选框"（复选框中残留 bug）。
+            CurrentMainPage?.ExitEditMode();
         }
 
         var prevMode = _currentMode;
