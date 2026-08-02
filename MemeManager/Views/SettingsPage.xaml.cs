@@ -232,12 +232,21 @@ public sealed partial class SettingsPage : Page
             Margin = new Thickness(0, 0, 0, 6),
         };
 
-        var link = new HyperlinkButton
-        {
-            Content = Localization.Get("About_SourceLink"),
-            NavigateUri = new Uri("https://github.com/shuiping233/MemeManager"),
-            //Margin = new Thickness(0, 0, 0, 6),
-        };
+        // 左对齐的链接按钮（文本居左、整体靠左），避免默认居中显得松散。
+        HyperlinkButton MakeLink(string textKey, string uri)
+            => new HyperlinkButton
+            {
+                Content = Localization.Get(textKey),
+                NavigateUri = new Uri(uri),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 4),
+            };
+
+        var link = MakeLink("About_SourceLink", "https://github.com/shuiping233/MemeManager");
+        var depUi = MakeLink("About_Dep_MicrosoftUi", "https://github.com/microsoft/microsoft-ui-xaml");
+        var depSdk = MakeLink("About_Dep_AppSdk", "https://learn.microsoft.com/windows/apps/windows-app-sdk/");
+        var depLoc = MakeLink("About_Dep_Localizer", "https://github.com/AndrewKeepCoding/WinUI3Localizer");
 
         var panel = new StackPanel { Spacing = 0 };
         panel.Children.Add(logo);
@@ -246,6 +255,9 @@ public sealed partial class SettingsPage : Page
         panel.Children.Add(author);
         panel.Children.Add(star);
         panel.Children.Add(link);
+        panel.Children.Add(depUi);
+        panel.Children.Add(depSdk);
+        panel.Children.Add(depLoc);
 
         var dialog = new ContentDialog
         {

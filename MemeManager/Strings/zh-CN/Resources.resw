@@ -210,8 +210,17 @@
   <data name="About_SourceLink.Content" xml:space="preserve">
     <value>项目源代码</value>
   </data>
+  <data name="About_Dep_MicrosoftUi.Content" xml:space="preserve">
+    <value>WinUI 3 (microsoft-ui-xaml)</value>
+  </data>
+  <data name="About_Dep_AppSdk.Content" xml:space="preserve">
+    <value>Windows App SDK</value>
+  </data>
+  <data name="About_Dep_Localizer.Content" xml:space="preserve">
+    <value>WinUI3Localizer</value>
+  </data>
   <data name="About_StarHint.Text" xml:space="preserve">
-    <value>如果您觉得此项目好用的话，可以到项目 GitHub 仓库上点一个 ⭐ 以表支持。</value>
+    <value>如果您觉得此项目好用的话，欢迎在 GitHub 上给本项目提供反馈或点一个 ⭐，感谢每一位使用本软件的人。</value>
   </data>
   <data name="Settings_HotKey.Text" xml:space="preserve">
     <value>呼出快捷键</value>
