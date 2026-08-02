@@ -331,12 +331,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    // 切分类写盘超级防抖时长：短时间内连续切换分类只落最后一次，避免每次切换都写 config。
-    // 程序退出时由 MainWindow 调用 FlushLastCategory 立即落盘，避免丢失最后的选择。
-    private const int LastCategorySaveDebounceMs = 5000;
-
     private static readonly object _lastCatLock = new();
-    private static System.Threading.Timer? _lastCatTimer;
+    private static Timer? _lastCatTimer;
     private static string? _pendingLastCategory;
 
     internal static void DebouncedSaveLastCategory(string category)
@@ -344,8 +340,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         lock (_lastCatLock)
         {
             _pendingLastCategory = category;
-            _lastCatTimer ??= new System.Threading.Timer(_ => FlushLastCategory(), null, System.Threading.Timeout.InfiniteTimeSpan, System.Threading.Timeout.InfiniteTimeSpan);
-            _lastCatTimer.Change(TimeSpan.FromMilliseconds(LastCategorySaveDebounceMs), System.Threading.Timeout.InfiniteTimeSpan);
+            _lastCatTimer ??= new Timer(_ => FlushLastCategory(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _lastCatTimer.Change(AppConstants.LastCategorySaveDebounce, Timeout.InfiniteTimeSpan);
         }
     }
 

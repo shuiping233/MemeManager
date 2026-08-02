@@ -46,5 +46,9 @@ public static class AppConstants
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters = { new JsonStringEnumConverter() }
     };
+
+    // 切分类写盘超级防抖时长：短时间内连续切换分类只落最后一次，避免每次切换都写 config。
+    // 程序退出时由 MainWindow 调用 FlushLastCategory 立即落盘，避免丢失最后的选择。
+    public static TimeSpan LastCategorySaveDebounce = TimeSpan.FromSeconds(3);
 }
 
