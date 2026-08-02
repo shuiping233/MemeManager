@@ -70,19 +70,6 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         NewCategoryRequested?.Invoke();
     }
 
-    // 分类页业务（2.7）：直接注入 MemeDataEngine 单例（过渡方案，后续统一改构造器注入）。
-    // 仅做业务判断 + 调 DataEngine + 维护 CategoryList 集合；弹窗类 UI 行为通过下方请求 Page 层。
-    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
-
-    // 搜索/列表查询服务（Phase 3.1）：承接"按分类 + 关键词查询表情"的查询语义。
-    private readonly SearchService _search = App.GetService<SearchService>();
-
-    // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
-    private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
-
-    // 分类管理服务（Phase 3.5）：承接分类增删改 + 计数计算，统一走 DataEngine。
-    private readonly CategoryService _categories = App.GetService<CategoryService>();
-
     // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
     public Action? CategoriesChangedRequested { get; set; }
 
@@ -202,7 +189,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         if (PromptRenameMemeRequested == null) return;
         var input = await PromptRenameMemeRequested(vm);
         if (string.IsNullOrWhiteSpace(input)) return;
-        await _engine.RenameMemeAsync(vm.Model, input);
+        await engine.RenameMemeAsync(vm.Model, input);
         vm.Title = input;
     }
 
