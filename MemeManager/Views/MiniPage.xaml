@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="MemeManager.Views.MiniPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:MemeManager.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:l="using:WinUI3Localizer"
+    xmlns:viewmodels="using:MemeManager.ViewModels"
+    NavigationCacheMode="Required"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <CornerRadius x:Key="MiniBarRadius">10</CornerRadius>
+        <!-- Mini 顶栏高度受限（MaxHeight=35），统一收敛字号与高度，避免文本溢出/参差 -->
+        <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Page.Resources>
+
+    <!-- 整个页面作为拖入目标（AllowDrop）。拖动窗口交由系统标题栏处理：
+         我们在 MiniPage_Loaded 里把顶栏 DragBar 通过 AppWindow.TitleBar.SetTitleBar 注册为
+         自定义标题栏，系统会自动让该区域可拖、且其中的按钮仍可点击（无需手挖洞）。 -->
+    <Grid x:Name="RootGrid"
+          AllowDrop="True"
+          DragOver="Grid_DragOver"
+          Drop="Grid_Drop"
+          DragLeave="Grid_DragLeave">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 自定义标题栏：注册为标题栏后整条可拖；右侧预留 ~46px 给系统关闭按钮。 -->
+        <Grid x:Name="DragBar"
+              Grid.Row="0"
+              ColumnDefinitions="*,Auto,46"
+              Padding="8,4"
+              Background="Transparent"
+              MaxHeight="38">
+            <!-- 左侧：分类下拉 + 表情 Picker -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Left"
+                        Spacing="6">
+                <!-- 分类下拉：Mini 模式单一当前分类，拖入/点选都基于它 -->
+                <ComboBox x:Name="CategoryCombo"
+                          MinWidth="100"
+                          MaxWidth="100"
+                          DisplayMemberPath="DisplayText"
+                          SelectionChanged="CategoryCombo_SelectionChanged">
+        <ToolTipService.ToolTip>
+            <ToolTip Content="{x:Bind ((viewmodels:CategoryViewModel)CategoryCombo.SelectedItem).DisplayText, Mode=OneWay}"/>
+        </ToolTipService.ToolTip>
+                </ComboBox>
+
+                <!-- 表情 Picker：弹出缩略图网格，点选即回贴前台应用。 -->
+                <Button x:Name="PickerButton"
+                        l:Uids.Uid="Mini_Picker">
+                    <Button.Flyout>
+                        <Flyout x:Name="PickerFlyout"
+                                Placement="Bottom"
+                                Opening="PickerFlyout_Opening"
+                                LightDismissOverlayMode="Off"
+                                ShouldConstrainToRootBounds="False">
+                            <Flyout.FlyoutPresenterStyle>
+                                <Style TargetType="FlyoutPresenter">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="CornerRadius" Value="10"/>
+                                </Style>
+                            </Flyout.FlyoutPresenterStyle>
+                            <Grid Width="360" Height="300"
+                                  Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="10"
+                                  Padding="6">
+                                <Grid.Shadow>
+                                    <ThemeShadow/>
+                                </Grid.Shadow>
+                                <ScrollViewer>
+                                    <ItemsRepeater x:Name="PickerRepeater">
+                                        <ItemsRepeater.Layout>
+                                            <UniformGridLayout ItemsStretch="Fill"
+                                                              MaximumRowsOrColumns="4"
+                                                              MinItemWidth="80"
+                                                              MinItemHeight="80"
+                                                              Orientation="Horizontal"/>
+                                        </ItemsRepeater.Layout>
+                                        <ItemsRepeater.ItemTemplate>
+                                            <DataTemplate x:DataType="viewmodels:MemeViewModel">
+                                                <Grid Margin="3"
+                                                      Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                      CornerRadius="6"
+                                                      Padding="2"
+                                                      Tag="{x:Bind}"
+                                                      CanDrag="True"
+                                                      DragStarting="PickerItem_DragStarting"
+                                                      Tapped="PickerItem_Tapped">
+                                                    <Image Source="{x:Bind ImageSource, Mode=OneWay}"
+                                                           Stretch="UniformToFill"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsRepeater.ItemTemplate>
+                                    </ItemsRepeater>
+                                </ScrollViewer>
+
+                                <TextBlock x:Name="PickerEmptyHint"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Opacity="0.6"
+                                           Visibility="Collapsed"
+                                           l:Uids.Uid="Mini_PickerEmpty"/>
+                            </Grid>
+                        </Flyout>
+                    </Button.Flyout>
+                    <ToolTipService.ToolTip>
+                        <ToolTip l:Uids.Uid="Mini_PickerTip"/>
+                    </ToolTipService.ToolTip>
+                </Button>
+            </StackPanel>
+
+            <!-- 右侧：切换到完整模式（紧贴系统关闭按钮左边） -->
+            <Button x:Name="ExpandButton"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    Command="{x:Bind ViewModel.ExpandCommand}">
+                <SymbolIcon Symbol="FullScreen"/>
+                <ToolTipService.ToolTip>
+                    <ToolTip l:Uids.Uid="Mini_Expand"/>
+                </ToolTipService.ToolTip>
+            </Button>
+        </Grid>
+
+        <!-- 主体：提示文字 + 拖入遮罩 -->
+        <TextBlock x:Name="MiniDropHintText"
+                   Grid.Row="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Opacity="0.5"
+                   l:Uids.Uid="Mini_DropHint"
+                   TextWrapping="Wrap"/>
+
+        <Border x:Name="DropHint"
+                Grid.Row="1"
+                Margin="6"
+                CornerRadius="{StaticResource MiniBarRadius}"
+                Background="{ThemeResource SystemAccentColor}"
+                Opacity="0.25"
+                Visibility="Collapsed"/>
+    </Grid>
+</Page>
