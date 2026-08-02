@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -28,8 +28,8 @@ public class ConfigService
     public AppConfig Config { get; set; } = new();
 
     // 配置文件固定保存在 %LOCALAPPDATA% 下（与数据目录解耦），否则迁移数据目录后二次启动读不到配置
-    private static string ConfigDir => MainWindow.AppDataDir;
-    private string ConfigPath => MainWindow.ConfigPath;
+    private static string ConfigDir => AppConstants.DefaultAppDataDir;
+    private static string ConfigPath => AppConstants.ConfigPath;
 
     // 加载配置：读文件反序列化；缺失/为空时用默认存储路径兜底。
     public void LoadConfig()

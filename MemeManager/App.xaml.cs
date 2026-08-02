@@ -191,7 +191,7 @@ public partial class App : Application
 
     // 实例锁文件：记录当前运行实例的主窗口 HWND 与 PID，供重复启动的新实例精准呼出旧窗口。
     // 与 config.json 同目录（%LOCALAPPDATA%\AppName）。
-    private static string InstanceLockPath => MainWindow.InstanceLockPath;
+    private static string InstanceLockPath => AppConstants.InstanceLockPath;
 
     // 读取实例锁文件，返回 (HWND, PID)。文件不存在/格式错误时返回 (Zero, 0)。
     private static (IntPtr hwnd, uint pid) ReadInstanceLock()

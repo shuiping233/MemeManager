@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
+﻿using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -29,6 +25,8 @@ public sealed partial class MainWindow : Window
     public const int MiniModeHeight = 100;
 
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
+
+    public static readonly string WindowTitle = AppConstants.WindowTitle;
 
     // 最小化结束事件钩子：窗口从最小化恢复时重新断言置顶（防止 DWM 抽风掉置顶）
     private readonly NativeMethods.WinEventProc _winEventProc;
@@ -61,22 +59,6 @@ public sealed partial class MainWindow : Window
     // Mini 模式无边框：是否已把内容扩展到标题栏区域（仅 Mini 期间为 true）
     private bool _titleBarExtended;
 
-    // 应用显示名（标题条、对话框等共用）。
-    public const string AppName = "MemeManager";
-
-    // 配置/锁文件所在目录与文件名（%LOCALAPPDATA%\AppName 下），供各模块复用，避免散落字面量。
-    public const string ConfigFileName = "config.json";
-    public const string InstanceLockFileName = "instance.lock";
-    public static string AppDataDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName);
-    public static string ConfigPath => Path.Combine(AppDataDir, ConfigFileName);
-    public static string InstanceLockPath => Path.Combine(AppDataDir, InstanceLockFileName);
-
-    // AppIcon.ico 路径（发布/调试均会拷贝到 Assets 下），托盘图标与标题条 Logo 共用。
-    public static string AppIconPath =>
-        Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
-    public static string WindowTitle => $"{AppName} {Utils.GetInformationalVersion()}";
-
     // ---------- 供 Page 层访问的窗口级状态 ----------
 
     public bool IsClosing => _isClosing;
@@ -106,14 +88,14 @@ public sealed partial class MainWindow : Window
         _engine = engine;
         InitializeComponent();
 
-        Title = WindowTitle;
+        Title = AppConstants.WindowTitle;
 
         _hWnd = WindowNative.GetWindowHandle(this);
 
         // 写入实例锁文件（HWND + PID），供重复启动的新实例精准呼出旧窗口
         PersistInstanceLock();
 
-        TrayIcon.SetTaskbarIcon(_hWnd, TrayIcon.LoadAppIcon(AppIconPath));
+        TrayIcon.SetTaskbarIcon(_hWnd, TrayIcon.LoadAppIcon(AppConstants.IconPath));
 
         int exStyle = NativeMethods.GetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE);
         // 启动默认置顶：始终加 TOPMOST 扩展样式（用户可在会话内手动关闭）
@@ -481,9 +463,9 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            Directory.CreateDirectory(AppDataDir);
+            Directory.CreateDirectory(AppConstants.DefaultAppDataDir);
             var pid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
-            File.WriteAllText(InstanceLockPath,
+            File.WriteAllText(AppConstants.InstanceLockPath,
                 $"{(long)_hWnd}\n{pid}");
         }
         catch (Exception ex)
@@ -497,7 +479,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var path = InstanceLockPath;
+            var path = AppConstants.InstanceLockPath;
             if (File.Exists(path)) File.Delete(path);
         }
         catch { }

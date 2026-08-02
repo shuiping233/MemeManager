@@ -43,7 +43,7 @@ public sealed class TrayIcon : IDisposable
 
     private void Register()
     {
-        var hIcon = LoadIconFromFile(MainWindow.AppIconPath);
+        var hIcon = LoadIconFromFile(AppConstants.IconPath);
 
         var data = new NativeMethods.TrayNotifyIconData
         {

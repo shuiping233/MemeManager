@@ -211,7 +211,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 以绝对路径加载，避免 XAML 松散引用 png 在非打包发布时丢失。
             try
             {
-                var iconPath = MainWindow.AppIconPath;
+                var iconPath = AppConstants.IconPath;
                 if (iconPath != null)
                     TitleStripLogo.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
             }

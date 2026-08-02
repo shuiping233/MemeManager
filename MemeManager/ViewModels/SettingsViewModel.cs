@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MemeManager.Infrastructure;
 using MemeManager.Views;
@@ -19,7 +19,7 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenConfigFolderAsync()
     {
-        var path = MainWindow.AppDataDir;
+        var path = AppConstants.DefaultAppDataDir;
         if (string.IsNullOrWhiteSpace(path)) return;
         try
         {
