@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using MemeManager.Infrastructure;
 using Microsoft.UI.Xaml.Controls;
 
@@ -160,8 +160,12 @@ public sealed class BatchProgressHelper
     private static string FormatEta(double seconds)
     {
         if (seconds < 1) return Localization.Get("Batch_EtaLessThan1s");
-        if (seconds < 60) return string.Format(Localization.Get("Batch_EtaSeconds"), (int)seconds);
-        if (seconds < 3600) return string.Format(Localization.Get("Batch_EtaMinutes"), (int)(seconds / 60));
-        return string.Format(Localization.Get("Batch_EtaHours"), (int)(seconds / 3600));
+
+        var ts = TimeSpan.FromSeconds(seconds);
+        if (ts < TimeSpan.FromMinutes(1))
+            return string.Format(Localization.Get("Batch_EtaSeconds"), (int)ts.TotalSeconds);
+        if (ts < TimeSpan.FromHours(1))
+            return string.Format(Localization.Get("Batch_EtaMinutes"), (int)ts.TotalMinutes);
+        return string.Format(Localization.Get("Batch_EtaHours"), (int)ts.TotalHours);
     }
 }
