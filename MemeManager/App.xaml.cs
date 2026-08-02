@@ -128,11 +128,10 @@ public partial class App : Application
             return;
         }
 
-        Logger.Log("[MemeManager] 应用程序开始启动");
-
         await Localization.InitializeAsync();
-
         await DataEngine.InitializeAsync();
+
+        Logger.Log("[MemeManager] 应用程序开始启动");
 
         Logger.Log($"[EcoQos] 效率模式配置: {(ConfigService.Config.EcoMode ? "启用" : "关闭")}");
         EcoQos.ApplyProcessLevel(ConfigService.Config.EcoMode);
@@ -202,7 +201,7 @@ public partial class App : Application
 
     private void ExitApp()
     {
-        Logger.Log("[EcoQos] 应用程序退出，线程级效率模式随后台线程结束而失效");
+        Logger.Log("[MemeManager] 应用程序退出");
         _trayIcon?.Dispose();
         _trayIcon = null;
         MainWindow.RequestExit();

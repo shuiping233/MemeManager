@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using MemeManager.Services;
+using System.Runtime.InteropServices;
 
 namespace MemeManager.Infrastructure;
 
@@ -16,7 +17,7 @@ internal static partial class EcoQos
     // THREAD_POWER_THROTTLING_STATE.ControlMask / StateMask 的取值
     private const uint THREAD_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
 
-    private static bool IsEcoQosEnabled = false;
+    private static bool IsEcoQosEnabled = App.GetService<ConfigService>().Config.EcoMode;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct THREAD_POWER_THROTTLING_STATE
@@ -94,7 +95,7 @@ internal static partial class EcoQos
                 Marshal.StructureToPtr(state, ptr, false);
                 var ok = SetThreadInformation(
                     NativeMethods.GetCurrentThread(), ThreadPowerThrottling, ptr, size);
-                Logger.Log($"[EcoQos] 已对线程 #{Environment.CurrentManagedThreadId} 启用效率模式: {(ok ? "成功" : "失败")}");
+                //Logger.Log($"[EcoQos] 已对线程 #{Environment.CurrentManagedThreadId} 启用效率模式: {(ok ? "成功" : "失败")}");
             }
             finally
             {
@@ -140,8 +141,6 @@ internal static partial class EcoQos
 
                 Logger.Log($"[EcoQos] 进程级效率模式: {(enable ? "启用" : "关闭")} " +
                            $"节流={(ok ? "成功" : "失败")} 优先级={(priOk ? "成功" : "失败")}");
-
-                IsEcoQosEnabled = enable;
             }
             finally
             {
