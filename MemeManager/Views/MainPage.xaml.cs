@@ -231,7 +231,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 供设置页在“浏览”修改存放路径后即时刷新（分类/表情）
     public void ReloadData()
     {
-        LoadCategories();
+        // 重载（设置保存/Mini→Full）场景：以内存当前分类为准，不被尚未 flush 的旧 config 覆盖。
+        LoadCategories(restoreSelectionFromConfig: false);
     }
 
     // 按配置创建对应的列表策略实例。
@@ -254,7 +255,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ApplyMiniModeVisibilityFromConfig();
     }
 
-    private void LoadCategories()
+    // restoreSelectionFromConfig=true：初次加载/启动，按 config 的 LastCategory 恢复选中（防抖可能未落盘，但启动时不依赖内存）。
+    // restoreSelectionFromConfig=false：刷新/重载（如 F5、设置保存），此时内存中的当前分类才是真值，
+    // 不能用尚未 flush 的旧 config 覆盖（否则会把刚切走的分类又切回去，见 #17 相关回归）。
+    private void LoadCategories(bool restoreSelectionFromConfig = true)
     {
         // 若没有任何分类文件夹，默认创建一个 "Default"
         if (_engine.GetCategories().Count == 0)
@@ -269,35 +273,52 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             _engine.GetCategories(),
             cat => _engine.GetMemes(cat).Count);
 
-        // 默认选中上次或第一项。
-        // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
-        // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
-        // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
-        var (lastKind, lastName) = ConfigService.Config.LastCategory.Resolve();
-        if (lastKind != CategoryKind.Normal)
+        if (restoreSelectionFromConfig)
         {
-            // 上次停留在虚拟分类（如"全部表情"）：选中对应固定项并刷新为聚合视图
-            if (lastKind == CategoryKind.All)
+            // 默认选中上次或第一项。
+            // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
+            // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
+            // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
+            var (lastKind, lastName) = ConfigService.Config.LastCategory.Resolve();
+            if (lastKind != CategoryKind.Normal)
             {
-                AllMemesList.SelectedItem = ViewModel.AllMemesVm;
-                ViewModel.CurrentCategory = CategoryKind.All.VirtualName()!;
-                ViewModel.CurrentCategoryKind = CategoryKind.All;
+                // 上次停留在虚拟分类（如"全部表情"）：选中对应固定项并刷新为聚合视图
+                if (lastKind == CategoryKind.All)
+                {
+                    AllMemesList.SelectedItem = ViewModel.AllMemesVm;
+                    ViewModel.CurrentCategory = CategoryKind.All.VirtualName()!;
+                    ViewModel.CurrentCategoryKind = CategoryKind.All;
+                }
+                // 将来新增虚拟分类（如 Recent）在此加分支
             }
-            // 将来新增虚拟分类（如 Recent）在此加分支
+            else
+            {
+                var target = ViewModel.CategoryList.FirstOrDefault(c => c.Name == lastName) ?? ViewModel.CategoryList.FirstOrDefault();
+                if (target != null && !target.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
+                {
+                    CategoryList.SelectedItem = target;
+                    ViewModel.CurrentCategory = target.Name;
+                    ViewModel.CurrentCategoryKind = CategoryKind.Normal;
+                }
+                else if (target != null)
+                {
+                    // 重建模式下分类名没变但容器已重建：重新设回同一项以恢复选中视觉。
+                    CategoryList.SelectedItem = target;
+                }
+            }
         }
         else
         {
-            var target = ViewModel.CategoryList.FirstOrDefault(c => c.Name == lastName) ?? ViewModel.CategoryList.FirstOrDefault();
-            if (target != null && !target.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
+            // 刷新场景：以内存中的当前分类为准，重新断言选中（容器可能被重建，需重设以恢复高亮）。
+            if (ViewModel.CurrentCategoryKind == CategoryKind.All)
             {
-                CategoryList.SelectedItem = target;
-                ViewModel.CurrentCategory = target.Name;
-                ViewModel.CurrentCategoryKind = CategoryKind.Normal;
+                AllMemesList.SelectedItem = ViewModel.AllMemesVm;
             }
-            else if (target != null)
+            else
             {
-                // 重建模式下分类名没变但容器已重建：重新设回同一项以恢复选中视觉。
-                CategoryList.SelectedItem = target;
+                var target = ViewModel.CategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory);
+                if (target != null)
+                    CategoryList.SelectedItem = target;
             }
         }
 
@@ -1574,7 +1595,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             Log("刷新：重新读取数据目录");
             await _engine.InitializeAsync();
-            LoadCategories(); // 内部末尾已调用 RefreshMemes，无需再调一次
+            LoadCategories(restoreSelectionFromConfig: false); // 刷新时以内存当前分类为准，不被旧 config 覆盖
         }
         finally
         {
@@ -1591,7 +1612,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 await page.SaveAsync();
                 // 存放路径可能已改变：重新加载分类与表情，反映新路径内容
-                LoadCategories();
+                // 刷新场景：以内存当前分类为准（不被尚未 flush 的旧 config 覆盖）。
+                LoadCategories(restoreSelectionFromConfig: false);
             }
         }
     }
