@@ -133,9 +133,13 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 - [ ] **S5** 抽出"全部表情禁移提示"+"分类子菜单填充"共享辅助(D1/D2)，收敛 `MemeItemContextFlyout_Opening` 与 `BatchMoveFlyout_Opening`
 - [ ] **S6** 抽出文件监听导入块共享方法(D3)：合并 `OnWatchedFilesAdded`/`OnWatchedFilesMoved` 同构体
 
-### 高优先级（R3 纪律）
+### 高优先级（事件桥接去累积）
 
-- [ ] **S7** 构造函数 18 个匿名 lambda 订阅改具名字段 + `Unloaded` 反订阅（单例 VM 事件累积坑，必做）
+- [x] **S7（方案变更）** 原方案"具名字段 + Unloaded 反订阅"**取消**——决定把 18 个 VM→Page 请求事件从 `event` 改为**委托属性**（`Action` / `Func<...>`），Page 用 `=` 赋值。`=` 覆盖式天然不累积（新 Page 赋值即覆盖旧的，旧 Page 失引用被 GC，VM 上永远只有 1 份），单 Page 对接场景下行为不变，且根除 R3 累积 bug。`SubscriptionScope` 工具**不建**。
+- [ ] **S7a** `MainViewModel.cs`：18 个 `event` 定义改委托属性 `{ get; set; }`（触发处 `?.Invoke()` / `await ?.Invoke()` 不变）。
+- [ ] **S7b** `MainPage.xaml.cs`：构造函数 18 个 `+=` 改 `=`；顺手抽 `WireViewModelEvents()` 减重。
+- [ ] **S7c** `MiniPage.xaml.cs`：2 个事件改委托属性 + 构造 `+=`→`=`；删 `MiniPage_Unloaded` 里的 `-=` 及反订阅逻辑（修"Mini 切几次后 Expand 按钮失效"实锤 bug）。
+- [ ] **S7d** 回归：Mini 模式切 Full 再切回反复多次，Expand 按钮每次生效；Full 模式刷新/设置/新建分类/删分类确认/重命名/批量导入导出删除/单击发送各点一遍。
 
 ### 待决策（高风险，需用户点头）
 
@@ -145,3 +149,4 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 ### 已取消
 
 - [x] **S10** O5（Page 与 VM 重复持有 Service）：**保持各自 DI，不改**（决策已完成）
+- [x] **S11** `SubscriptionScope` 工具类：**不建**（委托属性 `=` 方案已根除累积，无需生命周期订阅管理器）

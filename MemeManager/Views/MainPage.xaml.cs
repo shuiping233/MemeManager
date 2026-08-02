@@ -90,64 +90,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         DataContext = App.GetService<MainViewModel>();
 
-        // Phase 2.1：刷新入口从 Click 迁到 Command；业务逻辑 RefreshDataAsync 仍留本页（只迁入口不搬业务）
-        ViewModel.RefreshRequested += RefreshDataAsync;
-        // Phase 2.2：设置入口从 Click 迁到 Command；弹出浮窗的 UI 行为仍留本页
-        ViewModel.SettingsRequested += ShowSettingsFlyout;
-        // Phase 2.3：Mini 模式入口从 Click 迁到 Command；切窗口模式 UI 行为仍留本页
-        ViewModel.MiniModeRequested += SwitchToMiniMode;
-        // Phase 2.4：编辑模式切换入口从 Click 迁到 Command；UI 行为仍留本页
-        ViewModel.EditModeRequested += ToggleEditMode;
-        // Phase 2.5：全选入口从 Click 迁到 Command；UI 行为仍留本页
-        ViewModel.SelectAllRequested += ToggleSelectAll;
-        // Phase 2.6：新建分类入口从 Click 迁到 Command（与分类右键共用 NewCategoryRequested）
-        ViewModel.NewCategoryRequested += async () => await ShowAddCategoryDialog();
-        // 2.7：分类数据变更后刷新表情列表（VM 只发通知，刷新逻辑留本页）
-        ViewModel.CategoriesChangedRequested += () =>
-        {
-            // 同步分类栏选中态：删除分类后 CurrentCategory 已切到新分类，
-            // 需让 ListView.SelectedItem 跟随，触发 SelectionChanged 恢复焦点/写配置/刷新。
-            CategoryList.SelectedItem = CategoryList.Items.Cast<CategoryViewModel>()
-                .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
-            RefreshMemes();
-        };
-        // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
-        ViewModel.ConfirmDeleteCategoryRequested += async cat =>
-        {
-            var result = await DialogHelper.ConfirmDeleteCategoryAsync(this.XamlRoot, cat.Name);
-            return result == ContentDialogResult.Primary;
-        };
-        // 2.7：重命名分类输入弹窗
-        ViewModel.PromptRenameCategoryRequested += cat
-            => DialogHelper.PromptRenameCategoryAsync(this.XamlRoot, cat.Name);
-        // 2.7：重命名分类失败提示
-        ViewModel.RenameCategoryFailedRequested += cat
-            => DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, cat.Name);
-
-        // 2.8：表情项级命令订阅（VM 只发请求，弹窗/批量写/选中项等依赖 Page 状态的逻辑留本页）
-        ViewModel.EnterEditModeAndSelectRequested += vm => EnterEditModeAndSelect(vm);
-        ViewModel.PromptRenameMemeRequested += vm
-            => DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
-        ViewModel.DeleteMemeRequested += vm => _ = DeleteMemeCoreAsync(vm);
-#pragma warning disable CS4014 // 事件订阅为 fire-and-forget，刻意不等待
-        ViewModel.BatchImportRequested += async () => await BatchImportCoreAsync();
-        ViewModel.BatchExportRequested += async () => await BatchExportCoreAsync();
-        ViewModel.BatchDeleteRequested += async () => await DeleteSelectedMemesAsync();
-#pragma warning restore CS4014
-        // 2.9：单击表情项转发到 VM 命令；隐藏预览浮窗、发送到外部窗口等 UI 行为留本页
-        ViewModel.HidePreviewRequested += () => HidePreviewPopup(reason: "Tapped");
-        ViewModel.PasteToExternalRequested += async vm =>
-        {
-            var target = App.MainWindow.ResolveExternalPasteTarget();
-            if (target == IntPtr.Zero)
-            {
-                Log("单击(发送模式): 未解析到有效外部窗口，取消本次粘贴");
-                return;
-            }
-            Log($"单击(发送模式): 发送图片 {vm.Title} 到前台窗口 target={target}");
-            await _clipboard.OutputMemeToCursorAsync(vm.LocalPath, target);
-            await _engine.IncrementUsageAsync(vm.Hash);
-        };
+        // Phase 2：把按钮/意图入口从 Click 迁到 VM Command；依赖窗口/XamlRoot/页面状态的
+        // UI 副作用通过 VM 的委托属性（Action/Func）回调本页。单 Page 对接场景下用 '=' 赋值，
+        // 新 Page 实例会覆盖旧的，VM（单例）上永远只有 1 份，天然不累积（根除 R3 泄漏）。
+        WireViewModelEvents();
 
         _batchProgress = new BatchProgressHelper(BatchProgressInfoBar, BatchProgressBar, BatchProgressCount, BatchProgressText);
 
@@ -212,6 +158,71 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         LoadCategories();
 
         AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { ViewModel.AllMemesVm };
+    }
+
+    // 把 VM 的"请求"委托属性接到本页的 UI 实现。全部用 '=' 赋值（非 +=）：MainViewModel 是
+    // 单例且只被本页对接，'=' 覆盖式天然不累积，新页实例替换旧引用后旧页可被 GC，
+    // 无需在 Unloaded 里 -= 反订阅（根除单例 VM 事件累积泄漏 R3）。
+    private void WireViewModelEvents()
+    {
+        // Phase 2.1：刷新入口（业务逻辑 RefreshDataAsync 仍留本页）
+        ViewModel.RefreshRequested = RefreshDataAsync;
+        // Phase 2.2：设置浮窗（UI 行为留本页）
+        ViewModel.SettingsRequested = ShowSettingsFlyout;
+        // Phase 2.3：Mini 模式（切窗口模式 UI 行为留本页）
+        ViewModel.MiniModeRequested = SwitchToMiniMode;
+        // Phase 2.4：编辑（多选）模式切换
+        ViewModel.EditModeRequested = ToggleEditMode;
+        // Phase 2.5：全选/取消全选
+        ViewModel.SelectAllRequested = ToggleSelectAll;
+        // Phase 2.6：新建分类（与分类右键共用入口）
+        ViewModel.NewCategoryRequested = async () => await ShowAddCategoryDialog();
+        // 2.7：分类数据变更后刷新表情列表（VM 只发通知，刷新逻辑留本页）
+        ViewModel.CategoriesChangedRequested = () =>
+        {
+            // 同步分类栏选中态：删除分类后 CurrentCategory 已切到新分类，
+            // 需让 ListView.SelectedItem 跟随，触发 SelectionChanged 恢复焦点/写配置/刷新。
+            CategoryList.SelectedItem = CategoryList.Items.Cast<CategoryViewModel>()
+                .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
+            RefreshMemes();
+        };
+        // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
+        ViewModel.ConfirmDeleteCategoryRequested = async cat =>
+        {
+            var result = await DialogHelper.ConfirmDeleteCategoryAsync(this.XamlRoot, cat.Name);
+            return result == ContentDialogResult.Primary;
+        };
+        // 2.7：重命名分类输入弹窗
+        ViewModel.PromptRenameCategoryRequested = cat
+            => DialogHelper.PromptRenameCategoryAsync(this.XamlRoot, cat.Name);
+        // 2.7：重命名分类失败提示
+        ViewModel.RenameCategoryFailedRequested = cat
+            => DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, cat.Name);
+
+        // 2.8：表情项级命令（VM 只发请求，弹窗/批量写/选中项等依赖 Page 状态的逻辑留本页）
+        ViewModel.EnterEditModeAndSelectRequested = vm => EnterEditModeAndSelect(vm);
+        ViewModel.PromptRenameMemeRequested = vm
+            => DialogHelper.PromptRenameMemeAsync(this.XamlRoot, vm.Title);
+        ViewModel.DeleteMemeRequested = vm => _ = DeleteMemeCoreAsync(vm);
+#pragma warning disable CS4014 // 委托赋值为 fire-and-forget，刻意不等待
+        ViewModel.BatchImportRequested = async () => await BatchImportCoreAsync();
+        ViewModel.BatchExportRequested = async () => await BatchExportCoreAsync();
+        ViewModel.BatchDeleteRequested = async () => await DeleteSelectedMemesAsync();
+#pragma warning restore CS4014
+        // 2.9：单击表情项转发到 VM 命令；隐藏预览浮窗、发送到外部窗口等 UI 行为留本页
+        ViewModel.HidePreviewRequested = () => HidePreviewPopup(reason: "Tapped");
+        ViewModel.PasteToExternalRequested = async vm =>
+        {
+            var target = App.MainWindow.ResolveExternalPasteTarget();
+            if (target == IntPtr.Zero)
+            {
+                Log("单击(发送模式): 未解析到有效外部窗口，取消本次粘贴");
+                return;
+            }
+            Log($"单击(发送模式): 发送图片 {vm.Title} 到前台窗口 target={target}");
+            await _clipboard.OutputMemeToCursorAsync(vm.LocalPath, target);
+            await _engine.IncrementUsageAsync(vm.Hash);
+        };
     }
 
     // ---------- 分类 ----------

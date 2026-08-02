@@ -11,15 +11,16 @@ namespace MemeManager.ViewModels;
 public partial class MiniViewModel(MemeDataEngine engine) : ObservableObject
 {
 
-    // 切回完整模式：VM 只发请求，实际的 Window 模式切换由 Page 订阅后调用 App.MainWindow.SwitchMode。
-    public event Action? ExpandToFullRequested;
+    // 切回完整模式：VM 只发请求，实际的 Window 模式切换由 Page 接管后调用 App.MainWindow.SwitchMode。
+    // 用委托属性（非 event）：单 Page 对接场景下 '=' 赋值天然不累积，避免单例 VM 事件订阅泄漏。
+    public Action? ExpandToFullRequested { get; set; }
 
     [RelayCommand]
     private void Expand()
         => ExpandToFullRequested?.Invoke();
 
     // 从 Picker 点选表情发送到外部窗口：VM 只发请求（需经 Page 解析外部窗口句柄），不引用 Window。
-    public event Action<MemeViewModel>? SendToExternalRequested;
+    public Action<MemeViewModel>? SendToExternalRequested { get; set; }
 
     [RelayCommand]
     private void SendMeme(MemeViewModel vm)

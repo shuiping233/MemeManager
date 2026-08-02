@@ -14,7 +14,8 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 {
     // 刷新请求：MainPage 订阅并执行业务逻辑（RefreshDataAsync），VM 只负责暴露 Command 入口。
     // 这样 Phase 2 只迁入口、不搬业务（业务拆 Service 留到 Phase 3）。
-    public event Func<Task>? RefreshRequested;
+    // 用委托属性（非 event）：单 Page 对接场景下 '=' 赋值天然不累积，避免单例 VM 事件订阅泄漏。
+    public Func<Task>? RefreshRequested { get; set; }
 
     [RelayCommand]
     private async Task RefreshAsync()
@@ -24,7 +25,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     }
 
     // 设置浮窗请求：MainPage 订阅并弹出 SettingsFlyout（UI 行为留 Page 层）
-    public event Action? SettingsRequested;
+    public Action? SettingsRequested { get; set; }
 
     [RelayCommand]
     private void OpenSettings()
@@ -33,7 +34,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     }
 
     // 切换到 Mini 模式请求：MainPage 订阅并调用 MainWindow.SwitchMode（UI 行为留 Page 层）
-    public event Action? MiniModeRequested;
+    public Action? MiniModeRequested { get; set; }
 
     [RelayCommand]
     private void SwitchToMiniMode()
@@ -42,7 +43,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     }
 
     // 切换编辑（多选）模式请求：MainPage 订阅并执行 ToggleEditMode（UI 行为留 Page 层）
-    public event Action? EditModeRequested;
+    public Action? EditModeRequested { get; set; }
 
     [RelayCommand]
     private void ToggleEditMode()
@@ -51,7 +52,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     }
 
     // 全选/取消全选请求：MainPage 订阅并执行 ToggleSelectAll（UI 行为留 Page 层）
-    public event Action? SelectAllRequested;
+    public Action? SelectAllRequested { get; set; }
 
     [RelayCommand]
     private void SelectAll()
@@ -61,7 +62,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
     // 新建分类请求：MainPage 订阅并执行 ShowAddCategoryDialog（UI 行为留 Page 层）。
     // 与 2.7 分类右键的 CategoryNew_Click 共用此入口。
-    public event Action? NewCategoryRequested;
+    public Action? NewCategoryRequested { get; set; }
 
     [RelayCommand]
     private void NewCategory()
@@ -69,17 +70,30 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         NewCategoryRequested?.Invoke();
     }
 
+    // 分类页业务（2.7）：直接注入 MemeDataEngine 单例（过渡方案，后续统一改构造器注入）。
+    // 仅做业务判断 + 调 DataEngine + 维护 CategoryList 集合；弹窗类 UI 行为通过下方请求 Page 层。
+    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
+
+    // 搜索/列表查询服务（Phase 3.1）：承接"按分类 + 关键词查询表情"的查询语义。
+    private readonly SearchService _search = App.GetService<SearchService>();
+
+    // 剪贴板服务（Phase 3.3，原 PasteService）：复制图片到剪贴板 / 发到外部窗口。
+    private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
+
+    // 分类管理服务（Phase 3.5）：承接分类增删改 + 计数计算，统一走 DataEngine。
+    private readonly CategoryService _categories = App.GetService<CategoryService>();
+
     // 分类数据变更后通知 Page 刷新表情列表（触发 RefreshMemes）。
-    public event Action? CategoriesChangedRequested;
+    public Action? CategoriesChangedRequested { get; set; }
 
     // 删除分类确认弹窗请求：Page 订阅，用 DialogHelper 弹确认框，返回用户是否确认。
-    public event Func<CategoryViewModel, Task<bool>>? ConfirmDeleteCategoryRequested;
+    public Func<CategoryViewModel, Task<bool>>? ConfirmDeleteCategoryRequested { get; set; }
 
     // 重命名分类输入弹窗请求：Page 订阅，用 DialogHelper 弹输入框，返回用户输入（取消/空白返回 null）。
-    public event Func<CategoryViewModel, Task<string?>>? PromptRenameCategoryRequested;
+    public Func<CategoryViewModel, Task<string?>>? PromptRenameCategoryRequested { get; set; }
 
     // 重命名分类失败提示请求：Page 订阅，用 DialogHelper 弹失败提示。
-    public event Action<CategoryViewModel>? RenameCategoryFailedRequested;
+    public Action<CategoryViewModel>? RenameCategoryFailedRequested { get; set; }
 
     // 在文件资源管理器中打开分类对应文件夹（纯逻辑，无需弹窗）。
     [RelayCommand]
@@ -173,14 +187,14 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         => Utils.OpenInExplorer(vm.Model.LocalPath, select: true, logTag: "打开所在文件夹");
 
     // 右键“多选”：进编辑模式并选中当前图片（纯 UI 行为，留 Page 层）
-    public event Action<MemeViewModel>? EnterEditModeAndSelectRequested;
+    public Action<MemeViewModel>? EnterEditModeAndSelectRequested { get; set; }
 
     [RelayCommand]
     private void MultiSelectMeme(MemeViewModel vm)
         => EnterEditModeAndSelectRequested?.Invoke(vm);
 
     // 重命名表情：输入弹窗（需 XamlRoot）→ 调 DataEngine 改名 → 同步 Title 属性
-    public event Func<MemeViewModel, Task<string?>>? PromptRenameMemeRequested;
+    public Func<MemeViewModel, Task<string?>>? PromptRenameMemeRequested { get; set; }
 
     [RelayCommand]
     private async Task RenameMemeAsync(MemeViewModel vm)
@@ -188,21 +202,21 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         if (PromptRenameMemeRequested == null) return;
         var input = await PromptRenameMemeRequested(vm);
         if (string.IsNullOrWhiteSpace(input)) return;
-        await engine.RenameMemeAsync(vm.Model, input);
+        await _engine.RenameMemeAsync(vm.Model, input);
         vm.Title = input;
     }
 
     // 删除单张表情（含确认弹窗 + 写锁 + 后台删除，依赖 Page 的 batchRunner，留 Page 层）
-    public event Action<MemeViewModel>? DeleteMemeRequested;
+    public Action<MemeViewModel>? DeleteMemeRequested { get; set; }
 
     [RelayCommand]
     private void DeleteMeme(MemeViewModel vm)
         => DeleteMemeRequested?.Invoke(vm);
 
     // 批量操作按钮：导入/导出/删除（涉及文件选择器、选中项、batchRunner，留 Page 层）
-    public event Action? BatchImportRequested;
-    public event Action? BatchExportRequested;
-    public event Action? BatchDeleteRequested;
+    public Action? BatchImportRequested { get; set; }
+    public Action? BatchExportRequested { get; set; }
+    public Action? BatchDeleteRequested { get; set; }
 
     [RelayCommand]
     private void BatchImport() => BatchImportRequested?.Invoke();
@@ -214,9 +228,9 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     private void BatchDelete() => BatchDeleteRequested?.Invoke();
 
     // 单击表情项（普通模式=发送到外部窗口；Shift+单击=进编辑并选中；编辑模式=原生选中由控件托管）
-    // 隐藏预览浮窗、解析外部窗口并发送等依赖 Page/Window 的 UI 行为通过事件请求本页。
-    public event Action? HidePreviewRequested;
-    public event Action<MemeViewModel>? PasteToExternalRequested;
+    // 隐藏预览浮窗、解析外部窗口并发送等依赖 Page/Window 的 UI 行为通过请求本页。
+    public Action? HidePreviewRequested { get; set; }
+    public Action<MemeViewModel>? PasteToExternalRequested { get; set; }
 
     [RelayCommand]
     private void MemeTapped(MemeViewModel vm)
