@@ -236,7 +236,7 @@ public sealed partial class SettingsPage : Page
         {
             Content = Localization.Get("About_SourceLink"),
             NavigateUri = new Uri("https://github.com/shuiping233/MemeManager"),
-            Margin = new Thickness(0, 0, 0, 6),
+            //Margin = new Thickness(0, 0, 0, 6),
         };
 
         var panel = new StackPanel { Spacing = 0 };

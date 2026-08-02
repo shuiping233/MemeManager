@@ -17,12 +17,11 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
     private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
-    // Mini 模式当前选中的分类；空串 / AllMemesCategory 表示“全部表情”视图。
-    private string _currentCategory = AppConstants.AllMemesCategory;
+    // Mini 模式当前选中的分类；虚拟分类名（如 "AllMemes"）/ 普通分类名（文件夹名）。
+    private string _currentCategory = CategoryKind.All.VirtualName()!;
 
     // 是否处于“全部表情”视图（导入落到未分类，与 Full 一致）。
-    private bool IsAllMemesView => string.IsNullOrEmpty(_currentCategory)
-                                   || _currentCategory == AppConstants.AllMemesCategory;
+    private bool IsAllMemesView => _currentCategory == CategoryKind.All.VirtualName();
 
     // 拖入/导入时的目标分类：全部表情视图落入“未分类”，否则按当前分类（复用 Full 规则）。
     private string ImportTargetCategory =>
@@ -95,17 +94,17 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             items.Add(new ViewModels.CategoryViewModel(c, _engine.GetMemes(c).Count));
         CategoryCombo.ItemsSource = items;
 
-        var last = ConfigService.Config.LastCategory;
-        if (string.IsNullOrEmpty(last))
+        var (lastKind, lastName) = ConfigService.Config.LastCategory.Resolve();
+        if (lastKind != CategoryKind.Normal)
         {
-            // 上次停留在“全部表情”：选中头部虚拟项。
+            // 上次停留在虚拟分类（如“全部表情”）：选中头部虚拟项。
             CategoryCombo.SelectedIndex = 0;
-            _currentCategory = AppConstants.AllMemesCategory;
+            _currentCategory = CategoryKind.All.VirtualName()!;
         }
         else
         {
             var idx = items.FindIndex(v => !string.IsNullOrEmpty(v.Name)
-                && v.Name.Equals(last, StringComparison.OrdinalIgnoreCase));
+                && v.Name.Equals(lastName, StringComparison.OrdinalIgnoreCase));
             if (idx >= 0)
             {
                 CategoryCombo.SelectedIndex = idx;
@@ -114,7 +113,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             else
             {
                 CategoryCombo.SelectedIndex = 0;
-                _currentCategory = AppConstants.AllMemesCategory;
+                _currentCategory = CategoryKind.All.VirtualName()!;
             }
         }
     }
@@ -126,8 +125,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             // 空名 = “全部表情”视图（与 Full 约定一致）。
             if (string.IsNullOrEmpty(vm.Name))
             {
-                _currentCategory = AppConstants.AllMemesCategory;
-                MainPage.DebouncedSaveLastCategory("");
+                _currentCategory = CategoryKind.All.VirtualName()!;
+                MainPage.DebouncedSaveLastCategory(CategoryKind.All.VirtualName()!);
             }
             else
             {

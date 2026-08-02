@@ -22,8 +22,6 @@ public static class AppConstants
         Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
     public static string WindowTitle => $"{AppName} {Utils.GetInformationalVersion()}";
 
-    public const string AllMemesCategory = "AllMemes";
-
     // 默认分类名（UI 初次启动、无任何分类时创建）。统一在此定义，避免 "Default" 字面量散落。
     public const string DefaultCategory = "Default";
 

@@ -156,9 +156,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             catch (Exception ex) { Logger.Log("[标题条] 加载 Logo 失败: " + ex.Message); }
         };
 
-        LoadCategories();
-
+        // 必须先给 AllMemesList 赋 ItemsSource，再 LoadCategories（其内部会选中 AllMemesVm），
+        // 否则构造期选中因 ItemsSource 为 null 而失效（#7）。
         AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { ViewModel.AllMemesVm };
+
+        LoadCategories();
     }
 
     // 把 VM 的"请求"委托属性接到本页的 UI 实现。全部用 '=' 赋值（非 +=）：MainViewModel 是
@@ -271,17 +273,21 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
         // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
         // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
-        var last = ConfigService.Config.LastCategory;
-        if (string.IsNullOrEmpty(last))
+        var (lastKind, lastName) = ConfigService.Config.LastCategory.Resolve();
+        if (lastKind != CategoryKind.Normal)
         {
-            // 上次停留在"全部表情"：选中该固定项并刷新为全量视图
-            AllMemesList.SelectedItem = ViewModel.AllMemesVm;
-            ViewModel.CurrentCategory = AppConstants.AllMemesCategory;
-            ViewModel.CurrentCategoryKind = CategoryKind.All;
+            // 上次停留在虚拟分类（如"全部表情"）：选中对应固定项并刷新为聚合视图
+            if (lastKind == CategoryKind.All)
+            {
+                AllMemesList.SelectedItem = ViewModel.AllMemesVm;
+                ViewModel.CurrentCategory = CategoryKind.All.VirtualName()!;
+                ViewModel.CurrentCategoryKind = CategoryKind.All;
+            }
+            // 将来新增虚拟分类（如 Recent）在此加分支
         }
         else
         {
-            var target = ViewModel.CategoryList.FirstOrDefault(c => c.Name == last) ?? ViewModel.CategoryList.FirstOrDefault();
+            var target = ViewModel.CategoryList.FirstOrDefault(c => c.Name == lastName) ?? ViewModel.CategoryList.FirstOrDefault();
             if (target != null && !target.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
             {
                 CategoryList.SelectedItem = target;
@@ -384,9 +390,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配。
             if (!IsAllMemesView)
             {
-                ViewModel.CurrentCategory = AppConstants.AllMemesCategory;
+                ViewModel.CurrentCategory = CategoryKind.All.VirtualName()!;
                 ViewModel.CurrentCategoryKind = CategoryKind.All;
-                DebouncedSaveLastCategory(string.Empty);
+                DebouncedSaveLastCategory(CategoryKind.All.VirtualName()!);
                 RefreshMemes();
                 SyncMemeDragState();
             }
@@ -503,12 +509,23 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 重新绑回后必须重新断言选中，待容器生成后再设回以恢复视觉。
             // 但若 ItemsSource 未重绑且 sel 已是当前选中项，则跳过：避免无谓的
             // 取消选中→重新选中视觉切换（容器回收 + 鼠标悬停易触发 ListViewBaseItemChrome 崩溃）。
-            var sel = ViewModel.CategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory)
-                      ?? ViewModel.CategoryList.FirstOrDefault();
-            if (sel != null && (rebind || CategoryList.SelectedItem != sel))
+            if (ViewModel.CurrentCategoryKind == CategoryKind.All)
             {
-                CategoryList.SelectedItem = null;
-                DispatcherQueue.TryEnqueue(() => { CategoryList.SelectedItem = sel; });
+                // 虚拟分类（如“全部表情”）：恢复对应的虚拟列表项选中，不回退到普通分类、不改写 LastCategory。
+                if (rebind || AllMemesList.SelectedItem != ViewModel.AllMemesVm)
+                {
+                    AllMemesList.SelectedItem = ViewModel.AllMemesVm;
+                }
+            }
+            else
+            {
+                var sel = ViewModel.CategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory)
+                          ?? ViewModel.CategoryList.FirstOrDefault();
+                if (sel != null && (rebind || CategoryList.SelectedItem != sel))
+                {
+                    CategoryList.SelectedItem = null;
+                    DispatcherQueue.TryEnqueue(() => { CategoryList.SelectedItem = sel; });
+                }
             }
         }
         else
