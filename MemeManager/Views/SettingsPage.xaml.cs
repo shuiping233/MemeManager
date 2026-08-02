@@ -1,7 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Documents;
-using Microsoft.UI.Xaml.Media.Imaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.ViewModels;
@@ -39,7 +37,7 @@ public sealed partial class SettingsPage : Page
         _onBrowseFolder = () => _ = BrowseFolderAsync();
         _onOpenFolder = path => _ = OpenFolderAsync(path);
         _onClose = () => _ = SaveAndCloseAsync();
-        _onAbout = () => _ = ShowAboutAsync();
+        _onAbout = () => _ = AboutPage.ShowAsync(XamlRoot);
         ViewModel.BrowseFolderRequested += _onBrowseFolder;
         ViewModel.OpenFolderRequested += _onOpenFolder;
         ViewModel.CloseRequested += _onClose;
@@ -188,88 +186,6 @@ public sealed partial class SettingsPage : Page
             vm.AboutRequested -= _onAbout;
         }
         Unloaded -= SettingsPage_Unloaded;
-    }
-
-    // 关于弹窗：展示 Logo、应用简介、开源许可、项目源码超链接与作者（经典 Windows 风格关于框）。
-    private async Task ShowAboutAsync()
-    {
-        if (XamlRoot == null) return;
-
-        var logo = new Image
-        {
-            Width = 48,
-            Height = 48,
-            Margin = new Thickness(0, 0, 0, 12),
-            Source = new BitmapImage(new Uri(AppConstants.IconPath)),
-            HorizontalAlignment = HorizontalAlignment.Left,
-        };
-
-        var desc = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            Text = Localization.Get("About_Description"),
-            Margin = new Thickness(0, 0, 0, 6),
-        };
-
-        var license = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            Text = Localization.Get("About_License"),
-            Margin = new Thickness(0, 0, 0, 6),
-        };
-
-        var author = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            Text = string.Format(Localization.Get("About_Author"), "shuiping233"),
-            Margin = new Thickness(0, 0, 0, 6),
-        };
-
-        var star = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            Text = Localization.Get("About_StarHint"),
-            Margin = new Thickness(0, 0, 0, 6),
-        };
-
-        // 左对齐的链接按钮（文本居左、整体靠左），避免默认居中显得松散。
-        HyperlinkButton MakeLink(string textKey, string uri)
-            => new HyperlinkButton
-            {
-                Content = Localization.Get(textKey),
-                NavigateUri = new Uri(uri),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                HorizontalContentAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 0, 0, 4),
-            };
-
-        var link = MakeLink("About_SourceLink", "https://github.com/shuiping233/MemeManager");
-        var depUi = MakeLink("About_Dep_MicrosoftUi", "https://github.com/microsoft/microsoft-ui-xaml");
-        var depSdk = MakeLink("About_Dep_AppSdk", "https://learn.microsoft.com/windows/apps/windows-app-sdk/");
-        var depLoc = MakeLink("About_Dep_Localizer", "https://github.com/AndrewKeepCoding/WinUI3Localizer");
-
-        var panel = new StackPanel { Spacing = 0 };
-        panel.Children.Add(logo);
-        panel.Children.Add(desc);
-        panel.Children.Add(license);
-        panel.Children.Add(author);
-        panel.Children.Add(star);
-        panel.Children.Add(link);
-        panel.Children.Add(depUi);
-        panel.Children.Add(depSdk);
-        panel.Children.Add(depLoc);
-
-        var dialog = new ContentDialog
-        {
-            Title = Localization.Get("Settings_About"),
-            Content = panel,
-            CloseButtonText = Localization.Get("Dialog_OK"),
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = XamlRoot,
-            RequestedTheme = DialogHelper.DialogTheme,
-        };
-
-        await DialogHelper.SafeShowAsync(dialog);
     }
 
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
