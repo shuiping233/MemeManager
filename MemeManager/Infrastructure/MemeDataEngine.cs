@@ -41,37 +41,15 @@ public class MemeDataEngine(ConfigService _config)
 
     private AppConfig Config { get => _config.Config; set => _config.Config = value; }
 
-    // 解析实际数据目录：确保绝对且绝不落在应用自身目录内（防止把数据/分类写到 exe 目录下
-    // 导致无写权限崩溃，如 D:\MemeManager\Default 被拒）。空/非法/等于应用目录时回退到默认路径。
+    // 解析实际数据目录：确保绝对路径。空/相对路径（无盘符根）时回退到默认路径。
+    // 不再限制不能设在应用自身目录内（无写权限等失败场景已由写入失败弹窗兜底，不会崩溃）。
     private static string ResolveBaseDir(string? storagePath)
     {
         string? candidate = string.IsNullOrWhiteSpace(storagePath) ? null : storagePath.Trim();
         if (!string.IsNullOrWhiteSpace(candidate) && !Path.IsPathRooted(candidate))
             candidate = null; // 拒绝相对路径，避免相对 exe 目录
 
-        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        if (!string.IsNullOrWhiteSpace(candidate))
-        {
-            var cand = Path.GetFullPath(candidate).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            // 若候选路径落在应用目录内（含应用目录本身），回退默认，避免污染/无权限。
-            if (cand.Equals(appDir, StringComparison.OrdinalIgnoreCase)
-                || cand.StartsWith(appDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                candidate = null;
-        }
-
         return string.IsNullOrWhiteSpace(candidate) ? Utils.DefaultDataStoragePath() : candidate;
-    }
-
-    // 判断给定路径是否落在应用自身目录内（含应用目录本身）。供上层在用户主动设置目录时
-    // 提示“不能设为应用文件夹”。
-    public static bool IsInsideAppDir(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
-            return false;
-        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var cand = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return cand.Equals(appDir, StringComparison.OrdinalIgnoreCase)
-            || cand.StartsWith(appDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     // 最近一次创建默认分类（AddCategoryAsync）时的写失败详情；为空表示成功。
@@ -117,9 +95,6 @@ public class MemeDataEngine(ConfigService _config)
         await _config.UpdateConfigAsync(patch);
 
         string newBase = ResolveBaseDir(_config.Config.StoragePath);
-        // 若用户选的路径落在应用自身目录内或非法，回退默认并写回配置。
-        if (!string.Equals(newBase, _config.Config.StoragePath, StringComparison.OrdinalIgnoreCase))
-            _config.Config.StoragePath = newBase;
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
         _baseDir = newBase;
 

@@ -430,17 +430,11 @@
 
  已恢复为之前的有效路径。</value>
   </data>
-  <data name="Dialog_StorageInsideAppDir_Title" xml:space="preserve">
-    <value>数据目录无效</value>
-  </data>
-  <data name="Dialog_StorageInsideAppDir_Message" xml:space="preserve">
-    <value>数据目录不能设置为应用自身的文件夹。请选择其它位置（例如 D:\MemeManagerData），以免无写权限导致程序无法保存数据。</value>
-  </data>
   <data name="Dialog_DefaultDirWriteFailed_Title" xml:space="preserve">
-    <value>默认数据目录写入失败</value>
+    <value>数据目录写入失败</value>
   </data>
   <data name="Dialog_DefaultDirWriteFailed_Message" xml:space="preserve">
-    <value>无法在以下目录创建默认数据：{0}。错误详情：{1}。程序仍可启动，但请到“设置”里把数据目录改到你有写权限的位置。</value>
+    <value>无法在以下目录创建或写入数据：{0}。错误详情：{1}。程序仍可正常启动，但新数据可能无法保存，请到“设置”中将数据目录改为你有写入权限的位置（例如 D:\MemeManagerData）。</value>
   </data>
   <data name="Main_Search.PlaceholderText" xml:space="preserve">
     <value>搜索表情...</value>

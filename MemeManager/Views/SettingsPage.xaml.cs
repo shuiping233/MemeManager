@@ -277,10 +277,6 @@ public sealed partial class SettingsPage : Page
                 await _engine.UpdateConfigAsync(cfg => cfg.StoragePath = folder);
                 App.MainWindow.ReloadData();
                 Logger.Log($"[Settings] BrowseButton_Click: 已立即保存存放路径并刷新: {folder}");
-
-                // 用户选的目录落在应用自身文件夹内：提示无效（防护会在引擎层回退为默认路径）。
-                if (MemeDataEngine.IsInsideAppDir(folder))
-                    await DialogHelper.ShowStoragePathInsideAppDirAsync(this.XamlRoot);
             }
             else
             {

@@ -245,11 +245,6 @@ public static class DialogHelper
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_PathNotFound_Title"),
             string.Format(Localization.Get("Dialog_PathNotFound_Message"), path));
 
-    // 数据目录不可设在应用自身文件夹内：告知用户需改到其它位置（如 D:\MemeManagerData）。
-    public static Task ShowStoragePathInsideAppDirAsync(XamlRoot xamlRoot) =>
-        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_StorageInsideAppDir_Title"),
-            Localization.Get("Dialog_StorageInsideAppDir_Message"));
-
     // 默认数据目录写入失败（无写权限等）：保证程序仍能启动，提示用户去设置里改目录。
     public static Task ShowDefaultDirWriteFailedAsync(XamlRoot xamlRoot, string dir, string detail) =>
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_DefaultDirWriteFailed_Title"),
