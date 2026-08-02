@@ -128,6 +128,8 @@ public partial class App : Application
             return;
         }
 
+        Logger.Log("[MemeManager] 应用程序开始启动");
+
         await Localization.InitializeAsync();
 
         await DataEngine.InitializeAsync();
