@@ -17,6 +17,8 @@ public partial class App : Application
     private Window? _window;
     private TrayIcon? _trayIcon;
 
+    public const string ShowExistingMsgTag = "MemeManager_ShowExisting";
+
     // 单实例互斥体：持有期间禁止第二个实例启动
     private static Mutex? _singleInstanceMutex;
 
@@ -119,7 +121,7 @@ public partial class App : Application
                 NativeMethods.GetWindowThreadProcessId(hwnd, out ownerPid);
                 if (ownerPid == pid && NativeMethods.IsWindow(hwnd))
                 {
-                    uint showMsg = NativeMethods.RegisterWindowMessageW("MemeManager_ShowExisting");
+                    uint showMsg = NativeMethods.RegisterWindowMessageW(ShowExistingMsgTag);
                     NativeMethods.PostMessage(hwnd, showMsg, IntPtr.Zero, IntPtr.Zero);
                 }
             }

@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -49,7 +49,7 @@ public sealed partial class SettingsPage : Page
         var cfg = _engine.Config;
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
-        HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
+        HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
@@ -151,7 +151,7 @@ public sealed partial class SettingsPage : Page
             ushort vk = (ushort)e.Key;
             StopRecording();
             App.MainWindow.ApplyHotKeyConfig(mods, vk);
-            HotKeyBox.Text = MainWindow.HotKeyText(mods, vk);
+            HotKeyBox.Text = HotKeyUtils.ToText(mods, vk);
             return;
         }
     }
@@ -250,7 +250,7 @@ public sealed partial class SettingsPage : Page
     {
         StopRecording();
         var cfg = _engine.Config;
-        HotKeyBox.Text = MainWindow.HotKeyText(cfg.HotKeyModifiers, cfg.HotKeyVk);
+        HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
     }
 
     private void StopRecording()
