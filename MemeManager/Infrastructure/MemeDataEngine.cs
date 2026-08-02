@@ -216,7 +216,20 @@ public class MemeDataEngine(ConfigService _config)
                 m.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
         }
 
-        // Priority 值越大越靠前（左侧/开头）；同值按导入时间新→旧
+        // “全部表情”视图（category 为空）：跨分类合并，需按“分类顺序 + 分类内优先级”复合排序，
+        // 否则各分类的 Priority 各自 1..N 会交错成乱序。合成键 = 分类顺序(高位 <<32) | 分类内优先级(低位)，
+        // 两者均越大越靠前；低位用 0xFFFFFFFF 掩码防 uint 符号扩展。
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return query
+                .OrderByDescending(m =>
+                    (_categoryOrder.TryGetValue(m.Category, out var catPrio) ? (long)catPrio : 0L) << 32
+                    | (m.Priority & 0xFFFFFFFFL))
+                .ThenByDescending(m => m.DateAdded)
+                .ToList();
+        }
+
+        // 普通分类视图：Priority 值越大越靠前（左侧/开头）；同值按导入时间新→旧
         return query.OrderByDescending(m => m.Priority).ThenByDescending(m => m.DateAdded).ToList();
     }
 
