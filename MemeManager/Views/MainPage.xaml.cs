@@ -758,11 +758,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void UpdateCategoryCounts()
     {
-        // 计数计算委托 CategoryService（基于内存缓存），此处仅把结果写回 VM 对象
+        // 计数计算委托 CategoryService（基于内存缓存），此处仅把结果写回 VM 对象。
+        // 注意：操作后分类可能变为 0 张，此时 counts 不再包含该分类名（ComputeCounts 只统计有图的分类），
+        // 必须用 TryGetValue 取“有则值、无则 0”，否则 0 张的分类计数会残留旧值不刷新（#计数清零 bug）。
         var (counts, total) = _categories.ComputeCounts();
         foreach (var c in ViewModel.CategoryList)
-            if (counts.TryGetValue(c.Name, out int n))
-                c.Count = n;
+            c.Count = counts.TryGetValue(c.Name, out int n) ? n : 0;
         // 更新"全部表情"总数
         ViewModel.AllMemesVm.Count = total;
     }
