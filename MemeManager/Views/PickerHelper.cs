@@ -1,6 +1,5 @@
 ﻿using Microsoft.UI;
 using Microsoft.UI.Xaml;
-using Windows.Gaming.Input;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 

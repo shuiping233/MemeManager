@@ -1,13 +1,8 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
-using Windows.Storage.Pickers;
-using System.Diagnostics;
 using MemeManager.Services;
 
 namespace MemeManager.Views;

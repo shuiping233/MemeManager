@@ -357,7 +357,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // “全部表情”视图下项来自不同分类，禁止拖到分类栏移动归属：显示禁止光标。
             if (IsAllMemesView)
             {
-                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+                e.AcceptedOperation = DataPackageOperation.None;
                 e.DragUIOverride.Caption = Localization.Get("AllMemes_DropNotAllowed");
                 e.DragUIOverride.IsCaptionVisible = true;
                 e.DragUIOverride.IsGlyphVisible = true;
@@ -368,7 +368,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
             CategoryList.CanReorderItems = false;
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+            e.AcceptedOperation = DataPackageOperation.Move;
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
@@ -377,7 +377,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             // 分类自身重排序：开启 CanReorderItems，允许占位撑开动画
             CategoryList.CanReorderItems = true;
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+            e.AcceptedOperation = DataPackageOperation.Move;
         }
     }
 
@@ -386,8 +386,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         // 重排结束，恢复 CanReorderItems（image 拖入时曾被临时关闭）
         CategoryList.CanReorderItems = true;
-        if (e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move &&
-            e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy)
+        if (e.DropResult != DataPackageOperation.Move &&
+            e.DropResult != DataPackageOperation.Copy)
             return;
 
         var ordered = ViewModel.CategoryList.Select(c => c.Name).ToList();
@@ -400,7 +400,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // “全部表情”视图下禁止拖到分类栏移动归属（DragOver 已显示禁止光标，这里兜底）。
         if (IsAllMemesView)
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            e.AcceptedOperation = DataPackageOperation.None;
             return;
         }
 
@@ -418,7 +418,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             memes = await MemesFromDataViewAsync(e.DataView);
             if (memes.Count == 0)
             {
-                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+                e.AcceptedOperation = DataPackageOperation.None;
                 return;
             }
         }
@@ -434,7 +434,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 写锁守卫 + 冲突守卫 + 后台移动均委托 MemeOperationService
             await _memeOps.MoveMemesAsync(memes, targetCat.Name);
         }
-        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        e.AcceptedOperation = DataPackageOperation.Move;
     }
 
     /// <summary>将键盘焦点设置到搜索输入框（供窗口从托盘呼出后调用）</summary>
@@ -584,14 +584,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+            e.AcceptedOperation = DataPackageOperation.Move;
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
         }
         else
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            e.AcceptedOperation = DataPackageOperation.None;
         }
     }
 

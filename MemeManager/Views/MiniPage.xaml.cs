@@ -280,12 +280,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         if (e.DataView.Contains(StandardDataFormats.StorageItems) ||
             e.DataView.Contains(StandardDataFormats.Bitmap))
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.AcceptedOperation = DataPackageOperation.Copy;
             DropHint.Visibility = Visibility.Visible;
         }
         else
         {
-            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            e.AcceptedOperation = DataPackageOperation.None;
         }
     }
 
