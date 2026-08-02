@@ -772,6 +772,8 @@ public sealed partial class MainWindow : Window
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         SuspendWindowInteractions(closing: true);
+        // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。
+        MainPage.FlushLastCategory();
         _engine.Watcher?.Stop();
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
