@@ -330,7 +330,22 @@
                                   VerticalAlignment="Top"
                                   Margin="0,-6,0,0"
                                   MinWidth="0"
-                                  Padding="0"/>
+                                  Padding="0"
+                                  CornerRadius="2"
+                                  Foreground="{ThemeResource SystemBaseHighColor}"
+                                  BorderBrush="{ThemeResource SystemBaseHighColor}">
+                            <CheckBox.Resources>
+                                <SolidColorBrush 
+                                    x:Key="CheckBoxCheckBackgroundFillUnchecked"
+                                    Color="#CC000000"/>
+                                <SolidColorBrush 
+                                    x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver"
+                                    Color="#CC000000"/>
+                                <SolidColorBrush 
+                                    x:Key="CheckBoxCheckBackgroundFillUncheckedPressed"
+                                    Color="#CC000000"/>
+                            </CheckBox.Resources>
+                        </CheckBox>
                     </Grid>
                 </DataTemplate>
             </GridView.ItemTemplate>
