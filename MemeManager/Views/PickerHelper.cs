@@ -1,7 +1,6 @@
 ﻿using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Windows.Storage.Pickers;
-using WinRT.Interop;
 
 namespace MemeManager.Views;
 

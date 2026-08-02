@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using MemeManager.Models;
+﻿using MemeManager.Models;
 using MemeManager.Infrastructure;
 using Microsoft.UI.Dispatching;
 

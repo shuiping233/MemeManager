@@ -10,7 +10,6 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
-using Microsoft.Extensions.DependencyInjection;
 using MemeManager.Services;
 using MemeManager.ViewModels;
 

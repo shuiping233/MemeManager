@@ -1,8 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MemeManager.Infrastructure;
-using MemeManager.Models;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MemeManager.ViewModels;
 
