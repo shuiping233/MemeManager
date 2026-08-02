@@ -20,6 +20,7 @@ public partial class App : Application
     private static Mutex? _singleInstanceMutex;
 
     public static MemeDataEngine DataEngine => GetService<MemeDataEngine>();
+    public static ConfigService ConfigService => GetService<ConfigService>();
 
     public static MainWindow MainWindow => ((App)Current)._window as MainWindow
         ?? throw new System.InvalidOperationException("MainWindow 尚未初始化");
@@ -131,8 +132,8 @@ public partial class App : Application
 
         await DataEngine.InitializeAsync();
 
-        Logger.Log($"[EcoQos] 效率模式配置: {(DataEngine.Config.EcoMode ? "启用" : "关闭")}");
-        EcoQos.ApplyProcessLevelFromConfig();
+        Logger.Log($"[EcoQos] 效率模式配置: {(ConfigService.Config.EcoMode ? "启用" : "关闭")}");
+        EcoQos.ApplyProcessLevel(ConfigService.Config.EcoMode);
 
         // 配置读取完毕后立即应用语言：首次启动跟随系统，否则用配置值。
         // 必须在创建主窗口前完成，使主窗口一出来就是正确文案。

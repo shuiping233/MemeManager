@@ -1,5 +1,4 @@
-using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace MemeManager.Infrastructure;
 
@@ -16,6 +15,8 @@ internal static partial class EcoQos
 
     // THREAD_POWER_THROTTLING_STATE.ControlMask / StateMask 的取值
     private const uint THREAD_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
+
+    private static bool IsEcoQosEnabled = false;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct THREAD_POWER_THROTTLING_STATE
@@ -73,7 +74,7 @@ internal static partial class EcoQos
 
         try
         {
-            if (!App.DataEngine.Config.EcoMode)
+            if (!IsEcoQosEnabled)
             {
                 Logger.Log("[EcoQos] 配置未启用，跳过线程级效率模式");
                 return;
@@ -139,6 +140,8 @@ internal static partial class EcoQos
 
                 Logger.Log($"[EcoQos] 进程级效率模式: {(enable ? "启用" : "关闭")} " +
                            $"节流={(ok ? "成功" : "失败")} 优先级={(priOk ? "成功" : "失败")}");
+
+                IsEcoQosEnabled = enable;
             }
             finally
             {
@@ -149,15 +152,6 @@ internal static partial class EcoQos
         {
             Logger.Log($"[EcoQos] 设置进程级效率模式失败（已忽略）: {ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// 根据当前配置对进程应用效率模式（配置开启则启用，否则关闭）。
-    /// 在启动完成与设置切换时调用。
-    /// </summary>
-    public static void ApplyProcessLevelFromConfig()
-    {
-        ApplyProcessLevel(App.DataEngine.Config.EcoMode);
     }
 
     /// <summary>
