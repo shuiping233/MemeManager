@@ -325,9 +325,41 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return;
             ViewModel.CurrentCategory = cat.Name;
             ViewModel.CurrentCategoryKind = CategoryKind.Normal;
-            _ = _engine.UpdateConfigAsync(c => c.LastCategory = cat.Name);
+            DebouncedSaveLastCategory(cat.Name);
             RefreshMemes();
             SyncMemeDragState();
+        }
+    }
+
+    // 切分类写盘超级防抖（5 秒）：短时间内连续切换分类只落最后一次，避免每次切换都写 config。
+    // 程序退出时由 MainWindow 调用 FlushLastCategory 立即落盘，避免丢失最后的选择。
+    private static readonly object _lastCatLock = new();
+    private static System.Threading.Timer? _lastCatTimer;
+    private static string? _pendingLastCategory;
+
+    internal static void DebouncedSaveLastCategory(string category)
+    {
+        lock (_lastCatLock)
+        {
+            _pendingLastCategory = category;
+            _lastCatTimer ??= new System.Threading.Timer(_ => FlushLastCategory(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+            _lastCatTimer.Change(5000, System.Threading.Timeout.Infinite);
+        }
+    }
+
+    public static void FlushLastCategory()
+    {
+        string? pending = null;
+        lock (_lastCatLock)
+        {
+            pending = _pendingLastCategory;
+            _pendingLastCategory = null;
+            _lastCatTimer?.Change(System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+        }
+        if (pending != null)
+        {
+            var engine = App.GetService<MemeDataEngine>();
+            _ = engine.UpdateConfigAsync(c => c.LastCategory = pending);
         }
     }
 
@@ -356,7 +388,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 ViewModel.CurrentCategory = AppConstants.AllMemesCategory;
                 ViewModel.CurrentCategoryKind = CategoryKind.All;
-                _ = _engine.UpdateConfigAsync(c => c.LastCategory = string.Empty);
+                DebouncedSaveLastCategory(string.Empty);
                 RefreshMemes();
                 SyncMemeDragState();
             }
@@ -1994,17 +2026,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 // 文件监听触发的新增：后台执行 + 进度条，但不占用写入锁
                 // （用户自行在资源管理器操作数据目录，应自己 F5 刷新，不在此兜底拦截）。
+                // 走批量导入：目标分类 .metadata.json 仅读写一次，避免 N 张 = O(N^2) IO。
                 await _batchRunner.RunAsync(
                     BatchOperationKind.Import,
                     fullPaths.Count,
                     async progress =>
                     {
-                        foreach (var fullPath in fullPaths)
-                        {
-                            var (model, _) = await _engine.ImportMemeAsync(fullPath, focus);
-                            if (model != null)
-                                progress.Report(new BatchProgress(1, 1));
-                        }
+                        await _engine.ImportMemesAsync(fullPaths, focus, progress);
                     },
                     targetCategory: focus,
                     occupyWriteLock: false,
@@ -2056,17 +2084,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 {
                     // 文件监听触发的导入：后台执行 + 进度条，但不占用写入锁
                     // （用户自行在资源管理器操作数据目录，应自己 F5 刷新，不在此兜底拦截）。
+                    // 走批量导入：目标分类 .metadata.json 仅读写一次，避免 O(N^2) IO。
                     await _batchRunner.RunAsync(
                         BatchOperationKind.Import,
                         fullPaths.Count,
                         async progress =>
                         {
-                            foreach (var fullPath in fullPaths)
-                            {
-                                var (model, _) = await _engine.ImportMemeAsync(fullPath, focus);
-                                if (model != null)
-                                    progress.Report(new BatchProgress(1, 1));
-                            }
+                            await _engine.ImportMemesAsync(fullPaths, focus, progress);
                         },
                         targetCategory: focus,
                         occupyWriteLock: false,

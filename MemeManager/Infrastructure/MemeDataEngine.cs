@@ -114,9 +114,8 @@ public class MemeDataEngine(ConfigService _config)
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
         _baseDir = newBase;
 
-        await _config.SaveConfigAsync();
-
-        // 仅当存放路径真正变化时才重新加载该路径下的元数据
+        // 仅当存放路径真正变化时才重新加载该路径下的元数据。
+        // 注意：配置本身已由上面 _config.UpdateConfigAsync 落盘，此处无需再次 SaveConfigAsync。
         if (changed)
             await LoadAllMetadataAsync();
     }
@@ -659,8 +658,8 @@ public class MemeDataEngine(ConfigService _config)
     {
         var safeTarget = SanitizeCategory(targetCategory);
         var targetDir = Path.Combine(_baseDir, safeTarget);
-        Directory.CreateDirectory(targetDir);
         var targetMeta = await LoadCategoryMetadataAsync(targetDir);
+        bool targetDirty = false;
 
         // 目标分类当前最大优先级；移入项依次 +1，使其排到目标分类最前
         // （Priority 越大越靠前，与导入/重排语义一致）。
@@ -756,6 +755,7 @@ public class MemeDataEngine(ConfigService _config)
                         Tags = meme.Tags,
                         Priority = ++targetMaxPriority
                     };
+                    targetDirty = true;
 
                     // 更新内存缓存
                     meme.Category = safeTarget;
@@ -766,8 +766,13 @@ public class MemeDataEngine(ConfigService _config)
             }
         }
 
-        // 仅各源分类与目标分类各写回一次 metadata（而非逐张写回）
-        await SaveCategoryMetadataAsync(targetDir, targetMeta);
+        // 仅各源分类与目标分类各写回一次 metadata（而非逐张写回）。
+        // 目标分类无实际移入（全部 skip/失败）则不写，也不强制建目录。
+        if (targetDirty)
+        {
+            Directory.CreateDirectory(targetDir);
+            await SaveCategoryMetadataAsync(targetDir, targetMeta);
+        }
         foreach (var (dir, entry) in sourceMetas)
             if (entry.dirty)
                 await SaveCategoryMetadataAsync(dir, entry.meta);
@@ -858,18 +863,27 @@ public class MemeDataEngine(ConfigService _config)
         // 按给定顺序整体重算：列表最前（索引0）拿最大优先级，依次递减，
         // 以契合“Priority 越大越靠前（左）”的展示规则
         uint p = (uint)orderedFileNames.Count;
+        bool changed = false;
         foreach (var fileName in orderedFileNames)
         {
             if (meta.Items.TryGetValue(fileName, out var entry))
-                entry.Priority = p--;
+            {
+                if (entry.Priority != p) { entry.Priority = p; changed = true; }
+                p--;
+            }
         }
         // 兜底：列表中未涵盖的 item（理论上不应出现），顺延补上更小的值
         uint tail = 0;
         foreach (var kv in meta.Items)
             if (kv.Value.Priority == 0 && !orderedFileNames.Contains(kv.Key))
-                kv.Value.Priority = tail++;
+            {
+                if (kv.Value.Priority != tail) { kv.Value.Priority = tail; changed = true; }
+                tail++;
+            }
 
-        await SaveCategoryMetadataAsync(dir, meta);
+        // 顺序未变则跳过写盘，避免每次拖拽落点都重写 metadata。
+        if (changed)
+            await SaveCategoryMetadataAsync(dir, meta);
 
         foreach (var m in _memeCache)
         {

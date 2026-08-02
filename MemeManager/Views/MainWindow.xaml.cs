@@ -197,7 +197,10 @@ public sealed partial class MainWindow : Window
 
         // 离开 Full 模式前记录窗口尺寸，切回时据此还原（_currentMode 仍为 Full 时才会真正写入）
         if (mode == AppMode.Mini && RootFrame.Content is MainPage)
+        {
             SaveWindowSize();
+            MainPage.FlushLastCategory();
+        }
 
         var prevMode = _currentMode;
         _currentMode = mode;
@@ -588,6 +591,7 @@ public sealed partial class MainWindow : Window
     public void RequestExit()
     {
         SaveWindowSize();
+        MainPage.FlushLastCategory();
         DeleteInstanceLock();
         _allowClose = true;
         _isClosing = true;

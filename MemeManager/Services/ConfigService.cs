@@ -49,14 +49,32 @@ public class ConfigService
             Config.StoragePath = Utils.DefaultDataStoragePath();
     }
 
+    // 上次已落盘的 JSON 内容；若本次序列化结果与它相同则跳过写盘，避免无变化重复 IO。
+    private string? _lastWrittenJson;
+
     // 保存配置到磁盘（容错：失败仅记日志）。
+    // 去重：序列化后与上次落盘内容一致则不写盘（Config 为引用类型，patch 后内容可能未变）。
     public async Task SaveConfigAsync()
     {
+        string json;
+        try
+        {
+            json = JsonSerializer.Serialize(Config, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Config] 序列化配置失败: {ex.Message}");
+            return;
+        }
+
+        if (string.Equals(json, _lastWrittenJson, StringComparison.Ordinal))
+            return;
+
         try
         {
             Directory.CreateDirectory(ConfigDir);
-            var json = JsonSerializer.Serialize(Config, JsonOptions);
             await File.WriteAllTextAsync(ConfigPath, json);
+            _lastWrittenJson = json;
         }
         catch (Exception ex)
         {

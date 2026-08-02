@@ -127,12 +127,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             if (string.IsNullOrEmpty(vm.Name))
             {
                 _currentCategory = AppConstants.AllMemesCategory;
-                _ = _engine.UpdateConfigAsync(c => c.LastCategory = "");
+                MainPage.DebouncedSaveLastCategory("");
             }
             else
             {
                 _currentCategory = vm.Name;
-                _ = _engine.UpdateConfigAsync(c => c.LastCategory = vm.Name);
+                MainPage.DebouncedSaveLastCategory(vm.Name);
             }
             ReleaseImages();
         }

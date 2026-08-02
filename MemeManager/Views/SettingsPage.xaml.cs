@@ -72,7 +72,12 @@ public sealed partial class SettingsPage : Page
         UpdateLanguageStatus();
 
         this.KeyDown += SettingsPage_KeyDown;
+
+        // 构造期间对下拉框赋值会触发 SelectionChanged，用此标志跳过初始化的多余写盘。
+        _loaded = true;
     }
+
+    private bool _loaded;
 
     // 进入设置时已有的有效路径（校验失败回退用，而非默认路径）
     private string? _originalStoragePath;
@@ -102,6 +107,7 @@ public sealed partial class SettingsPage : Page
 
     private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_loaded) return;
         if (LanguageComboBox.SelectedIndex < 0) return;
         var code = LangHelper.LangCodeFromIndex(LanguageComboBox.SelectedIndex, LanguageItems);
 
