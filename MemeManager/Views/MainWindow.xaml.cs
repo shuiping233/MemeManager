@@ -79,9 +79,11 @@ public sealed partial class MainWindow : Window
     private IImageReleasablePage? CurrentReleasablePage => RootFrame.Content as IImageReleasablePage;
 
     // 释放当前页面持有的图像资源引用，并统一执行一次 GC 回收（两种模式共用）。
-    private void ReleaseCurrentPageImages()
+    // detachItemsSource=true 仅隐藏窗口时使用（视觉树保留，需摘容器卸载 Image 释放 GPU 纹理）；
+    // 切模式走默认 false——旧页面视觉树将由导航卸载，不手动摘，避免重演"切回空白"老 bug。
+    private void ReleaseCurrentPageImages(bool detachItemsSource = false)
     {
-        CurrentReleasablePage?.ReleaseImages();
+        CurrentReleasablePage?.ReleaseImages(detachItemsSource);
         GC.Collect();
         GC.WaitForPendingFinalizers();
     }
@@ -569,8 +571,11 @@ public sealed partial class MainWindow : Window
 
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
-        // 窗口隐藏：两种模式都断开图像引用并统一 GC（Mini 模式此前没有此释放路径）。
-        ReleaseCurrentPageImages();
+        // 窗口隐藏：两种模式都断开图像引用并统一 GC。
+        // 传 detachItemsSource:true——隐藏时视觉树保留，必须摘掉网格 ItemsSource 卸载
+        // Image 容器才能真正释放 GPU 纹理（仅清 VM 字段不够，85eb33c 回归）；
+        // 切模式走默认 false，避免重演"切模式后空白"的老 bug。
+        ReleaseCurrentPageImages(detachItemsSource: true);
         SuspendWindowInteractions(closing: false);
         Log("[窗口] 隐藏完成 (SW_HIDE)");
     }

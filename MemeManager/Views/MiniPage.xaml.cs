@@ -133,7 +133,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
                 _currentCategory = vm.Name;
                 MainPage.DebouncedSaveLastCategory(vm.Name);
             }
-            ReleaseImages();
+            ReleaseImages(detachItemsSource: true);
         }
     }
 
@@ -190,7 +190,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     // Picker 每次 Opening 都会 new 一批新 VM 并重新赋 ItemsSource，旧批次若不断引用会累积；
     // 这里遍历旧 VM 调 ClearImages() 断开其 BitmapImage，并把 Repeater 的 ItemsSource 置空，
     // 让 Image 容器从可视化树移除、框架释放 GPU 纹理。仅断引用，GC 由 MainWindow 统一执行。
-    public void ReleaseImages()
+    // detachItemsSource 参数忽略：Picker 容器每次都需摘（每次 Opening 都会换新批次）。
+    public void ReleaseImages(bool detachItemsSource)
     {
         if (_pickerMemes != null)
         {

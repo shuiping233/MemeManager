@@ -561,20 +561,29 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         else
         {
             // 隐藏时断开图像资源引用（GPU 纹理随后由框架回收）；GC 由 MainWindow 统一执行。
-            ReleaseImages();
+            // 摘容器（ItemsSource=null 卸载 Image、释放 GPU 纹理）在 ReleaseImages 内完成，
+            // 由 HideWindow 以 detachItemsSource:true 驱动。
+            ReleaseImages(detachItemsSource: true);
         }
     }
 
     // IImageReleasablePage：仅断引用，不 GC（GC 由 MainWindow 在隐藏/切模式后统一调用）。
-    public void ReleaseImages()
+    // detachItemsSource=true 仅在隐藏窗口时使用（视觉树保留）：摘掉网格 ItemsSource 让
+    // Image 容器卸载、GPU 纹理被框架回收；切模式（视觉树即将被导航卸载）传 false，避免
+    // 在导航前扰动容器状态（曾导致切回空白，85eb33c 即因此误删此步）。
+    public void ReleaseImages(bool detachItemsSource)
     {
         // 释放图像资源：遍历表情 VM 断开其 BitmapImage 引用（不触发 PropertyChanged，
-        // 避免绑定重求又 new 出纹理）；不置空 ItemsSource——分类容器无需置空，且图片容器
-        // 由框架/导航负责卸载，手动 null 反而在切模式导航前扰乱状态（曾导致切回空白）。
-        // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
+        // 避免绑定重求又 new 出纹理）。
         foreach (var vm in ViewModel.MemeList)
             vm.ClearImages();
 
+        // 仅清 VM 字段不够——Image.Source 仍引用旧 BitmapImage，GPU 纹理不会释放；
+        // 摘容器后 Image 从可视化树移除，WinUI 框架在下一帧释放纹理。
+        if (detachItemsSource)
+            MemeGridView.ItemsSource = null;
+
+        // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
         if (ConfigService.Config.UseControlReuse)
         {
             Log($"[内存诊断] 隐藏释放(复用模式): ViewModel.MemeList={ViewModel.MemeList.Count} ViewModel.CategoryList={ViewModel.CategoryList.Count} " +
