@@ -111,42 +111,18 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 
 ---
 
-## MainPage 瘦身任务清单（屎山清空 / 收尾）
+## 重构收尾结论（2026-08）
 
-> **背景**：Phase 0–4 已把业务逻辑搬到 5 个 Service 并命令化按钮。`MainPage.xaml.cs` 现在约 2054 行，
-> 剩下主要是 UI 接线代码（事件 handler、Popup、拖拽视觉、选中态镜像）——本就该在 Page。本次瘦身目标：
-> **消除重复 + 收敛冗余 + 兑现单例事件反订阅纪律（R3）**，不把 UI 事件 handler 硬搬走。
->
-> **已确认决策**：O5（Page 与 VM 各自 `App.GetService<X>()` 取同一单例）**保持各自 DI，不改**
-> （多一行赋值无功能危害，避免新增 VM→Page 反向依赖）。
+**MVVM 重构已到顶，无必须做的架构重构剩余。**
 
-### 已完成
+- Phase 0–4 已完成：业务逻辑迁 5 个 Service、按钮命令化（Phase 2）、ViewModel 状态化（Phase 1）。
+- R3 单例事件累积泄漏已根除：18+2 个 VM→Page 请求事件从 `event` 改为委托属性（`Action`/`Func<...>`），Page 用 `=` 赋值，覆盖式天然不累积（顺手修了 Mini 切几次后 Expand 按钮失效的实锤 bug）。
+- 分层已清晰：Infrastructure（数据）/ Services（业务编排）/ ViewModels（状态+命令）/ Views（UI 接线）四层职责分明。
 
-- [x] **S0** 扫描 `MainPage.xaml.cs` 与 `MainViewModel.cs`，产出搬迁分析（XAML 事件 handler 清单、孤儿/冗余 O1–O5、重复块 D1–D3、8 步顺序、风险 R1/R2/R3）
+**MainPage(~2000) / MiniPage(325) / SettingsPage(424) 剩下的代码主体是 View 层天职**：拖拽、悬停预览 Popup、选中态镜像、窗口生命周期（IImageReleasablePage/IExternalDropPage）、配置 Toggle 回调、快捷键路由、文件监听转发。这些不是"没搬完的业务逻辑"，是 UI 的本质工作，留 Page 才符合 MVVM（VM 不引用 Microsoft.UI.Xaml、不操控控件）。
 
-### 待做（零/低风险清理）
-
-- [ ] **S1** 删除纯注释死代码（L47-50 `_listStrategy` 啰嗦注释、L66-74 无代码体的字段说明注释等）
-- [ ] **S2** 合并 `OpenSettingsFlyout` 空壳(O2)：`MainWindow` 改调 `ShowSettingsFlyout`，删 MainPage L1470
-- [ ] **S3** 内联 `EnterEditModeAndSelectAll`(O4)：`Root_KeyDown` Ctrl+A 分支直接 `EnterEditMode(); ToggleSelectAll();`，删 L897-901
-- [ ] **S4** 统一 `AllMemesCategory` 常量到 VM(O1)：`MainViewModel` 加 `public const string AllMemesCategory = "AllMemes";`，Page 删私有常量 L53，引用改 `MainViewModel.AllMemesCategory`
-- [ ] **S5** 抽出"全部表情禁移提示"+"分类子菜单填充"共享辅助(D1/D2)，收敛 `MemeItemContextFlyout_Opening` 与 `BatchMoveFlyout_Opening`
-- [ ] **S6** 抽出文件监听导入块共享方法(D3)：合并 `OnWatchedFilesAdded`/`OnWatchedFilesMoved` 同构体
-
-### 高优先级（事件桥接去累积）
-
-- [x] **S7（方案变更）** 原方案"具名字段 + Unloaded 反订阅"**取消**——决定把 18 个 VM→Page 请求事件从 `event` 改为**委托属性**（`Action` / `Func<...>`），Page 用 `=` 赋值。`=` 覆盖式天然不累积（新 Page 赋值即覆盖旧的，旧 Page 失引用被 GC，VM 上永远只有 1 份），单 Page 对接场景下行为不变，且根除 R3 累积 bug。`SubscriptionScope` 工具**不建**。
-- [ ] **S7a** `MainViewModel.cs`：18 个 `event` 定义改委托属性 `{ get; set; }`（触发处 `?.Invoke()` / `await ?.Invoke()` 不变）。
-- [ ] **S7b** `MainPage.xaml.cs`：构造函数 18 个 `+=` 改 `=`；顺手抽 `WireViewModelEvents()` 减重。
-- [ ] **S7c** `MiniPage.xaml.cs`：2 个事件改委托属性 + 构造 `+=`→`=`；删 `MiniPage_Unloaded` 里的 `-=` 及反订阅逻辑（修"Mini 切几次后 Expand 按钮失效"实锤 bug）。
-- [ ] **S7d** 回归：Mini 模式切 Full 再切回反复多次，Expand 按钮每次生效；Full 模式刷新/设置/新建分类/删分类确认/重命名/批量导入导出删除/单击发送各点一遍。
-
-### 待决策（高风险，需用户点头）
-
-- [ ] **S8** O8：分类/表情重排写回搬进 Service（`CategoryService.ReorderAsync` / `MemeOperationService.ReorderMemesAsync`）；涉及 R1 选中态崩溃
-- [ ] **S9** `MemeItem_Tapped` 改 XAML Command 绑定（删 L907，xaml 用 `x:Bind ViewModel.MemeTappedCommand`）；涉及 R2 拖拽 failfast
-
-### 已取消
-
-- [x] **S10** O5（Page 与 VM 重复持有 Service）：**保持各自 DI，不改**（决策已完成）
-- [x] **S11** `SubscriptionScope` 工具类：**不建**（委托属性 `=` 方案已根除累积，无需生命周期订阅管理器）
+**可做的纯整洁度项（可选，不改变行为/分层）**，想收拾再收拾，不做也不影响架构：
+- 删死注释、合并 `OpenSettingsFlyout` 空壳、内联 `EnterEditModeAndSelectAll`、统一 `AllMemesCategory` 常量到 VM。
+- 抽 `CategoryMenuBuilder` 收敛两处"移动到分类"动态菜单（仅该子菜单重复，异构固定菜单项不抽 UserControl，YAGNI）。
+- 少量纯逻辑可进 VM：`ResolveInitialSelection`（算初始选中）、`IsCategoryExists`（重名校验）、写锁忙判断。
+- 高风险项（分类/表情重排写回搬 Service、MemeItem_Tapped 改 Command）因 R1/R2 风险，维持现状。
