@@ -14,7 +14,11 @@ public enum AppMode
     Mini = 1
 }
 
-public class AppConfig
+// 注意：本类型用 record 而非 class，依赖其天然的基于所有字段的值相等（==/Equals），
+// 供 ConfigService 判断“配置是否真的变化”以跳过无谓写盘。
+// 若以后需要新增 List<T>/Dictionary 等集合字段，record 默认的相等仅比较引用、不会比较内容，
+// 会导致内容变化但引用未变时被误判为未变化而不写盘；届时需将集合改为不可变类型或自定义 Equals。
+public record AppConfig
 {
     public ThemeMode Theme { get; set; } = ThemeMode.System;
 
