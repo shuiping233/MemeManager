@@ -33,7 +33,8 @@
     <InvariantGlobalization>false</InvariantGlobalization>
     <StackTraceSupport>true</StackTraceSupport>
 
-    <!-- 允许不安全代码以解决 CS0227 错误 -->
+    <!-- 必须保持开启：NativeMethods 的 LibraryImport 源生成器生成的互操作代码（LibraryImports.g.cs）
+         本身使用 unsafe，关闭会报 CS0227（实测 22 处）；项目源码中无手写 unsafe 块 -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
     <!-- 版本信息：CI 通过 -p:AppVersion=vX.Y.Z 传入；本地构建未传则用编译时间戳 + dev -->
