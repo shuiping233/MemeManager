@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    # 首次还原 WindowsAppSDK + 编译 WinUI 主项目较慢；超时兜底防无限挂起
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -15,6 +17,18 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      # 测试项目引用 WinUI 3 主项目；testhost 加载主项目程序集时会触发 WinUI XAML 的
+      # [ModuleInitializer]（XamlTypeInfo 初始化），需要与 WindowsAppSDK 2.3.1 匹配的
+      # WindowsAppRuntime 运行时。镜像未预装，缺失会导致 testhost 挂起（卡在
+      # "A total of 1 test files matched the specified pattern." 之后无任何输出）。
+      - name: Install WindowsAppRuntime 2.3
+        shell: pwsh
+        run: |
+          $exe = "$env:RUNNER_TEMP\WindowsAppRuntimeInstall.exe"
+          Invoke-WebRequest -Uri "https://aka.ms/windowsappsdk/2.3/latest/windowsappruntimeinstall-x64.exe" -OutFile $exe
+          & $exe --quiet --force
+          Start-Sleep -Seconds 3
 
       # dotnet test 会先还原 + 编译（含被引用的主项目 MemeManager），再执行 xUnit 用例。
       # 主项目为 WinUI 3（Platforms=x64），须显式传 Platform=x64 避免 AnyCPU 平台冲突。
