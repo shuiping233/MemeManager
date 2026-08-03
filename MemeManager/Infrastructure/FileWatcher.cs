@@ -73,15 +73,11 @@ public sealed class FileWatcher : IDisposable
     }
 
     // 仅关注图片文件；log 目录与所有 *.json/*.log 等非图片一律忽略，避免噪声触发。
-    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".avif", ".heic", ".heif"
-    };
-
+    // 扩展名白名单统一引用 AppConstants（与导入/打开等入口共用同一来源）。
     private static bool ShouldTrack(string fullPath)
     {
         var ext = Path.GetExtension(fullPath);
-        if (string.IsNullOrEmpty(ext) || !ImageExtensions.Contains(ext)) return false;
+        if (!AppConstants.IsImage(ext)) return false;
         // 忽略 log 目录（Logger 写到 <baseDir>/log/debug.log）
         var dir = Path.GetDirectoryName(fullPath);
         if (dir != null)

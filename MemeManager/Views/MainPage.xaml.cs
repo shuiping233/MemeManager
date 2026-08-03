@@ -1987,8 +1987,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         return (paths, temps);
     }
 
-    internal static bool IsImage(string ext) =>
-        ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp";
+    internal static bool IsImage(string ext) => AppConstants.IsImage(ext);
 
     // ---------- 窗口交互挂起/恢复（由 MainWindow 在隐藏/显示/销毁时调用） ----------
 

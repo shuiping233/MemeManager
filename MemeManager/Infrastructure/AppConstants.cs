@@ -47,6 +47,17 @@ public static class AppConstants
     // 将外部拖入的图片归入此分类（而非误用视图标记值）。
     public static string UncategorizedCategory => Localization.Get("Category_Uncategorized");
 
+    // 统一图片扩展名白名单（全项目唯一来源）：按 WIC（Windows 图像组件）可解码格式维护。
+    // 导入/拖放/粘贴入口、metadata 加载过滤、FileWatcher 跟踪、OpenMeme 兜底均引用此处，
+    // 新增格式只需改这一处。注意保持 OrdinalIgnoreCase 不区分大小写。
+    public static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp",
+        ".tiff", ".tif", ".avif", ".heic", ".heif"
+    };
+
+    public static bool IsImage(string? ext) => !string.IsNullOrEmpty(ext) && ImageExtensions.Contains(ext);
+
     // 写盘 JSON：缩进可读 + 中文不转义（与引擎原配置序列化选项一致）
     public static readonly JsonSerializerOptions JsonOptions = new()
     {
