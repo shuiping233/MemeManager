@@ -1,0 +1,22 @@
+name: Unit Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # dotnet test 会先还原 + 编译（含被引用的主项目 MemeManager），再执行 xUnit 用例。
+      # 主项目为 WinUI 3（Platforms=x64），须显式传 Platform=x64 避免 AnyCPU 平台冲突。
+      - name: Run unit tests
+        run: dotnet test MemeManager.Tests/MemeManager.Tests.csproj -p:Platform=x64 --nologo
