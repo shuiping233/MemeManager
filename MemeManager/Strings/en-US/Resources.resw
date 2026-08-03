@@ -461,7 +461,7 @@ All memes and folders under it will be deleted.</value>
     <value>The specified storage path does not exist:
 {0}
 
- Reverted to the previous valid path.</value>
+Reverted to the previous valid path.</value>
   </data>
   <data name="Dialog_StoragePathInvalid_Title" xml:space="preserve">
     <value>Invalid path</value>
@@ -470,7 +470,7 @@ All memes and folders under it will be deleted.</value>
     <value>The storage path must be an existing folder and cannot be a relative path:
 {0}
 
- Reverted to the previous valid path.</value>
+Reverted to the previous valid path.</value>
   </data>
   <data name="Dialog_InvalidCategoryName_Title" xml:space="preserve">
     <value>Invalid name</value>

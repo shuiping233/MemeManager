@@ -461,7 +461,7 @@
     <value>指定的存放路径不存在：
 {0}
 
- 已恢复为之前的有效路径。</value>
+已恢复为之前的有效路径。</value>
   </data>
   <data name="Dialog_StoragePathInvalid_Title" xml:space="preserve">
     <value>路径无效</value>
@@ -470,7 +470,7 @@
     <value>存放路径必须是已存在的文件夹，且不能是相对路径：
 {0}
 
- 已恢复为之前的有效路径。</value>
+已恢复为之前的有效路径。</value>
   </data>
   <data name="Dialog_InvalidCategoryName_Title" xml:space="preserve">
     <value>名称无效</value>
