@@ -18,6 +18,24 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # NuGet 包缓存：WindowsAppSDK 等包还原耗时明显（首次 ~36s），缓存后秒级命中
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # WindowsAppRuntime 安装器缓存（~50MB 下载）：缓存命中直接复用 exe，仅省下载；
+      # 运行时本身每次 runner 都是全新的，仍须执行安装（见下一步，不受 cache-hit 跳过）
+      - name: Cache WindowsAppRuntime installer
+        id: cache-warp
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\WindowsAppRuntimeInstall.exe
+          key: windowsappruntime-2.3-x64
+
       # 测试项目引用 WinUI 3 主项目；testhost 加载主项目程序集时会触发 WinUI XAML 的
       # [ModuleInitializer]（XamlTypeInfo 初始化），需要与 WindowsAppSDK 2.3.1 匹配的
       # WindowsAppRuntime 运行时。镜像未预装，缺失会导致 testhost 挂起（卡在
@@ -26,7 +44,9 @@ jobs:
         shell: pwsh
         run: |
           $exe = "$env:RUNNER_TEMP\WindowsAppRuntimeInstall.exe"
-          Invoke-WebRequest -Uri "https://aka.ms/windowsappsdk/2.3/latest/windowsappruntimeinstall-x64.exe" -OutFile $exe
+          if (-not (Test-Path $exe)) {
+            Invoke-WebRequest -Uri "https://aka.ms/windowsappsdk/2.3/latest/windowsappruntimeinstall-x64.exe" -OutFile $exe
+          }
           & $exe --quiet --force
           Start-Sleep -Seconds 3
 
