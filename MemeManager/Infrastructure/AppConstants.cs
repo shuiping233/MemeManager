@@ -71,5 +71,8 @@ public static class AppConstants
     // 切分类写盘超级防抖时长：短时间内连续切换分类只落最后一次，避免每次切换都写 config。
     // 程序退出时由 MainWindow 调用 FlushLastCategory 立即落盘，避免丢失最后的选择。
     public static TimeSpan LastCategorySaveDebounce = TimeSpan.FromSeconds(3);
+
+    // 设置页存储路径文本框校验防抖时长：停止输入这么久后才校验，避免打字过程中逐键弹窗。
+    public static readonly TimeSpan StoragePathValidationDebounce = TimeSpan.FromMilliseconds(100);
 }
 

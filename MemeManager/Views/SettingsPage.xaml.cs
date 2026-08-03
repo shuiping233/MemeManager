@@ -380,7 +380,7 @@ public sealed partial class SettingsPage : Page
     {
         try
         {
-            await Task.Delay(100, token);
+            await Task.Delay(AppConstants.StoragePathValidationDebounce, token);
         }
         catch (OperationCanceledException)
         {
