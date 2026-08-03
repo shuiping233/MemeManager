@@ -2,7 +2,6 @@ name: Unit Tests
 
 on:
   push:
-    # 仅代码/工程/CI 配置变更才跑单测；docs、resw、图片等改动不触发
     paths:
       - '**/*.cs'
       - '**/*.csproj'
@@ -16,7 +15,6 @@ on:
 jobs:
   test:
     runs-on: windows-latest
-    # 首次还原 WindowsAppSDK + 编译 WinUI 主项目较慢；超时兜底防无限挂起
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -27,7 +25,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # NuGet 包缓存：WindowsAppSDK 等包还原耗时明显（首次 ~36s），缓存后秒级命中
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -36,8 +33,9 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      # WindowsAppRuntime 安装器缓存（~50MB 下载）：缓存命中直接复用 exe，仅省下载；
-      # 运行时本身每次 runner 都是全新的，仍须执行安装（见下一步，不受 cache-hit 跳过）
+      # 不安装对应的windowsappruntime会导致单测一直卡住background
+      # 估计是MemeManager要单测的部分依赖了winui3 sdk部分导致的
+      # 暂时先这样, 后面单独把ui无关部分拆成MemeManager.Core 就可以移除这个安装步骤了
       - name: Cache WindowsAppRuntime installer
         id: cache-warp
         uses: actions/cache@v4
@@ -45,10 +43,6 @@ jobs:
           path: ${{ runner.temp }}\WindowsAppRuntimeInstall.exe
           key: windowsappruntime-2.3-x64
 
-      # 测试项目引用 WinUI 3 主项目；testhost 加载主项目程序集时会触发 WinUI XAML 的
-      # [ModuleInitializer]（XamlTypeInfo 初始化），需要与 WindowsAppSDK 2.3.1 匹配的
-      # WindowsAppRuntime 运行时。镜像未预装，缺失会导致 testhost 挂起（卡在
-      # "A total of 1 test files matched the specified pattern." 之后无任何输出）。
       - name: Install WindowsAppRuntime 2.3
         shell: pwsh
         run: |
@@ -58,8 +52,5 @@ jobs:
           }
           & $exe --quiet --force
           Start-Sleep -Seconds 3
-
-      # dotnet test 会先还原 + 编译（含被引用的主项目 MemeManager），再执行 xUnit 用例。
-      # 主项目为 WinUI 3（Platforms=x64），须显式传 Platform=x64 避免 AnyCPU 平台冲突。
       - name: Run unit tests
         run: dotnet test MemeManager.Tests/MemeManager.Tests.csproj -p:Platform=x64 --nologo
