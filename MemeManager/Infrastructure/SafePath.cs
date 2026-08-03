@@ -3,10 +3,16 @@ using System;
 namespace MemeManager.Infrastructure;
 
 /// <summary>
-/// 文件系统路径边界封装（安全审计修复的核心基础设施）。
+/// 文件系统路径边界封装（安全边界）。
 /// 原则：任何“用户可控字符串 → 文件系统路径”的构造都必须经过本类，
 /// 统一在“Combine + 规范化（GetFullPath）之后”做边界判定，而不是在字符串上做黑名单。
 /// 参考：Python pathlib 的 resolve() + startswith 判定；.NET 8+ 的 Path.GetRelativePath 反向判定。
+///
+/// 职责边界说明：
+/// - 本类只回答"路径是否跑出根目录"（逃逸防护），不判断 Windows 喜不喜欢这个名字
+///   （设备名/尾随点/非法字符等属 FileNameValidator 的数据一致性职责，非安全边界）。
+/// - 两层配合：FileNameValidator 提前拦截给出友好提示，SafePath 在 Combine 后兜底——
+///   ".."、绝对路径、UNC、跨盘等无论哪层漏过，最终由本类拒绝。
 /// </summary>
 public static class SafePath
 {
@@ -62,44 +68,4 @@ public static class SafePath
 
         return true;
     }
-
-    /// <summary>
-    /// 分类名严格校验：必须是单个文件夹名（非空、非 "."/".."、无路径分隔符与非法字符、
-    /// 无尾随点/空格、非 Windows 保留设备名）。
-    /// 注意：不 Trim——调用方必须先 Trim 再传入，否则 "abc " 这类尾随空格会被 Windows
-    /// 静默吞掉（建出 "abc"），导致磁盘目录名与分类名不一致；前导空格合法（Windows 保留）。
-    /// 分类不是路径，用户若想分层应建多个分类，而非输入 "旅行/2026"。
-    /// </summary>
-    public static bool IsValidCategoryName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return false;
-
-        // "." / ".."：目录逃逸根子（".. " 之类尾随空格形态由下方 EndsWith 拦截）
-        if (name is "." or "..")
-            return false;
-
-        // 尾随点/空格：Windows 会静默吞掉（CreateDirectory("abc.") 实际建 "abc"），
-        // 导致磁盘目录名与分类名不一致，后续删除/重命名/打开全部错位。
-        if (name.EndsWith('.') || name.EndsWith(' '))
-            return false;
-
-        // 非法字符（含 / \ : * ? " < > | 与控制字符）
-        if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            return false;
-
-        // Windows 保留设备名：CON、PRN、AUX、NUL、COM1-9、LPT1-9（含 "CON.txt" 这种带扩展名形态）
-        string stem = name.Split('.')[0];
-        if (ReservedDeviceNames.Contains(stem))
-            return false;
-
-        return true;
-    }
-
-    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CON", "PRN", "AUX", "NUL",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-    };
 }

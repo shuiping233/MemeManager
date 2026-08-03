@@ -1936,9 +1936,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return null;
             }
 
-            // 分类名严格校验（拒绝 "."/".."、路径分隔符、非法字符等，见 SafePath.IsValidCategoryName）。
+            // 分类名严格校验（拒绝 "."/".."、路径分隔符、非法字符等，见 FileNameValidator.IsValidCategoryName）。
             // 安全审计 Critical：此前零校验，输入 ".." 会经 Path.Combine(_baseDir, "..") 越界写/删父目录。
-            if (!SafePath.IsValidCategoryName(name))
+            if (!FileNameValidator.IsValidCategoryName(name))
             {
                 Log($"[剪贴板] 分类名非法，已取消粘贴: {name}");
                 return null;

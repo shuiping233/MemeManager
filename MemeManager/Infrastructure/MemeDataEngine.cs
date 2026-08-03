@@ -1141,11 +1141,11 @@ public class MemeDataEngine(ConfigService _config)
 
     private static string SanitizeCategory(string category)
     {
-        // 严格校验（SafePath.IsValidCategoryName）：拒绝 "."/".."、路径分隔符、非法字符、
+        // 严格校验（FileNameValidator.IsValidCategoryName）：拒绝 "."/".."、路径分隔符、非法字符、
         // 尾随点/空格、Windows 保留设备名（CON/COM1 等）。此前仅过滤非法字符会放过 ".."，
         // 导致 Path.Combine(_baseDir, "..") 越界写/递归删父目录（安全审计 Critical）。
         var trimmed = (category ?? string.Empty).Trim();
-        if (!SafePath.IsValidCategoryName(trimmed))
+        if (!FileNameValidator.IsValidCategoryName(trimmed))
             return AppConstants.UncategorizedCategory;
         return trimmed;
     }
