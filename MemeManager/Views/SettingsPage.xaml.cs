@@ -177,6 +177,9 @@ public sealed partial class SettingsPage : Page
 
     private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
     {
+        // 取消防抖校验（页面销毁后不再弹窗）
+        _pathValidationCts?.Cancel();
+
         // 反订阅单例 VM 的事件，避免处理器累积（每次打开设置浮窗会新建本页实例）。
         if (DataContext is SettingsViewModel vm)
         {
@@ -311,37 +314,92 @@ public sealed partial class SettingsPage : Page
     private async Task OpenFolderAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
+
+        var trimmed = path.Trim();
+        // 打开前校验：拒绝相对路径与不存在的路径。
+        // 此前直接 CreateDirectory(path) + LaunchFolderPathAsync 会让 "../" 之类相对路径
+        // 在当前工作目录下被创建/打开到错误位置。
+        var err = ValidateStoragePath(trimmed);
+        if (err != StoragePathError.None)
+        {
+            await ShowStoragePathErrorAsync(err, trimmed);
+            return;
+        }
+
         try
         {
-            // 确保目录存在
-            System.IO.Directory.CreateDirectory(path);
-            Logger.Log($"[Settings] 打开 {path} 文件夹");
-            await Windows.System.Launcher.LaunchFolderPathAsync(path);
+            Logger.Log($"[Settings] 打开 {trimmed} 文件夹");
+            await Windows.System.Launcher.LaunchFolderPathAsync(trimmed);
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Settings] 打开 {path} 文件夹错误: {ex.Message}");
+            Logger.Log($"[Settings] 打开 {trimmed} 文件夹错误: {ex.Message}");
         }
     }
 
-    // 用户手动修改路径文本框时校验：目录存在则记录，不存在则提示并回退到进入设置前的有效路径
+    // 用户手动修改路径文本框时校验：目录存在则记录，不存在则提示并回退到进入设置前的有效路径。
+    // 注意：不能只用 Directory.Exists 判断——相对路径（如 "../"）会在当前工作目录下解析，
+    // 恒"存在"而漏过（用户填 "../" 打开的是错误位置）。必须叠加 Path.IsPathRooted 拒绝相对路径。
     private bool _revertingPath;
-    private async void StoragePathBox_TextChanged(object sender, TextChangedEventArgs e)
+
+    // 100ms 防抖：用户停止输入后才校验，避免打字过程中逐键弹窗打断。
+    private CancellationTokenSource? _pathValidationCts;
+
+    // 存储路径校验结果：合法 / 相对路径非法 / 目录不存在（空输入视为中性，不打扰输入中状态）
+    private enum StoragePathError { None, Relative, NotFound }
+
+    private static StoragePathError ValidateStoragePath(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return StoragePathError.None;
+        // 相对路径（"../"、"\folder"、"folder\sub"）一律拒绝
+        if (!Path.IsPathRooted(text)) return StoragePathError.Relative;
+        // 必须是已存在的文件夹
+        if (!Directory.Exists(text)) return StoragePathError.NotFound;
+        return StoragePathError.None;
+    }
+
+    private async Task ShowStoragePathErrorAsync(StoragePathError err, string path)
+    {
+        if (err == StoragePathError.Relative)
+            await DialogHelper.ShowStoragePathInvalidAsync(XamlRoot, path);
+        else
+            await DialogHelper.ShowPathNotFoundAsync(XamlRoot, path);
+    }
+
+    private void StoragePathBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_revertingPath) return;
+
+        // 防抖：取消上一次未完成的校验，重新计时 100ms
+        _pathValidationCts?.Cancel();
+        _pathValidationCts = new CancellationTokenSource();
+        _ = ValidatePathAfterDelayAsync(_pathValidationCts.Token);
+    }
+
+    private async Task ValidatePathAfterDelayAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(100, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return; // 用户继续输入，本次校验作废
+        }
 
         var text = StoragePathBox.Text?.Trim() ?? string.Empty;
         // 空字符串暂不打扰（用户可能正在输入中）
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        if (Directory.Exists(text))
+        var err = ValidateStoragePath(text);
+        if (err == StoragePathError.None)
         {
-            // 有效路径：仅记录，真正保存延后到点击“完成”
+            // 有效路径：仅记录，真正保存延后到点击"完成"
             return;
         }
 
-        // 目录不存在：弹窗提示并回退到进入设置前保存的有效路径
-        await DialogHelper.ShowPathNotFoundAsync(XamlRoot, text);
+        // 非法：弹窗提示并回退到进入设置前保存的有效路径
+        await ShowStoragePathErrorAsync(err, text);
 
         var fallback = _originalStoragePath ?? AppConstants.DefaultMemeDataStoragePath();
         _revertingPath = true;
@@ -364,10 +422,20 @@ public sealed partial class SettingsPage : Page
         string? newStoragePath = null;
         bool pathChanged = false;
         var typedPath = StoragePathBox.Text?.Trim() ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(typedPath) && Directory.Exists(typedPath))
+        if (!string.IsNullOrWhiteSpace(typedPath))
         {
-            newStoragePath = typedPath;
-            pathChanged = true;
+            // 保存入口与输入校验同一规则：拒绝相对路径与不存在路径，
+            // 防止把 "../" 之类非法值写入 config（否则下次启动 ResolveBaseDir 会静默回退默认路径）。
+            var err = ValidateStoragePath(typedPath);
+            if (err == StoragePathError.None)
+            {
+                newStoragePath = typedPath;
+                pathChanged = true;
+            }
+            else
+            {
+                await ShowStoragePathErrorAsync(err, typedPath);
+            }
         }
 
         var prev = ConfigService.Config;

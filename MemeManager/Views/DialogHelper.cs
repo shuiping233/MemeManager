@@ -245,6 +245,11 @@ public static class DialogHelper
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_PathNotFound_Title"),
             string.Format(Localization.Get("Dialog_PathNotFound_Message"), path));
 
+    // 存放路径非法提示（相对路径等，SettingsPage 校验用）
+    public static Task ShowStoragePathInvalidAsync(XamlRoot xamlRoot, string path) =>
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_StoragePathInvalid_Title"),
+            string.Format(Localization.Get("Dialog_StoragePathInvalid_Message"), path));
+
     // 默认数据目录写入失败（无写权限等）：保证程序仍能启动，提示用户去设置里改目录。
     public static Task ShowDefaultDirWriteFailedAsync(XamlRoot xamlRoot, string dir, string detail) =>
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_DefaultDirWriteFailed_Title"),

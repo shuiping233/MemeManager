@@ -463,6 +463,15 @@ All memes and folders under it will be deleted.</value>
 
  Reverted to the previous valid path.</value>
   </data>
+  <data name="Dialog_StoragePathInvalid_Title" xml:space="preserve">
+    <value>Invalid path</value>
+  </data>
+  <data name="Dialog_StoragePathInvalid_Message" xml:space="preserve">
+    <value>The storage path must be an existing folder and cannot be a relative path:
+{0}
+
+ Reverted to the previous valid path.</value>
+  </data>
   <data name="Dialog_DefaultDirWriteFailed_Title" xml:space="preserve">
     <value>Failed to write data directory</value>
   </data>

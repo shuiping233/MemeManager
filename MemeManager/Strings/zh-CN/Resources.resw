@@ -463,6 +463,15 @@
 
  已恢复为之前的有效路径。</value>
   </data>
+  <data name="Dialog_StoragePathInvalid_Title" xml:space="preserve">
+    <value>路径无效</value>
+  </data>
+  <data name="Dialog_StoragePathInvalid_Message" xml:space="preserve">
+    <value>存放路径必须是已存在的文件夹，且不能是相对路径：
+{0}
+
+ 已恢复为之前的有效路径。</value>
+  </data>
   <data name="Dialog_DefaultDirWriteFailed_Title" xml:space="preserve">
     <value>数据目录写入失败</value>
   </data>
