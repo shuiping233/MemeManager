@@ -157,6 +157,10 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     [RelayCommand]
     private void OpenMeme(MemeViewModel vm)
     {
+        // 安全兜底：仅允许打开库内的图片文件（白名单见 AppConstants.ImageExtensions）。
+        // UseShellExecute=true 会按文件关联交给 shell 处理，若不校验扩展名，
+        // 配合被篡改的 metadata（key 可指向任意扩展名文件）将形成 shell 执行面。
+        if (!AppConstants.IsImage(vm.Model.Extension)) return;
         try
         {
             Process.Start(new ProcessStartInfo

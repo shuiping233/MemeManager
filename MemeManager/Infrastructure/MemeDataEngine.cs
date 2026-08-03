@@ -332,6 +332,13 @@ public class MemeDataEngine(ConfigService _config)
     public async Task<(MemeModel? model, bool duplicate)> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
     {
         if (!File.Exists(sourcePath)) return (null, false);
+        // 引擎层兜底校验：仅接受白名单内的图片扩展名（与 UI 层过滤一致，纵深防御，
+        // 防止未来新入口绕过 UI 直接调引擎时把任意扩展名文件带入库内）。
+        if (!AppConstants.IsImage(Path.GetExtension(sourcePath)))
+        {
+            Logger.Log($"[Engine] 导入拒绝非图片扩展名: {sourcePath}");
+            return (null, false);
+        }
 
         try
         {
@@ -448,6 +455,8 @@ public class MemeDataEngine(ConfigService _config)
         await Parallel.ForEachAsync(list, po, async (sourcePath, _) =>
         {
             if (!File.Exists(sourcePath)) return;
+            // 引擎层兜底：非图片扩展名直接跳过（与 ImportMemeAsync 单张入口一致）
+            if (!AppConstants.IsImage(Path.GetExtension(sourcePath))) return;
 
             string hash;
             try { hash = await CalculateSha256Async(sourcePath); }
