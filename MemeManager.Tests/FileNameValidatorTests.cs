@@ -11,7 +11,7 @@ public class FileNameValidatorTests
     [InlineData("2026")]
     [InlineData("中文分类")]
     [InlineData("emoji😀分类")]
-    public void IsValidCategoryName_正常名称_返回true(string name)
+    public void IsValidCategoryName_ValidNames_ReturnsTrue(string name)
     {
         Assert.True(FileNameValidator.IsValidCategoryName(name));
     }
@@ -21,23 +21,23 @@ public class FileNameValidatorTests
     [InlineData("..")]
     [InlineData("...")]
     [InlineData(".. ")]
-    public void IsValidCategoryName_点类名称_返回false(string name)
+    public void IsValidCategoryName_DotLikeNames_ReturnsFalse(string name)
     {
         Assert.False(FileNameValidator.IsValidCategoryName(name));
     }
 
     [Fact]
-    public void IsValidCategoryName_前导空格_允许()
+    public void IsValidCategoryName_LeadingSpace_Allowed()
     {
         // Windows 保留前导空格（目录名与分类名一致），不应误杀；
-        // 只有尾随空格/点会被吞掉导致不一致（见 IsValidCategoryName_尾随点或空格_返回false）
+        // 只有尾随空格/点会被吞掉导致不一致（见 IsValidCategoryName_TrailingDotOrSpace_ReturnsFalse）
         Assert.True(FileNameValidator.IsValidCategoryName(" abc"));
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void IsValidCategoryName_空或空白_返回false(string name)
+    public void IsValidCategoryName_EmptyOrWhitespace_ReturnsFalse(string name)
     {
         Assert.False(FileNameValidator.IsValidCategoryName(name));
     }
@@ -47,7 +47,7 @@ public class FileNameValidatorTests
     [InlineData(@"a\b")]
     [InlineData(@"..\..")]
     [InlineData("旅行/2026")]
-    public void IsValidCategoryName_含路径分隔符_返回false(string name)
+    public void IsValidCategoryName_PathSeparators_ReturnsFalse(string name)
     {
         Assert.False(FileNameValidator.IsValidCategoryName(name));
     }
@@ -55,7 +55,7 @@ public class FileNameValidatorTests
     [Theory]
     [InlineData("abc.")]
     [InlineData("abc ")]
-    public void IsValidCategoryName_尾随点或空格_返回false(string name)
+    public void IsValidCategoryName_TrailingDotOrSpace_ReturnsFalse(string name)
     {
         Assert.False(FileNameValidator.IsValidCategoryName(name));
     }
@@ -69,7 +69,7 @@ public class FileNameValidatorTests
     [InlineData("COM1")]
     [InlineData("com9.log")]
     [InlineData("LPT3")]
-    public void IsValidCategoryName_Windows保留设备名_返回false(string name)
+    public void IsValidCategoryName_ReservedDeviceNames_ReturnsFalse(string name)
     {
         // 非安全边界：仅因 CreateDirectory("...CON") 会失败，提前拦截避免"内存有分类、磁盘没目录"脏状态
         Assert.False(FileNameValidator.IsValidCategoryName(name));
@@ -83,13 +83,13 @@ public class FileNameValidatorTests
     [InlineData("a<b")]
     [InlineData("a>b")]
     [InlineData("a|b")]
-    public void IsValidCategoryName_非法字符_返回false(string name)
+    public void IsValidCategoryName_InvalidChars_ReturnsFalse(string name)
     {
         Assert.False(FileNameValidator.IsValidCategoryName(name));
     }
 
     [Fact]
-    public void IsValidCategoryName_点开头的隐藏风格名称_允许()
+    public void IsValidCategoryName_DotPrefixedHiddenName_Allowed()
     {
         // ".gitignore" 这类点开头名称是合法 Windows 文件名，不应误杀
         Assert.True(FileNameValidator.IsValidCategoryName("..hidden"));
