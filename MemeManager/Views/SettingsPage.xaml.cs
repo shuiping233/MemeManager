@@ -378,14 +378,20 @@ public sealed partial class SettingsPage : Page
 
     private async Task ValidatePathAfterDelayAsync(CancellationToken token)
     {
+        // 注意：Task.Delay 不带 token——带 token 的取消会抛 TaskCanceledException，
+        // 每次输入都取消上一次防抖，会在 VS 输出刷大量 first-chance 异常（虽被捕获但难看）。
+        // 取消语义改由 Delay 完成后检查 token.IsCancellationRequested 实现。
         try
         {
-            await Task.Delay(AppConstants.StoragePathValidationDebounce, token);
+            await Task.Delay(AppConstants.StoragePathValidationDebounce);
         }
-        catch (OperationCanceledException)
+        catch
         {
-            return; // 用户继续输入，本次校验作废
+            return;
         }
+
+        // 已被更新的输入或页面卸载取消：本次校验作废
+        if (token.IsCancellationRequested) return;
 
         var text = StoragePathBox.Text?.Trim() ?? string.Empty;
         // 空字符串暂不打扰（用户可能正在输入中）
@@ -398,8 +404,15 @@ public sealed partial class SettingsPage : Page
             return;
         }
 
+        // 弹窗前再次确认：避免与更新的输入竞态，且不叠加在已有模态框上
+        // （ContentDialog 同时只能开一个，并发 ShowAsync 会抛 COMException）。
+        if (token.IsCancellationRequested || DialogHelper.IsModalOpen) return;
+
         // 非法：弹窗提示并回退到进入设置前保存的有效路径
         await ShowStoragePathErrorAsync(err, text);
+
+        // 弹窗期间页面可能已卸载（token 取消）：此时不再回退旧控件
+        if (token.IsCancellationRequested) return;
 
         var fallback = _originalStoragePath ?? AppConstants.DefaultMemeDataStoragePath();
         _revertingPath = true;
