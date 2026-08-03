@@ -1936,9 +1936,24 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return null;
             }
 
+            // 分类名严格校验（拒绝 "."/".."、路径分隔符、非法字符等，见 SafePath.IsValidCategoryName）。
+            // 安全审计 Critical：此前零校验，输入 ".." 会经 Path.Combine(_baseDir, "..") 越界写/删父目录。
+            if (!SafePath.IsValidCategoryName(name))
+            {
+                Log($"[剪贴板] 分类名非法，已取消粘贴: {name}");
+                return null;
+            }
+
             if (!ViewModel.CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
-                await _categories.AddCategoryAsync(name);
+                // 仅在引擎真正创建成功后才加入 UI 列表；失败（如目录已存在）则取消本次粘贴，
+                // 避免 UI 出现指向错误目录的分类项。
+                bool added = await _categories.AddCategoryAsync(name);
+                if (!added)
+                {
+                    Log($"[剪贴板] 新建分类失败，已取消粘贴: {name}");
+                    return null;
+                }
                 ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
                 Log($"[剪贴板] 新建分类 {name}");
             }

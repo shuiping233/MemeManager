@@ -350,7 +350,7 @@ public class MemeDataEngine(ConfigService _config)
             // 注意：缓存命中但磁盘文件已不存在（如曾被拖出到外部文件夹被移走）的，
             // 不当作重复——否则重新导入同一张图会被误判“已存在”。此时先清除该僵尸缓存
             // 记录，再按新导入流程覆盖写入，保证库与磁盘一致。
-            var categoryDir = Path.Combine(_baseDir, SanitizeCategory(category));
+            var categoryDir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
             var targetPath = Path.Combine(categoryDir, fileName);
             var existing = _memeCache.FirstOrDefault(m =>
                 m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
@@ -429,7 +429,7 @@ public class MemeDataEngine(ConfigService _config)
         if (total == 0) return (0, 0, null);
 
         var safeTarget = SanitizeCategory(category);
-        var categoryDir = Path.Combine(_baseDir, safeTarget);
+        var categoryDir = SafePath.CombineChildPath(_baseDir, safeTarget);
         // 仅在分类目录原本不存在（即本次新建）时通知上层，便于 UI 即时刷新分类栏。
         bool created = !Directory.Exists(categoryDir);
         Directory.CreateDirectory(categoryDir);
@@ -679,7 +679,7 @@ public class MemeDataEngine(ConfigService _config)
     public async Task MoveMemesToCategoryAsync(IEnumerable<MemeModel> memes, string targetCategory, IProgress<BatchProgress>? progress = null)
     {
         var safeTarget = SanitizeCategory(targetCategory);
-        var targetDir = Path.Combine(_baseDir, safeTarget);
+        var targetDir = SafePath.CombineChildPath(_baseDir, safeTarget);
         var targetMeta = await LoadCategoryMetadataAsync(targetDir);
         bool targetDirty = false;
 
@@ -699,7 +699,7 @@ public class MemeDataEngine(ConfigService _config)
         // 先按去重的源目录统一异步加载一次，避免在循环内混用同步等待。
         var sourceDirs = list
             .Where(m => !m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
-            .Select(m => Path.Combine(_baseDir, SanitizeCategory(m.Category)))
+            .Select(m => SafePath.CombineChildPath(_baseDir, SanitizeCategory(m.Category)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var sourceMetas = new Dictionary<string, (CategoryMetadata meta, bool dirty)>(StringComparer.OrdinalIgnoreCase);
@@ -763,7 +763,7 @@ public class MemeDataEngine(ConfigService _config)
                     continue;
 
                 case MoveResult.Moved:
-                    var sourceDir = Path.Combine(_baseDir, SanitizeCategory(meme.Category));
+                    var sourceDir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(meme.Category));
                     if (sourceMetas.TryGetValue(sourceDir, out var sm))
                     {
                         sm.meta.Items.Remove(meme.FileName);
@@ -827,8 +827,8 @@ public class MemeDataEngine(ConfigService _config)
         if (string.Equals(safeOld, safeNew, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        var oldDir = Path.Combine(_baseDir, safeOld);
-        var newDir = Path.Combine(_baseDir, safeNew);
+        var oldDir = SafePath.CombineChildPath(_baseDir, safeOld);
+        var newDir = SafePath.CombineChildPath(_baseDir, safeNew);
         if (!Directory.Exists(oldDir)) return false;
         if (Directory.Exists(newDir)) return false; // 目标已存在，避免覆盖
 
@@ -879,7 +879,7 @@ public class MemeDataEngine(ConfigService _config)
     /// </summary>
     public async Task ReorderMemesAsync(string category, IReadOnlyList<string> orderedFileNames)
     {
-        var dir = Path.Combine(_baseDir, SanitizeCategory(category));
+        var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
         var meta = await LoadCategoryMetadataAsync(dir);
 
         // 按给定顺序整体重算：列表最前（索引0）拿最大优先级，依次递减，
@@ -925,7 +925,7 @@ public class MemeDataEngine(ConfigService _config)
         if (string.IsNullOrWhiteSpace(title) || title.Equals(meme.Title, StringComparison.OrdinalIgnoreCase))
             return;
 
-        var dir = Path.Combine(_baseDir, SanitizeCategory(meme.Category));
+        var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(meme.Category));
         var meta = await LoadCategoryMetadataAsync(dir);
         if (meta.Items.TryGetValue(meme.FileName, out var entry))
             entry.Title = title;
@@ -953,7 +953,7 @@ public class MemeDataEngine(ConfigService _config)
         var byCategory = list.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
         foreach (var group in byCategory)
         {
-            var categoryDir = Path.Combine(_baseDir, SanitizeCategory(group.Key));
+            var categoryDir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(group.Key));
             var meta = await LoadCategoryMetadataAsync(categoryDir);
             var groupList = group.ToList();
 
@@ -1006,7 +1006,7 @@ public class MemeDataEngine(ConfigService _config)
 
     public async Task<bool> AddCategoryAsync(string category)
     {
-        var dir = Path.Combine(_baseDir, SanitizeCategory(category));
+        var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
         if (Directory.Exists(dir)) return false;
         try
         {
@@ -1031,7 +1031,7 @@ public class MemeDataEngine(ConfigService _config)
     // 同步确保存在 Default 分类（供 UI 线程的 LoadCategories 调用，避免 async 死锁）
     public void EnsureDefaultCategory()
     {
-        var dir = Path.Combine(_baseDir, SanitizeCategory(AppConstants.DefaultCategory));
+        var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(AppConstants.DefaultCategory));
         if (Directory.Exists(dir)) return;
         Directory.CreateDirectory(dir);
         try
@@ -1052,7 +1052,7 @@ public class MemeDataEngine(ConfigService _config)
 
     public async Task<bool> DeleteCategoryAsync(string category)
     {
-        var dir = Path.Combine(_baseDir, SanitizeCategory(category));
+        var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
         if (!Directory.Exists(dir)) return false;
 
         try
@@ -1117,9 +1117,13 @@ public class MemeDataEngine(ConfigService _config)
 
     private static string SanitizeCategory(string category)
     {
-        var invalid = Path.GetInvalidFileNameChars();
-        var cleaned = new string([.. category.Where(c => !invalid.Contains(c))]).Trim();
-        return string.IsNullOrWhiteSpace(cleaned) ? AppConstants.UncategorizedCategory : cleaned;
+        // 严格校验（SafePath.IsValidCategoryName）：拒绝 "."/".."、路径分隔符、非法字符、
+        // 尾随点/空格、Windows 保留设备名（CON/COM1 等）。此前仅过滤非法字符会放过 ".."，
+        // 导致 Path.Combine(_baseDir, "..") 越界写/递归删父目录（安全审计 Critical）。
+        var trimmed = (category ?? string.Empty).Trim();
+        if (!SafePath.IsValidCategoryName(trimmed))
+            return AppConstants.UncategorizedCategory;
+        return trimmed;
     }
 
     private static async Task<string> CalculateSha256Async(string filePath)
