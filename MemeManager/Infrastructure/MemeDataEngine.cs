@@ -1015,16 +1015,24 @@ public class MemeDataEngine(ConfigService _config)
 
     public async Task<bool> AddCategoryAsync(string category)
     {
-        var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
+        var trimmed = (category ?? string.Empty).Trim();
+        // 非法分类名（"."/".."、路径分隔符、非法字符、尾随点/空格、设备名等，见 FileNameValidator）
+        // 直接拒绝并返回 false——不静默兜底成"未分类"。静默改名会造成"UI 显示输入名、磁盘目录是
+        // 兜底名"的脏状态；非法名由 UI 层弹窗提示（ShowAddCategoryDialog / PromptCategoryForPasteAsync）。
+        if (!FileNameValidator.IsValidCategoryName(trimmed))
+            return false;
+
+        var dir = SafePath.CombineChildPath(_baseDir, trimmed);
         if (Directory.Exists(dir)) return false;
         try
         {
             Directory.CreateDirectory(dir);
             await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
-            // 新分类默认优先级 0（排在同优先级最后），并持久化顺序
-            _categoryOrder[category] = 0;
+            // 新分类默认优先级 0（排在同优先级最后），并持久化顺序。
+            // 用净化后的 trimmed（此前用原始 category，兜底改名时顺序表 key 与磁盘目录名对不上）。
+            _categoryOrder[trimmed] = 0;
             await SaveCategoryOrderAsync();
-            Logger.Log($"[Engine] 创建分类: {category}");
+            Logger.Log($"[Engine] 创建分类: {trimmed}");
             return true;
         }
         catch (Exception ex)
@@ -1032,7 +1040,7 @@ public class MemeDataEngine(ConfigService _config)
             // 写入失败（无写权限等）不抛异常，保证调用方（尤其是启动流程）能继续启动；
             // 记录详情供上层弹窗提示用户去设置里改目录。
             LastDefaultCategoryWriteError = $"{dir}: {ex.GetType().Name}: {ex.Message}";
-            Logger.Log($"[Engine] 创建分类失败({category}): {LastDefaultCategoryWriteError}");
+            Logger.Log($"[Engine] 创建分类失败({trimmed}): {LastDefaultCategoryWriteError}");
             return false;
         }
     }

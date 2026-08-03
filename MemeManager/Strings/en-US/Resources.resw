@@ -472,6 +472,13 @@ All memes and folders under it will be deleted.</value>
 
  Reverted to the previous valid path.</value>
   </data>
+  <data name="Dialog_InvalidCategoryName_Title" xml:space="preserve">
+    <value>Invalid name</value>
+  </data>
+  <data name="Dialog_InvalidCategoryName_Message" xml:space="preserve">
+    <value>This name cannot be used as a Windows folder name (cannot contain / \ : * ? " &lt; &gt; | etc., cannot be . or .., and cannot be reserved device names like CON, COM1):
+{0}</value>
+  </data>
   <data name="Dialog_DefaultDirWriteFailed_Title" xml:space="preserve">
     <value>Failed to write data directory</value>
   </data>

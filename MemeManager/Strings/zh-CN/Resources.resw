@@ -472,6 +472,13 @@
 
  已恢复为之前的有效路径。</value>
   </data>
+  <data name="Dialog_InvalidCategoryName_Title" xml:space="preserve">
+    <value>名称无效</value>
+  </data>
+  <data name="Dialog_InvalidCategoryName_Message" xml:space="preserve">
+    <value>该名称无法作为 Windows 文件夹名称使用（不能包含 / \ : * ? " &lt; &gt; | 等字符，不能是 . 或 ..，也不能是 CON、COM1 等保留设备名）：
+{0}</value>
+  </data>
   <data name="Dialog_DefaultDirWriteFailed_Title" xml:space="preserve">
     <value>数据目录写入失败</value>
   </data>

@@ -705,6 +705,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, name);
             return;
         }
+        // 非法分类名（"."/".."、路径分隔符、设备名等）弹窗提示，不静默建兜底分类
+        if (!FileNameValidator.IsValidCategoryName(name))
+        {
+            await DialogHelper.ShowInvalidCategoryNameAsync(this.XamlRoot, name);
+            return;
+        }
         bool added = await _categories.AddCategoryAsync(name);
         if (added)
         {
@@ -1941,6 +1947,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (!FileNameValidator.IsValidCategoryName(name))
             {
                 Log($"[剪贴板] 分类名非法，已取消粘贴: {name}");
+                await DialogHelper.ShowInvalidCategoryNameAsync(this.XamlRoot, name);
                 return null;
             }
 

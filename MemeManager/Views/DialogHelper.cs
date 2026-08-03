@@ -250,6 +250,11 @@ public static class DialogHelper
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_StoragePathInvalid_Title"),
             string.Format(Localization.Get("Dialog_StoragePathInvalid_Message"), path));
 
+    // 分类名非法提示（"."/".."、路径分隔符、设备名等，FileNameValidator 校验用）
+    public static Task ShowInvalidCategoryNameAsync(XamlRoot xamlRoot, string name) =>
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_InvalidCategoryName_Title"),
+            string.Format(Localization.Get("Dialog_InvalidCategoryName_Message"), name));
+
     // 默认数据目录写入失败（无写权限等）：保证程序仍能启动，提示用户去设置里改目录。
     public static Task ShowDefaultDirWriteFailedAsync(XamlRoot xamlRoot, string dir, string detail) =>
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_DefaultDirWriteFailed_Title"),
