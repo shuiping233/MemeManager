@@ -84,3 +84,11 @@ MemeManager/
 - **第一批（P0+P1）**：MemeDataEngine（含已修安全逻辑的回归锁：SanitizeCategory / IsSafeMetadataFileName / 导入扩展名校验 / 移动冲突 / 分类非法名）→ MainViewModel 命令 → Utils。约 60–80 用例，占核心价值 80%。
 - **第二批（P2）**：SearchService / ConfigService / FileWatcher / LangHelper / MemeOperationService。约 20–30 用例。
 - **第三批（P3）**：随缘补充，价值递减。
+
+## 后续优化（勿忘）
+
+- **抽离 `MemeManager.Core` 独立类库**（P1，解除测试对 WinUI 的依赖）：
+  - 现状：`MemeManager.Tests` 引用 WinUI 3 主项目 → testhost 加载主项目程序集触发 WinUI XAML `[ModuleInitializer]`，需要 WindowsAppRuntime 运行时（CI 必须每次安装、启动慢，本地缺 runtime 也会挂）。
+  - 目标：把纯逻辑代码（SafePath / FileNameValidator / 未来的 MemeDataEngine、Service 逻辑等）抽成 `MemeManager.Core`（纯 .NET，不引用 WinUI），`MemeManager` 主项目与 `MemeManager.Tests` 都引用它；测试只依赖 Core → 秒级启动、CI 无需装 runtime。
+  - 范围：按"UI 无关"边界抽（Infrastructure 的纯逻辑部分 + Models + Service 逻辑），Views/Clipboard/TrayIcon/P-Invoke 留在主项目。
+  - 现有 51 用例（SafePathTests / FileNameValidatorTests）届时改为引用 Core。
