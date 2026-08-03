@@ -73,6 +73,6 @@ public static class AppConstants
     public static TimeSpan LastCategorySaveDebounce = TimeSpan.FromSeconds(3);
 
     // 设置页存储路径文本框校验防抖时长：停止输入这么久后才校验，避免打字过程中逐键弹窗。
-    public static readonly TimeSpan StoragePathValidationDebounce = TimeSpan.FromMilliseconds(100);
+    public static readonly TimeSpan StoragePathValidationDebounce = TimeSpan.FromSeconds(1);
 }
 
