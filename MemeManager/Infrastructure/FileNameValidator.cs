@@ -1,14 +1,10 @@
-namespace MemeManager.Infrastructure;
+﻿namespace MemeManager.Infrastructure;
 
 /// <summary>
 /// 文件/文件夹名校验（数据一致性与用户体验，**非安全边界**）。
 /// 判断 Windows 是否接受该名称作为普通文件夹名：拒绝 "."/".."、路径分隔符、非法字符、
-/// 尾随点/空格、保留设备名（CON/COM1 等）。
 ///
 /// 职责边界说明：
-/// - 本类回答"Windows 喜不喜欢这个名字"——拒绝的原因是 CreateDirectory 会失败或产生
-///   磁盘名与输入不一致（尾随点/空格被吞、设备名解析失败），导致"内存有分类、磁盘没目录"
-///   的脏状态，提前拦截只为友好提示。
 /// - 设备名（CON/PRN/NUL/COM1-9/LPT1-9 等）**不会引发危险行为**（不会打开控制台/破坏系统），
 ///   只是 Windows 把它当设备而非普通文件夹名，CreateDirectory 会失败。
 /// - 真正的路径逃逸防护（".."、绝对路径、UNC、跨盘）由 SafePath.CombineChildPath /
