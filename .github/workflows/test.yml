@@ -2,7 +2,16 @@ name: Unit Tests
 
 on:
   push:
+    # 仅代码/工程/CI 配置变更才跑单测；docs、resw、图片等改动不触发
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '.github/workflows/**'
   pull_request:
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '.github/workflows/**'
 
 jobs:
   test:
