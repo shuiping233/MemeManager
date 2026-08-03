@@ -163,6 +163,15 @@ public class MemeDataEngine(ConfigService _config)
             foreach (var kv in meta.Items)
             {
                 var fileName = kv.Key;
+                // 安全过滤：key 必须是纯文件名（拒绝含路径分隔符/".."/绝对路径的键）且扩展名在图片白名单内。
+                // 安全审计 Medium：此前直接 Path.Combine(dir, fileName) 拼路径，被篡改的 .metadata.json
+                // 可用 "..\\..\\secret.txt" 之类键把 LocalPath 引到库外，导致导出/删除/打开操作库外文件。
+                if (!IsSafeMetadataFileName(fileName))
+                {
+                    Logger.Log($"[Engine] 跳过非法 metadata 条目: key='{fileName}' 分类='{category}'");
+                    continue;
+                }
+
                 var localPath = Path.Combine(dir, fileName);
                 if (!File.Exists(localPath)) continue;
 
@@ -1114,6 +1123,21 @@ public class MemeDataEngine(ConfigService _config)
     }
 
     // ---------- 工具 ----------
+
+    // metadata 键（fileName）安全校验：必须是纯文件名（无路径分隔符、非 "."/".."、非绝对路径）
+    // 且扩展名在图片白名单内。用于加载 .metadata.json 时过滤被篡改的条目（安全审计 Medium）。
+    private static bool IsSafeMetadataFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) return false;
+        // 含路径分隔符 / 绝对路径 / 以 ".." 逃逸的键：Path.GetFileName 会剥离出最后的文件名，
+        // 与原值不一致即拒绝（"a\\b" → "b"；"..\\..\\secret.txt" → "secret.txt"；"C:\\x" → "x"）
+        if (!fileName.Equals(Path.GetFileName(fileName), StringComparison.Ordinal))
+            return false;
+        if (fileName is "." or "..")
+            return false;
+        // 扩展名必须在图片白名单内（防非图片文件进入库后被 shell 打开）
+        return AppConstants.IsImage(Path.GetExtension(fileName));
+    }
 
     private static string SanitizeCategory(string category)
     {
