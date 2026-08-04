@@ -444,9 +444,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 return;
             }
 
-            // 拖入表情图片：仅关闭 CanReorderItems 的插入占位，避免分类列表被撑开；
+            // 拖入表情图片：CanReorderItems 已在 MemeGridView_DragItemsStarting 提前关闭
+            // （会话早期关闭才能避免插入占位撑开），此处无需再关；
             // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
-            CategoryList.CanReorderItems = false;
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
             e.AcceptedOperation = DataPackageOperation.Move;
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
@@ -1098,6 +1098,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
+        // 图片拖拽会话期间关闭分类列表重排（问题2 方案A）：防止拖拽图片经过分类栏时
+        // 触发插入占位把分类列表撑开。不能在 DragOver 里才关——WinUI 在会话早期
+        // 已按当时的 CanReorderItems=true 计算过占位，首次拖拽必然被撑开。
+        CategoryList.CanReorderItems = false;
+
         // 拖拽会话开始即彻底关闭预览浮窗：避免浮窗淡出 Storyboard 异步回调
         // 与 GridView 拖拽重排会话在 native 层交错访问同一容器树导致 failfast；
         // 同时拖拽时不再弹浮窗，避免遮挡鼠标视野。
@@ -1197,6 +1202,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
     {
         Log($"DragItemsCompleted: ViewModel.DraggingMemes={( ViewModel.DraggingMemes?.Count ?? 0 )}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
+        // 拖拽会话结束（无论拖到哪/是否取消）：恢复分类列表重排能力
+        // （DragItemsStarting 里为防插入占位撑开被临时关闭）。必须在所有提前 return 之前恢复。
+        CategoryList.CanReorderItems = true;
         if (ViewModel.DraggingMemes == null) return;
 
         // “全部表情”视图下项来自不同分类，不存在单一分类顺序，禁止重排写回，
