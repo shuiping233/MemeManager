@@ -147,6 +147,22 @@ public static class Utils
             _ => WindowSizePreset.Medium
         };
     }
+
+    public static bool IsSystemDarkTheme()
+    {
+        try
+        {
+            if (Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")?.GetValue("AppsUseLightTheme") is not int or > 0)
+            {
+                return false;
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
 
 /// <summary>Popup 相对锚点的摆放方向。</summary>

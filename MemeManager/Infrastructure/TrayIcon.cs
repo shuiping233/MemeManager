@@ -32,6 +32,15 @@ public sealed class TrayIcon : IDisposable
     private static ConfigService ConfigService => App.GetService<ConfigService>();
     private static bool AllowMiniMode => ConfigService.Config.AllowMiniMode; 
 
+    public static void SetMenuTheme(bool darkMenu)
+    {
+        // 托盘菜单深色背景跟随应用主题：Dark 直接强制；System 先检测系统主题再决定；Light 不强制
+        // （保持系统默认浅色菜单）。uxtheme.dll 未文档化 API SetPreferredAppMode(ordinal #135, AllowDark=2)，
+        // 进程级生效，仅影响托盘这一个 Win32 经典菜单。Windows 更新可能改变行为（Win10 1809+/Win11 社区验证有效）。
+        if (darkMenu)
+            _ = NativeMethods.SetPreferredAppMode(2);
+    }
+
 
     public TrayIcon(IntPtr ownerHwnd, MemeDataEngine engine)
     {

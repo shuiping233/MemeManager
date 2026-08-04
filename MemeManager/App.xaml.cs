@@ -136,18 +136,6 @@ public partial class App : Application
         Logger.Log($"[EcoQos] 效率模式配置: {(ConfigService.Config.EcoMode ? "启用" : "关闭")}");
         EcoQos.ApplyProcessLevel(ConfigService.Config.EcoMode);
 
-        // 托盘菜单深色背景跟随应用主题：Dark 直接强制；System 先检测系统主题再决定；Light 不强制
-        // （保持系统默认浅色菜单）。uxtheme.dll 未文档化 API SetPreferredAppMode(ordinal #135, AllowDark=2)，
-        // 进程级生效，仅影响托盘这一个 Win32 经典菜单。Windows 更新可能改变行为（Win10 1809+/Win11 社区验证有效）。
-        bool darkMenu = ConfigService.Config.Theme switch
-        {
-            ThemeMode.Dark => true,
-            ThemeMode.Light => false,
-            _ => IsSystemDarkTheme(),
-        };
-        if (darkMenu)
-            NativeMethods.SetPreferredAppMode(2);
-
         // 配置读取完毕后立即应用语言：首次启动跟随系统，否则用配置值。
         // 必须在创建主窗口前完成，使主窗口一出来就是正确文案。
         LangHelper.SetLanguage(ConfigService.Config.Language);
@@ -177,6 +165,13 @@ public partial class App : Application
         }
 
         // 系统托盘图标
+        bool darkMenu = ConfigService.Config.Theme switch
+        {
+            ThemeMode.Dark => true,
+            ThemeMode.Light => false,
+            _ => Utils.IsSystemDarkTheme(),
+        };
+        TrayIcon.SetMenuTheme(darkMenu);
         _trayIcon = new TrayIcon(WindowNativeHwnd(), Services.GetRequiredService<MemeDataEngine>());
         _trayIcon.ShowMainWindow += (_, _) => MainWindow.ShowAndActivate();
         _trayIcon.ToggleMode += (_, _) => MainWindow.ToggleMode();
@@ -242,23 +237,6 @@ public partial class App : Application
 
         // 自定义标题栏（含系统最小/最大/关闭按钮）同步按主题上色。
         try { MainWindow.ApplyTitleBarTheme(); } catch { }
-    }
-
-    // 检测系统是否深色主题：WinUI 3 无系统主题直接 API（Application.RequestedTheme=Default
-    // 不反映系统；root.ActualTheme 需窗口布局后才可靠，启动早期不可用），
-    // 读 HKCU 个性化注册表判定（AppsUseLightTheme: 1=浅色, 0=深色）。失败按浅色处理。
-    private static bool IsSystemDarkTheme()
-    {
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            return key?.GetValue("AppsUseLightTheme") is int v && v == 0;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static IServiceProvider ConfigureServices()
