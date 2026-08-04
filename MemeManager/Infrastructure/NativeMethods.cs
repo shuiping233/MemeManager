@@ -249,6 +249,12 @@ internal static partial class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
+    // uxtheme.dll 未文档化 API：进程级强制 Win32 经典菜单/工具提示使用深色绘制。
+    // ordinal #135 = SetPreferredAppMode；mode: 0=Default, 1=AllowLight, 2=AllowDark。
+    // 用于托盘右键菜单在浅色系统主题下也显示深色背景（App.OnLaunched 启动时固定调用）。
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    public static extern int SetPreferredAppMode(int mode);
+
 
     [LibraryImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -136,6 +136,12 @@ public partial class App : Application
         Logger.Log($"[EcoQos] 效率模式配置: {(ConfigService.Config.EcoMode ? "启用" : "关闭")}");
         EcoQos.ApplyProcessLevel(ConfigService.Config.EcoMode);
 
+        // 托盘菜单强制深色背景：uxtheme.dll 未文档化 API SetPreferredAppMode(ordinal #135)，
+        // AllowDark(2) 让本进程创建的 Win32 经典菜单（TrackPopupMenu）用系统深色绘制，
+        // 否则浅色系统主题下托盘右键菜单永远是白色。进程级生效，仅影响托盘这一个 Win32 菜单。
+        // 注意：undocumented API，Windows 更新可能改变行为（Win10 1809+/Win11 目前社区验证有效）。
+        NativeMethods.SetPreferredAppMode(2);
+
         // 配置读取完毕后立即应用语言：首次启动跟随系统，否则用配置值。
         // 必须在创建主窗口前完成，使主窗口一出来就是正确文案。
         LangHelper.SetLanguage(ConfigService.Config.Language);
