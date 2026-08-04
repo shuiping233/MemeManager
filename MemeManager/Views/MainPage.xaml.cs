@@ -1067,6 +1067,17 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
+        // 拒绝"无数据格式"的拖拽（如左侧分类栏项拖入图片区）：DraggingMemes 为空
+        // 且不含 StorageItems/Bitmap 即非外部文件/图片拖入。此前无条件接受 Copy，
+        // 而 CanReorderItems 为 true 时 WinUI 会显示插入占位把网格撑开一个位置
+        // （分类拖入实际无效果，纯视觉 bug）。
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems)
+            && !e.DataView.Contains(StandardDataFormats.Bitmap))
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
+        }
+
         // 接受外部拖入（如从文件管理器拖图片进来做导入），确保 Drop 能触发。
         e.AcceptedOperation = DataPackageOperation.Copy;
         e.DragUIOverride.IsCaptionVisible = false;
