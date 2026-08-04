@@ -1,6 +1,5 @@
-using MemeManager.Infrastructure;
+﻿using MemeManager.Infrastructure;
 using MemeManager.Models;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MemeManager.Services;
 

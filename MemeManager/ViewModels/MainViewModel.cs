@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
-using MemeManager.ViewModels;
 using Microsoft.UI.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;

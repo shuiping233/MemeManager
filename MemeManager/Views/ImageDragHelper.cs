@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Windows.ApplicationModel.DataTransfer;
+﻿using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Streams;
 using MemeManager.Infrastructure;

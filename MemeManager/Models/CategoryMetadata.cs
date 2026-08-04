@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace MemeManager.Models;
+﻿namespace MemeManager.Models;
 
 // 单个表情在 .metadata.json 中的元数据条目
 public class MemeMetaEntry

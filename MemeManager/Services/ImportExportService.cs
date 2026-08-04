@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using MemeManager.Infrastructure;
+﻿using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Views;
 

@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-using MemeManager.Infrastructure;
-using MemeManager.Models;
+﻿using MemeManager.Infrastructure;
 
 namespace MemeManager.Services;
 

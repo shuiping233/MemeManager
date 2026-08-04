@@ -1,10 +1,4 @@
-﻿using MemeManager.Models;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using Windows.Globalization;
+﻿using System.Globalization;
 
 namespace MemeManager.Infrastructure;
 

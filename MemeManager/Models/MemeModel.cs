@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-
-namespace MemeManager.Models;
+﻿namespace MemeManager.Models;
 
 public class MemeModel
 {

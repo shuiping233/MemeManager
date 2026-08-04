@@ -1,8 +1,6 @@
 ﻿using MemeManager.Services;
-using MemeManager.Views;
-using System;
 using System.Runtime.InteropServices;
-using System.Text;
+
 
 namespace MemeManager.Infrastructure;
 

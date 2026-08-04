@@ -1,6 +1,4 @@
-using System;
-
-namespace MemeManager.Infrastructure;
+﻿namespace MemeManager.Infrastructure;
 
 /// <summary>
 /// 文件系统路径边界封装（安全边界）。
