@@ -92,8 +92,8 @@ namespace MemeManager.ViewModels
         // 预览图最大分辨率：优先取配置，配置缺失时回退到 Utils 默认常量。
         private (double width, double height) GetPreviewMaxSize(double maxWidth = 0, double maxHeight = 0)
         {
-            double w = Utils.PreviewMaxWidth;
-            double h = Utils.PreviewMaxHeight;
+            double w = AppConstants.PreviewMaxWidth;
+            double h = AppConstants.PreviewMaxHeight;
 
             if (maxWidth > 0 && maxHeight > 0)
             {

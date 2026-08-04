@@ -74,5 +74,9 @@ public static class AppConstants
 
     // 设置页存储路径文本框校验防抖时长：停止输入这么久后才校验，避免打字过程中逐键弹窗。
     public static readonly TimeSpan StoragePathValidationDebounce = TimeSpan.FromSeconds(1);
+
+    // 预览图允许的默认最大尺寸（超过则等比压缩）
+    public const double PreviewMaxWidth = 640;
+    public const double PreviewMaxHeight = 480;
 }
 

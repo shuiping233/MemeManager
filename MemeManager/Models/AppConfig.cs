@@ -1,4 +1,6 @@
-﻿namespace MemeManager.Models;
+﻿using MemeManager.Infrastructure;
+
+namespace MemeManager.Models;
 
 public enum ThemeMode
 {
@@ -55,8 +57,8 @@ public record AppConfig
     public bool AllowMiniMode { get; set; } = true;
 
     // 悬停预览图最大分辨率（超过则等比压缩）
-    public double PreviewMaxWidth { get; set; } = 640;
-    public double PreviewMaxHeight { get; set; } = 480;
+    public double PreviewMaxWidth { get; set; } = AppConstants.PreviewMaxWidth;
+    public double PreviewMaxHeight { get; set; } = AppConstants.PreviewMaxHeight;
 
     // 悬停预览触发延时（毫秒）
     public int PreviewDelayMs { get; set; } = 500;
