@@ -23,7 +23,7 @@ A high-performance tool for managing and using your meme/sticker collection, bui
 
 ## Features
 
-- **Extreme drag & drop support**: Both category controls and image controls support drag & drop, including batch drag-to-import, batch multi-select editing, reordering (requires edit mode), and re-categorizing — enjoy intuitive drag behaviors to organize your categories and memes.
+- **Extreme drag & drop support**: Both category controls and image controls support drag & drop, including batch drag-to-import, batch multi-select editing, reordering, and re-categorizing — enjoy intuitive drag behaviors to organize your categories and memes.
 - **Smooth preview popup**: Hover over an image to pop up a large preview with its title, so you can see the meme content at a glance.
 - **Powerful import performance**: The extreme async I/O performance of dotnet 10 and the excellent rendering of WinUI 3 deliver a smooth experience and animations; you can import 1000 images instantly (depending on disk performance).
 - **Minimal background footprint**: After the main window is closed, most controls are released. The background thread consumes virtually zero CPU/GPU; with the main window closed long-term, the private working set stays under ~30 MB.
