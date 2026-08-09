@@ -58,9 +58,9 @@ jobs:
           name: MemeManager-win-x64-zip
           path: MemeManager-win-x64-${{ github.ref_name }}.zip
 
-  # 创建 GitHub Release 并附上两个 zip 产物
+  # 创建 GitHub Release 并附上 zip + msix 产物
   release:
-    needs: [publish-zip-runtime, publish-zip-fd]
+    needs: [publish-zip-runtime, publish-zip-fd, pack-msix-sideload, pack-msix-store]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,26 +109,103 @@ jobs:
           files: |
             artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
             artifacts/MemeManager-win-x64-zip/MemeManager-win-x64-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-x64-msix-sideload/*.msix
+            artifacts/MemeManager-win-x64-msix-sideload/*.cer
+            artifacts/MemeManager-win-x64-msix-store/*.msix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # MSIX 打包（未签名，需旁加载/开发者模式安装）—— 暂时停用，需要时解除注释
-  # pack-msix:
-  #   runs-on: windows-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup .NET
-  #       uses: actions/setup-dotnet@v4
-  #       with:
-  #         dotnet-version: '10.0.x'
-  #
-  #     - name: Generate MSIX package
-  #       run: dotnet build MemeManager.csproj -c Release -p:Platform=x64 -p:GenerateAppxPackageOnBuild=true
-  #
-  #     - name: Upload msix artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: MemeManager-win-x64-msix
-  #         path: AppPackages/**/*.msix
+  # MSIX 打包·旁加载轨：用自签名证书签名（仓库 secret MSIX_PFX_BASE64 / MSIX_PFX_PASSWORD），
+  # 附带导出的 .cer 供安装者先安装到“受信任的根证书颁发机构”。
+  pack-msix-sideload:
+    runs-on: windows-latest
+    env:
+      MSIX_DIR: ${{ github.workspace }}\msix-sideload
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Decode and import signing certificate
+        shell: pwsh
+        run: |
+          $bytes = [Convert]::FromBase64String($env:MSIX_PFX_BASE64)
+          $pfx = "$env:RUNNER_TEMP\MemeManager-sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          $sec = ConvertTo-SecureString $env:MSIX_PFX_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $sec -Exportable
+          "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+        env:
+          MSIX_PFX_BASE64: ${{ secrets.MSIX_PFX_BASE64 }}
+          MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+
+      - name: Compute AppxPackageVersion (v1.2.3 -> 1.2.3.0)
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v',''
+          if (($ver -split '\.').Count -lt 4) { $ver += '.0' }
+          "APPX_VERSION=$ver" >> $env:GITHUB_ENV
+
+      # 注意：不用 PackageCertificateKeyFile + Password（WinAppSDK 2.3.1 打包 targets 的 manifest
+      # 生成任务不传密码，会 APPX0105 失败并回退到证书存储里同名的旧证书），
+      # 改为「证书导入 CurrentUser\My + PackageCertificateThumbprint」，指纹精确指向我们的固定证书。
+      - name: Publish signed MSIX (sideload)
+        shell: pwsh
+        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64-msix -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -p:AppxPackageVersion=$env:APPX_VERSION -p:PackageCertificateThumbprint=$env:CERT_THUMBPRINT
+
+      - name: Collect msix and export cer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:MSIX_DIR" | Out-Null
+          Get-ChildItem -Path . -Recurse -Filter *.msix | Copy-Item -Destination "$env:MSIX_DIR" -Force
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2("$env:RUNNER_TEMP\MemeManager-sign.pfx", $env:MSIX_PFX_PASSWORD)
+          [IO.File]::WriteAllBytes("$env:MSIX_DIR\MemeManager-sign.cer", $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+        env:
+          MSIX_PFX_PASSWORD: ${{ secrets.MSIX_PFX_PASSWORD }}
+
+      - name: Upload msix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemeManager-win-x64-msix-sideload
+          path: ${{ env.MSIX_DIR }}
+
+  # MSIX 打包·Store 轨：未签名（Store 认证通过后会用微软证书重新签名，无需自签名证书）
+  pack-msix-store:
+    runs-on: windows-latest
+    env:
+      MSIX_DIR: ${{ github.workspace }}\msix-store
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compute AppxPackageVersion (v1.2.3 -> 1.2.3.0)
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v',''
+          if (($ver -split '\.').Count -lt 4) { $ver += '.0' }
+          "APPX_VERSION=$ver" >> $env:GITHUB_ENV
+
+      - name: Publish unsigned MSIX (Store)
+        shell: pwsh
+        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64-msix -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -p:AppxPackageVersion=$env:APPX_VERSION -p:AppxPackageSigningEnabled=false
+
+      - name: Collect msix
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:MSIX_DIR" | Out-Null
+          Get-ChildItem -Path . -Recurse -Filter *.msix | Copy-Item -Destination "$env:MSIX_DIR" -Force
+
+      - name: Upload msix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemeManager-win-x64-msix-store
+          path: ${{ env.MSIX_DIR }}

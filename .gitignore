@@ -41,6 +41,11 @@ BundleArtifacts/
 *.appxbundle
 *.appxupload
 
+# 签名证书（私钥，严禁提交）
+*.pfx
+*.pfx.b64
+MemeManager-sign.cer
+
 # Publish output
 publish/
 *.pubxml
