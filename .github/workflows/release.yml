@@ -186,7 +186,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "$env:MSIX_DIR" | Out-Null
-          Get-ChildItem -Path . -Recurse -Filter *.msix | Copy-Item -Destination "$env:MSIX_DIR" -Force
+          # 先完整枚举再复制：Get-ChildItem -Recurse 是流式的，直接管道复制会把已落入
+          # MSIX_DIR 的产物再次枚举到并“自己覆盖自己”报错
+          $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter *.msix -File)
+          foreach ($f in $msixFiles) { Copy-Item $f.FullName -Destination "$env:MSIX_DIR" -Force }
           $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2("$env:RUNNER_TEMP\MemeManager-sign.pfx", $env:MSIX_PFX_PASSWORD)
           [IO.File]::WriteAllBytes("$env:MSIX_DIR\MemeManager-sign.cer", $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
         env:
@@ -227,7 +230,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "$env:MSIX_DIR" | Out-Null
-          Get-ChildItem -Path . -Recurse -Filter *.msix | Copy-Item -Destination "$env:MSIX_DIR" -Force
+          $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter *.msix -File)
+          foreach ($f in $msixFiles) { Copy-Item $f.FullName -Destination "$env:MSIX_DIR" -Force }
 
       - name: Upload msix artifact
         uses: actions/upload-artifact@v4
