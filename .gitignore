@@ -65,3 +65,4 @@ Generated\ Files/
 .opencode.jsonc
 
 .reasonix
+__pycache__

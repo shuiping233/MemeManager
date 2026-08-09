@@ -115,6 +115,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # 同步发布到 CNB（GitHub 下载不便，CNB 面向国内用户）。
+      # 上传 zip×2 + 旁加载签名 msix + cer；Store 未签名 msix 对普通用户无意义，不传。
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Publish to CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          RELEASE_BODY: ${{ steps.build_changelog.outputs.changelog }}
+        run: |
+          assets=()
+          for p in artifacts/MemeManager-win-x64-runtime-zip/*.zip \
+                   artifacts/MemeManager-win-x64-zip/*.zip \
+                   artifacts/MemeManager-win-x64-msix-sideload/*.msix \
+                   artifacts/MemeManager-win-x64-msix-sideload/*.cer; do
+            [ -f "$p" ] && assets+=("$p")
+          done
+          echo "待上传附件: ${#assets[@]} 个"
+          for a in "${assets[@]}"; do echo "  - $a"; done
+          args=(--repo "shuiping233/MemeManager" --tag "${{ github.ref_name }}" --name "MemeManager ${{ github.ref_name }}" --body "$RELEASE_BODY")
+          for a in "${assets[@]}"; do args+=(--asset "$a"); done
+          python scripts/publish_cnb.py "${args[@]}"
+
   # MSIX 打包·旁加载轨：用自签名证书签名（仓库 secret MSIX_PFX_BASE64 / MSIX_PFX_PASSWORD），
   # 附带导出的 .cer 供安装者先安装到“受信任的根证书颁发机构”。
   pack-msix-sideload:
