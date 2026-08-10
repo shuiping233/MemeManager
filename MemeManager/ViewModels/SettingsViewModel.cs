@@ -59,6 +59,34 @@ public partial class SettingsViewModel() : ObservableObject
         }
     }
 
+    // 前往下载新版本：GitHub Releases 页（纯 Launcher 调用，可直接进 VM）。
+    [RelayCommand]
+    private async Task OpenGithubReleaseAsync()
+    {
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/shuiping233/MemeManager/releases"));
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 打开 GitHub Releases 页错误: {ex.Message}");
+        }
+    }
+
+    // 前往下载新版本：CNB Releases 页（纯 Launcher 调用，可直接进 VM）。
+    [RelayCommand]
+    private async Task OpenCnbReleaseAsync()
+    {
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri("https://cnb.cool/shuiping233/MemeManager/-/releases"));
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 打开 CNB Releases 页错误: {ex.Message}");
+        }
+    }
+
     // 关于：需弹窗（依赖 XamlRoot），经事件回 Page 执行。
     public event Action? AboutRequested;
 

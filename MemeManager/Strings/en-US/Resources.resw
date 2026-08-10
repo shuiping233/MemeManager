@@ -198,6 +198,9 @@
   <data name="Settings_About.Content" xml:space="preserve">
     <value>About</value>
   </data>
+  <data name="Settings_DownloadNewVersion.Content" xml:space="preserve">
+    <value>Download New Version</value>
+  </data>
   <data name="About_Description.Text" xml:space="preserve">
     <value>MemeManager is an efficient tool for managing and using memes, built with .NET 10 + WinUI 3.</value>
   </data>

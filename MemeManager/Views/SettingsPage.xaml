@@ -26,10 +26,18 @@
                 <Button x:Name="OpenLogFolderButton" l:Uids.Uid="Settings_OpenLogFolder"
                         Command="{x:Bind ViewModel.OpenLogFolderCommand}"/>
             </StackPanel>
-            
+
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Name="FeedbackButton" l:Uids.Uid="Settings_Feedback"
                         Command="{x:Bind ViewModel.FeedbackCommand}"/>
+                <DropDownButton l:Uids.Uid="Settings_DownloadNewVersion" HorizontalAlignment="Left">
+                    <DropDownButton.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="CNB" Command="{x:Bind ViewModel.OpenCnbReleaseCommand}"/>
+                            <MenuFlyoutItem Text="GitHub" Command="{x:Bind ViewModel.OpenGithubReleaseCommand}"/>
+                        </MenuFlyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
                 <Button x:Name="AboutButton" l:Uids.Uid="Settings_About"
                         Command="{x:Bind ViewModel.AboutCommand}"/>
             </StackPanel>

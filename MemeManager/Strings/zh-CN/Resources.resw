@@ -198,6 +198,9 @@
   <data name="Settings_About.Content" xml:space="preserve">
     <value>关于</value>
   </data>
+  <data name="Settings_DownloadNewVersion.Content" xml:space="preserve">
+    <value>前往下载新版本</value>
+  </data>
   <data name="About_Description.Text" xml:space="preserve">
     <value>MemeManager 是一款高效管理和使用表情包的管理工具，基于 .NET 10 + WinUI 3 开发</value>
   </data>
