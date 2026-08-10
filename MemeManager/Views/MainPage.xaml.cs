@@ -1707,8 +1707,31 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 // 窗口未激活：不消费 Ctrl+V，放行给外部窗口（沿用原有“投回外部”行为）
                 return;
             }
+
+            // 先查剪贴板内容类型再分流（类型判断已上移 ViewModel.GetClipboardContentKind）：
+            // 1) 图片 → 无论焦点在哪都走“粘贴到分类”导入；
+            // 2) 非图片/空剪贴板 + 焦点在搜索框 → 放行给 SearchBox 自身粘贴（不消费事件、不弹提示，
+            //    用户在搜索框里按 Ctrl+V 是粘贴搜索词，不是图片导入）；
+            // 3) 非图片 + 焦点不在搜索框 → 弹“非图片”提示；空剪贴板 + 焦点不在搜索框 → 静默返回（保持原行为）。
+            var kind = ViewModel.GetClipboardContentKind();
+            if (kind == ClipboardContentKind.Image)
+            {
+                e.Handled = true;
+                await PasteFromClipboardViaShortcutAsync();
+                return;
+            }
+
+            if (ReferenceEquals(FocusManager.GetFocusedElement(this.XamlRoot), SearchBox))
+            {
+                return;
+            }
+
             e.Handled = true;
-            await PasteFromClipboardViaShortcutAsync();
+            if (kind == ClipboardContentKind.Empty)
+                return; // 剪贴板为空：原行为即静默返回，不弹窗
+
+            Log("[粘贴] 剪贴板非图片/图片路径类内容");
+            await DialogHelper.ShowClipboardNotImageAsync(this.XamlRoot);
             return;
         }
 
@@ -1822,8 +1845,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SelectAllButton.Content = allSelected ? Localization.Get("Meme_CancelSelectAll") : Localization.Get("Meme_SelectAll");
     }
 
-    // 由 Ctrl+V 主动触发的剪贴板图片导入：先记录内容类型，仅当为图片/位图/文件时才继续，
-    // 挡掉文本、HTML、RTF 等非图片/图片路径类内容。
+    // 由 Ctrl+V 主动触发的剪贴板图片导入。内容类型判断已上移至 Root_KeyDown
+    // （ViewModel.GetClipboardContentKind），走到这里说明剪贴板必为图片/图片路径类内容。
     private async Task PasteFromClipboardViaShortcutAsync()
     {
         try
@@ -1831,20 +1854,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             var view = Clipboard.GetContent();
             if (view == null)
             {
-                Log("[粘贴] 触发了 Ctrl+V，但剪贴板为空(GetContent=null)");
-                return;
-            }
-
-            // 列出当前剪贴板包含的格式，便于排查与打点
-            var formats = string.Join(",", view.AvailableFormats);
-            Log($"[粘贴] 触发了 Ctrl+V，内容类型: [{formats}]");
-
-            bool hasBitmap = view.Contains(StandardDataFormats.Bitmap);
-            bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
-            if (!hasBitmap && !hasStorageItems)
-            {
-                Log("[粘贴] 剪贴板非图片/图片路径类内容");
-                await DialogHelper.ShowClipboardNotImageAsync(this.XamlRoot);
+                // 兜底：类型判断与真正取数之间剪贴板被清空（概率极低）
+                Log("[粘贴] 导入前剪贴板已变为空");
                 return;
             }
 

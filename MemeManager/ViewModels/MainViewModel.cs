@@ -6,6 +6,7 @@ using MemeManager.Services;
 using Microsoft.UI.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace MemeManager.ViewModels;
 
@@ -299,4 +300,25 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     // 避免 Page 直接调 DataEngine。keyword 为空/空白时引擎不做过滤。
     public IReadOnlyList<MemeModel> QueryMemes(string? category, string? keyword)
         => search.Query(category, keyword);
+
+    // 读取剪贴板内容类型（Ctrl+V 分流用）：纯逻辑 + 读剪贴板，不触碰 UI。
+    // 由 MainPage.Root_KeyDown 在 Ctrl+V 时调用，决定"导入图片 / 放行给搜索框 / 弹提示"。
+    // 日志前缀与 MainPage.Log 保持一致（[MemeManager] + [粘贴]）。
+    public ClipboardContentKind GetClipboardContentKind()
+    {
+        var view = Clipboard.GetContent();
+        if (view == null)
+        {
+            Logger.Log("[MemeManager] [粘贴] 触发了 Ctrl+V，但剪贴板为空(GetContent=null)");
+            return ClipboardContentKind.Empty;
+        }
+
+        // 列出当前剪贴板包含的格式，便于排查与打点
+        var formats = string.Join(",", view.AvailableFormats);
+        Logger.Log($"[MemeManager] [粘贴] 触发了 Ctrl+V，内容类型: [{formats}]");
+
+        bool hasBitmap = view.Contains(StandardDataFormats.Bitmap);
+        bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
+        return (hasBitmap || hasStorageItems) ? ClipboardContentKind.Image : ClipboardContentKind.NotImage;
+    }
 }
