@@ -253,6 +253,18 @@
                   Drop="MemeGridView_Drop"
                   SelectionChanged="MemeGridView_SelectionChanged"
                   ContainerContentChanging="MemeGridView_ContainerContentChanging">
+            <!-- 空白区域右键菜单：粘贴剪贴板图片到当前分类（图片 item 上右键仍是项级菜单）。
+                 页面级菜单用 x:Bind（不依赖视觉树/DataContext，对 Flyout 稳定）。 -->
+            <GridView.ContextFlyout>
+                <MenuFlyout>
+                    <MenuFlyoutItem l:Uids.Uid="Meme_Paste"
+                                    Command="{x:Bind ViewModel.PasteCommand}">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="Paste"/>
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                </MenuFlyout>
+            </GridView.ContextFlyout>
             <GridView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="-1" CacheLength="1"/>

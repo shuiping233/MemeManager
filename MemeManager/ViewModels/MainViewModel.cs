@@ -7,6 +7,7 @@ using MemeManager.Models;
 using MemeManager.Services;
 using Microsoft.UI.Input;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
 
 namespace MemeManager.ViewModels;
 
@@ -320,5 +321,172 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         bool hasBitmap = view.Contains(StandardDataFormats.Bitmap);
         bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
         return (hasBitmap || hasStorageItems) ? ClipboardContentKind.Image : ClipboardContentKind.NotImage;
+    }
+
+
+    // 分类输入弹窗请求：参数为弹窗默认分类名（未分类 / 当前分类），返回用户输入（取消/空白返回 null）。
+    public Func<string, Task<string?>>? PromptPasteCategoryRequested { get; set; }
+
+    // 分类名非法提示请求：参数为非法分类名（安全校验失败时提示，见 FileNameValidator）。
+    public Func<string, Task>? InvalidCategoryNameRequested { get; set; }
+
+    // 批量导入请求：参数 (待导入路径, 目标分类)。进度条/写锁/UI 收尾等编排留 Page。
+    public Func<IEnumerable<string>, string, Task>? RunBatchImportRequested { get; set; }
+
+    [RelayCommand]
+    private async Task PasteAsync()
+    {
+        string? category = CurrentCategoryKind == CategoryKind.All
+            ? AppConstants.UncategorizedCategory
+            : CurrentCategory;
+        await PasteFromClipboardAsync(category);
+    }
+
+    // 剪贴板图片导入主流程（右键粘贴传具体分类名跳过弹窗；Ctrl+V 传 null 走弹窗）。
+    public async Task PasteFromClipboardAsync(string? categoryName)
+    {
+        try
+        {
+            var view = Clipboard.GetContent();
+            if (view == null)
+            {
+                // 兜底：类型判断与真正取数之间剪贴板被清空（概率极低）
+                Logger.Log("[MemeManager] [粘贴] 导入前剪贴板已变为空");
+                return;
+            }
+
+            // 类型过滤：右键菜单路径没有 Root_KeyDown 的预判，走到这里必须是图片/图片路径类内容
+            // （Ctrl+V 路径已在 Root_KeyDown 判过，重复判断无害）。判定与 GetClipboardContentKind 一致。
+            if (!view.Contains(StandardDataFormats.Bitmap) && !view.Contains(StandardDataFormats.StorageItems))
+            {
+                Logger.Log("[MemeManager] [粘贴] 剪贴板内容不是图片，跳过导入");
+                return;
+            }
+
+            var category = await PromptCategoryForPasteAsync(categoryName);
+            if (category == null) return;
+
+            var (paths, temps) = await CollectClipboardImportPathsAsync(view);
+            try
+            {
+                if (paths.Count == 0)
+                {
+                    Logger.Log("[MemeManager] [粘贴] 导入失败或内容为空");
+                    return;
+                }
+                // 统一走 Page 的批量导入（含写入锁守卫、进度条、分类守卫刷新、单张重复弹窗）
+                if (RunBatchImportRequested != null)
+                    await RunBatchImportRequested(paths, category);
+            }
+            finally
+            {
+                foreach (var t in temps)
+                {
+                    try { File.Delete(t); } catch { }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log("[MemeManager] [粘贴] PasteFromClipboardAsync 失败: " + ex.Message);
+        }
+    }
+
+    // 分类决策：categoryName 非空（右键粘贴已确定目标分类）→ 直接采用，跳过弹窗输入；
+    // 为空（Ctrl+V）→ 弹窗输入分类名（默认值 = 全部视图下"未分类"，否则当前分类）。
+    private async Task<string?> PromptCategoryForPasteAsync(string? categoryName)
+    {
+        // 防止高速事件重入：对话框已打开时直接返回
+        if (PasteDialogOpen)
+        {
+            Logger.Log("[MemeManager] [剪贴板] 分类对话框重入，跳过");
+            return null;
+        }
+        PasteDialogOpen = true;
+
+        try
+        {
+            // 右键粘贴：目标分类已由调用方确定（当前分类 / 未分类）。
+            // 该分类要么已存在（当前视图），要么由导入环节按需创建（未分类），无需在此校验/新建。
+            if (!string.IsNullOrWhiteSpace(categoryName))
+                return categoryName;
+
+            // Ctrl+V：弹窗输入分类名
+            var defaultName = CurrentCategoryKind == CategoryKind.All
+                ? AppConstants.UncategorizedCategory
+                : CurrentCategory;
+            var name = await (PromptPasteCategoryRequested?.Invoke(defaultName) ?? Task.FromResult<string?>(null));
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                Logger.Log("[MemeManager] [剪贴板] 取消粘贴");
+                return null;
+            }
+
+            // 分类名严格校验（拒绝 "."/".."、路径分隔符、非法字符等，见 FileNameValidator.IsValidCategoryName）。
+            // 安全审计 Critical：此前零校验，输入 ".." 会经 Path.Combine(_baseDir, "..") 越界写/删父目录。
+            if (!FileNameValidator.IsValidCategoryName(name))
+            {
+                Logger.Log($"[MemeManager] [剪贴板] 分类名非法，已取消粘贴: {name}");
+                if (InvalidCategoryNameRequested != null)
+                    await InvalidCategoryNameRequested(name);
+                return null;
+            }
+
+            if (!CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                // 仅在引擎真正创建成功后才加入 UI 列表；失败（如目录已存在）则取消本次粘贴，
+                // 避免 UI 出现指向错误目录的分类项。
+                bool added = await categories.AddCategoryAsync(name);
+                if (!added)
+                {
+                    Logger.Log($"[MemeManager] [剪贴板] 新建分类失败，已取消粘贴: {name}");
+                    return null;
+                }
+                CategoryList.Add(new CategoryViewModel(name, 0));
+                Logger.Log($"[MemeManager] [剪贴板] 新建分类 {name}");
+            }
+            return name;
+        }
+        finally
+        {
+            PasteDialogOpen = false;
+        }
+    }
+
+    // 从剪贴板收集待导入的源路径：StorageItems 直接用原路径，Bitmap 先落地临时文件。
+    // 返回 (待导入路径, 需事后清理的临时文件路径)。实际导入交给 RunBatchImportRequested 统一处理。
+    private async Task<(List<string> paths, List<string> temps)> CollectClipboardImportPathsAsync(DataPackageView view)
+    {
+        var paths = new List<string>();
+        var temps = new List<string>();
+        try
+        {
+            if (view.Contains(StandardDataFormats.StorageItems))
+            {
+                var items = await view.GetStorageItemsAsync();
+                foreach (var item in items)
+                {
+                    if (item is StorageFile file && AppConstants.IsImage(file.FileType))
+                        paths.Add(file.Path);
+                }
+            }
+            else if (view.Contains(StandardDataFormats.Bitmap))
+            {
+                var streamRef = await view.GetBitmapAsync();
+                using var stream = await streamRef.OpenReadAsync();
+                var tempPath = Path.Combine(Path.GetTempPath(), $"meme_{Guid.NewGuid():N}.png");
+                using (var outStream = File.Create(tempPath))
+                {
+                    await stream.AsStreamForRead().CopyToAsync(outStream);
+                }
+                paths.Add(tempPath);
+                temps.Add(tempPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[MemeManager] [Paste] 收集路径失败: {ex.Message}");
+        }
+        return (paths, temps);
     }
 }

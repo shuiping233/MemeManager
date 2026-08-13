@@ -211,6 +211,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.RenameCategoryFailedRequested = cat
             => DialogHelper.ShowCategoryExistsAsync(XamlRoot, cat.Name);
 
+        // 2.7.1：粘贴导入（右键空白菜单 / Ctrl+V 共用，逻辑在 VM）——弹窗与批量导入依赖
+        // XamlRoot / UI 编排器，留本页实现，VM 经委托回调回 Page。
+        ViewModel.PromptPasteCategoryRequested = defaultName
+            => DialogHelper.PromptPasteCategoryAsync(XamlRoot, defaultName);
+        ViewModel.InvalidCategoryNameRequested = async name
+            => await DialogHelper.ShowInvalidCategoryNameAsync(XamlRoot, name);
+        ViewModel.RunBatchImportRequested = async (files, category)
+            => await RunBatchImportAsync(files, category);
+
         // 2.8：表情项级命令（VM 只发请求，弹窗/批量写/选中项等依赖 Page 状态的逻辑留本页）
         ViewModel.EnterEditModeAndSelectRequested = vm => EnterEditModeAndSelect(vm);
         ViewModel.PromptRenameMemeRequested = vm
@@ -1717,7 +1726,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (kind == ClipboardContentKind.Image)
             {
                 e.Handled = true;
-                await PasteFromClipboardViaShortcutAsync();
+                await ViewModel.PasteFromClipboardAsync(null);
                 return;
             }
 
@@ -1845,48 +1854,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SelectAllButton.Content = allSelected ? Localization.Get("Meme_CancelSelectAll") : Localization.Get("Meme_SelectAll");
     }
 
-    // 由 Ctrl+V 主动触发的剪贴板图片导入。内容类型判断已上移至 Root_KeyDown
-    // （ViewModel.GetClipboardContentKind），走到这里说明剪贴板必为图片/图片路径类内容。
-    private async Task PasteFromClipboardViaShortcutAsync()
-    {
-        try
-        {
-            var view = Clipboard.GetContent();
-            if (view == null)
-            {
-                // 兜底：类型判断与真正取数之间剪贴板被清空（概率极低）
-                Log("[粘贴] 导入前剪贴板已变为空");
-                return;
-            }
-
-            var category = await PromptCategoryForPasteAsync();
-            if (category == null) return;
-
-            var (paths, temps) = await CollectClipboardImportPathsAsync(view);
-            try
-            {
-                if (paths.Count == 0)
-                {
-                    Log("[粘贴] 导入失败或内容为空");
-                    return;
-                }
-                // 统一走后台批量导入（含写入锁守卫、进度条、分类守卫刷新、单张重复弹窗）
-                await RunBatchImportAsync(paths, category);
-            }
-            finally
-            {
-                foreach (var t in temps)
-                {
-                    try { File.Delete(t); } catch { }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log("[粘贴] PasteFromClipboardViaShortcutAsync 失败: " + ex.Message);
-        }
-    }
-
     internal void ExitEditMode()
     {
         // 幂等：非编辑模式下直接返回，供 MainWindow.SwitchMode 等新调用方安全调用。
@@ -1949,95 +1916,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         return null;
     }
 
-    // ---------- 粘贴图片进窗口 ----------
-    // 注意：不再监听剪贴板变化（避免截图写剪贴板时误触发“粘贴到分类”），
-    // 仅在本窗口激活时由用户主动 Ctrl+V 触发（见 Root_KeyDown）。
-
-    private async Task<string?> PromptCategoryForPasteAsync()
-    {
-        // 防止高速事件重入：对话框已打开时直接返回
-        if (ViewModel.PasteDialogOpen)
-        {
-            Log("[剪贴板] 分类对话框重入，跳过");
-            return null;
-        }
-        ViewModel.PasteDialogOpen = true;
-
-        try
-        {
-            var name = await DialogHelper.PromptPasteCategoryAsync(this.XamlRoot, ImportTargetCategory);
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                Log("[剪贴板] 取消粘贴");
-                return null;
-            }
-
-            // 分类名严格校验（拒绝 "."/".."、路径分隔符、非法字符等，见 FileNameValidator.IsValidCategoryName）。
-            // 安全审计 Critical：此前零校验，输入 ".." 会经 Path.Combine(_baseDir, "..") 越界写/删父目录。
-            if (!FileNameValidator.IsValidCategoryName(name))
-            {
-                Log($"[剪贴板] 分类名非法，已取消粘贴: {name}");
-                await DialogHelper.ShowInvalidCategoryNameAsync(this.XamlRoot, name);
-                return null;
-            }
-
-            if (!ViewModel.CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
-            {
-                // 仅在引擎真正创建成功后才加入 UI 列表；失败（如目录已存在）则取消本次粘贴，
-                // 避免 UI 出现指向错误目录的分类项。
-                bool added = await _categories.AddCategoryAsync(name);
-                if (!added)
-                {
-                    Log($"[剪贴板] 新建分类失败，已取消粘贴: {name}");
-                    return null;
-                }
-                ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
-                Log($"[剪贴板] 新建分类 {name}");
-            }
-            return name;
-        }
-        finally
-        {
-            ViewModel.PasteDialogOpen = false;
-        }
-    }
-
-    // 从剪贴板收集待导入的源路径：StorageItems 直接用原路径，Bitmap 先落地临时文件。
-    // 返回 (待导入路径, 需事后清理的临时文件路径)。实际导入交给 RunBatchImportAsync 统一处理。
-    private async Task<(List<string> paths, List<string> temps)> CollectClipboardImportPathsAsync(DataPackageView view)
-    {
-        var paths = new List<string>();
-        var temps = new List<string>();
-        try
-        {
-            if (view.Contains(StandardDataFormats.StorageItems))
-            {
-                var items = await view.GetStorageItemsAsync();
-                foreach (var item in items)
-                {
-                    if (item is StorageFile file && IsImage(file.FileType))
-                        paths.Add(file.Path);
-                }
-            }
-            else if (view.Contains(StandardDataFormats.Bitmap))
-            {
-                var streamRef = await view.GetBitmapAsync();
-                using var stream = await streamRef.OpenReadAsync();
-                var tempPath = Path.Combine(Path.GetTempPath(), $"meme_{Guid.NewGuid():N}.png");
-                using (var outStream = File.Create(tempPath))
-                {
-                    await stream.AsStreamForRead().CopyToAsync(outStream);
-                }
-                paths.Add(tempPath);
-                temps.Add(tempPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"[Paste] 收集路径失败: {ex.Message}");
-        }
-        return (paths, temps);
-    }
+    // ---------- 粘贴图片进窗口（流程逻辑见 MainViewModel.PasteFromClipboardAsync） ----------
+    // 图片扩展名判断：供拖拽/外部窗口等 View 层场景复用（引擎/VM 层直接用 AppConstants.IsImage）。
 
     internal static bool IsImage(string ext) => AppConstants.IsImage(ext);
 
