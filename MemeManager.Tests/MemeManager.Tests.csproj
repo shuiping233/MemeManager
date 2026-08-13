@@ -22,4 +22,10 @@
     <ProjectReference Include="..\MemeManager\MemeManager.csproj" />
   </ItemGroup>
 
+  <!-- .editorconfig 在仓库根目录，显式 include 使其在 Solution Explorer 可见。
+       注意：EditorConfig 按目录自动发现，此 include 不影响其生效，仅为可见性。 -->
+  <ItemGroup>
+    <None Include="..\.editorconfig" />
+  </ItemGroup>
+
 </Project>
