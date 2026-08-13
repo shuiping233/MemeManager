@@ -1,11 +1,11 @@
-﻿using Microsoft.UI.Xaml;
-using MemeManager.Models;
 using MemeManager.Infrastructure;
-using MemeManager.Views;
-using MemeManager.ViewModels;
+using MemeManager.Models;
 using MemeManager.Services;
-using WinRT.Interop;
+using MemeManager.ViewModels;
+using MemeManager.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using WinRT.Interop;
 
 namespace MemeManager;
 

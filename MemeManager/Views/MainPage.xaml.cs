@@ -1,5 +1,9 @@
-﻿using System.Linq;
 using System.Collections.ObjectModel;
+using System.Linq;
+using MemeManager.Infrastructure;
+using MemeManager.Models;
+using MemeManager.Services;
+using MemeManager.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -8,10 +12,6 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using MemeManager.Infrastructure;
-using MemeManager.Models;
-using MemeManager.Services;
-using MemeManager.ViewModels;
 
 namespace MemeManager.Views;
 
@@ -1201,7 +1201,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
     private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
     {
-        Log($"DragItemsCompleted: ViewModel.DraggingMemes={( ViewModel.DraggingMemes?.Count ?? 0 )}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
+        Log($"DragItemsCompleted: ViewModel.DraggingMemes={(ViewModel.DraggingMemes?.Count ?? 0)}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
         // 拖拽会话结束（无论拖到哪/是否取消）：恢复分类列表重排能力
         // （DragItemsStarting 里为防插入占位撑开被临时关闭）。必须在所有提前 return 之前恢复。
         CategoryList.CanReorderItems = true;

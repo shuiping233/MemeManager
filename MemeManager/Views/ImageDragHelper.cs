@@ -1,7 +1,7 @@
-﻿using Windows.ApplicationModel.DataTransfer;
+using MemeManager.Infrastructure;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Streams;
-using MemeManager.Infrastructure;
 
 namespace MemeManager.Views;
 

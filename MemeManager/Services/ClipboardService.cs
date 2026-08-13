@@ -1,8 +1,7 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
+using MemeManager.Infrastructure;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
-
-using MemeManager.Infrastructure;
 
 namespace MemeManager.Services;
 

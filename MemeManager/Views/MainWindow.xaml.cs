@@ -1,10 +1,10 @@
-﻿using System.Runtime.InteropServices;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media.Animation;
-using WinRT.Interop;
+using System.Runtime.InteropServices;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
+using WinRT.Interop;
 
 namespace MemeManager.Views;
 
@@ -667,7 +667,7 @@ public sealed partial class MainWindow : Window
     // ---------- 热键 / 窗口过程 ----------
 
     // 跨进程“呼出已有实例”消息 ID（由字符串注册，系统保证全局唯一）
-    
+
     private static readonly uint _showExistingMsg = NativeMethods.RegisterWindowMessageW(App.ShowExistingMsgTag);
 
     private IntPtr NewWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, uint uIdSubclass, IntPtr dwRefData)
@@ -805,9 +805,9 @@ public sealed partial class MainWindow : Window
         if (_engine.LastBaseDirRevertError != null)
             // 首次启动不弹窗，避免干扰用户首次使用。
             if (!_engine.LastBaseDirRevertError.Equals(AppConstants.DefaultMemeDataStoragePath()))
-            await DialogHelper.ShowBaseDirRevertedAsync(
-                xamlRoot, _engine.LastBaseDirRevertError, _engine.BaseDir);
-        
+                await DialogHelper.ShowBaseDirRevertedAsync(
+                    xamlRoot, _engine.LastBaseDirRevertError, _engine.BaseDir);
+
         if (_engine.LastDefaultCategoryWriteError != null)
             await DialogHelper.ShowDefaultDirWriteFailedAsync(
                 xamlRoot, _engine.BaseDir, _engine.LastDefaultCategoryWriteError);

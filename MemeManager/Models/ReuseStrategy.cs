@@ -1,5 +1,5 @@
-﻿using MemeManager.ViewModels;
 using MemeManager.Infrastructure;
+using MemeManager.ViewModels;
 
 namespace MemeManager.Models;
 

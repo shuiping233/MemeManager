@@ -1,4 +1,4 @@
-﻿namespace MemeManager.Infrastructure;
+namespace MemeManager.Infrastructure;
 
 /// <summary>
 /// 文件/文件夹名校验（数据一致性与用户体验，**非安全边界**）。

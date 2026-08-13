@@ -1,10 +1,10 @@
-﻿using Microsoft.UI.Xaml;
+using MemeManager.Infrastructure;
+using MemeManager.Models;
+using MemeManager.Services;
+using MemeManager.ViewModels;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using MemeManager.Models;
-using MemeManager.ViewModels;
-using MemeManager.Infrastructure;
-using MemeManager.Services;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace MemeManager.Views;

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using MemeManager.Infrastructure;
 using Microsoft.UI.Xaml.Controls;
 

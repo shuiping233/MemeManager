@@ -1,4 +1,4 @@
-﻿namespace MemeManager.Models;
+namespace MemeManager.Models;
 
 public class MemeModel
 {

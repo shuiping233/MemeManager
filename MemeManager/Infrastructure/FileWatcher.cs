@@ -1,4 +1,4 @@
-﻿namespace MemeManager.Infrastructure;
+namespace MemeManager.Infrastructure;
 
 // 监听数据目录的文件系统变化，负责"探测文件真相"：
 // 拖拽/移动/删除/导入都会在极短时间内产生一串事件（同盘 Move 表现为

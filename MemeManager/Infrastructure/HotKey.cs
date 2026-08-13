@@ -1,4 +1,4 @@
-﻿namespace MemeManager.Infrastructure;
+namespace MemeManager.Infrastructure;
 
 public static class HotKeyUtils
 {

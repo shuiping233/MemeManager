@@ -1,4 +1,4 @@
-﻿using MemeManager.Infrastructure;
+using MemeManager.Infrastructure;
 using MemeManager.Models;
 
 namespace MemeManager.Services;

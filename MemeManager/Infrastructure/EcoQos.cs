@@ -1,5 +1,5 @@
-﻿using MemeManager.Services;
 using System.Runtime.InteropServices;
+using MemeManager.Services;
 
 namespace MemeManager.Infrastructure;
 
@@ -154,8 +154,8 @@ internal static partial class EcoQos
     }
 
     /// <summary>
-     /// 将一段后台工作以 EcoQoS 节流方式运行在线程池上。
-     /// </summary>
+    /// 将一段后台工作以 EcoQoS 节流方式运行在线程池上。
+    /// </summary>
     public static Task RunAsync(Func<Task> work)
     {
         return Task.Run(async () =>

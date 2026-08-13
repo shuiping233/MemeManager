@@ -1,4 +1,4 @@
-﻿using WinUI3Localizer;
+using WinUI3Localizer;
 
 namespace MemeManager.Infrastructure;
 

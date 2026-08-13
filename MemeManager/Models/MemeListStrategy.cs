@@ -1,4 +1,4 @@
-﻿using MemeManager.ViewModels;
+using MemeManager.ViewModels;
 
 namespace MemeManager.Models;
 

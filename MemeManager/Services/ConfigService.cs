@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 

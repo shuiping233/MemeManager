@@ -1,9 +1,9 @@
-﻿using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
-using MemeManager.ViewModels;
 using MemeManager.Services;
+using MemeManager.ViewModels;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace MemeManager.Views;
 

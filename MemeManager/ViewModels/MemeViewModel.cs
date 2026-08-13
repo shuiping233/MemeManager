@@ -1,8 +1,8 @@
-﻿using Microsoft.UI.Xaml.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace MemeManager.ViewModels
 {

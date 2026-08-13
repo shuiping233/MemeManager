@@ -1,11 +1,11 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
 using Microsoft.UI.Input;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace MemeManager.ViewModels;

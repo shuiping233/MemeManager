@@ -1,5 +1,5 @@
-﻿using MemeManager.Services;
 using System.Runtime.InteropServices;
+using MemeManager.Services;
 
 
 namespace MemeManager.Infrastructure;
@@ -30,7 +30,7 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? ExitApplication;
 
     private static ConfigService ConfigService => App.GetService<ConfigService>();
-    private static bool AllowMiniMode => ConfigService.Config.AllowMiniMode; 
+    private static bool AllowMiniMode => ConfigService.Config.AllowMiniMode;
 
     public static void SetMenuTheme(bool darkMenu)
     {
@@ -110,7 +110,7 @@ public sealed class TrayIcon : IDisposable
     /// 手动将图标设到窗口，使独立发布（非 MSIX）时任务栏/标题栏也显示 Logo。
     /// WinUI 3 不会自动从 EXE 图标继承窗口图标，需通过 WM_SETICON 显式设置。
     /// </summary>
-    public static void SetTaskbarIcon(IntPtr _hWnd , IntPtr hIcon)
+    public static void SetTaskbarIcon(IntPtr _hWnd, IntPtr hIcon)
     {
         try
         {

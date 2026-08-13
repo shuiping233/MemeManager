@@ -1,6 +1,6 @@
-﻿using MemeManager.Models;
 using System.Diagnostics;
 using System.Reflection;
+using MemeManager.Models;
 using Windows.Foundation;
 
 namespace MemeManager.Infrastructure;
