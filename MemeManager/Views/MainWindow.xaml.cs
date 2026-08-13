@@ -22,10 +22,6 @@ public sealed partial class MainWindow : Window
     private const int HOTKEY_ID = 9001;
     private const uint SUBCLASS_ID = 101;
 
-    // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放），方便以后调整
-    public const int MiniModeWidth = 280;
-    public const int MiniModeHeight = 100;
-
     private readonly NativeMethods.SUBCLASSPROC _subclassProc;
 
     public static readonly string WindowTitle = AppConstants.WindowTitle;
@@ -282,10 +278,10 @@ public sealed partial class MainWindow : Window
 
         double scale = NativeMethods.GetDpiForWindow(_hWnd) / 96.0;
         if (scale <= 0) scale = 1.0;
-        int w = (int)Math.Round(MiniModeWidth * scale);
-        int h = (int)Math.Round(MiniModeHeight * scale);
+        int w = (int)Math.Round(AppConstants.MiniModeWidth * scale);
+        int h = (int)Math.Round(AppConstants.MiniModeHeight * scale);
         _appWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
-        Log($"[窗口] Mini 模式尺寸 {MiniModeWidth}x{MiniModeHeight} DIP -> {w}x{h} px (scale={scale:F2})");
+        Log($"[窗口] Mini 模式尺寸 {AppConstants.MiniModeWidth}x{AppConstants.MiniModeHeight} DIP -> {w}x{h} px (scale={scale:F2})");
     }
 
     // 切回 Full 模式：恢复可调整/有标题栏的标准窗口外观。
@@ -329,8 +325,8 @@ public sealed partial class MainWindow : Window
         if (_appWindow == null) return;
         var cfg = ConfigService.Config;
 
-        int w = (int)Math.Max(400, cfg.WindowWidth);
-        int h = (int)Math.Max(300, cfg.WindowHeight);
+        int w = (int)Math.Max(AppConstants.MinFullModeWindowWidth, cfg.WindowWidth);
+        int h = (int)Math.Max(AppConstants.MinFullModeWindowHeight, cfg.WindowHeight);
         _appWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
         Log($"[窗口] 还原尺寸 {w}x{h} (预设={cfg.WindowSizePreset})");
     }

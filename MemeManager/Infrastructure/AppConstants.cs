@@ -78,5 +78,13 @@ public static class AppConstants
     // 预览图允许的默认最大尺寸（超过则等比压缩）
     public const double PreviewMaxWidth = 640;
     public const double PreviewMaxHeight = 480;
+
+    // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放）
+    public const int MiniModeWidth = 280;
+    public const int MiniModeHeight = 100;
+
+    // Full 模式窗口的最小尺寸
+    public const int MinFullModeWindowWidth = 400;
+    public const int MinFullModeWindowHeight = 300;
 }
 
