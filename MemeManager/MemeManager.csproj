@@ -40,6 +40,17 @@
     <!-- 版本信息：CI 通过 -p:AppVersion=vX.Y.Z 传入；本地构建未传则用编译时间戳 + dev -->
     <InformationalVersion Condition="'$(AppVersion)' != ''">$(AppVersion)</InformationalVersion>
     <InformationalVersion Condition="'$(AppVersion)' == ''">$([System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss')) dev build</InformationalVersion>
+
+    <!-- 文件版本/程序集版本（exe 详细信息里的"文件版本"行）：由 AppVersion(vX.Y.Z) 派生并补第 4 段，
+         如 v1.12.11 -> 1.12.11.0。
+         注意：MSIX 包版本与此无关（写死在 Package.appxmanifest，由 CI 替换，见 release.yml）。 -->
+    <_AppVersionNumeric Condition="'$(AppVersion)' != ''">$(AppVersion.TrimStart('v'))</_AppVersionNumeric>
+    <FileVersion Condition="'$(_AppVersionNumeric)' != ''">$(_AppVersionNumeric).0</FileVersion>
+    <FileVersion Condition="'$(AppVersion)' == ''">$([System.DateTime]::Now.ToString('yyyy.MM.dd.HHmm'))</FileVersion>
+    <AssemblyVersion Condition="'$(_AppVersionNumeric)' != ''">$(_AppVersionNumeric).0</AssemblyVersion>
+    <AssemblyVersion Condition="'$(AppVersion)' == ''">$([System.DateTime]::Now.ToString('yyyy.MM.dd.HHmm'))</AssemblyVersion>
+
+    
   </PropertyGroup>
 
   <ItemGroup>

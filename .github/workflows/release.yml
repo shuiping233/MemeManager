@@ -175,6 +175,20 @@ jobs:
           if (($ver -split '\.').Count -lt 4) { $ver += '.0' }
           "APPX_VERSION=$ver" >> $env:GITHUB_ENV
 
+      # 覆盖 Package.appxmanifest 的 Identity Version 为 tag 版本：
+      # 本打包链路（Microsoft.Windows.SDK.BuildTools.MSIX NuGet targets）不消费 AppxPackageVersion，
+      # msix 文件名与包版本均取自 manifest 的 Identity Version（源文件写死 1.0.0.0）。
+      # 正则只匹配 <Identity> 标签，避免误伤 MinVersion 等其它 Version 属性；替换失败直接抛错。
+      - name: Set manifest Identity Version
+        shell: pwsh
+        run: |
+          $manifest = 'MemeManager\Package.appxmanifest'
+          $content = Get-Content $manifest -Raw
+          $new = $content -replace '(<Identity[^>]*?Version=")[^"]*(")', "`${1}$env:APPX_VERSION`${2}"
+          if ($new -eq $content) { throw "未找到 Package.appxmanifest 的 Identity Version，替换失败" }
+          Set-Content -Path $manifest -Value $new -NoNewline -Encoding utf8BOM
+          Write-Host "已设置 manifest Identity Version = $env:APPX_VERSION"
+
       # 注意：不用 PackageCertificateKeyFile + Password（WinAppSDK 2.3.1 打包 targets 的 manifest
       # 生成任务不传密码，会 APPX0105 失败并回退到证书存储里同名的旧证书），
       # 改为「证书导入 CurrentUser\My + PackageCertificateThumbprint」，指纹精确指向我们的固定证书。
@@ -221,6 +235,20 @@ jobs:
           $ver = "${{ github.ref_name }}" -replace '^v',''
           if (($ver -split '\.').Count -lt 4) { $ver += '.0' }
           "APPX_VERSION=$ver" >> $env:GITHUB_ENV
+
+      # 覆盖 Package.appxmanifest 的 Identity Version 为 tag 版本：
+      # 本打包链路（Microsoft.Windows.SDK.BuildTools.MSIX NuGet targets）不消费 AppxPackageVersion，
+      # msix 文件名与包版本均取自 manifest 的 Identity Version（源文件写死 1.0.0.0）。
+      # 正则只匹配 <Identity> 标签，避免误伤 MinVersion 等其它 Version 属性；替换失败直接抛错。
+      - name: Set manifest Identity Version
+        shell: pwsh
+        run: |
+          $manifest = 'MemeManager\Package.appxmanifest'
+          $content = Get-Content $manifest -Raw
+          $new = $content -replace '(<Identity[^>]*?Version=")[^"]*(")', "`${1}$env:APPX_VERSION`${2}"
+          if ($new -eq $content) { throw "未找到 Package.appxmanifest 的 Identity Version，替换失败" }
+          Set-Content -Path $manifest -Value $new -NoNewline -Encoding utf8BOM
+          Write-Host "已设置 manifest Identity Version = $env:APPX_VERSION"
 
       - name: Publish unsigned MSIX (Store)
         shell: pwsh
