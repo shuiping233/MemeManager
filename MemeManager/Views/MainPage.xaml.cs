@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Linq;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
@@ -10,7 +9,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage;
 using Windows.Storage.Pickers;
 
 namespace MemeManager.Views;
