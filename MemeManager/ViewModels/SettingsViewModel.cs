@@ -1,14 +1,106 @@
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MemeManager.Infrastructure;
+using MemeManager.Services;
+using Microsoft.UI.Dispatching;
 
 namespace MemeManager.ViewModels;
 
 // 设置页 ViewModel：仅承载"明确用户意图"的命令；配置双向绑定/UI 状态（Toggle/文本框/热键录制）
 // 仍留 SettingsPage code-behind（见 Phase 2.11 方案 A 范围）。涉及 Window/文件选择器/XamlRoot 的
 // 副作用经事件回 Page 执行。
-public partial class SettingsViewModel() : ObservableObject
+public partial class SettingsViewModel : ObservableObject
 {
+    private readonly UpdateService _updateService;
+
+    // UpdateService 的后台任务在线程池线程上完成并触发 INPC（其内部全部 ConfigureAwait(false)），
+    // 而 x:Bind 的 OneWay 绑定收到 PropertyChanged 后会直接更新 UI 控件——UI 控件只能在 UI 线程
+    // 访问，否则抛 COMException(0x8001010E)。因此转发必须封送到 UI 线程再触发。
+    // VM 单例在 SettingsPage 构造（UI 线程）时首次创建，此处捕获的即 UI 线程 DispatcherQueue。
+    private readonly DispatcherQueue _dispatcher = DispatcherQueue.GetForCurrentThread();
+
+    public SettingsViewModel(UpdateService updateService)
+    {
+        _updateService = updateService;
+        // 单例 VM 订阅单例服务：全程只订阅一次，无累积问题，无需反订阅。
+        // 启动时后台检查 / 手动刷新都会驱动 UpdateService.PropertyChanged，此处统一转发给 UI。
+        _updateService.PropertyChanged += OnUpdateServicePropertyChanged;
+    }
+
+    private void OnUpdateServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // 后台线程触发 → 封送到 UI 线程再转发；已在 UI 线程则直接转发。
+        if (_dispatcher.HasThreadAccess)
+            ForwardUpdateServiceChange(e);
+        else
+            _dispatcher.TryEnqueue(() => ForwardUpdateServiceChange(e));
+    }
+
+    private void ForwardUpdateServiceChange(PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(UpdateService.LatestVersion):
+                OnPropertyChanged(nameof(LatestVersion));
+                OnPropertyChanged(nameof(CheckStateText));
+                break;
+            case nameof(UpdateService.HasNewVersion):
+                OnPropertyChanged(nameof(HasNewVersion));
+                break;
+            case nameof(UpdateService.CheckState):
+                OnPropertyChanged(nameof(CheckState));
+                OnPropertyChanged(nameof(CheckStateText));
+                break;
+            case nameof(UpdateService.IsChecking):
+                OnPropertyChanged(nameof(IsChecking));
+                break;
+        }
+    }
+
+    public string LatestVersion => _updateService.LatestVersion ?? "-";
+
+    public string CurrentVersion => Utils.GetInformationalVersion();
+
+    public bool HasNewVersion => _updateService.HasNewVersion;
+
+    public UpdateCheckState CheckState => _updateService.CheckState;
+
+    public bool IsChecking => _updateService.IsChecking;
+
+    // 检查状态文案（随状态/语言变化，UI 绑定）
+    public string CheckStateText => BuildCheckStateText();
+
+    private string BuildCheckStateText()
+    {
+        // 请求失败优先提示失败（与当前版本是否 dev 无关）
+        if (CheckState == UpdateCheckState.Failed)
+            return Localization.Get("Settings_UpdateCheck_State_Failed");
+
+        // 当前版本是开发版（无语义版本号，如本地 "… dev build"）：无法判断更新状态，
+        // 显示专属文案；最新版本号等其余信息照常展示。
+        if (VersionString.IsDevBuild(CurrentVersion))
+            return Localization.Get("Settings_UpdateCheck_State_DevBuild");
+
+        return CheckState switch
+        {
+            UpdateCheckState.Checking => Localization.Get("Settings_UpdateCheck_State_Checking"),
+            UpdateCheckState.UpToDate => Localization.Get("Settings_UpdateCheck_State_UpToDate"),
+            UpdateCheckState.HasUpdate => string.Format(
+                Localization.Get("Settings_UpdateCheck_State_HasUpdate"), LatestVersion),
+            _ => Localization.Get("Settings_UpdateCheck_State_Idle"),
+        };
+    }
+
+    // 语言切换后重算动态文案（供设置页 LanguageComboBox 切换后调用）
+    public void RefreshLocalizedTexts() => OnPropertyChanged(nameof(CheckStateText));
+
+    // 手动检查更新：await 编排完成后状态经 PropertyChanged 自动刷新 UI
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        await _updateService.CheckAsync();
+    }
 
     // 打开配置文件夹：纯 Launcher 调用，可直接进 VM（依赖 MainWindow.AppDataDir 静态访问）。
     [RelayCommand]

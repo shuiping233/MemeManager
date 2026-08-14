@@ -55,6 +55,7 @@ public sealed partial class SettingsPage : Page
         EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
         _initialAutoStart = AutoStartToggle.IsOn;
+        AutoCheckUpdateToggle.IsOn = cfg.AutoCheckForUpdates;
         AllowMiniModeToggle.IsOn = cfg.AllowMiniMode;
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
@@ -125,6 +126,9 @@ public sealed partial class SettingsPage : Page
         await ConfigService.SaveConfigAsync();
 
         UpdateLanguageStatus();
+
+        // 动态文案（更新检查状态）依赖语言，切换后重算
+        ViewModel.RefreshLocalizedTexts();
     }
 
     private void SettingsPage_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
@@ -203,6 +207,11 @@ public sealed partial class SettingsPage : Page
     }
 
     private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 改动延后到点击“完成”时保存
+    }
+
+    private void AutoCheckUpdateToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
     }
@@ -461,6 +470,7 @@ public sealed partial class SettingsPage : Page
             cfg.SaveLogFile = SaveLogToggle.IsOn;
             cfg.EcoMode = EcoModeToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;
+            cfg.AutoCheckForUpdates = AutoCheckUpdateToggle.IsOn;
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
             cfg.ExplorerStyleMultiSelect = ExplorerStyleMultiSelectToggle.IsOn;
             cfg.StorageFileDrag = StorageFileDragToggle.IsOn;

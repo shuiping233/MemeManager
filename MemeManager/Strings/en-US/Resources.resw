@@ -641,4 +641,46 @@ Reverted to the previous valid path.</value>
   <data name="Mini_PickerTip.Content" xml:space="preserve">
     <value>Open/close meme popup</value>
   </data>
+  <data name="Settings_AutoCheckForUpdates.Text" xml:space="preserve">
+    <value>Check for updates at startup</value>
+  </data>
+  <data name="Settings_AutoCheckForUpdatesHint.Text" xml:space="preserve">
+    <value>When on, checks once silently in the background at startup. If a new version is found, a marker appears on the "Download New Version" button. Never pops up.</value>
+  </data>
+  <data name="Settings_UpdateCheck_Title.Text" xml:space="preserve">
+    <value>Version info</value>
+  </data>
+  <data name="Settings_UpdateCheck_CurrentVersion.Text" xml:space="preserve">
+    <value>Current version</value>
+  </data>
+  <data name="Settings_UpdateCheck_LatestVersion.Text" xml:space="preserve">
+    <value>Latest version</value>
+  </data>
+  <data name="Settings_UpdateCheck_Refresh.Content" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="Settings_UpdateCheck_CnbDownload.Content" xml:space="preserve">
+    <value>CNB download</value>
+  </data>
+  <data name="Settings_UpdateCheck_GithubDownload.Content" xml:space="preserve">
+    <value>GitHub download</value>
+  </data>
+  <data name="Settings_UpdateCheck_State_Idle" xml:space="preserve">
+    <value>Click "Check for updates" to get the latest version</value>
+  </data>
+  <data name="Settings_UpdateCheck_State_Checking" xml:space="preserve">
+    <value>Checking…</value>
+  </data>
+  <data name="Settings_UpdateCheck_State_UpToDate" xml:space="preserve">
+    <value>You are up to date</value>
+  </data>
+  <data name="Settings_UpdateCheck_State_HasUpdate" xml:space="preserve">
+    <value>New version {0} found</value>
+  </data>
+  <data name="Settings_UpdateCheck_State_Failed" xml:space="preserve">
+    <value>Check failed, please try again later</value>
+  </data>
+  <data name="Settings_UpdateCheck_State_DevBuild" xml:space="preserve">
+    <value>Development build — cannot determine update status</value>
+  </data>
 </root>
