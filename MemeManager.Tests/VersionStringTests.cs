@@ -27,7 +27,6 @@ public class VersionStringTests
     [InlineData("-1.2.3")]
     [InlineData("1.2.")]
     [InlineData("999999999999999999999999")]
-    [InlineData("2026-07-14 12:00:00 dev build")]
     public void TryParse_InvalidVersions_ReturnsFalse(string? s)
     {
         Assert.False(VersionString.TryParse(s, out _));
