@@ -99,7 +99,16 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckForUpdatesAsync()
     {
-        await _updateService.CheckAsync();
+        try
+        {
+            await _updateService.CheckAsync();
+        }
+        catch (Exception ex)
+        {
+            // 防御：AsyncRelayCommand 默认会把异常 rethrow 到 UI 线程，
+            // 触发全局 UnhandledException 崩溃处理（弹窗+退出），必须兜底只记日志。
+            Logger.Log($"[Settings] 检查更新异常: {ex}");
+        }
     }
 
     // 打开配置文件夹：纯 Launcher 调用，可直接进 VM（依赖 MainWindow.AppDataDir 静态访问）。

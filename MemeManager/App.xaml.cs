@@ -181,7 +181,22 @@ public partial class App : Application
         // 启动时后台静默检查更新（仅当配置开启）。fire-and-forget：内部全部
         // ConfigureAwait(false)，不阻塞启动；结果只在设置页展示，不打扰用户。
         if (ConfigService.Config.AutoCheckForUpdates)
-            _ = Services.GetRequiredService<UpdateService>().CheckAsync();
+            _ = SafeStartupUpdateCheckAsync();
+    }
+
+    // 启动检查兜底：fire-and-forget 的任务若抛出未捕获异常会变成 unobserved
+    // task exception，触发全局 UnobservedTaskException 崩溃处理（弹窗+退出），
+    // 因此必须在调用处兜底，异常只记日志。
+    private static async Task SafeStartupUpdateCheckAsync()
+    {
+        try
+        {
+            await App.GetService<UpdateService>().CheckAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[UpdateCheck] 启动检查异常: {ex}");
+        }
     }
 
     private static IntPtr WindowNativeHwnd()
