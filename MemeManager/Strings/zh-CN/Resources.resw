@@ -645,7 +645,7 @@
     <value>启动时自动检查更新</value>
   </data>
   <data name="Settings_AutoCheckForUpdatesHint.Text" xml:space="preserve">
-    <value>开启后，每次启动会在后台静默检查一次是否有新版本，发现新版本时在“前往下载新版本”按钮上显示提示标记；不会弹窗打扰你</value>
+    <value>开启后，每次启动会在后台静默检查一次是否有新版本，发现新版本时在“前往下载新版本”按钮上显示提示标记</value>
   </data>
   <data name="Settings_UpdateCheck_Title.Text" xml:space="preserve">
     <value>版本信息</value>

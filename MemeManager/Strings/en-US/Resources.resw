@@ -645,7 +645,7 @@ Reverted to the previous valid path.</value>
     <value>Check for updates at startup</value>
   </data>
   <data name="Settings_AutoCheckForUpdatesHint.Text" xml:space="preserve">
-    <value>When on, checks once silently in the background at startup. If a new version is found, a marker appears on the "Download New Version" button. Never pops up.</value>
+    <value>When on, checks once silently in the background at startup. If a new version is found, a marker appears on the "Download New Version" button</value>
   </data>
   <data name="Settings_UpdateCheck_Title.Text" xml:space="preserve">
     <value>Version info</value>
