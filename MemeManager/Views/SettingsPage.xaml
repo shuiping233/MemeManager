@@ -13,6 +13,28 @@
 
     <Page.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <!-- 小号 icon InfoBadge：默认模板容器最小 16x16，无法仅靠 FontSize 缩小背景，
+             这里自定义模板把圆角容器做小（14x14），图标同步缩小。尺寸/颜色想微调改这里即可。 -->
+        <Style x:Key="SmallIconInfoBadgeStyle" TargetType="InfoBadge">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="InfoBadge">
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            Width="13" Height="13" CornerRadius="8">
+                            <FontIcon
+                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                Glyph="&#xF13C;"
+                                FontSize="13"
+                                Foreground="White"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <Grid Padding="24" HorizontalAlignment="Left">
@@ -65,11 +87,12 @@
                             </Flyout>
                         </DropDownButton.Flyout>
                     </DropDownButton>
-                    <!-- 有新版本时按钮右上角显示提示圆点（无新版本不显示） -->
+                    <!-- 有新版本时按钮右上角显示蓝色图标提示（无新版本不显示）。
+                         叠放不参与布局计算，不会撑大按钮。 -->
                     <InfoBadge
-                        Style="{StaticResource AttentionDotInfoBadgeStyle}"
-                        Visibility="{x:Bind ViewModel.HasNewVersion, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-6,0"/>
+                        Style="{StaticResource SmallIconInfoBadgeStyle}"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,0,0"
+                        Visibility="{x:Bind ViewModel.HasNewVersion, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
                 </Grid>
                 <Button x:Name="AboutButton" l:Uids.Uid="Settings_About"
                         Command="{x:Bind ViewModel.AboutCommand}"/>
