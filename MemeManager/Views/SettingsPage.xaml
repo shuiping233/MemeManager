@@ -87,8 +87,6 @@
                             </Flyout>
                         </DropDownButton.Flyout>
                     </DropDownButton>
-                    <!-- 有新版本时按钮右上角显示蓝色图标提示（无新版本不显示）。
-                         叠放不参与布局计算，不会撑大按钮。 -->
                     <InfoBadge
                         Style="{StaticResource SmallIconInfoBadgeStyle}"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,0,0"
@@ -96,12 +94,6 @@
                 </Grid>
                 <Button x:Name="AboutButton" l:Uids.Uid="Settings_About"
                         Command="{x:Bind ViewModel.AboutCommand}"/>
-            </StackPanel>
-
-            <StackPanel Spacing="6">
-                <TextBlock l:Uids.Uid="Settings_AutoCheckForUpdates" FontWeight="SemiBold"/>
-                <controls:LocalizedToggleSwitch x:Name="AutoCheckUpdateToggle" Toggled="AutoCheckUpdateToggle_Toggled"/>
-                <TextBlock l:Uids.Uid="Settings_AutoCheckForUpdatesHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
@@ -188,6 +180,12 @@
                 <TextBlock l:Uids.Uid="Settings_SaveLog" FontWeight="SemiBold"/>
                 <controls:LocalizedToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
                 <TextBlock l:Uids.Uid="Settings_SaveLogHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_AutoCheckForUpdates" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="AutoCheckUpdateToggle" Toggled="AutoCheckUpdateToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_AutoCheckForUpdatesHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel Spacing="6">
