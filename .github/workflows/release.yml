@@ -64,6 +64,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -101,6 +104,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      # 对所有要发布的产物统一进行 Attestation 签名
+      - name: Generate Release Attestations
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-x64-zip/MemeManager-win-x64-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-x64-msix-sideload/*.msix
+            artifacts/MemeManager-win-x64-msix-sideload/*.cer
+            artifacts/MemeManager-win-x64-msix-store/*.msix
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
