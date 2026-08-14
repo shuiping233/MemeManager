@@ -46,6 +46,7 @@ public partial class UpdateService : ObservableObject
         if (IsChecking) return;
         IsChecking = true;
         CheckState = UpdateCheckState.Checking;
+        Logger.Log($"[UpdateCheck] 开始检查更新");
         try
         {
             using var cts = new CancellationTokenSource();
@@ -74,13 +75,8 @@ public partial class UpdateService : ObservableObject
                     break;
                 }
             }
+            Logger.Log($"[UpdateCheck] 成功获取到最新Release版本号: {winner}");
             var localVersion = Utils.GetInformationalVersion();
-            //if (VersionString.IsDevBuild(localVersion))
-            //{
-            //    CheckState = UpdateCheckState.
-            //    return;
-            //}
-
             LatestVersion = winner;
             HasNewVersion = VersionString.IsNewer(winner, localVersion);
             OnPropertyChanged(nameof(HasNewVersion));

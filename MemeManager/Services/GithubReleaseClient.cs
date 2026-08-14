@@ -16,7 +16,7 @@ public sealed class GithubReleaseClient : UpdateServiceClientBase
     {
         var text = await FetchAsync(SourceName, ApiUrl, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(text)) return null;
-
+        Logger.Log($"[UpdateCheck] 从 GitHub Release 请求到了最新版本号");
         try
         {
             using var doc = JsonDocument.Parse(text);
