@@ -8,7 +8,34 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:l="using:WinUI3Localizer"
     xmlns:controls="using:MemeManager.Views"
+    xmlns:converters="using:MemeManager.Converters"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <!-- 小号 icon InfoBadge：默认模板容器最小 16x16，无法仅靠 FontSize 缩小背景，
+             这里自定义模板把圆角容器做小（14x14），图标同步缩小。尺寸/颜色想微调改这里即可。 -->
+        <Style x:Key="SmallIconInfoBadgeStyle" TargetType="InfoBadge">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="InfoBadge">
+                        <Border
+                            Background="{TemplateBinding Background}"
+                            Width="13" Height="13" CornerRadius="8">
+                            <FontIcon
+                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                Glyph="&#xF13C;"
+                                FontSize="13"
+                                Foreground="White"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
 
     <Grid Padding="24" HorizontalAlignment="Left">
         <Grid.RowDefinitions>
@@ -30,14 +57,41 @@
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Name="FeedbackButton" l:Uids.Uid="Settings_Feedback"
                         Command="{x:Bind ViewModel.FeedbackCommand}"/>
-                <DropDownButton l:Uids.Uid="Settings_DownloadNewVersion" HorizontalAlignment="Left">
-                    <DropDownButton.Flyout>
-                        <MenuFlyout>
-                            <MenuFlyoutItem Text="CNB" Command="{x:Bind ViewModel.OpenCnbReleaseCommand}"/>
-                            <MenuFlyoutItem Text="GitHub" Command="{x:Bind ViewModel.OpenGithubReleaseCommand}"/>
-                        </MenuFlyout>
-                    </DropDownButton.Flyout>
-                </DropDownButton>
+                <Grid>
+                    <DropDownButton l:Uids.Uid="Settings_DownloadNewVersion" HorizontalAlignment="Left">
+                        <DropDownButton.Flyout>
+                            <Flyout>
+                                <StackPanel Spacing="12" MinWidth="280">
+                                    <TextBlock l:Uids.Uid="Settings_UpdateCheck_Title" FontWeight="SemiBold"/>
+                                    <StackPanel Spacing="4">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock l:Uids.Uid="Settings_UpdateCheck_CurrentVersion" Opacity="0.7"/>
+                                            <TextBlock Text="{x:Bind ViewModel.CurrentVersion}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock l:Uids.Uid="Settings_UpdateCheck_LatestVersion" Opacity="0.7"/>
+                                            <TextBlock Text="{x:Bind ViewModel.LatestVersion, Mode=OneWay}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <TextBlock Text="{x:Bind ViewModel.CheckStateText, Mode=OneWay}"
+                                               FontSize="12" Opacity="0.8" TextWrapping="Wrap"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button l:Uids.Uid="Settings_UpdateCheck_Refresh"
+                                                Command="{x:Bind ViewModel.CheckForUpdatesCommand}"/>
+                                        <Button l:Uids.Uid="Settings_UpdateCheck_CnbDownload"
+                                                Command="{x:Bind ViewModel.OpenCnbReleaseCommand}"/>
+                                        <Button l:Uids.Uid="Settings_UpdateCheck_GithubDownload"
+                                                Command="{x:Bind ViewModel.OpenGithubReleaseCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Flyout>
+                        </DropDownButton.Flyout>
+                    </DropDownButton>
+                    <InfoBadge
+                        Style="{StaticResource SmallIconInfoBadgeStyle}"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,0,0"
+                        Visibility="{x:Bind ViewModel.HasNewVersion, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </Grid>
                 <Button x:Name="AboutButton" l:Uids.Uid="Settings_About"
                         Command="{x:Bind ViewModel.AboutCommand}"/>
             </StackPanel>
@@ -126,6 +180,12 @@
                 <TextBlock l:Uids.Uid="Settings_SaveLog" FontWeight="SemiBold"/>
                 <controls:LocalizedToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
                 <TextBlock l:Uids.Uid="Settings_SaveLogHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_AutoCheckForUpdates" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="AutoCheckUpdateToggle" Toggled="AutoCheckUpdateToggle_Toggled"/>
+                <TextBlock l:Uids.Uid="Settings_AutoCheckForUpdatesHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
             </StackPanel>
 
             <StackPanel Spacing="6">

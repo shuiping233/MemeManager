@@ -177,6 +177,26 @@ public partial class App : Application
         _trayIcon.ToggleMode += (_, _) => MainWindow.ToggleMode();
         _trayIcon.OpenSettings += (_, _) => MainWindow.OpenSettings();
         _trayIcon.ExitApplication += (_, _) => ExitApp();
+
+        // 启动时后台静默检查更新（仅当配置开启）。fire-and-forget：内部全部
+        // ConfigureAwait(false)，不阻塞启动；结果只在设置页展示，不打扰用户。
+        if (ConfigService.Config.AutoCheckForUpdates)
+            _ = SafeStartupUpdateCheckAsync();
+    }
+
+    // 启动检查兜底：fire-and-forget 的任务若抛出未捕获异常会变成 unobserved
+    // task exception，触发全局 UnobservedTaskException 崩溃处理（弹窗+退出），
+    // 因此必须在调用处兜底，异常只记日志。
+    private static async Task SafeStartupUpdateCheckAsync()
+    {
+        try
+        {
+            await App.GetService<UpdateService>().CheckAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[UpdateCheck] 启动检查异常: {ex}");
+        }
     }
 
     private static IntPtr WindowNativeHwnd()
@@ -251,6 +271,11 @@ public partial class App : Application
         services.AddSingleton<SearchService>();
         services.AddSingleton<ClipboardService>();
         services.AddSingleton<CategoryService>();
+        // 更新检查：两个更新源 client 注册为 IUpdateServiceClient（UpdateService 构造
+        // 注入 IEnumerable 拿到全部），UpdateService 本身单例供 VM/启动逻辑编排。
+        services.AddSingleton<IUpdateServiceClient, GithubReleaseClient>();
+        services.AddSingleton<IUpdateServiceClient, CnbReleaseClient>();
+        services.AddSingleton<UpdateService>();
         return services.BuildServiceProvider();
     }
 }

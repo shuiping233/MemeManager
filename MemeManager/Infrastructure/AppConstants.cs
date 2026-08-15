@@ -86,5 +86,7 @@ public static class AppConstants
     // Full 模式窗口的最小尺寸
     public const int MinFullModeWindowWidth = 400;
     public const int MinFullModeWindowHeight = 300;
+
+    public static readonly TimeSpan HttpClientTimeout = TimeSpan.FromSeconds(15);
 }
 
