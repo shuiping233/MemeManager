@@ -6,11 +6,12 @@ on:
       - '**/*.cs'
       - '**/*.csproj'
       - '.github/workflows/**'
-  pull_request:
-    paths:
-      - '**/*.cs'
-      - '**/*.csproj'
-      - '.github/workflows/**'
+
+  # pull_request:
+  #   paths:
+  #     - '**/*.cs'
+  #     - '**/*.csproj'
+  #     - '.github/workflows/**'
 
 jobs:
   test:
