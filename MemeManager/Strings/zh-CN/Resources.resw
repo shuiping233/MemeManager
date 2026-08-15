@@ -184,7 +184,7 @@
     <value>表情包存放路径</value>
   </data>
   <data name="Settings_Browse.Content" xml:space="preserve">
-    <value>浏览...</value>
+    <value>更改路径</value>
   </data>
   <data name="Settings_OpenMemeDataFolder.Content" xml:space="preserve">
     <value>打开存放文件夹</value>
