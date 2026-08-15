@@ -131,11 +131,19 @@ public static class DialogHelper
         }
     }
 
+    // 输入弹窗打开后,文本框光标/选区的初始形态。
+    public enum PromptTextSelectionMode
+    {
+        CursorAtEnd, // 默认:光标停在文本末尾,方便在原名基础上追加
+        SelectAll,   // 全选原有文本
+    }
+
     // 带输入框的提示弹窗：返回用户输入的文本（已 Trim）。
     // 用户点"取消"或关闭则返回 null；点"确定"即使为空/空白也返回对应字符串。
     // 确定按钮统一蓝色高亮（Primary + DefaultButton=Primary）。
     public static async Task<string?> PromptTextAsync(
-        XamlRoot xamlRoot, string title, string placeholder, string? defaultText = null)
+        XamlRoot xamlRoot, string title, string placeholder, string? defaultText = null,
+        PromptTextSelectionMode selectionMode = PromptTextSelectionMode.CursorAtEnd)
     {
         if (xamlRoot == null) return null;
         Interlocked.Increment(ref _openDialogs);
@@ -155,6 +163,16 @@ public static class DialogHelper
                 XamlRoot = xamlRoot,
                 DefaultButton = ContentDialogButton.Primary,
                 RequestedTheme = DialogTheme,
+            };
+            // 光标/选区必须在对话框打开后设置（构造时控件未进视觉树、操作无效）。
+            // 焦点也必须给到 TextBox，否则选区存在但输入不会进框。
+            dialog.Opened += (_, _) =>
+            {
+                box.Focus(FocusState.Programmatic);
+                if (selectionMode == PromptTextSelectionMode.SelectAll)
+                    box.SelectAll();
+                else
+                    box.SelectionStart = box.Text.Length;
             };
             return await dialog.ShowAsync() == ContentDialogResult.Primary
                 ? box.Text?.Trim()
@@ -229,11 +247,13 @@ public static class DialogHelper
 
     // 重命名分类输入（预填当前名）
     public static Task<string?> PromptRenameCategoryAsync(XamlRoot xamlRoot, string current) =>
-        PromptTextAsync(xamlRoot, Localization.Get("Dialog_RenameCategory_Title"), Localization.Get("Dialog_RenameCategory_Placeholder"), current);
+        PromptTextAsync(xamlRoot, Localization.Get("Dialog_RenameCategory_Title"), Localization.Get("Dialog_RenameCategory_Placeholder"), current,
+            PromptTextSelectionMode.SelectAll);
 
     // 重命名图片输入（预填当前名）
     public static Task<string?> PromptRenameMemeAsync(XamlRoot xamlRoot, string current) =>
-        PromptTextAsync(xamlRoot, Localization.Get("Dialog_Rename_Title"), Localization.Get("Dialog_Rename_Placeholder"), current);
+        PromptTextAsync(xamlRoot, Localization.Get("Dialog_Rename_Title"), Localization.Get("Dialog_Rename_Placeholder"), current,
+            PromptTextSelectionMode.SelectAll);
 
     // 粘贴图片到分类输入（预填当前分类）
     public static Task<string?> PromptPasteCategoryAsync(XamlRoot xamlRoot, string current) =>
