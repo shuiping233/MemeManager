@@ -9,7 +9,7 @@
 </a>
 <img src="https://img.shields.io/badge/dotnet-10-purple.svg" alt="dotnet">
 <img src="https://img.shields.io/badge/Windows-WinUI3-0ba2f3">
-<img src="https://img.shields.io/badge/WindowsAppSDK-2.3.1-0ba2f3">
+<img src="https://img.shields.io/badge/WindowsAppSDK-2.0.1-0ba2f3">
 
 这是一款高效管理和使用表情包的管理工具, 基于`dotnet10` + `WinUI3`开发
 

@@ -7,7 +7,7 @@ English | [中文](./README.md)
 <img src="https://img.shields.io/github/v/release/shuiping233/MemeManager?color=76bad9" href="https://github.com/shuiping233/MemeManager/releases/latest">
 <img src="https://img.shields.io/badge/dotnet-10-purple.svg" alt="dotnet">
 <img src="https://img.shields.io/badge/Windows-WinUI3-0ba2f3">
-<img src="https://img.shields.io/badge/WindowsAppSDK-2.3.1-0ba2f3">
+<img src="https://img.shields.io/badge/WindowsAppSDK-2.0.1-0ba2f3">
 
 A high-performance tool for managing and using your meme/sticker collection, built with `dotnet 10` + `WinUI 3`.
 
