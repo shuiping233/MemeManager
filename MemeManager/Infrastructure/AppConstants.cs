@@ -37,7 +37,7 @@ public static class AppConstants
         var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
         if (string.IsNullOrWhiteSpace(pictures) || !Path.IsPathRooted(pictures))
             pictures = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(pictures, AppConstants.DefaultMemeDataFolderName);
+        return Path.Combine(pictures, DefaultMemeDataFolderName);
     }
 
     // 分类元数据文件名（每个分类目录下的 .metadata.json）
@@ -70,10 +70,13 @@ public static class AppConstants
 
     // 切分类写盘超级防抖时长：短时间内连续切换分类只落最后一次，避免每次切换都写 config。
     // 程序退出时由 MainWindow 调用 FlushLastCategory 立即落盘，避免丢失最后的选择。
-    public static TimeSpan LastCategorySaveDebounce = TimeSpan.FromSeconds(3);
+    public static readonly TimeSpan LastCategorySaveDebounce = TimeSpan.FromSeconds(3);
 
     // 设置页存储路径文本框校验防抖时长：停止输入这么久后才校验，避免打字过程中逐键弹窗。
     public static readonly TimeSpan StoragePathValidationDebounce = TimeSpan.FromSeconds(1);
+
+    // 窗口大小改变的防抖时长, 避免用户修改窗口大小时频繁将窗口大小保存到配置文件中。
+    public static readonly TimeSpan WindowsSizeChangedDebounce = TimeSpan.FromSeconds(0.5);
 
     // 预览图允许的默认最大尺寸（超过则等比压缩）
     public const double PreviewMaxWidth = 640;
@@ -82,10 +85,6 @@ public static class AppConstants
     // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放）
     public const int MiniModeWidth = 280;
     public const int MiniModeHeight = 100;
-
-    // Full 模式窗口的最小尺寸
-    public const int MinFullModeWindowWidth = 400;
-    public const int MinFullModeWindowHeight = 300;
 
     public static readonly TimeSpan HttpClientTimeout = TimeSpan.FromSeconds(15);
 }

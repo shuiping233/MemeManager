@@ -77,11 +77,12 @@ public sealed partial class MainWindow : Window
     // 判断窗口是否最小化了
     private bool IsWindowMinimized()
     {
-        if (_appWindow?.Presenter is OverlappedPresenter op)
-        {
-            return op.State == OverlappedPresenterState.Minimized;
-        }
-        return false;
+        return _appWindow?.Presenter is OverlappedPresenter op && op.State == OverlappedPresenterState.Minimized;
+    }
+
+    private bool IsWindowMaximized()
+    {
+        return _appWindow?.Presenter is OverlappedPresenter op && op.State == OverlappedPresenterState.Maximized;
     }
 
     // 释放当前页面持有的图像资源引用，并统一执行一次 GC 回收（两种模式共用）。
@@ -153,6 +154,8 @@ public sealed partial class MainWindow : Window
 
         Closed += Window_Closed;
 
+        _appWindow.Changed += MainWindow_SizeChanged;
+
         // 窗口内容(RootFrame) Loaded 后 XamlRoot 才就绪，此时弹启动诊断信息（数据目录写入失败 / 无效目录回退），
         // 避免在 App 启动流里 XamlRoot 为 null 导致弹窗失败。
         RootFrame.Loaded += MainWindow_Loaded;
@@ -178,7 +181,14 @@ public sealed partial class MainWindow : Window
         };
     }
 
-
+    private void MainWindow_SizeChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidSizeChange && !IsWindowMinimized() && IsAppVisible)
+        {
+            DebouncedSaveLastWindowSize();
+        }
+        return;
+    }
 
     private static void Log(string msg) => Logger.Log($"[MemeManager] {msg}");
 
@@ -341,6 +351,20 @@ public sealed partial class MainWindow : Window
         Log($"[窗口] 还原尺寸 {w}x{h}");
     }
 
+    private static readonly Lock _lastWindowSizeLock = new();
+    private static Timer? _lastWindowSizeTimer;
+    private static Windows.Graphics.SizeInt32? _pendingLastWindowSize;
+
+    internal void DebouncedSaveLastWindowSize()
+    {
+        lock (_lastWindowSizeLock)
+        {
+            _pendingLastWindowSize = _appWindow?.Size;
+            _lastWindowSizeTimer ??= new Timer(_ => SaveWindowSize(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _lastWindowSizeTimer.Change(AppConstants.WindowsSizeChangedDebounce, Timeout.InfiniteTimeSpan);
+        }
+    }
+
     // 退出/关闭/切到 Mini 前保存：记录当前尺寸到 config.json。
     // 仅在 Full 模式下记录（Mini 的固定小尺寸不应覆盖完整模式的窗口尺寸）；
     // 最大化状态下也不记录（最大化置顶窗口会挡住托盘右键菜单，且还原时尺寸无意义）。
@@ -352,16 +376,36 @@ public sealed partial class MainWindow : Window
             Log("[窗口] 当前为 Mini 模式，跳过尺寸记录");
             return;
         }
-        var cfg = ConfigService.Config;
+        // 窗口最小化和主窗口关闭时不能读取当前窗口尺寸, 因为此时主窗口尺寸
+        // 只会读到199x34之类的标题栏大小尺寸
+        if (IsWindowMinimized() || !IsAppVisible) return;
 
-        bool maximized = _appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
-        if (maximized)
+
+        var cfg = ConfigService.Config;
+        if (IsWindowMaximized()) return;
+
+        Windows.Graphics.SizeInt32? pending = null;
+        lock (_lastWindowSizeLock)
         {
-            Log("[窗口] 当前为最大化，跳过尺寸记录");
-            return;
+            pending = _pendingLastWindowSize;
+            _pendingLastWindowSize = null;
+            _lastWindowSizeTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        }
+        Windows.Graphics.SizeInt32 bounds;
+        if (pending is Windows.Graphics.SizeInt32 pendingBounds)
+        {
+            bounds = pendingBounds;
+        }
+        else
+        {
+            bounds = _appWindow.Size;
+            Log($"[窗口] 使用实时尺寸 {bounds.Width}x{bounds.Height}");
         }
 
-        var bounds = _appWindow.Size;
+        if (cfg.WindowWidth == bounds.Width && cfg.WindowHeight == bounds.Height)
+        {
+            return;
+        }
         cfg.WindowWidth = bounds.Width;
         cfg.WindowHeight = bounds.Height;
         cfg.WindowMaximized = false;
@@ -369,8 +413,6 @@ public sealed partial class MainWindow : Window
 
         _ = ConfigService.SaveConfigAsync();
     }
-
-
 
     // ---------- 供 Page 层调用的窗口级服务 ----------
 
@@ -603,12 +645,6 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
     public void RequestExit()
     {
-        // 窗口最小化时不能读取当前窗口尺寸, 因为此时主窗口尺寸
-        // 只会读到199x34之类的标题栏大小尺寸
-        if (_isVisible && !IsWindowMinimized())
-        {
-            SaveWindowSize();
-        }
         MainPage.FlushLastCategory();
         DeleteInstanceLock();
         _allowClose = true;

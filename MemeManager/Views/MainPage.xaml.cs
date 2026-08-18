@@ -374,7 +374,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    private static readonly object _lastCatLock = new();
+    private static readonly Lock _lastCatLock = new();
     private static Timer? _lastCatTimer;
     private static string? _pendingLastCategory;
 
@@ -395,7 +395,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             pending = _pendingLastCategory;
             _pendingLastCategory = null;
-            _lastCatTimer?.Change(System.Threading.Timeout.InfiniteTimeSpan, System.Threading.Timeout.InfiniteTimeSpan);
+            _lastCatTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }
         if (pending != null)
         {
