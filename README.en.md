@@ -13,13 +13,13 @@ A high-performance tool for managing and using your meme/sticker collection, bui
 
 </div>
 
-![avif-main-window.avif](image/avif-main-window.avif)
-![avif-500-image-import.avif](image/avif-500-image-import.avif)
-![image-main-window.png](image/image-main-window.png)
-![image-edit-mode.png](image/image-edit-mode.png)
-![image-settings-1.png](image/image-settings-1.png)
-![image-settings-2.png](image/image-settings-2.png)
-![mini-mode.png](image/mini-mode.png)
+![avif-main-window.avif](image/avif-main-window.avif)  
+![avif-500-image-import.avif](image/avif-500-image-import.avif)  
+![image-main-window.png](image/image-main-window.png)  
+![image-edit-mode.png](image/image-edit-mode.png)  
+![image-settings-1.png](image/image-settings-1.png)  
+![image-settings-2.png](image/image-settings-2.png)  
+![mini-mode.png](image/mini-mode.png)  
 
 ## Features
 
@@ -53,7 +53,7 @@ Right-click the category bar on the left of the main window to see the `Create n
 
 ### Import / Export / Send Images
 
-To send an image, you can click the image directly to send it, or drag the image into a text box to send it (due to WinUI 3 framework stability issues, drag-to-send/export is disabled by default — enable the `StorageFile drag support (drag out as file)` feature with caution).
+To send an image, you can click the image directly to send it, or drag the image into a text box to send it (enable the `StorageFile drag support (drag out as file)` needed).
 
 When sending by clicking the image, the input cursor must already be focused in the target text box, otherwise it won't send (the mechanism copies the image to the clipboard and then performs `Ctrl+V` automatically). You can also right-click an image and choose `Copy` to copy it to the clipboard, then paste it into the target text box yourself.
 

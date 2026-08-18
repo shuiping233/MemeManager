@@ -15,14 +15,14 @@
 
 </div>
 
-![main-window.avif](image/main-window.avif)
-![800-image-import.avif](image/800-image-import.avif)
-![drag-action.avif](image/drag-action.avif)
-![image-main-window.webp](image/image-main-window.webp)
-![image-edit-mode.webp](image/image-edit-mode.webp)
-![image-settings-1.png](image/image-settings-1.png)
-![image-settings-2.png](image/image-settings-2.png)
-![mini-mode.png](image/mini-mode.png)
+![main-window.avif](image/main-window.avif)  
+![800-image-import.avif](image/800-image-import.avif)  
+![drag-action.avif](image/drag-action.avif)  
+![image-main-window.webp](image/image-main-window.webp)  
+![image-edit-mode.webp](image/image-edit-mode.webp)  
+![image-settings-1.png](image/image-settings-1.png)  
+![image-settings-2.png](image/image-settings-2.png)  
+![mini-mode.png](image/mini-mode.png)  
 
 ## 功能特性
 
@@ -58,7 +58,7 @@
 
 ### 图片的导入/导出/发送
 
-要发送图片, 可以直接点击图片以发送图片, 或者拖拽图片到文本框中进行发送
+要发送图片, 可以直接点击图片以发送图片, 或者拖拽图片到文本框中进行发送（需要在设置中启用`StorageFile拖拽支持`）
 
 使用直接点击图片的方式发送图片, 需要输入光标焦点已经在目标输入框中, 否则无法发出（原理是图片拷入剪贴板后自动进行`Ctrl+V`）
 
