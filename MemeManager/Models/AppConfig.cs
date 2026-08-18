@@ -42,9 +42,6 @@ public record AppConfig
     // 仅作用于后台线程，不影响 UI 响应；老版本 Windows 上会被忽略。
     public bool EcoMode { get; set; } = true;
 
-    // 窗口尺寸持久化（关闭/退出前记录，下次启动还原）
-    public WindowSizePreset WindowSizePreset { get; set; } = WindowSizePreset.Default;
-
     public double WindowWidth { get; set; } = 950;
     public double WindowHeight { get; set; } = 750;
     public bool WindowMaximized { get; set; } = false;
@@ -87,14 +84,3 @@ public record AppConfig
     //       使用异步 SetProvider 方案后, 未见用户反馈拖拽时会闪退崩溃了, 估保持默认开启
     public bool StorageFileDrag { get; set; } = true;
 }
-
-// 窗口尺寸预设档位（仅作日志/调试展示，不限制实际可存分辨率）
-public enum WindowSizePreset
-{
-    Default = 0,  // 950x750
-    Small = 1,    // 720x560
-    Medium = 2,   // 950x750
-    Large = 3,    // 1200x900
-    Maximized = 4
-}
-

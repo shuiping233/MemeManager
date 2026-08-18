@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using WinRT.Interop;
@@ -17,7 +18,7 @@ public sealed partial class MainWindow : Window
     private readonly MemeDataEngine _engine;
     private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
-    private Microsoft.UI.Windowing.AppWindow? _appWindow;
+    private AppWindow? _appWindow;
     private bool _isVisible = true;
     private const int HOTKEY_ID = 9001;
     private const uint SUBCLASS_ID = 101;
@@ -73,6 +74,16 @@ public sealed partial class MainWindow : Window
     // 当前承载的页面（两种模式皆可），用于统一驱动图像资源释放。
     private IImageReleasablePage? CurrentReleasablePage => RootFrame.Content as IImageReleasablePage;
 
+    // 判断窗口是否最小化了
+    private bool IsWindowMinimized()
+    {
+        if (_appWindow?.Presenter is OverlappedPresenter op)
+        {
+            return op.State == OverlappedPresenterState.Minimized;
+        }
+        return false;
+    }
+
     // 释放当前页面持有的图像资源引用，并统一执行一次 GC 回收（两种模式共用）。
     // detachItemsSource=true 仅隐藏窗口时使用（视觉树保留，需摘容器卸载 Image 释放 GPU 纹理）；
     // 切模式走默认 false——旧页面视觉树将由导航卸载，不手动摘，避免重演"切回空白"老 bug。
@@ -122,9 +133,9 @@ public sealed partial class MainWindow : Window
         NativeMethods.DragAcceptFiles(_hWnd, true);
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(_hWnd);
-        _appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+        _appWindow = AppWindow.GetFromWindowId(windowId);
 
-        if (_appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter overlappedPresenter)
+        if (_appWindow.Presenter is OverlappedPresenter overlappedPresenter)
         {
             // 启动默认置顶
             overlappedPresenter.IsAlwaysOnTop = true;
@@ -324,11 +335,10 @@ public sealed partial class MainWindow : Window
     {
         if (_appWindow == null) return;
         var cfg = ConfigService.Config;
-
-        int w = (int)Math.Max(AppConstants.MinFullModeWindowWidth, cfg.WindowWidth);
-        int h = (int)Math.Max(AppConstants.MinFullModeWindowHeight, cfg.WindowHeight);
+        int w = (int)cfg.WindowWidth;
+        int h = (int)cfg.WindowHeight;
         _appWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
-        Log($"[窗口] 还原尺寸 {w}x{h} (预设={cfg.WindowSizePreset})");
+        Log($"[窗口] 还原尺寸 {w}x{h}");
     }
 
     // 退出/关闭/切到 Mini 前保存：记录当前尺寸到 config.json。
@@ -355,8 +365,7 @@ public sealed partial class MainWindow : Window
         cfg.WindowWidth = bounds.Width;
         cfg.WindowHeight = bounds.Height;
         cfg.WindowMaximized = false;
-        cfg.WindowSizePreset = Utils.ClassifySize(bounds.Width, bounds.Height);
-        Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height} (预设={cfg.WindowSizePreset})");
+        Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height}");
 
         _ = ConfigService.SaveConfigAsync();
     }
@@ -594,7 +603,12 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
     public void RequestExit()
     {
-        SaveWindowSize();
+        // 窗口最小化时不能读取当前窗口尺寸, 因为此时主窗口尺寸
+        // 只会读到199x34之类的标题栏大小尺寸
+        if (_isVisible && !IsWindowMinimized())
+        {
+            SaveWindowSize();
+        }
         MainPage.FlushLastCategory();
         DeleteInstanceLock();
         _allowClose = true;
