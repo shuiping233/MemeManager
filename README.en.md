@@ -106,7 +106,7 @@ All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported
   - `Ctrl`+`V` : after copying an image, paste it into the current category in the main window
   - `Ctrl`+`N` : create new category
   - `Ctrl`+`A` : select all images; in non-edit mode this enters edit mode and selects all images in the current category
-  - `F5` : refresh page (due to control-reuse implementation, no refresh animation shows if content is unchanged)
+  - `F5` : refresh page (if `Enable control reuse strategy` is enabled, due to control-reuse implementation, no refresh animation shows if content is unchanged)
   - `F2` : rename the current category
   - `Delete` : delete the current category; in edit mode, delete the selected images.
 
