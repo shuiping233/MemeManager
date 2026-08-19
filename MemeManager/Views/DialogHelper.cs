@@ -241,6 +241,12 @@ public static class DialogHelper
         ConfirmAsync(xamlRoot, Localization.Get("Dialog_DeleteCategory_Title"),
             string.Format(Localization.Get("Dialog_DeleteCategory_Message"), name), Localization.Get("Dialog_Delete"));
 
+    // 点击设置里的"退出程序"按钮时弹窗
+    public static Task<ContentDialogResult> ShowProgramExitNoticeAsync(XamlRoot xamlRoot) =>
+        ConfirmAsync(xamlRoot, Localization.Get("Dialog_ProgramExit_Title"),
+            string.Format(Localization.Get("Dialog_ProgramExit_Message")));
+
+
     // 新增分类输入
     public static Task<string?> PromptNewCategoryAsync(XamlRoot xamlRoot) =>
         PromptTextAsync(xamlRoot, Localization.Get("Dialog_NewCategory_Title"), Localization.Get("Dialog_NewCategory_Placeholder"));

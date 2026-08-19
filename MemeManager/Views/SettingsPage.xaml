@@ -94,6 +94,8 @@
                 </Grid>
                 <Button x:Name="AboutButton" l:Uids.Uid="Settings_About"
                         Command="{x:Bind ViewModel.AboutCommand}"/>
+                <Button x:Name="ProgramExitButton" l:Uids.Uid="Settings_ProgramExit"
+                        Command="{x:Bind ViewModel.ProgramExitCommand}"/>
             </StackPanel>
 
             <StackPanel Spacing="6">

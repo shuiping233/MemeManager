@@ -683,4 +683,13 @@
   <data name="Settings_UpdateCheck_State_DevBuild" xml:space="preserve">
     <value>当前版本为开发版本，无法判断更新状态</value>
   </data>
+  <data name="Dialog_ProgramExit_Title" xml:space="preserve">
+    <value>退出此程序</value>
+  </data>
+  <data name="Dialog_ProgramExit_Message" xml:space="preserve">
+    <value>您确定吗?</value>
+  </data>
+  <data name="Settings_ProgramExit.Content" xml:space="preserve">
+    <value>退出程序</value>
+  </data>
 </root>

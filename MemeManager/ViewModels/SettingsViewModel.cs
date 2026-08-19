@@ -195,6 +195,15 @@ public partial class SettingsViewModel : ObservableObject
     private void About()
         => AboutRequested?.Invoke();
 
+    // 退出程序：需弹窗（依赖 XamlRoot），经事件回 MainWindow 执行。
+    public event Action? ProgramExitRequested;
+
+    [RelayCommand]
+    private void ProgramExit()
+    {
+        ProgramExitRequested?.Invoke();
+    }
+
     // 浏览选目录并立即保存：依赖文件选择器 + MainWindow 状态，经事件回 Page。
     public event Action? BrowseFolderRequested;
 

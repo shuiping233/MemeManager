@@ -25,6 +25,7 @@ public sealed partial class SettingsPage : Page
     private readonly Action<string> _onOpenFolder;
     private readonly Action _onClose;
     private readonly Action _onAbout;
+    private readonly Action _onProgramExit;
 
     public SettingsPage()
     {
@@ -38,10 +39,17 @@ public sealed partial class SettingsPage : Page
         _onOpenFolder = path => _ = OpenFolderAsync(path);
         _onClose = () => _ = SaveAndCloseAsync();
         _onAbout = () => _ = AboutPage.ShowAsync(XamlRoot);
+        _onProgramExit = async () =>
+        {
+            var result = await DialogHelper.ShowProgramExitNoticeAsync(XamlRoot);
+            if (result != ContentDialogResult.Primary) return;
+            App.MainWindow.RequestExit();
+        };
         ViewModel.BrowseFolderRequested += _onBrowseFolder;
         ViewModel.OpenFolderRequested += _onOpenFolder;
         ViewModel.CloseRequested += _onClose;
         ViewModel.AboutRequested += _onAbout;
+        ViewModel.ProgramExitRequested += _onProgramExit;
 
         Unloaded += SettingsPage_Unloaded;
 
