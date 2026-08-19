@@ -1,5 +1,6 @@
 namespace MemeManager.Infrastructure;
 
+// TODO AsyncDebounce类缺单元测试
 public interface IDebouncer<T>
 {
     public CancellationToken? Token { get; }
