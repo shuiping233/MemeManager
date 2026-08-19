@@ -2,7 +2,9 @@ namespace MemeManager.Infrastructure;
 
 public interface IDebouncer<T>
 {
+    public CancellationToken? Token { get; }
     public void Trigger(T data);
+    public void CancelPending();
 }
 
 /// <summary>
@@ -45,73 +47,116 @@ public class Debouncer<T>(TimeSpan delay, Action<T> action) : AsyncDebouncer<T>(
 /// <remarks>
 /// 使用时需提供防抖等待时间和异步处理委托。
 /// </remarks>
-public class AsyncDebouncer<T>(TimeSpan delay, Func<T, Task> asyncAction) : IDebouncer<T>
+public class AsyncDebouncer<T> : IDebouncer<T>
 {
+    private readonly TimeSpan _delay;
+    // 内部统一使用带 CancellationToken 的委托
+    private readonly Func<T, CancellationToken, Task> _asyncAction;
 
-    // 同步锁，保证并发安全（因为替换 CTS 是极快的内存操作，用同步锁即可，无需异步锁）
     private readonly Lock _lock = new();
-
     private CancellationTokenSource? _cts;
 
+    public CancellationToken? Token => _cts?.Token;
+
     /// <summary>
-    /// 触发防抖。传入业务数据，如果在延迟时间内再次触发，则重置计时器。
+    /// 构造函数 1：支持取消运行中任务的异步防抖器
     /// </summary>
-    /// <param name="data">要处理的业务数据</param>
-    /// <example>
-    /// 以下示例演示如何使用 <see cref="AsyncDebouncer{T}"/> 防抖保存数据：
-    /// <code>
-    /// // 创建防抖器：间隔 500ms 执行一次异步保存
-    /// var debouncer = new AsyncDebouncer&lt;string&gt;(
-    ///     TimeSpan.FromMilliseconds(500),
-    ///     async (data) =>
-    ///     {
-    ///         Console.WriteLine($"开始异步保存: {data}");
-    ///         await Task.Delay(1000); // 模拟耗时的数据库操作
-    ///         Console.WriteLine($"保存完成: {data}");
-    ///     });
-    ///
-    /// // 模拟连续触发
-    /// debouncer.Trigger("数据1");
-    /// debouncer.Trigger("数据2");
-    /// debouncer.Trigger("数据3"); // 最终只有 "数据3" 会被保存
-    /// </code>
-    /// </example>
+    public AsyncDebouncer(TimeSpan delay, Func<T, CancellationToken, Task> asyncAction)
+    {
+        _delay = delay;
+        _asyncAction = asyncAction;
+    }
+
+    /// <summary>
+    /// 构造函数 2：不支持取消运行中任务的异步防抖器 (兼容老代码)
+    /// </summary>
+    public AsyncDebouncer(TimeSpan delay, Func<T, Task> asyncAction)
+        : this(delay, (data, _) => asyncAction(data)) // 忽略 token
+    {
+    }
+
     public void Trigger(T data)
     {
         lock (_lock)
         {
-            // 1. 取消之前的延迟任务（相当于重置计时器）
             _cts?.Cancel();
             _cts?.Dispose();
 
-            // 2. 创建新的 CTS
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
 
-            // 3. 启动后台异步任务（不需要 await，让它后台运行）
             _ = ExecuteAsync(data, token);
         }
     }
 
-    /// <summary>
-    /// 真正执行防抖等待和业务逻辑的异步方法
-    /// </summary>
     private async Task ExecuteAsync(T data, CancellationToken token)
     {
         try
         {
-            // 1. 异步等待防抖时间（这期间不会阻塞任何线程）
-            // 如果在等待期间又触发了 Trigger，token 会被取消，直接跳到 catch
-            await Task.Delay(delay, token);
+            await Task.Delay(_delay, token);
 
-            // 2. 如果 Delay 顺利结束，说明防抖时间到了，且这是最后一次触发
-            // 执行异步业务逻辑
-            await asyncAction(data);
+            await _asyncAction(data, token);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
+        { }
+        catch (Exception ex)
         {
-            // 被取消是正常行为，直接忽略
-            // 这意味着这次触发被新的触发覆盖了，不需要执行业务
+            Logger.Log($"防抖业务执行异常: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 默认只能取消未执行的Task, 如果被触发的Task支持且传入了CancellationTokenSource, 则正在触发的Task会被一起取消
+    /// </summary>
+    public void CancelPending()
+    {
+        lock (_lock)
+        {
+            if (_cts != null)
+            {
+                _cts.Cancel();
+                _cts.Dispose();
+                _cts = null;
+            }
+        }
+    }
+}
+
+/// <summary>
+/// 无参数的异步防抖器。复用泛型防抖器逻辑，提供更干净的无参 API。
+/// </summary>
+/// <remarks>
+/// 初始化无参数防抖器
+/// </remarks>
+/// <param name="delay">防抖延迟时间</param>
+/// <param name="asyncAction">无参数的异步委托</param>
+public class AsyncDebouncer : AsyncDebouncer<object?>
+{
+    /// <summary>
+    /// 初始化无参数防抖器（业务逻辑不支持取消）
+    /// </summary>
+    /// <param name="delay">防抖延迟时间</param>
+    /// <param name="asyncAction">无参数的异步委托</param>
+    public AsyncDebouncer(TimeSpan delay, Func<Task> asyncAction)
+        : base(delay, (_) => asyncAction())
+    {
+    }
+
+    /// <summary>
+    /// 初始化无参数防抖器（业务逻辑支持取消运行中任务）
+    /// </summary>
+    /// <param name="delay">防抖延迟时间</param>
+    /// <param name="asyncAction">带 CancellationToken 的异步委托</param>
+    public AsyncDebouncer(TimeSpan delay, Func<CancellationToken, Task> asyncAction)
+        : base(delay, (_, token) => asyncAction(token))
+    {
+    }
+
+    /// <summary>
+    /// 触发防抖（无需传参）
+    /// </summary>
+    public void Trigger()
+    {
+        Trigger(null);
     }
 }
