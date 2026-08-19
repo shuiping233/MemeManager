@@ -242,6 +242,9 @@ public sealed partial class MainWindow : Window
         switch (mode)
         {
             case AppMode.Full:
+                // TODO 从mini模式切换回来之后, 还差一个mini模式的分类刷新和保存没做, 当然不做也只会手感差一点
+                // 预期的效果应该要mini模式切到什么分类都好, 只要切回full模式就立刻保存分类, 
+                // full模式里显示的分类高亮应该和mini模式的一致
                 RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
                 RestoreFullModeChrome();
                 ResizeForFullMode();
@@ -623,7 +626,17 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
     public void RequestExit()
     {
-        CurrentMainPage?.FlushLastCategoryWhenExit();
+        switch (CurrentMode)
+        {
+            case AppMode.Full:
+                CurrentMainPage?.FlushLastCategoryWhenExit();
+                break;
+            case AppMode.Mini:
+                _ = CurrentMiniPage?.SaveCurrentCategoryToConfigWhenExit();
+                break;
+            default:
+                break;
+        }
         DeleteInstanceLock();
         _allowClose = true;
         _isClosing = true;

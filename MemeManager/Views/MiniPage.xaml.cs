@@ -27,7 +27,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         IsAllMemesView ? AppConstants.UncategorizedCategory : _currentCategory;
 
     // 用于取消上一次“提示文字自动恢复”的定时任务，避免多条消息互相抢占。
-    private System.Threading.CancellationTokenSource? _hintRestoreCts;
+    private CancellationTokenSource? _hintRestoreCts;
 
     // 导入成功提示自动恢复为默认文案的延迟时长（毫秒）。
     private const int ImportHintRestoreDelay = 7 * 1000;
@@ -58,6 +58,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             await _clipboard.OutputMemeToCursorAsync(vm.LocalPath, target);
         };
         Loaded += MiniPage_Loaded;
+
+        SaveLastCategoryDebouncer = new(AppConstants.LastCategorySaveDebounce, async (category) =>
+        {
+            await SaveCurrentCategoryToConfig(category);
+            return;
+        });
     }
 
     private void MiniPage_Loaded(object sender, RoutedEventArgs e)
@@ -117,6 +123,18 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
+    private readonly AsyncDebouncer<string> SaveLastCategoryDebouncer;
+
+    private async Task SaveCurrentCategoryToConfig(string categoryName)
+    {
+        await ConfigService.UpdateConfigAsync(cfg => cfg.LastCategory = categoryName);
+    }
+
+    internal async Task SaveCurrentCategoryToConfigWhenExit()
+    {
+        await SaveCurrentCategoryToConfig(_currentCategory);
+    }
+
     private void CategoryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (CategoryCombo.SelectedItem is ViewModels.CategoryViewModel vm)
@@ -124,11 +142,15 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             // 空名 = “全部表情”视图（与 Full 约定一致）。
             if (string.IsNullOrEmpty(vm.Name))
             {
-                _currentCategory = CategoryKind.All.VirtualName();
+                var categoryName = CategoryKind.All.VirtualName();
+                _currentCategory = categoryName;
+                SaveLastCategoryDebouncer.Trigger(categoryName);
             }
             else
             {
-                _currentCategory = vm.Name;
+                var categoryName = vm.Name;
+                _currentCategory = categoryName;
+                SaveLastCategoryDebouncer.Trigger(categoryName);
             }
             ReleaseImages(detachItemsSource: true);
         }

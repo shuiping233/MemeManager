@@ -363,7 +363,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ApplySelectionBoxVisibility();
     }
 
-    internal readonly AsyncDebouncer<string> SaveLastCategoryDebouncer;
+    private readonly AsyncDebouncer<string> SaveLastCategoryDebouncer;
 
     private void CategoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -390,7 +390,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             await ConfigService.SaveConfigAsync();
             return;
         }
-        _ = _engine.UpdateConfigAsync(c => c.LastCategory = pending);
+        await _engine.UpdateConfigAsync(c => c.LastCategory = pending);
     }
 
     public async Task FlushLastCategoryWhenExit()
