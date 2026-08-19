@@ -79,6 +79,10 @@ public sealed partial class SettingsPage : Page
 
         // 构造期间对下拉框赋值会触发 SelectionChanged，用此标志跳过初始化的多余写盘。
         _loaded = true;
+
+        ValidatePathDebouncer = new AsyncDebouncer(
+            AppConstants.StoragePathValidationDebounce, async (token) => { await ValidatePathAfterDelayAsync(token); return; }
+        );
     }
 
     private bool _loaded;
@@ -182,7 +186,7 @@ public sealed partial class SettingsPage : Page
     private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
     {
         // 取消防抖校验（页面销毁后不再弹窗）
-        _pathValidationCts?.Cancel();
+        ValidatePathDebouncer.CancelPending();
 
         // 反订阅单例 VM 的事件，避免处理器累积（每次打开设置浮窗会新建本页实例）。
         if (DataContext is SettingsViewModel vm)
@@ -351,9 +355,6 @@ public sealed partial class SettingsPage : Page
     // 恒"存在"而漏过（用户填 "../" 打开的是错误位置）。必须叠加 Path.IsPathRooted 拒绝相对路径。
     private bool _revertingPath;
 
-    // 100ms 防抖：用户停止输入后才校验，避免打字过程中逐键弹窗打断。
-    private CancellationTokenSource? _pathValidationCts;
-
     // 存储路径校验结果：合法 / 相对路径非法 / 目录不存在（空输入视为中性，不打扰输入中状态）
     private enum StoragePathError { None, Relative, NotFound }
 
@@ -375,30 +376,16 @@ public sealed partial class SettingsPage : Page
             await DialogHelper.ShowPathNotFoundAsync(XamlRoot, path);
     }
 
+    private readonly AsyncDebouncer ValidatePathDebouncer;
+
     private void StoragePathBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_revertingPath) return;
-
-        // 防抖：取消上一次未完成的校验，重新计时 100ms
-        _pathValidationCts?.Cancel();
-        _pathValidationCts = new CancellationTokenSource();
-        _ = ValidatePathAfterDelayAsync(_pathValidationCts.Token);
+        ValidatePathDebouncer.Trigger();
     }
 
     private async Task ValidatePathAfterDelayAsync(CancellationToken token)
     {
-        // 注意：Task.Delay 不带 token——带 token 的取消会抛 TaskCanceledException，
-        // 每次输入都取消上一次防抖，会在 VS 输出刷大量 first-chance 异常（虽被捕获但难看）。
-        // 取消语义改由 Delay 完成后检查 token.IsCancellationRequested 实现。
-        try
-        {
-            await Task.Delay(AppConstants.StoragePathValidationDebounce);
-        }
-        catch
-        {
-            return;
-        }
-
         // 已被更新的输入或页面卸载取消：本次校验作废
         if (token.IsCancellationRequested) return;
 
