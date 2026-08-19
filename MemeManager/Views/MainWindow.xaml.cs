@@ -185,7 +185,7 @@ public sealed partial class MainWindow : Window
         );
     }
 
-    private readonly AsyncDebouncer<Windows.Graphics.SizeInt32?> windowSizeDebouncer;
+    private readonly Debouncer<Windows.Graphics.SizeInt32?> windowSizeDebouncer;
 
     // 监听窗口尺寸变化, 防抖后即刻保存窗口尺寸到配置文件中
     private void MainWindow_SizeChanged(AppWindow sender, AppWindowChangedEventArgs args)
