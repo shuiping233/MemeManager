@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
@@ -176,12 +177,18 @@ public partial class App : Application
         _trayIcon.ShowMainWindow += (_, _) => MainWindow.ShowAndActivate();
         _trayIcon.ToggleMode += (_, _) => MainWindow.ToggleMode();
         _trayIcon.OpenSettings += (_, _) => MainWindow.OpenSettings();
-        _trayIcon.ExitApplication += (_, _) => ExitApp();
 
         // 启动时后台静默检查更新（仅当配置开启）。fire-and-forget：内部全部
         // ConfigureAwait(false)，不阻塞启动；结果只在设置页展示，不打扰用户。
         if (ConfigService.Config.AutoCheckForUpdates)
             _ = SafeStartupUpdateCheckAsync();
+
+        // 注册退出消息
+        WeakReferenceMessenger.Default.Register<CloseAppMessage>(this, (recipient, message) =>
+        {
+            ExitApp();
+        });
+
     }
 
     // 启动检查兜底：fire-and-forget 的任务若抛出未捕获异常会变成 unobserved
@@ -228,7 +235,7 @@ public partial class App : Application
 
     private void ExitApp()
     {
-        Logger.Log("[MemeManager] 应用程序退出");
+        Logger.Log("[MemeManager] 应用程序正在退出");
         _trayIcon?.Dispose();
         _trayIcon = null;
         MainWindow.RequestExit();

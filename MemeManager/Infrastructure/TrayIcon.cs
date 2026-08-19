@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using CommunityToolkit.Mvvm.Messaging;
+using MemeManager.Models;
 using MemeManager.Services;
 
 
@@ -27,7 +29,6 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler? ShowMainWindow;
     public event EventHandler? ToggleMode;
     public event EventHandler? OpenSettings;
-    public event EventHandler? ExitApplication;
 
     private static ConfigService ConfigService => App.GetService<ConfigService>();
     private static bool AllowMiniMode => ConfigService.Config.AllowMiniMode;
@@ -172,7 +173,7 @@ public sealed class TrayIcon : IDisposable
             case CMD_SHOW: ShowMainWindow?.Invoke(this, EventArgs.Empty); break;
             case CMD_TOGGLE_MODE: if (allowMini) ToggleMode?.Invoke(this, EventArgs.Empty); break;
             case CMD_SETTINGS: OpenSettings?.Invoke(this, EventArgs.Empty); break;
-            case CMD_EXIT: ExitApplication?.Invoke(this, EventArgs.Empty); break;
+            case CMD_EXIT: WeakReferenceMessenger.Default.Send(new CloseAppMessage()); break;
         }
     }
 

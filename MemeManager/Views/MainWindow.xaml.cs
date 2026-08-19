@@ -19,6 +19,7 @@ public sealed partial class MainWindow : Window
     private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
     private AppWindow? _appWindow;
+
     private bool _isVisible = true;
     private const int HOTKEY_ID = 9001;
     private const uint SUBCLASS_ID = 101;
@@ -623,7 +624,7 @@ public sealed partial class MainWindow : Window
             ShowWindow(activate: false);
     }
 
-    /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
+    /// <summary>主窗口“退出”：允许真正关闭窗口并退出程序</summary>
     public void RequestExit()
     {
         switch (CurrentMode)
