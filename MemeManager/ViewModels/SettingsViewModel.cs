@@ -111,7 +111,24 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    // 打开配置文件夹：纯 Launcher 调用，可直接进 VM（依赖 MainWindow.AppDataDir 静态访问）。
+    // 打开EXE所在文件夹
+    [RelayCommand]
+    private async Task OpenExeFolderAsync()
+    {
+        var path = Utils.GetExeDirectory();
+        if (string.IsNullOrWhiteSpace(path)) return;
+        try
+        {
+            Directory.CreateDirectory(path);
+            await Windows.System.Launcher.LaunchFolderPathAsync(path);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 打开EXE文件夹错误: {ex.Message}");
+        }
+    }
+
+    // 打开配置文件夹：
     [RelayCommand]
     private async Task OpenConfigFolderAsync()
     {

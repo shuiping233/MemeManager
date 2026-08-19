@@ -142,7 +142,7 @@
     <value>New category</value>
   </data>
   <data name="Category_OpenFolder.Text" xml:space="preserve">
-    <value>Open containing folder</value>
+    <value>To containing folder</value>
   </data>
   <data name="Category_Rename.Text" xml:space="preserve">
     <value>Rename</value>
@@ -154,7 +154,7 @@
     <value>Open</value>
   </data>
   <data name="Meme_OpenFolder.Text" xml:space="preserve">
-    <value>Open containing folder</value>
+    <value>To containing folder</value>
   </data>
   <data name="Meme_Copy.Text" xml:space="preserve">
     <value>Copy</value>
@@ -187,13 +187,13 @@
     <value>Browse...</value>
   </data>
   <data name="Settings_OpenMemeDataFolder.Content" xml:space="preserve">
-    <value>Open storage folder</value>
+    <value>To storage folder</value>
   </data>
   <data name="Settings_OpenConfigFolder.Content" xml:space="preserve">
-    <value>Open settings folder</value>
+    <value>To settings folder</value>
   </data>
   <data name="Settings_OpenLogFolder.Content" xml:space="preserve">
-    <value>Open log folder</value>
+    <value>To log folder</value>
   </data>
   <data name="Settings_Feedback.Content" xml:space="preserve">
     <value>Feedback</value>
@@ -691,5 +691,8 @@ Reverted to the previous valid path.</value>
   </data>
   <data name="Settings_ProgramExit.Content" xml:space="preserve">
     <value>Exit</value>
+  </data>
+  <data name="Settings_OpenExeFolder.Content" xml:space="preserve">
+    <value>To software folder</value>
   </data>
 </root>

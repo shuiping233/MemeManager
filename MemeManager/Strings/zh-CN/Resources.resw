@@ -692,4 +692,7 @@
   <data name="Settings_ProgramExit.Content" xml:space="preserve">
     <value>退出程序</value>
   </data>
+  <data name="Settings_OpenExeFolder.Content" xml:space="preserve">
+    <value>打开软件所在目录</value>
+  </data>
 </root>

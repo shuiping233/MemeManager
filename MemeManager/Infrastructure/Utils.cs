@@ -147,6 +147,15 @@ public static class Utils
             return false;
         }
     }
+
+    /// <summary>
+    /// 这个路径末尾通常会带有一个路径分隔符（例如 "\" 或 "/"）
+    /// </summary>
+    public static string GetExeDirectory()
+    {
+
+        return AppContext.BaseDirectory;
+    }
 }
 
 /// <summary>Popup 相对锚点的摆放方向。</summary>
