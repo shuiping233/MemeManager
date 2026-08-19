@@ -79,6 +79,9 @@ public static class AppConstants
     // 窗口大小改变的防抖时长, 避免用户修改窗口大小时频繁将窗口大小保存到配置文件中。
     public static readonly TimeSpan WindowsSizeChangedDebounce = TimeSpan.FromSeconds(0.5);
 
+    // 表情搜索框的防抖时长
+    public static readonly TimeSpan SearchBoxDebounce = TimeSpan.FromMilliseconds(150);
+
     // 预览图允许的默认最大尺寸（超过则等比压缩）
     public const double PreviewMaxWidth = 640;
     public const double PreviewMaxHeight = 480;

@@ -53,8 +53,11 @@ public class Debouncer : Debouncer<object?>
     /// </summary>
     /// <param name="delay">防抖延迟时间</param>
     /// <param name="action">无参数的异步委托</param>
-    public Debouncer(TimeSpan delay, Func<Task> action)
-        : base(delay, (_) => action())
+    public Debouncer(TimeSpan delay, Action action)
+        : base(delay, _ =>
+        {
+            action();
+        })
     { }
 
     /// <summary>

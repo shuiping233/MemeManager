@@ -174,6 +174,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             EditButton.Content = Localization.Get("Meme_Done");
             BatchBar.Visibility = Visibility.Visible;
         }
+
+        ViewModel.SearchDebouncer = new Debouncer(AppConstants.SearchBoxDebounce, () =>
+        {
+            RefreshMemes();
+        });
     }
 
     // 把 VM 的"请求"委托属性接到本页的 UI 实现。全部用 '=' 赋值（非 +=）：MainViewModel 是
@@ -1327,7 +1332,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 收集所有待导入的源路径（复用 ImageDragHelper：StorageItems 直接用原路径；Bitmap 先落临时文件）
         var importPaths = await ImageDragHelper.CollectDropPathsAsync(view);
         // 标记临时文件（Bitmap 落地），导入后用于清理
-        var tempPrefix = System.IO.Path.GetTempPath().TrimEnd('\\').ToLowerInvariant();
+        var tempPrefix = Path.GetTempPath().TrimEnd('\\').ToLowerInvariant();
         var tempPaths = importPaths
             .Where(p => p.ToLowerInvariant().StartsWith(tempPrefix))
             .ToList();
@@ -1677,21 +1682,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // 搜索框输入防抖：避免每次按键都重建表情列表
-
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        ViewModel.SearchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-        ViewModel.SearchDebounceTimer.Stop();
-        ViewModel.SearchDebounceTimer.Tick -= SearchDebounce_Tick;
-        ViewModel.SearchDebounceTimer.Tick += SearchDebounce_Tick;
-        ViewModel.SearchDebounceTimer.Start();
+        ViewModel.SearchDebouncer?.Trigger();
     }
 
-    private void SearchDebounce_Tick(object? sender, object e)
-    {
-        ViewModel.SearchDebounceTimer?.Stop();
-        RefreshMemes();
-    }
 
     public void HandleHostKeyDown(KeyRoutedEventArgs e) => Root_KeyDown(null, e);
 
