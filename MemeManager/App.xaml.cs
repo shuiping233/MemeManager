@@ -271,8 +271,6 @@ public partial class App : Application
         services.AddSingleton<SearchService>();
         services.AddSingleton<ClipboardService>();
         services.AddSingleton<CategoryService>();
-        // 更新检查：两个更新源 client 注册为 IUpdateServiceClient（UpdateService 构造
-        // 注入 IEnumerable 拿到全部），UpdateService 本身单例供 VM/启动逻辑编排。
         services.AddSingleton<IUpdateServiceClient, GithubReleaseClient>();
         services.AddSingleton<IUpdateServiceClient, CnbReleaseClient>();
         services.AddSingleton<UpdateService>();

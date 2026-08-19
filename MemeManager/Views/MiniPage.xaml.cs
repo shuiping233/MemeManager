@@ -17,7 +17,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
     // Mini 模式当前选中的分类；虚拟分类名（如 "AllMemes"）/ 普通分类名（文件夹名）。
-    private string _currentCategory = CategoryKind.All.VirtualName()!;
+    private string _currentCategory = CategoryKind.All.VirtualName();
 
     // 是否处于“全部表情”视图（导入落到未分类，与 Full 一致）。
     private bool IsAllMemesView => _currentCategory == CategoryKind.All.VirtualName();
@@ -85,12 +85,12 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
 
         // 复用 Full 的 CategoryViewModel：头部插入“全部表情”虚拟项（Name 空串），
         // 与 Full 的 _allMemesVm 约定一致（空名 = 全部表情）。
-        var items = new List<ViewModels.CategoryViewModel>
+        var items = new List<CategoryViewModel>
         {
             new("", 0)
         };
         foreach (var c in cats)
-            items.Add(new ViewModels.CategoryViewModel(c, _engine.GetMemes(c).Count));
+            items.Add(new CategoryViewModel(c, _engine.GetMemes(c).Count));
         CategoryCombo.ItemsSource = items;
 
         var (lastKind, lastName) = ConfigService.Config.LastCategory.Resolve();
@@ -98,7 +98,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         {
             // 上次停留在虚拟分类（如“全部表情”）：选中头部虚拟项。
             CategoryCombo.SelectedIndex = 0;
-            _currentCategory = CategoryKind.All.VirtualName()!;
+            _currentCategory = CategoryKind.All.VirtualName();
         }
         else
         {
@@ -112,7 +112,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             else
             {
                 CategoryCombo.SelectedIndex = 0;
-                _currentCategory = CategoryKind.All.VirtualName()!;
+                _currentCategory = CategoryKind.All.VirtualName();
             }
         }
     }
@@ -124,13 +124,11 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             // 空名 = “全部表情”视图（与 Full 约定一致）。
             if (string.IsNullOrEmpty(vm.Name))
             {
-                _currentCategory = CategoryKind.All.VirtualName()!;
-                MainPage.DebouncedSaveLastCategory(CategoryKind.All.VirtualName()!);
+                _currentCategory = CategoryKind.All.VirtualName();
             }
             else
             {
                 _currentCategory = vm.Name;
-                MainPage.DebouncedSaveLastCategory(vm.Name);
             }
             ReleaseImages(detachItemsSource: true);
         }

@@ -224,7 +224,7 @@ public sealed partial class MainWindow : Window
         if (mode == AppMode.Mini && RootFrame.Content is MainPage)
         {
             SaveWindowSize(_appWindow?.Size);
-            MainPage.FlushLastCategory();
+            CurrentMainPage?.FlushLastCategory();
             // 离开 Full 模式即结束多选（编辑）会话：Mini 无批量操作，会话跨模式无意义。
             // 否则单例 VM 的 EditMode 会残留，Mini→Full 重建 MainPage 时渲染出
             // "非编辑外观 + 右上角复选框"（复选框中残留 bug）。
@@ -623,7 +623,7 @@ public sealed partial class MainWindow : Window
     /// <summary>托盘“退出”：允许真正关闭窗口并退出程序</summary>
     public void RequestExit()
     {
-        MainPage.FlushLastCategory();
+        CurrentMainPage?.FlushLastCategoryWhenExit();
         DeleteInstanceLock();
         _allowClose = true;
         _isClosing = true;
@@ -805,7 +805,7 @@ public sealed partial class MainWindow : Window
     {
         SuspendWindowInteractions(closing: true);
         // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。
-        MainPage.FlushLastCategory();
+        CurrentMainPage?.FlushLastCategory();
         _engine.Watcher?.Stop();
         NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏

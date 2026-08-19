@@ -1,3 +1,5 @@
+using MemeManager.Infrastructure;
+
 namespace MemeManager.Models;
 
 // 当前视图所属的分类类型（MainPage 视图状态）。
@@ -24,8 +26,8 @@ public static class CategoryKindExtensions
     };
 
     /// <summary>虚拟分类的固定名（如 All -> "AllMemes"）。普通分类（Normal）无虚拟名，返回 null。</summary>
-    public static string? VirtualName(this CategoryKind kind)
-        => KindNameMap.TryGetValue(kind, out var name) ? name : null;
+    public static string VirtualName(this CategoryKind kind)
+        => KindNameMap.TryGetValue(kind, out var name) ? name : AppConstants.UnknownString;
 
     /// <summary>
     /// 将 config 中保存的分类字符串还原为 (kind, 分类名)。

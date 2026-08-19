@@ -8,6 +8,7 @@ public static class AppConstants
 {
     // 应用显示名（标题条、对话框等共用）。
     public const string AppName = "MemeManager";
+    public const string UnknownString = "Unknown";
 
     // 配置/锁文件所在目录与文件名（%LOCALAPPDATA%\AppName 下），供各模块复用，避免散落字面量。
     public const string ConfigFileName = "config.json";

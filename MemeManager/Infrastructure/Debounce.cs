@@ -39,6 +39,34 @@ public class Debouncer<T>(TimeSpan delay, Action<T> action) : AsyncDebouncer<T>(
 { }
 
 /// <summary>
+/// 无参数的同步防抖器。复用泛型防抖器逻辑，提供更干净的无参 API。
+/// </summary>
+/// <remarks>
+/// 初始化无参数防抖器
+/// </remarks>
+/// <param name="delay">防抖延迟时间</param>
+/// <param name="Action">无参数的同步委托</param>
+public class Debouncer : Debouncer<object?>
+{
+    /// <summary>
+    /// 初始化无参数防抖器（业务逻辑不支持取消）
+    /// </summary>
+    /// <param name="delay">防抖延迟时间</param>
+    /// <param name="action">无参数的异步委托</param>
+    public Debouncer(TimeSpan delay, Func<Task> action)
+        : base(delay, (_) => action())
+    { }
+
+    /// <summary>
+    /// 触发防抖（无需传参）
+    /// </summary>
+    public void Trigger()
+    {
+        Trigger(null);
+    }
+}
+
+/// <summary>
 /// 异步防抖器。
 /// 在指定的防抖延迟时间内，如果多次触发，只会执行最后一次触发的异步业务逻辑。
 /// 适用于需要防抖且业务逻辑包含异步操作（如保存到数据库、调用API）的场景。

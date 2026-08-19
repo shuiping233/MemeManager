@@ -158,6 +158,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 否则构造期选中因 ItemsSource 为 null 而失效（#7）。
         AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { ViewModel.AllMemesVm };
 
+        SaveLastCategoryDebouncer = new(AppConstants.LastCategorySaveDebounce, async (category) =>
+        {
+            await FlushLastCategory(category);
+            return;
+        });
+
         LoadCategories();
 
         // 页面重建（Full↔Mini 切换会 new 新 MainPage）后与单例 VM 的编辑模式状态对齐：
@@ -302,7 +308,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 if (lastKind == CategoryKind.All)
                 {
                     AllMemesList.SelectedItem = ViewModel.AllMemesVm;
-                    ViewModel.CurrentCategory = CategoryKind.All.VirtualName()!;
+                    ViewModel.CurrentCategory = CategoryKind.All.VirtualName();
                     ViewModel.CurrentCategoryKind = CategoryKind.All;
                 }
                 // 将来新增虚拟分类（如 Recent）在此加分支
@@ -357,51 +363,39 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ApplySelectionBoxVisibility();
     }
 
+    internal readonly AsyncDebouncer<string> SaveLastCategoryDebouncer;
+
     private void CategoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CategoryList.SelectedItem is CategoryViewModel cat)
+        if (CategoryList.SelectedItem is not CategoryViewModel cat)
         {
-            // 清除"全部表情"的选中态
-            AllMemesList.SelectedItem = null;
-            // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配
-            if (cat.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
-                return;
-            ViewModel.CurrentCategory = cat.Name;
-            ViewModel.CurrentCategoryKind = CategoryKind.Normal;
-            DebouncedSaveLastCategory(cat.Name);
-            RefreshMemes();
-            SyncMemeDragState();
+            return;
         }
+        // 清除"全部表情"的选中态
+        AllMemesList.SelectedItem = null;
+        // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配
+        if (cat.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase))
+            return;
+        ViewModel.CurrentCategory = cat.Name;
+        ViewModel.CurrentCategoryKind = CategoryKind.Normal;
+        SaveLastCategoryDebouncer.Trigger(cat.Name);
+        RefreshMemes();
+        SyncMemeDragState();
     }
 
-    private static readonly Lock _lastCatLock = new();
-    private static Timer? _lastCatTimer;
-    private static string? _pendingLastCategory;
-
-    internal static void DebouncedSaveLastCategory(string category)
+    public async Task FlushLastCategory(string? pending = null)
     {
-        lock (_lastCatLock)
+        if (pending is null)
         {
-            _pendingLastCategory = category;
-            _lastCatTimer ??= new Timer(_ => FlushLastCategory(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-            _lastCatTimer.Change(AppConstants.LastCategorySaveDebounce, Timeout.InfiniteTimeSpan);
+            await ConfigService.SaveConfigAsync();
+            return;
         }
+        _ = _engine.UpdateConfigAsync(c => c.LastCategory = pending);
     }
 
-    public static void FlushLastCategory()
+    public async Task FlushLastCategoryWhenExit()
     {
-        string? pending = null;
-        lock (_lastCatLock)
-        {
-            pending = _pendingLastCategory;
-            _pendingLastCategory = null;
-            _lastCatTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        }
-        if (pending != null)
-        {
-            var engine = App.GetService<MemeDataEngine>();
-            _ = engine.UpdateConfigAsync(c => c.LastCategory = pending);
-        }
+        await FlushLastCategory(ViewModel.CurrentCategory);
     }
 
     // 依据当前视图同步网格拖拽能力：
@@ -427,9 +421,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 分类未变（如重复选中同一项）则跳过整段重建，避免无谓分配。
             if (!IsAllMemesView)
             {
-                ViewModel.CurrentCategory = CategoryKind.All.VirtualName()!;
+                ViewModel.CurrentCategory = CategoryKind.All.VirtualName();
                 ViewModel.CurrentCategoryKind = CategoryKind.All;
-                DebouncedSaveLastCategory(CategoryKind.All.VirtualName()!);
+                SaveLastCategoryDebouncer.Trigger(ViewModel.CurrentCategory);
                 RefreshMemes();
                 SyncMemeDragState();
             }
