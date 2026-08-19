@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
@@ -16,6 +17,8 @@ public sealed partial class SettingsPage : Page
     public IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = [];
 
     private readonly ConfigService ConfigService = App.GetService<ConfigService>();
+
+    private bool isProgramExiting = false;
 
     public SettingsViewModel ViewModel => (SettingsViewModel)DataContext;
 
@@ -43,7 +46,8 @@ public sealed partial class SettingsPage : Page
         {
             var result = await DialogHelper.ShowProgramExitNoticeAsync(XamlRoot);
             if (result != ContentDialogResult.Primary) return;
-            App.MainWindow.RequestExit();
+            isProgramExiting = true;
+            WeakReferenceMessenger.Default.Send(new CloseAppMessage());
         };
         ViewModel.BrowseFolderRequested += _onBrowseFolder;
         ViewModel.OpenFolderRequested += _onOpenFolder;
@@ -481,7 +485,10 @@ public sealed partial class SettingsPage : Page
         if (delay > 0 && delay != prevDelay)
             Logger.Log($"[Settings] 预览图触发延时: {prevDelay}ms -> {delay}ms");
 
-        App.ApplyTheme();
+        if (!isProgramExiting)
+        {
+            App.ApplyTheme();
+        }
 
         // 预览分辨率 / 存放路径变化：重建主窗口数据以生效
         if ((pw > 0 && ph > 0) || pathChanged)
