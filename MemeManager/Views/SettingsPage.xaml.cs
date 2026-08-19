@@ -443,7 +443,7 @@ public sealed partial class SettingsPage : Page
             }
             else
             {
-                await ShowStoragePathErrorAsync(err, typedPath);
+                Logger.Log($"[Settings] 保存配置时存放路径非法，拒绝写入: {typedPath}");
             }
         }
 
