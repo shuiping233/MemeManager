@@ -179,13 +179,20 @@ public sealed partial class MainWindow : Window
                     _lastExternalFg = fg;
             }
         };
+
+        windowSizeDebouncer = new Debouncer<Windows.Graphics.SizeInt32?>(
+            AppConstants.WindowsSizeChangedDebounce, (t) => { SaveWindowSize(t); return; }
+        );
     }
 
+    private readonly AsyncDebouncer<Windows.Graphics.SizeInt32?> windowSizeDebouncer;
+
+    // 监听窗口尺寸变化, 防抖后即刻保存窗口尺寸到配置文件中
     private void MainWindow_SizeChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if (args.DidSizeChange && !IsWindowMinimized() && IsAppVisible)
         {
-            DebouncedSaveLastWindowSize();
+            windowSizeDebouncer.Trigger(_appWindow?.Size);
         }
         return;
     }
@@ -216,7 +223,7 @@ public sealed partial class MainWindow : Window
         // 离开 Full 模式前记录窗口尺寸，切回时据此还原（_currentMode 仍为 Full 时才会真正写入）
         if (mode == AppMode.Mini && RootFrame.Content is MainPage)
         {
-            SaveWindowSize();
+            SaveWindowSize(_appWindow?.Size);
             MainPage.FlushLastCategory();
             // 离开 Full 模式即结束多选（编辑）会话：Mini 无批量操作，会话跨模式无意义。
             // 否则单例 VM 的 EditMode 会残留，Mini→Full 重建 MainPage 时渲染出
@@ -351,24 +358,10 @@ public sealed partial class MainWindow : Window
         Log($"[窗口] 还原尺寸 {w}x{h}");
     }
 
-    private static readonly Lock _lastWindowSizeLock = new();
-    private static Timer? _lastWindowSizeTimer;
-    private static Windows.Graphics.SizeInt32? _pendingLastWindowSize;
-
-    internal void DebouncedSaveLastWindowSize()
-    {
-        lock (_lastWindowSizeLock)
-        {
-            _pendingLastWindowSize = _appWindow?.Size;
-            _lastWindowSizeTimer ??= new Timer(_ => SaveWindowSize(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-            _lastWindowSizeTimer.Change(AppConstants.WindowsSizeChangedDebounce, Timeout.InfiniteTimeSpan);
-        }
-    }
-
     // 退出/关闭/切到 Mini 前保存：记录当前尺寸到 config.json。
     // 仅在 Full 模式下记录（Mini 的固定小尺寸不应覆盖完整模式的窗口尺寸）；
     // 最大化状态下也不记录（最大化置顶窗口会挡住托盘右键菜单，且还原时尺寸无意义）。
-    private void SaveWindowSize()
+    private void SaveWindowSize(Windows.Graphics.SizeInt32? bounds)
     {
         if (_appWindow == null) return;
         if (_currentMode != AppMode.Full)
@@ -384,32 +377,17 @@ public sealed partial class MainWindow : Window
         var cfg = ConfigService.Config;
         if (IsWindowMaximized()) return;
 
-        Windows.Graphics.SizeInt32? pending = null;
-        lock (_lastWindowSizeLock)
-        {
-            pending = _pendingLastWindowSize;
-            _pendingLastWindowSize = null;
-            _lastWindowSizeTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        }
-        Windows.Graphics.SizeInt32 bounds;
-        if (pending is Windows.Graphics.SizeInt32 pendingBounds)
-        {
-            bounds = pendingBounds;
-        }
-        else
-        {
-            bounds = _appWindow.Size;
-            Log($"[窗口] 使用实时尺寸 {bounds.Width}x{bounds.Height}");
-        }
 
-        if (cfg.WindowWidth == bounds.Width && cfg.WindowHeight == bounds.Height)
+        if (bounds is not { } realBounds) return;
+
+        if (cfg.WindowWidth == realBounds.Width && cfg.WindowHeight == realBounds.Height)
         {
             return;
         }
-        cfg.WindowWidth = bounds.Width;
-        cfg.WindowHeight = bounds.Height;
+        cfg.WindowWidth = realBounds.Width;
+        cfg.WindowHeight = realBounds.Height;
         cfg.WindowMaximized = false;
-        Log($"[窗口] 保存尺寸 {bounds.Width}x{bounds.Height}");
+        Log($"[窗口] 保存尺寸 {realBounds.Width}x{realBounds.Height}");
 
         _ = ConfigService.SaveConfigAsync();
     }
