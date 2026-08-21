@@ -31,6 +31,10 @@ public sealed partial class LocalizedToggleSwitch : UserControl
 
     private void InnerToggle_Toggled(object sender, RoutedEventArgs e)
     {
+        // Toggled 事件先于 x:Bind 的 TwoWay 回写触发：先同步内部最终状态到
+        // 对外 IsOn DP，否则订阅方在 Toggled 里读 IsOn 会差一拍。
+        IsOn = InnerToggle.IsOn;
+
         Toggled?.Invoke(this, e);
     }
 }

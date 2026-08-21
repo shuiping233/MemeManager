@@ -267,7 +267,6 @@ public sealed partial class SettingsPage : Page
     // 联动：开关关闭时禁用快捷键文本框与录制按钮
     private void ApplyHotKeyControlsEnabled()
     {
-        Logger.Log($"EnableHotKeyToggle.IsOn: {EnableHotKeyToggle.IsOn}");
         HotKeyBox.IsEnabled = EnableHotKeyToggle.IsOn;
         RecordHotKeyButton.IsEnabled = EnableHotKeyToggle.IsOn;
     }
