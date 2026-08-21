@@ -207,6 +207,7 @@ public sealed partial class SettingsPage : Page
             vm.OpenFolderRequested -= _onOpenFolder;
             vm.CloseRequested -= _onClose;
             vm.AboutRequested -= _onAbout;
+            vm.ProgramExitRequested -= _onProgramExit;
         }
         Unloaded -= SettingsPage_Unloaded;
     }
