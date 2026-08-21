@@ -141,6 +141,7 @@
 
             <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_HotKey" FontWeight="SemiBold"/>
+                <controls:LocalizedToggleSwitch x:Name="EnableHotKeyToggle" Toggled="EnableHotKeyToggle_Toggled"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

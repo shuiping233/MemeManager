@@ -114,7 +114,8 @@ public sealed partial class MainWindow : Window
         // 启动默认置顶：始终加 TOPMOST 扩展样式（用户可在会话内手动关闭）
         NativeMethods.SetWindowLongW(_hWnd, NativeMethods.GWL_EXSTYLE, exStyle | NativeMethods.WS_EX_TOPMOST);
 
-        HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, ConfigService.Config.HotKeyModifiers, ConfigService.Config.HotKeyVk);
+        if (ConfigService.Config.EnableHotKey)
+            HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, ConfigService.Config.HotKeyModifiers, ConfigService.Config.HotKeyVk);
 
         _subclassProc = NewWindowProc;
         NativeMethods.SetWindowSubclass(_hWnd, _subclassProc, SUBCLASS_ID, IntPtr.Zero);
@@ -821,7 +822,7 @@ public sealed partial class MainWindow : Window
         // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。
         CurrentMainPage?.FlushLastCategory();
         _engine.Watcher?.Stop();
-        NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
+        HotKeyUtils.UnregisterHotKey(_hWnd, HOTKEY_ID);
         // 注销最小化结束事件钩子，避免泄漏
         if (_winEventHook != IntPtr.Zero)
         {
@@ -862,6 +863,17 @@ public sealed partial class MainWindow : Window
         ConfigService.Config.HotKeyVk = vk;
         HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, modifiers, vk);
         _ = ConfigService.SaveConfigAsync();
+    }
+
+    /// <summary>
+    /// 设置页保存 EnableHotKey 后调用：开则按配置中的组合键注册全局热键，关则注销。
+    /// </summary>
+    public void ApplyHotKeyEnabled(bool enabled)
+    {
+        if (enabled)
+            HotKeyUtils.ReRegisterHotKey(_hWnd, HOTKEY_ID, ConfigService.Config.HotKeyModifiers, ConfigService.Config.HotKeyVk);
+        else
+            HotKeyUtils.UnregisterHotKey(_hWnd, HOTKEY_ID);
     }
 
     // ---------- 标题栏主题（简单自定义） ----------

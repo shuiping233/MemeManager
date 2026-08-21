@@ -63,6 +63,8 @@ public sealed partial class SettingsPage : Page
         ThemeComboBox.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
+        EnableHotKeyToggle.IsOn = cfg.EnableHotKey;
+        ApplyHotKeyControlsEnabled();
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         EcoModeToggle.IsOn = cfg.EcoMode;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
@@ -251,6 +253,23 @@ public sealed partial class SettingsPage : Page
     private void AllowMiniModeToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
+    }
+
+    private void EnableHotKeyToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        ApplyHotKeyControlsEnabled();
+
+        // 录制过程中被关掉：取消录制，避免页面继续吞按键、按钮文案卡在“取消”
+        if (!EnableHotKeyToggle.IsOn && _recording)
+            StopRecording();
+    }
+
+    // 联动：开关关闭时禁用快捷键文本框与录制按钮
+    private void ApplyHotKeyControlsEnabled()
+    {
+        Logger.Log($"EnableHotKeyToggle.IsOn: {EnableHotKeyToggle.IsOn}");
+        HotKeyBox.IsEnabled = EnableHotKeyToggle.IsOn;
+        RecordHotKeyButton.IsEnabled = EnableHotKeyToggle.IsOn;
     }
 
     // 仅允许输入非负整数（数字 + 空串），非数字内容直接拒绝
@@ -475,11 +494,15 @@ public sealed partial class SettingsPage : Page
             cfg.ExplorerStyleMultiSelect = ExplorerStyleMultiSelectToggle.IsOn;
             cfg.StorageFileDrag = StorageFileDragToggle.IsOn;
             cfg.AllowMiniMode = AllowMiniModeToggle.IsOn;
+            cfg.EnableHotKey = EnableHotKeyToggle.IsOn;
             if (pw > 0) cfg.PreviewMaxWidth = pw;
             if (ph > 0) cfg.PreviewMaxHeight = ph;
             if (delay > 0) cfg.PreviewDelayMs = delay;
             if (pathChanged) cfg.StoragePath = newStoragePath!;
         });
+
+        // 开关状态落盘后立即生效：关则注销全局热键，开则按已保存组合键重新注册
+        App.MainWindow.ApplyHotKeyEnabled(EnableHotKeyToggle.IsOn);
 
         if (pw > 0 && ph > 0 && (pw != prevW || ph != prevH))
             Logger.Log($"[Settings] 预览图最大分辨率: {prevW}x{prevH} -> {pw}x{ph}");

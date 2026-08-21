@@ -31,6 +31,10 @@ public record AppConfig
 
     public string LastCategory { get; set; } = string.Empty;
 
+    // 是否启用全局呼出快捷键（默认开）。关闭后设置页禁用快捷键录入控件，
+    // 启动与保存配置时都会按此值注册/注销全局热键。
+    public bool EnableHotKey { get; set; } = true;
+
     // 快捷键修饰键：MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     public uint HotKeyModifiers { get; set; } = 3; // 默认 Ctrl(2) + Alt(1)
     public ushort HotKeyVk { get; set; } = 0xBE;   // 默认 . (OEM_PERIOD)

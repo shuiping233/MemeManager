@@ -8,6 +8,11 @@ public static class HotKeyUtils
         NativeMethods.RegisterHotKey(_hWnd, HOTKEY_ID, HotKeyModifiers, HotKeyVk);
     }
 
+    public static void UnregisterHotKey(IntPtr _hWnd, int HOTKEY_ID)
+    {
+        NativeMethods.UnregisterHotKey(_hWnd, HOTKEY_ID);
+    }
+
     /// <summary>
     /// 当前配置的快捷键文本，如 "Ctrl+Alt+." / "Ctrl+B" / "Ctrl+F8"
     /// </summary>
