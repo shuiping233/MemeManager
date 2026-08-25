@@ -605,6 +605,8 @@ public sealed partial class MainWindow : Window
         // Image 容器才能真正释放 GPU 纹理（仅清 VM 字段不够，85eb33c 回归）；
         // 切模式走默认 false，避免重演"切模式后空白"的老 bug。
         ReleaseCurrentPageImages(detachItemsSource: true);
+        // 分类控件与图片资源分开管理：单独卸载分类栏容器（ListViewItem/x:Bind 绑定/Flyout）。
+        CurrentMainPage?.ReleaseCategoryList();
         SuspendWindowInteractions(closing: false);
         Log("[窗口] 隐藏完成 (SW_HIDE)");
     }

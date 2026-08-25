@@ -567,6 +567,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 CategoryList.ItemsSource = ViewModel.CategoryList;
                 MemeGridView.ItemsSource = ViewModel.MemeList;
             }
+            // 隐藏时 ReleaseCategoryList 会置空 AllMemesList 的 ItemsSource：重绑时重建固定单项集合
+            if (AllMemesList.ItemsSource == null)
+                AllMemesList.ItemsSource = new ObservableCollection<CategoryViewModel> { ViewModel.AllMemesVm };
             // 隐藏时 CategoryList.ItemsSource 被置空导致选中容器销毁、蓝条/高亮丢失；
             // 重新绑回后必须重新断言选中，待容器生成后再设回以恢复视觉。
             // 但若 ItemsSource 未重绑且 sel 已是当前选中项，则跳过：避免无谓的
@@ -597,6 +600,16 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 由 HideWindow 以 detachItemsSource:true 驱动。
             ReleaseImages(detachItemsSource: true);
         }
+    }
+
+    // 释放分类栏控件（与图片资源分开管理）：
+    // 隐藏窗口时卸载分类 ListView 容器，让 ListViewItem 容器 + x:Bind 绑定对象 +
+    // ContextFlyout 可被回收。恢复由 SetMemeViewVisible(true) 完成（重绑 + 选中视觉）。
+    // 分类只存在于 MainPage（MiniPage 的分类是 ComboBox，每次进入都重建，无需释放）。
+    public void ReleaseCategoryList()
+    {
+        CategoryList.ItemsSource = null;
+        AllMemesList.ItemsSource = null;
     }
 
     // IImageReleasablePage：仅断引用，不 GC（GC 由 MainWindow 在隐藏/切模式后统一调用）。
