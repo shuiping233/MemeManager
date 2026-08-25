@@ -90,7 +90,10 @@ public class MemeDataEngine(ConfigService _config)
         await LoadCategoryOrderAsync();
         await LoadAllMetadataAsync();
 
-        // 初始化完成、目录就绪后再启动文件监听，避免启动期事件风暴
+        // 初始化完成、目录就绪后再启动文件监听，避免启动期事件风暴。
+        // F5 刷新等场景会反复调用 InitializeAsync：旧监听器先 Stop（释放 native 句柄、
+        // 停止事件投递），再换新实例，避免 FileSystemWatcher 实例与句柄累积泄漏。
+        Watcher?.Stop();
         Watcher = new FileWatcher(_baseDir);
         Watcher.Start();
     }
