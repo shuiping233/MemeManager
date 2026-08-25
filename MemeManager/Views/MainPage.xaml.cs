@@ -122,12 +122,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // 订阅数据目录文件监听：图片从库中消失/新增（外部拖出/被删/手动加图）时，
         // 就地更新对应分类控件并提示用户（与引擎解耦，逻辑全在页面层）。
-        if (_engine.Watcher != null)
-        {
-            _engine.Watcher.FilesRemoved += OnWatchedFilesRemoved;
-            _engine.Watcher.FilesAdded += OnWatchedFilesAdded;
-            _engine.Watcher.FilesMoved += OnWatchedFilesMoved;
-        }
+        // 抽成 Subscribe/Unsubscribe 成对方法：F5 刷新会重建 Watcher，刷新后需重新订阅。
+        SubscribeWatcher();
 
         CategoryList.ItemsSource = ViewModel.CategoryList;
         MemeGridView.ItemsSource = ViewModel.MemeList;
@@ -192,6 +188,23 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 显式停止 x:Bind 跟踪：断开绑定对象对 VM/事件的订阅，让页面销毁后可被 GC。
         // 隐藏窗口（SW_HIDE）不会触发 Unloaded，此处只在页面真正被导航替换/销毁时执行。
         Bindings?.StopTracking();
+    }
+
+    // 订阅引擎文件监听（Watcher 可能被 F5 刷新重建，需成对退订/重订）。
+    private void SubscribeWatcher()
+    {
+        if (_engine.Watcher == null) return;
+        _engine.Watcher.FilesRemoved += OnWatchedFilesRemoved;
+        _engine.Watcher.FilesAdded += OnWatchedFilesAdded;
+        _engine.Watcher.FilesMoved += OnWatchedFilesMoved;
+    }
+
+    private void UnsubscribeWatcher()
+    {
+        if (_engine.Watcher == null) return;
+        _engine.Watcher.FilesRemoved -= OnWatchedFilesRemoved;
+        _engine.Watcher.FilesAdded -= OnWatchedFilesAdded;
+        _engine.Watcher.FilesMoved -= OnWatchedFilesMoved;
     }
 
     // 把 VM 的"请求"委托属性接到本页的 UI 实现。全部用 '=' 赋值（非 +=）：MainViewModel 是
@@ -1671,7 +1684,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         try
         {
             Log("刷新：重新读取数据目录");
+            // InitializeAsync 会重建 Watcher：先退订旧实例（否则旧监听器持有本页引用，
+            // 且其事件链仍指向本页），刷新后订阅新实例，恢复"外部改文件自动反映"。
+            UnsubscribeWatcher();
             await _engine.InitializeAsync();
+            SubscribeWatcher();
             LoadCategories(restoreSelectionFromConfig: false); // 刷新时以内存当前分类为准，不被旧 config 覆盖
         }
         finally
