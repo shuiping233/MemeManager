@@ -211,6 +211,8 @@ public sealed partial class SettingsPage : Page
             vm.AboutRequested -= _onAbout;
             vm.ProgramExitRequested -= _onProgramExit;
         }
+        // 显式停止 x:Bind 跟踪：断开绑定对象订阅，兜底 Reference Tracker 清理。
+        Bindings?.StopTracking();
         Unloaded -= SettingsPage_Unloaded;
     }
 

@@ -134,6 +134,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
 
+        // 页面销毁（Full↔Mini 切换导航离开/程序退出）时显式断开 x:Bind 绑定引用，
+        // 兜底 WinUI 3 Reference Tracker 的清理（页面反复重建场景）。
+        Unloaded += MainPage_Unloaded;
+
         // 键盘事件由 MainWindow 内容根转发（见 MainWindow.ForwardKeyDown），
         // 否则无任何控件获焦时按键不会冒泡到 Page。
         this.Loaded += (_, _) =>
@@ -180,6 +184,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             RefreshMemes();
         });
+    }
+
+    private void MainPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        Unloaded -= MainPage_Unloaded;
+        // 显式停止 x:Bind 跟踪：断开绑定对象对 VM/事件的订阅，让页面销毁后可被 GC。
+        // 隐藏窗口（SW_HIDE）不会触发 Unloaded，此处只在页面真正被导航替换/销毁时执行。
+        Bindings?.StopTracking();
     }
 
     // 把 VM 的"请求"委托属性接到本页的 UI 实现。全部用 '=' 赋值（非 +=）：MainViewModel 是

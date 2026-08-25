@@ -58,12 +58,20 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             await _clipboard.OutputMemeToCursorAsync(vm.LocalPath, target);
         };
         Loaded += MiniPage_Loaded;
+        // 页面销毁时显式断开 x:Bind 绑定引用，兜底 Reference Tracker 清理。
+        Unloaded += MiniPage_Unloaded;
 
         SaveLastCategoryDebouncer = new(AppConstants.LastCategorySaveDebounce, async (category) =>
         {
             await SaveCurrentCategoryToConfig(category);
             return;
         });
+    }
+
+    private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        Unloaded -= MiniPage_Unloaded;
+        Bindings?.StopTracking();
     }
 
     private void MiniPage_Loaded(object sender, RoutedEventArgs e)
