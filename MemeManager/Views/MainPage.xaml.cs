@@ -3,6 +3,7 @@ using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
 using MemeManager.ViewModels;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -587,7 +588,21 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 仅清 VM 字段不够——Image.Source 仍引用旧 BitmapImage，GPU 纹理不会释放；
         // 摘容器后 Image 从可视化树移除，WinUI 框架在下一帧释放纹理。
         if (detachItemsSource)
+        {
             MemeGridView.ItemsSource = null;
+            MemeGridView.UpdateLayout();
+
+            // 新增：强制走一帧布局，逼 Compositor 处理回收队列
+            var tcs = new TaskCompletionSource<bool>();
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            {
+                // 空操作，但会推进一帧
+                tcs.SetResult(true);
+            });
+            // 同步等待一帧（隐藏时用户无感知）
+            tcs.Task.Wait(100);
+        }
+
 
         // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
         if (ConfigService.Config.UseControlReuse)

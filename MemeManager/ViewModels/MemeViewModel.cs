@@ -35,12 +35,18 @@ namespace MemeManager.ViewModels
             {
                 if (_imageSource == null && File.Exists(LocalPath))
                 {
-                    _imageSource = new BitmapImage();
-                    _imageSource.DecodePixelWidth = 120;
-                    _imageSource.UriSource = new Uri(LocalPath);
+                    _imageSource = new BitmapImage
+                    {
+                        CreateOptions = BitmapCreateOptions.IgnoreImageCache,
+                        DecodePixelWidth = 120,
+                        UriSource = new Uri(LocalPath)
+                    };
                     LiveBitmapImageCount++;
                 }
-                return _imageSource ?? new BitmapImage();
+                return _imageSource ?? new BitmapImage()
+                {
+                    CreateOptions = BitmapCreateOptions.IgnoreImageCache,
+                };
             }
         }
 
@@ -68,7 +74,10 @@ namespace MemeManager.ViewModels
             {
                 if (_previewSource == null && File.Exists(LocalPath))
                 {
-                    _previewSource = new BitmapImage();
+                    _previewSource = new BitmapImage()
+                    {
+                        CreateOptions = BitmapCreateOptions.IgnoreImageCache,
+                    };
                     LiveBitmapImageCount++;
                     var max = GetPreviewMaxSize(ConfigService.Config.PreviewMaxWidth, ConfigService.Config.PreviewMaxHeight);
                     var (w, h) = Utils.FitWithin(

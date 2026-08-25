@@ -30,7 +30,10 @@ public static class AboutPage
             Width = 48,
             Height = 48,
             Margin = new Thickness(0, 0, 0, 12),
-            Source = new BitmapImage(new Uri(AppConstants.IconPath)),
+            Source = new BitmapImage(new Uri(AppConstants.IconPath))
+            {
+                CreateOptions = BitmapCreateOptions.IgnoreImageCache,
+            },
             HorizontalAlignment = HorizontalAlignment.Left,
         };
 

@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:l="using:WinUI3Localizer"
     xmlns:viewmodels="using:MemeManager.ViewModels"
-    NavigationCacheMode="Required"
+    NavigationCacheMode="Disabled"
     mc:Ignorable="d">
 
     <Page.Resources>

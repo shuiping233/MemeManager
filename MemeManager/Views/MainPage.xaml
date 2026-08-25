@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewmodels="using:MemeManager.ViewModels"
     xmlns:l="using:WinUI3Localizer"
-    NavigationCacheMode="Required"
+    NavigationCacheMode="Disabled"
     mc:Ignorable="d">
 
     <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
