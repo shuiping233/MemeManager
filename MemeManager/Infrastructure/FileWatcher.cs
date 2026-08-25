@@ -52,7 +52,11 @@ public sealed class FileWatcher : IDisposable
     }
 
     // 引擎初始化完成、目录已就绪后再开启监听，避免启动期事件风暴干扰
-    public void Start() => _fsw.EnableRaisingEvents = true;
+    public void Start()
+    {
+        _fsw.EnableRaisingEvents = true;
+        Logger.Log("[FileWatcher] 已开始文件监听");
+    }
 
     // 停止监听（窗口关闭时调用）：关闭事件投递与防抖计时器，但保留对象供下次 Start。
     public void Stop()
