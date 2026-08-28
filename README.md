@@ -167,6 +167,47 @@ Mini模式时, 主窗口置顶状态跟随Full模式的置顶状态, 提供基�
     └── fa779d7d485fae8366d53e102ded5258131378eb02b95175c813b018748a570c.jpg
 ```
 
+## `.metadata.json`
+
+有两类`.metadata.json`, 一类是用来管理分类的元数据, 位置就在数据目录内, 一类是用来管理图片的元数据, 存放在图片对应的分类文件夹内
+
+- 分类和图片元数据中都有`Priority`, 也就是优先级, 排序规则是是 `higher first`, 也就是数值越大优先级越高, 图片也就越靠前
+- 图片元数据中, 还有`Title`就是用户在应用中`重命名`的内容, 也可以理解为图片的别名, 在应用的搜索框查询也是查询的此字段, `Tags`是保留的字段, 目前暂未使用而且也没有实现添加`Tag`的功能
+
+分类元数据结构如下：
+
+```json
+{
+    "Categories": {
+        "猫头鹰": {
+            "Priority": 2
+        },
+        "test": {
+            "Priority": 1
+        }
+    }
+}
+```
+
+图片元数据结构如下：
+
+```json
+{
+    "Items": {
+        "64e9e9e7a967517f711410628a3c8746906f94985e5989589153030d08bc230e.jpg": {
+            "Title": "猫头鹰图片1",
+            "Tags": [],
+            "Priority": 2
+        },
+        "e3ebf937c2ddae3376c11db6b31f5c0b5ef2a6c4826faf1f87ed260ae19aedec.webp": {
+            "Title": "Snipaste_2026-07-11_16-00-51",
+            "Tags": [],
+            "Priority": 1
+        }
+    }
+}
+```
+
 ## 项目开发
 
 开发环境搭建请参考微软官方文档：[WinUI3 应用开发入门（Visual Studio）](https://learn.microsoft.com/zh-cn/windows/apps/get-started/start-here?tabs=visual-studio)。
