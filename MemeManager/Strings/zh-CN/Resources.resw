@@ -536,6 +536,21 @@
   <data name="Settings_Theme_Dark.Content" xml:space="preserve">
     <value>深色</value>
   </data>
+  <data name="Settings_ImageStretch.Text" xml:space="preserve">
+    <value>图片拉伸方式</value>
+  </data>
+  <data name="Settings_ImageStretch_None.Content" xml:space="preserve">
+    <value>不拉伸</value>
+  </data>
+  <data name="Settings_ImageStretch_Fill.Content" xml:space="preserve">
+    <value>填充</value>
+  </data>
+  <data name="Settings_ImageStretch_Uniform.Content" xml:space="preserve">
+    <value>等比缩放</value>
+  </data>
+  <data name="Settings_ImageStretch_UniformToFill.Content" xml:space="preserve">
+    <value>等比裁剪填充</value>
+  </data>
   <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
     <value>开</value>
   </data>

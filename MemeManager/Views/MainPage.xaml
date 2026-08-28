@@ -336,7 +336,7 @@
                             </MenuFlyout>
                         </Grid.ContextFlyout>
                         <Image Source="{x:Bind ImageSource, Mode=OneWay}"
-                                Stretch="UniformToFill"
+                                Stretch="{x:Bind ImageStretch, Mode=OneWay}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"/>
                         <!-- 多选模式指示：右上角 WinUI 风格复选框，纯显示(不响应点击) -->

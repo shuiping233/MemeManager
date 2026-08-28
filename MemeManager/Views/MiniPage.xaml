@@ -112,7 +112,7 @@
                                                       DragStarting="PickerItem_DragStarting"
                                                       Tapped="PickerItem_Tapped">
                                                     <Image Source="{x:Bind ImageSource, Mode=OneWay}"
-                                                           Stretch="UniformToFill"
+                                                           Stretch="{x:Bind ImageStretch, Mode=OneWay}"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"/>
                                                 </Grid>

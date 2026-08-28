@@ -267,6 +267,14 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     // 当前分类下的表情列表（绑定到 GridView），ReadOnly 集合，仅内部增删改
     public ObservableCollection<MemeViewModel> MemeList { get; } = new();
 
+    // 设置页切换 ImageStretch 后调用：遍历当前表情列表，逐个通知 ImageStretch 变化，
+    // 使 x:Bind(OneWay) 即时刷新所有缩略图的拉伸方式（无需重建列表/容器）。
+    public void ApplyImageStretchToAll()
+    {
+        foreach (var vm in MemeList)
+            vm.RefreshImageStretch();
+    }
+
     // 左侧分类列表（绑定到分类栏），ReadOnly 集合，仅内部增删改
     public ObservableCollection<CategoryViewModel> CategoryList { get; } = new();
 

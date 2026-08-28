@@ -16,6 +16,29 @@ public enum AppMode
     Mini = 1
 }
 
+// Model 层不引用 WinUI，映射在 UI 层完成。
+public enum ImageStretchMode
+{
+    None,
+    Fill,
+    Uniform,
+    UniformToFill
+}
+
+public static class ImageStretchModeHelper
+{
+    public const string Default = nameof(ImageStretchMode.UniformToFill);
+
+    public static ImageStretchMode Parse(string? s) => s switch
+    {
+        nameof(ImageStretchMode.None) => ImageStretchMode.None,
+        nameof(ImageStretchMode.Fill) => ImageStretchMode.Fill,
+        nameof(ImageStretchMode.Uniform) => ImageStretchMode.Uniform,
+        nameof(ImageStretchMode.UniformToFill) => ImageStretchMode.UniformToFill,
+        _ => ImageStretchMode.UniformToFill,
+    };
+}
+
 // 注意：本类型用 record 而非 class，依赖其天然的基于所有字段的值相等（==/Equals），
 // 供 ConfigService 判断“配置是否真的变化”以跳过无谓写盘。
 // 若以后需要新增 List<T>/Dictionary 等集合字段，record 默认的相等仅比较引用、不会比较内容，
@@ -63,6 +86,10 @@ public record AppConfig
 
     // 悬停预览触发延时（毫秒）
     public int PreviewDelayMs { get; set; } = 500;
+
+    // 表情列表/缩略图 Image 的拉伸方式（config.json 存字符串，默认 UniformToFill，
+    // 与旧硬编码一致；用户手改非法值由 ImageStretchModeHelper.Parse 回退默认）。
+    public string ImageStretch { get; set; } = ImageStretchModeHelper.Default;
 
     public bool AutoStart { get; set; } = false;
 

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace MemeManager.ViewModels
@@ -49,6 +50,19 @@ namespace MemeManager.ViewModels
                 };
             }
         }
+
+        // 表情列表/缩略图 Image 的拉伸方式。每次都读取 Config 最新值（单一数据源）；
+        // 设置页切换后调用 RefreshImageStretch() 触发绑定重取，无需重建列表。
+        public Stretch ImageStretch => ImageStretchModeHelper.Parse(ConfigService.Config.ImageStretch) switch
+        {
+            ImageStretchMode.None => Stretch.None,
+            ImageStretchMode.Fill => Stretch.Fill,
+            ImageStretchMode.Uniform => Stretch.Uniform,
+            _ => Stretch.UniformToFill,
+        };
+
+        // 通知 x:Bind(OneWay) 重新读取 ImageStretch。
+        public void RefreshImageStretch() => OnPropertyChanged(nameof(ImageStretch));
 
         // 复用 VM 替换底层 Model：重置缓存的缩略图/预览图，并通知所有依赖属性变更，
         // 使绑定的 Image 重新按新 LocalPath 解码（就地换源，旧纹理被替换释放）。

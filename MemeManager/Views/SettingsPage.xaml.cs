@@ -61,6 +61,7 @@ public sealed partial class SettingsPage : Page
 
         var cfg = ConfigService.Config;
         ThemeSegmented.SelectedIndex = (int)cfg.Theme;
+        ImageStretchSegmented.SelectedIndex = (int)ImageStretchModeHelper.Parse(cfg.ImageStretch);
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         EnableHotKeyToggle.IsOn = cfg.EnableHotKey;
@@ -119,6 +120,15 @@ public sealed partial class SettingsPage : Page
         var theme = (ThemeMode)ThemeSegmented.SelectedIndex;
         ConfigService.Config.Theme = theme;
         App.ApplyTheme();
+    }
+
+    private void ImageStretchSegmented_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // 即选即生效：更新配置并通知主列表所有缩略图刷新拉伸方式（无需重建列表）
+        if (ImageStretchSegmented.SelectedIndex < 0) return;
+        var mode = (ImageStretchMode)ImageStretchSegmented.SelectedIndex;
+        ConfigService.Config.ImageStretch = mode.ToString();
+        App.GetService<MainViewModel>().ApplyImageStretchToAll();
     }
 
     private void UpdateLanguageStatus()
@@ -487,6 +497,7 @@ public sealed partial class SettingsPage : Page
         await _engine.UpdateConfigAsync(cfg =>
         {
             cfg.Theme = theme;
+            cfg.ImageStretch = ((ImageStretchMode)ImageStretchSegmented.SelectedIndex).ToString();
             cfg.SaveLogFile = SaveLogToggle.IsOn;
             cfg.EcoMode = EcoModeToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;

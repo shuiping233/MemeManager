@@ -118,6 +118,18 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_ImageStretch" FontWeight="SemiBold"/>
+                <toolkit:Segmented x:Name="ImageStretchSegmented"
+                                   HorizontalAlignment="Stretch"
+                                   SelectionChanged="ImageStretchSegmented_SelectionChanged">
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_ImageStretch_None"/>
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_ImageStretch_Fill"/>
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_ImageStretch_Uniform"/>
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_ImageStretch_UniformToFill"/>
+                </toolkit:Segmented>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_Language" FontWeight="SemiBold"/>
                 <ComboBox x:Name="LanguageComboBox" Width="125"
                           SelectionChanged="LanguageComboBox_SelectionChanged">
