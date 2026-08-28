@@ -235,7 +235,7 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-        <Button x:Name="AddCategoryButton" Grid.Row="3" Content="+" FontSize="20"
+            <Button x:Name="AddCategoryButton" Grid.Row="3" Content="+" FontSize="20"
             HorizontalAlignment="Stretch" Margin="8" Command="{x:Bind ViewModel.NewCategoryCommand}">
                 <ToolTipService.ToolTip>
                     <ToolTip l:Uids.Uid="Main_AddCategoryToolTip"/>
