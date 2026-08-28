@@ -202,6 +202,15 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+                <TextBlock l:Uids.Uid="Settings_CategorySplitter" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal">
+                    <controls:LocalizedToggleSwitch Width="90" x:Name="CategorySplitterToggle" Toggled="CategorySplitterToggle_Toggled"/>
+                    <Button x:Name="ResetCategorySplitterButton" l:Uids.Uid="Settings_CategorySplitterReset" Command="{x:Bind ViewModel.ResetCategorySplitterCommand}"/>
+                </StackPanel>
+                <TextBlock l:Uids.Uid="Settings_CategorySplitterHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_SaveLog" FontWeight="SemiBold"/>
                 <controls:LocalizedToggleSwitch x:Name="SaveLogToggle" Toggled="SaveLogToggle_Toggled"/>
                 <TextBlock l:Uids.Uid="Settings_SaveLogHint" FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>

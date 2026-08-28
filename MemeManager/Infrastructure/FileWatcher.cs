@@ -10,8 +10,7 @@ namespace MemeManager.Infrastructure;
 // （MainWindow），由订阅方按当前焦点分类决定是否更新控件，从而与 UI 解耦。
 public sealed class FileWatcher : IDisposable
 {
-    // 防抖静默时长：连续事件流停止后多久统一处理
-    private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan Debounce = AppConstants.FileWatchDebounce;
 
     // 单次变化的描述：归属分类 + 文件名(hash+ext)
     public sealed record Change(string Category, string FileName);

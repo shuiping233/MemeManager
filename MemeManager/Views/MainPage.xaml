@@ -8,6 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewmodels="using:MemeManager.ViewModels"
     xmlns:l="using:WinUI3Localizer"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     NavigationCacheMode="Disabled"
     mc:Ignorable="d">
 
@@ -21,7 +22,7 @@
         </Grid.RowDefinitions>
 
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="160"/>
+            <ColumnDefinition x:Name="CategoryColumn" Width="160" MinWidth="120"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
@@ -424,5 +425,10 @@
                 <Button x:Name="DeleteButton" l:Uids.Uid="Meme_Delete" Style="{StaticResource AccentButtonStyle}" IsEnabled="False" Command="{x:Bind ViewModel.BatchDeleteCommand}"/>
             </StackPanel>
         </Grid>
+        <toolkit:GridSplitter x:Name="CategorySplitter"
+                              Grid.Row="3" Grid.Column="1"
+                              HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndCurrent"/>
     </Grid>
 </Page>

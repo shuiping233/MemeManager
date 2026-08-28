@@ -91,6 +91,12 @@ public record AppConfig
     // 与旧硬编码一致；用户手改非法值由 ImageStretchModeHelper.Parse 回退默认）。
     public string ImageStretch { get; set; } = ImageStretchModeHelper.Default;
 
+    // 左侧分类栏宽度（可在主界面拖动调整）。
+    public double CategoryWidth { get; set; } = AppConstants.DefaultCategoryWidth;
+
+    // 是否允许显示分类栏宽度分隔条（可在主界面拖动调整）
+    public bool CategorySplitterEnabled { get; set; } = true;
+
     public bool AutoStart { get; set; } = false;
 
     // 启动时后台检查是否有新版本（默认关闭，避免打扰用户）：

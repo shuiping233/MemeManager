@@ -92,6 +92,7 @@ public sealed partial class SettingsPage : Page
         _initialUseControlReuse = UseControlReuseToggle.IsOn;
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
         StorageFileDragToggle.IsOn = cfg.StorageFileDrag;
+        CategorySplitterToggle.IsOn = cfg.CategorySplitterEnabled;
 
         PreviewMaxWidthBox.Text = (cfg.PreviewMaxWidth > 0 ? cfg.PreviewMaxWidth : 800).ToString();
         PreviewMaxHeightBox.Text = (cfg.PreviewMaxHeight > 0 ? cfg.PreviewMaxHeight : 600).ToString();
@@ -229,6 +230,14 @@ public sealed partial class SettingsPage : Page
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
     {
         // 改动延后到点击“完成”时保存
+    }
+
+    private void CategorySplitterToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 即时生效：切换分隔条显示/隐藏，并通知主界面应用（保存延后到点击"完成"）。
+        var enabled = CategorySplitterToggle.IsOn;
+        ConfigService.Config.CategorySplitterEnabled = enabled;
+        WeakReferenceMessenger.Default.Send(new CategorySplitterEnabledMessage(enabled));
     }
 
     private void EcoModeToggle_Toggled(object sender, RoutedEventArgs e)
@@ -507,6 +516,7 @@ public sealed partial class SettingsPage : Page
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
             cfg.ExplorerStyleMultiSelect = ExplorerStyleMultiSelectToggle.IsOn;
             cfg.StorageFileDrag = StorageFileDragToggle.IsOn;
+            cfg.CategorySplitterEnabled = CategorySplitterToggle.IsOn;
             cfg.AllowMiniMode = AllowMiniModeToggle.IsOn;
             cfg.EnableHotKey = EnableHotKeyToggle.IsOn;
             if (pw > 0) cfg.PreviewMaxWidth = pw;

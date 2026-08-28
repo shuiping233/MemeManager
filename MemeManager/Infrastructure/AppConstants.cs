@@ -79,12 +79,23 @@ public static class AppConstants
     // 窗口大小改变的防抖时长, 避免用户修改窗口大小时频繁将窗口大小保存到配置文件中。
     public static readonly TimeSpan WindowsSizeChangedDebounce = TimeSpan.FromSeconds(0.5);
 
+    // 分类列表宽度改变的防抖时长
+    public static readonly TimeSpan CategoryListSizeChangedDebounce = WindowsSizeChangedDebounce;
+
     // 表情搜索框的防抖时长
     public static readonly TimeSpan SearchBoxDebounce = TimeSpan.FromMilliseconds(150);
+
+    // 文件监听器防抖静默时长：连续事件流停止后多久统一处理
+    public static readonly TimeSpan FileWatchDebounce = TimeSpan.FromMilliseconds(500);
 
     // 预览图允许的默认最大尺寸（超过则等比压缩）
     public const double PreviewMaxWidth = 640;
     public const double PreviewMaxHeight = 480;
+
+    // 内容区最小保留宽度：分类栏拖动上限 = 窗口内容宽 - 该值，给内容区留底（防止分类栏拖出窗口/挤没内容区）。
+    public const double CategoryContentMinWidth = 10;
+
+    public const double DefaultCategoryWidth = 160;
 
     // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放）
     public const int MiniModeWidth = 280;

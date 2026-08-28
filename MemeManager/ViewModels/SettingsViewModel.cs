@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Infrastructure;
+using MemeManager.Models;
 using MemeManager.Services;
 using Microsoft.UI.Dispatching;
 
@@ -235,6 +237,10 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void OpenMemeDataFolder(string path)
         => OpenFolderRequested?.Invoke(path);
+
+    [RelayCommand]
+    private void ResetCategorySplitter()
+        => WeakReferenceMessenger.Default.Send(new ResetCategorySplitterMesssage());
 
     // 关闭设置浮窗：UI 行为，经回调回 Page。
     public Action? CloseRequested { get; set; }

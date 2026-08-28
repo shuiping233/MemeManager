@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
@@ -84,6 +85,22 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         catch { }
     }
 
+    // 动态限制分类栏上限：不能超过窗口内容宽 - 内容区最小保留宽（防止拖出窗口/挤没内容区）。
+    private void UpdateCategoryMaxWidth()
+    {
+        // 构造期 ActualWidth 仍为 0（未布局），此时不设，避免误把上限压到 120。
+        if (ActualWidth <= 0) return;
+        var min = CategoryColumn.MinWidth;
+        var max = Math.Max(min, ActualWidth - AppConstants.CategoryContentMinWidth);
+        CategoryColumn.MaxWidth = max;
+    }
+
+    // 拖动结束后防抖保存分类栏宽度（GridSplitter 无完成回调，由列宽变化回调触发）。
+    private async Task SaveCategoryWidthAsync()
+    {
+        await _engine.UpdateConfigAsync(c => c.CategoryWidth = CategoryColumn.Width.Value);
+    }
+
     public MainPage()
     {
         InitializeComponent();
@@ -116,6 +133,36 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         _previewTimer.Tick += PreviewTimer_Tick;
         ApplyPreviewDelayFromConfig();
+
+        // 应用持久化的分类栏宽度（每次导航重建都会执行，读 Config 当前值）。
+        CategoryColumn.Width = new GridLength(ConfigService.Config.CategoryWidth);
+
+        // 动态限制分类栏上限：不能超过窗口内容宽 - 内容区最小保留宽（拖不出去、不挤没内容区）。
+        SizeChanged += (_, _) => UpdateCategoryMaxWidth();
+        UpdateCategoryMaxWidth();
+
+        // GridSplitter 无"拖动完成"回调：监听列宽变化 + 防抖写盘，实现拖动结束后保存。
+        _categoryWidthSaveDebouncer = new AsyncDebouncer(
+            AppConstants.CategoryListSizeChangedDebounce,
+            async (token) => { if (!token.IsCancellationRequested) { await SaveCategoryWidthAsync(); } });
+        CategoryColumn.RegisterPropertyChangedCallback(
+            ColumnDefinition.WidthProperty, (d, e) => _categoryWidthSaveDebouncer.Trigger());
+
+        // 应用分类栏分隔条开关（隐藏则不可见、不可拖）
+        CategorySplitter.Visibility = ConfigService.Config.CategorySplitterEnabled
+            ? Visibility.Visible : Visibility.Collapsed;
+
+        // 重置分类列表的宽度为默认值
+        WeakReferenceMessenger.Default.Register<ResetCategorySplitterMesssage>(this, (recipient, message) =>
+        {
+            ResetCategoryColumnWidth();
+        });
+
+        // 设置页切换"分类栏分隔条"开关：即时显示/隐藏分隔条
+        WeakReferenceMessenger.Default.Register<CategorySplitterEnabledMessage>(this, (recipient, message) =>
+        {
+            CategorySplitter.Visibility = message.Enabled ? Visibility.Visible : Visibility.Collapsed;
+        });
 
         // 置顶开关：与窗口当前置顶状态同步（窗口级状态由 MainWindow 持有）
         TopMostToggle.IsChecked = App.MainWindow.IsTopMost;
@@ -395,6 +442,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     private readonly AsyncDebouncer<string> SaveLastCategoryDebouncer;
+
+    // 分类栏宽度拖动后的防抖保存（GridSplitter 无完成回调，由列宽变化触发）。
+    private readonly AsyncDebouncer _categoryWidthSaveDebouncer;
 
     private void CategoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -2076,6 +2126,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                     onUiComplete: () => Log($"[文件监听] 新增 {fullPaths.Count} 个图片到分类「{focus}」"));
             }
         });
+    }
+
+    private void ResetCategoryColumnWidth()
+    {
+        CategoryColumn.Width = new GridLength(AppConstants.DefaultCategoryWidth);
     }
 
     // 引擎层 FileWatcher 探测到图片在分类间移动（如手动在资源管理器里拖动文件）后回调。

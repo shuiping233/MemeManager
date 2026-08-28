@@ -536,21 +536,6 @@ Reverted to the previous valid path.</value>
   <data name="Settings_Theme_Dark.Content" xml:space="preserve">
     <value>Dark</value>
   </data>
-  <data name="Settings_ImageStretch.Text" xml:space="preserve">
-    <value>Image stretch</value>
-  </data>
-  <data name="Settings_ImageStretch_None.Content" xml:space="preserve">
-    <value>None</value>
-  </data>
-  <data name="Settings_ImageStretch_Fill.Content" xml:space="preserve">
-    <value>Fill</value>
-  </data>
-  <data name="Settings_ImageStretch_Uniform.Content" xml:space="preserve">
-    <value>Uniform</value>
-  </data>
-  <data name="Settings_ImageStretch_UniformToFill.Content" xml:space="preserve">
-    <value>UniformToFill</value>
-  </data>
   <data name="LocalizedToggleSwitch.OnContent" xml:space="preserve">
     <value>On</value>
   </data>
@@ -709,5 +694,29 @@ Reverted to the previous valid path.</value>
   </data>
   <data name="Settings_OpenExeFolder.Content" xml:space="preserve">
     <value>To software folder</value>
+  </data>
+  <data name="Settings_ImageStretch.Text" xml:space="preserve">
+    <value>Image stretch</value>
+  </data>
+  <data name="Settings_ImageStretch_None.Content" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Settings_ImageStretch_Fill.Content" xml:space="preserve">
+    <value>Fill</value>
+  </data>
+  <data name="Settings_ImageStretch_Uniform.Content" xml:space="preserve">
+    <value>Uniform</value>
+  </data>
+  <data name="Settings_ImageStretch_UniformToFill.Content" xml:space="preserve">
+    <value>UniformToFill</value>
+  </data>
+  <data name="Settings_CategorySplitter.Text" xml:space="preserve">
+    <value>Category splitter</value>
+  </data>
+  <data name="Settings_CategorySplitterHint.Text" xml:space="preserve">
+    <value>Enabled by default; when enabled, the category list width can be freely changed, with a default width of 160.</value>
+  </data>
+  <data name="Settings_CategorySplitterReset.Content" xml:space="preserve">
+    <value>Reset width of category list view</value>
   </data>
 </root>
