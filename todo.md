@@ -92,3 +92,8 @@ MemeManager/
   - 目标：把纯逻辑代码（SafePath / FileNameValidator / 未来的 MemeDataEngine、Service 逻辑等）抽成 `MemeManager.Core`（纯 .NET，不引用 WinUI），`MemeManager` 主项目与 `MemeManager.Tests` 都引用它；测试只依赖 Core → 秒级启动、CI 无需装 runtime。
   - 范围：按"UI 无关"边界抽（Infrastructure 的纯逻辑部分 + Models + Service 逻辑），Views/Clipboard/TrayIcon/P-Invoke 留在主项目。
   - 现有 51 用例（SafePathTests / FileNameValidatorTests）届时改为引用 Core。
+
+- **复杂多选导出子窗口**（分类多选 + 跨分类 meme 批量导出，待评估未开始）：
+  - 背景：主界面做"分类三态复选框 ↔ meme 全局跨分类选中 ↔ 批量操作"联动太过复杂、状态耦合（切虚拟分类"全部表情"会难以处理）。
+  - 方案：新增独立子窗口承载复杂多选导出，子窗口内多选分类 → 预览/勾选 meme → 导出，状态完全隔离，不污染主界面 meme 多选与 CurrentCategory。
+  - 待定：入口（批量导出按钮/右键）、分类多选交互、预览是否可二次勾选、导出参数、虚拟分类排除规则。
