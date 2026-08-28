@@ -8,14 +8,19 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:l="using:WinUI3Localizer"
     xmlns:controls="using:MemeManager.Views"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:converters="using:MemeManager.Converters"
     mc:Ignorable="d">
 
     <Page.Resources>
-        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <!-- 小号 icon InfoBadge：默认模板容器最小 16x16，无法仅靠 FontSize 缩小背景，
-             这里自定义模板把圆角容器做小（14x14），图标同步缩小。尺寸/颜色想微调改这里即可。 -->
+             这里自定义模板把圆角容器做小（14x14），图标同步缩小 -->
         <Style x:Key="SmallIconInfoBadgeStyle" TargetType="InfoBadge">
             <Setter Property="Background" Value="#0078D4"/>
             <Setter Property="Template">
@@ -35,6 +40,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        </ResourceDictionary>
     </Page.Resources>
 
     <Grid Padding="24" HorizontalAlignment="Left">
@@ -102,11 +108,13 @@
 
             <StackPanel Spacing="6">
                 <TextBlock l:Uids.Uid="Settings_Theme" FontWeight="SemiBold"/>
-                <ComboBox x:Name="ThemeComboBox" Width="125" SelectionChanged="ThemeComboBox_SelectionChanged">
-                    <ComboBoxItem l:Uids.Uid="Settings_Theme_System"/>
-                    <ComboBoxItem l:Uids.Uid="Settings_Theme_Light"/>
-                    <ComboBoxItem l:Uids.Uid="Settings_Theme_Dark"/>
-                </ComboBox>
+                <toolkit:Segmented x:Name="ThemeSegmented"
+                                   HorizontalAlignment="Stretch"
+                                   SelectionChanged="ThemeSegmented_SelectionChanged">
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_Theme_System"/>
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_Theme_Light"/>
+                    <toolkit:SegmentedItem l:Uids.Uid="Settings_Theme_Dark"/>
+                </toolkit:Segmented>
             </StackPanel>
 
             <StackPanel Spacing="6">

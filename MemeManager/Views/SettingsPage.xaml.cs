@@ -60,7 +60,7 @@ public sealed partial class SettingsPage : Page
         LocalizeStaticStrings();
 
         var cfg = ConfigService.Config;
-        ThemeComboBox.SelectedIndex = (int)cfg.Theme;
+        ThemeSegmented.SelectedIndex = (int)cfg.Theme;
         StoragePathBox.Text = cfg.StoragePath;
         HotKeyBox.Text = HotKeyUtils.ToText(cfg.HotKeyModifiers, cfg.HotKeyVk);
         EnableHotKeyToggle.IsOn = cfg.EnableHotKey;
@@ -113,10 +113,10 @@ public sealed partial class SettingsPage : Page
         HotKeyBox.Text = Localization.Get("Settings_HotKey_Default");
     }
 
-    private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ThemeSegmented_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // 即选即预览：立刻切换主题，无需点“完成”
-        var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
+        var theme = (ThemeMode)ThemeSegmented.SelectedIndex;
         ConfigService.Config.Theme = theme;
         App.ApplyTheme();
     }
@@ -455,7 +455,7 @@ public sealed partial class SettingsPage : Page
         if (_saved) return;
         _saved = true;
 
-        var theme = (ThemeMode)ThemeComboBox.SelectedIndex;
+        var theme = (ThemeMode)ThemeSegmented.SelectedIndex;
 
         double.TryParse(PreviewMaxWidthBox.Text, out double pw);
         double.TryParse(PreviewMaxHeightBox.Text, out double ph);
