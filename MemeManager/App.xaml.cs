@@ -275,6 +275,7 @@ public partial class App : Application
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MiniViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<SettingsPage>();
         services.AddSingleton<SearchService>();
         services.AddSingleton<ClipboardService>();
         services.AddSingleton<CategoryService>();

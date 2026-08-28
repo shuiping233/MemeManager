@@ -22,8 +22,7 @@ public sealed partial class SettingsPage : Page
 
     public SettingsViewModel ViewModel => (SettingsViewModel)DataContext;
 
-    // 单例 VM 的事件订阅需在页面卸载时反订阅，否则每次打开设置浮窗都会新增一份处理器而累积
-    // （SettingsViewModel 是 AddSingleton，页却是每次重新实例化的）。
+    // 回调处理器：单例 Page 构造时用 '=' 赋给 SettingsViewModel 的委托属性（不累积、无需反订阅）。
     private readonly Action _onBrowseFolder;
     private readonly Action<string> _onOpenFolder;
     private readonly Action _onClose;
@@ -49,14 +48,31 @@ public sealed partial class SettingsPage : Page
             isProgramExiting = true;
             WeakReferenceMessenger.Default.Send(new CloseAppMessage());
         };
-        ViewModel.BrowseFolderRequested += _onBrowseFolder;
-        ViewModel.OpenFolderRequested += _onOpenFolder;
-        ViewModel.CloseRequested += _onClose;
-        ViewModel.AboutRequested += _onAbout;
-        ViewModel.ProgramExitRequested += _onProgramExit;
+        // 单例 Page 常驻：用 '=' 覆盖回调查至 SettingsViewModel 的委托属性（构造一次即可）。
+        ViewModel.BrowseFolderRequested = _onBrowseFolder;
+        ViewModel.OpenFolderRequested = _onOpenFolder;
+        ViewModel.CloseRequested = _onClose;
+        ViewModel.AboutRequested = _onAbout;
+        ViewModel.ProgramExitRequested = _onProgramExit;
+
+        LanguageComboBox.ItemsSource = LanguageItems;
 
         Unloaded += SettingsPage_Unloaded;
 
+        this.KeyDown += SettingsPage_KeyDown;
+
+        ValidatePathDebouncer = new AsyncDebouncer(
+            AppConstants.StoragePathValidationDebounce, async (token) => { await ValidatePathAfterDelayAsync(token); return; }
+        );
+    }
+
+    // 每次设置浮窗打开前调用：从 Config 重新填充全部控件值，并重置"每次进入才有效"的状态。
+    // 单例 Page 复用时必须在此恢复初始状态，否则第二次打开会读到上次的值/无法再次保存。
+    public void OnShow()
+    {
+        _loaded = false;
+
+        // 默认快捷键提示（会被下面实际热键覆盖，与原始构造顺序一致以保持语义）。
         LocalizeStaticStrings();
 
         var cfg = ConfigService.Config;
@@ -77,28 +93,20 @@ public sealed partial class SettingsPage : Page
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
         StorageFileDragToggle.IsOn = cfg.StorageFileDrag;
 
-        // 预览图设置：缺失时用默认 800x600 / 400ms
         PreviewMaxWidthBox.Text = (cfg.PreviewMaxWidth > 0 ? cfg.PreviewMaxWidth : 800).ToString();
         PreviewMaxHeightBox.Text = (cfg.PreviewMaxHeight > 0 ? cfg.PreviewMaxHeight : 600).ToString();
         PreviewDelayBox.Text = (cfg.PreviewDelayMs > 0 ? cfg.PreviewDelayMs : 400).ToString();
 
-        // 进入设置时记录已有的有效路径，作为手动输入校验失败时的回退基准
         _originalStoragePath = cfg.StoragePath;
+        _saved = false;
 
-        // 语言：先填充下拉项，再按 config 设置初始选中项（null=跟随系统）
-        LanguageItems = LangHelper.BuildLanguageOptions();
-        LanguageComboBox.ItemsSource = LanguageItems;
+        // 取消防抖校验，避免上次遗留的校验弹窗在再次打开时干扰。
+        ValidatePathDebouncer.CancelPending();
+
         LanguageComboBox.SelectedIndex = LangHelper.IndexFromLangCode(cfg.Language, LanguageItems);
         UpdateLanguageStatus();
 
-        this.KeyDown += SettingsPage_KeyDown;
-
-        // 构造期间对下拉框赋值会触发 SelectionChanged，用此标志跳过初始化的多余写盘。
         _loaded = true;
-
-        ValidatePathDebouncer = new AsyncDebouncer(
-            AppConstants.StoragePathValidationDebounce, async (token) => { await ValidatePathAfterDelayAsync(token); return; }
-        );
     }
 
     private bool _loaded;
@@ -213,21 +221,9 @@ public sealed partial class SettingsPage : Page
 
     private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)
     {
-        // 取消防抖校验（页面销毁后不再弹窗）
+        // 单例 Page 常驻复用时，不断开 x:Bind（StopTracking 会使 OneWay 绑定停更）、不自解绑 Unloaded。
+        // 仅取消防抖校验（浮窗关闭后不再弹窗）。
         ValidatePathDebouncer.CancelPending();
-
-        // 反订阅单例 VM 的事件，避免处理器累积（每次打开设置浮窗会新建本页实例）。
-        if (DataContext is SettingsViewModel vm)
-        {
-            vm.BrowseFolderRequested -= _onBrowseFolder;
-            vm.OpenFolderRequested -= _onOpenFolder;
-            vm.CloseRequested -= _onClose;
-            vm.AboutRequested -= _onAbout;
-            vm.ProgramExitRequested -= _onProgramExit;
-        }
-        // 显式停止 x:Bind 跟踪：断开绑定对象订阅，兜底 Reference Tracker 清理。
-        Bindings?.StopTracking();
-        Unloaded -= SettingsPage_Unloaded;
     }
 
     private void SaveLogToggle_Toggled(object sender, RoutedEventArgs e)
@@ -559,8 +555,9 @@ public sealed partial class SettingsPage : Page
         Logger.Log("[Settings] 配置已保存");
     }
 
-    // 请求关闭（由宿主 Flyout 监听后 Hide）
-    public event EventHandler? RequestClose;
+    // 请求关闭（由宿主 Flyout 监听后 Hide）。用委托属性而非 event：单例 Page 每次打开由 MainPage
+    // 用 '=' 覆盖为当前 SettingsFlyout 的句柄，避免 MainPage 重建时累积 handler。
+    public EventHandler? RequestClose { get; set; }
 
     // 是否已保存过（避免“完成”点击与浮窗 Closed 事件重复保存）
     private bool _saved;

@@ -205,15 +205,16 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    // 关于：需弹窗（依赖 XamlRoot），经事件回 Page 执行。
-    public event Action? AboutRequested;
+    // 关于：需弹窗（依赖 XamlRoot），经回调回 Page 执行。
+    // 用委托属性而非 event：单例 VM 每次打开设置页由 Page 用 '=' 覆盖，不累积、无需反订阅。
+    public Action? AboutRequested { get; set; }
 
     [RelayCommand]
     private void About()
         => AboutRequested?.Invoke();
 
-    // 退出程序：需弹窗（依赖 XamlRoot），经事件回 MainWindow 执行。
-    public event Action? ProgramExitRequested;
+    // 退出程序：需弹窗（依赖 XamlRoot），经回调回 MainWindow 执行。
+    public Action? ProgramExitRequested { get; set; }
 
     [RelayCommand]
     private void ProgramExit()
@@ -221,22 +222,22 @@ public partial class SettingsViewModel : ObservableObject
         ProgramExitRequested?.Invoke();
     }
 
-    // 浏览选目录并立即保存：依赖文件选择器 + MainWindow 状态，经事件回 Page。
-    public event Action? BrowseFolderRequested;
+    // 浏览选目录并立即保存：依赖文件选择器 + MainWindow 状态，经回调回 Page。
+    public Action? BrowseFolderRequested { get; set; }
 
     [RelayCommand]
     private void BrowseFolder()
         => BrowseFolderRequested?.Invoke();
 
-    // 打开数据文件夹：路径来自 UI 文本框（UI 状态），经事件把路径回 Page 打开。
-    public event Action<string>? OpenFolderRequested;
+    // 打开数据文件夹：路径来自 UI 文本框（UI 状态），经回调把路径回 Page 打开。
+    public Action<string>? OpenFolderRequested { get; set; }
 
     [RelayCommand]
     private void OpenMemeDataFolder(string path)
         => OpenFolderRequested?.Invoke(path);
 
-    // 关闭设置浮窗：UI 行为，经事件回 Page。
-    public event Action? CloseRequested;
+    // 关闭设置浮窗：UI 行为，经回调回 Page。
+    public Action? CloseRequested { get; set; }
 
     [RelayCommand]
     private void Close()

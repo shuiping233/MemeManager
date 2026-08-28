@@ -1647,8 +1647,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void ShowSettingsFlyout()
     {
-        var page = new SettingsPage();
-        page.RequestClose += (_, _) => SettingsFlyout.Hide();
+        // 单例浮窗页：反复打开只 new 一次、常驻复用（避免 WinUI 对反复 new 的 Page 回收不彻底）。
+        var page = App.GetService<SettingsPage>();
+        page.OnShow();
+        // RequestClose 用 '=' 覆盖为当前 MainPage 的 SettingsFlyout 句柄（MainPage 每次导航重建，
+        // 用 '=' 覆盖不会累积；若用 '=' 已在构造处理则此行为可选）。指向最新的 MainPage。
+        page.RequestClose = (_, _) => SettingsFlyout.Hide();
         SettingsFlyout.Content = page;
         SettingsFlyout.ShowAt(SettingsButton);
     }
@@ -1720,6 +1724,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 await page.SaveAsync();
             }
         }
+        // 释放浮窗对最后一个 SettingsPage 的强引用，让其可被 GC 回收。
+        // 否则 MainPage.SettingsFlyout（成员，长期存活）会一直持有最新 Page，造成内存残留。
+        SettingsFlyout.Content = null;
     }
 
     // 置顶开关：用户手动切换窗口置顶状态（仅会话内有效，不持久化到 config）
