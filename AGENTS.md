@@ -208,7 +208,7 @@ UI 生命周期事件 → 留 Code Behind（不迁）
 
 ## 每个小任务完成后的汇报纪律（必做）
 
-每完成一个 Phase 里的小任务（一个 git commit 对应一个任务），向用户汇报时**必须包含两段**：
+每完成一个 Phase 里的小任务, 必须使用git commit进行提交（一个 git commit 对应一个任务），然后向用户汇报时**必须包含两段**：
 
 1. **做了什么**：简述本次改动（文件 / 抽了什么 / 谁注入谁）。
 2. **你需要测什么**：明确告诉用户要手动验证哪些功能点；若本次改动纯属内部结构搬迁、对外部行为零影响（如仅把查询出口从 `_engine.Xxx` 换成 `ViewModel.Xxx`、未改任何可见逻辑），则明确写**「不用测」**，不要含糊。
@@ -287,5 +287,10 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 
 - `MemeDataEngine` 作为数据访问层职责已自洽，不再往下硬拆 Repository / 写操作迁入 Service / 引擎降级 Facade
   （只会增加缓存一致性风险、运行行为零变化、用户无感）。唯一抽离的是 `ConfigService`（配置与图片数据是两回事）。
+
+### 8. community toolkit
+
+- 允许使用community toolkit的ui控件和类库, 因为很方便, 可以减少重复代码
+- `WeakReferenceMessenger`是个好东西, 遇到跨page或者控件通信去call某些能力时可以考虑用这个
 
 ---
