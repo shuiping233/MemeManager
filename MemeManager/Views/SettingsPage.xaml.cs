@@ -73,6 +73,7 @@ public sealed partial class SettingsPage : Page
         AutoCheckUpdateToggle.IsOn = cfg.AutoCheckForUpdates;
         AllowMiniModeToggle.IsOn = cfg.AllowMiniMode;
         UseControlReuseToggle.IsOn = cfg.UseControlReuse;
+        _initialUseControlReuse = UseControlReuseToggle.IsOn;
         ExplorerStyleMultiSelectToggle.IsOn = cfg.ExplorerStyleMultiSelect;
         StorageFileDragToggle.IsOn = cfg.StorageFileDrag;
 
@@ -107,6 +108,9 @@ public sealed partial class SettingsPage : Page
 
     // 进入设置时开机自启的初始状态，用于判断用户是否真正改动过该开关。
     private bool _initialAutoStart;
+
+    // 进入设置时控件复用策略的初始状态，用于判断用户是否真正切换过 reuse/rebuild。
+    private bool _initialUseControlReuse;
 
     // 填充默认快捷键提示等无法用 Uid 直接绑定的静态文本（ComboBox 选项已通过 XAML Uid 本地化）。
     private void LocalizeStaticStrings()
@@ -481,8 +485,10 @@ public sealed partial class SettingsPage : Page
             var err = ValidateStoragePath(typedPath);
             if (err == StoragePathError.None)
             {
+
                 newStoragePath = typedPath;
-                pathChanged = true;
+                if (!ConfigService.Config.StoragePath.Equals(newStoragePath))
+                    pathChanged = true;
             }
             else
             {
@@ -526,16 +532,21 @@ public sealed partial class SettingsPage : Page
             App.ApplyTheme();
         }
 
-        // 预览分辨率 / 存放路径变化：重建主窗口数据以生效
-        if ((pw > 0 && ph > 0) || pathChanged)
-            App.MainWindow.ReloadData();
+        // 预览分辨率 / 存放路径 / 复用策略变化：重建主窗口数据以生效（其余配置不触发全量刷新）
+        bool previewSizeChanged = pw > 0 && ph > 0 && (pw != prevW || ph != prevH);
+        bool strategyChanged = UseControlReuseToggle.IsOn != _initialUseControlReuse;
+        bool needReload = previewSizeChanged || pathChanged || strategyChanged;
 
         if (delay > 0)
             App.MainWindow.ApplyPreviewDelayFromConfig();
 
-        // 复用策略切换：应用新策略并刷新当前列表使其立即生效
+        // 复用策略 / Mini 可见性：保留无条件调用（仅重建策略对象 + 更新 Mini 按钮可见性，无全量刷新开销），
+        // 保证关闭"允许 Mini 模式"后按钮立即消失。
         App.MainWindow.ApplyListStrategyFromConfig();
-        App.MainWindow.ReloadData();
+
+        // 只有真正需要重建列表/容器的配置变化才全量刷新
+        if (needReload)
+            App.MainWindow.ReloadData();
 
         // 仅当用户真正改动过开机自启开关时才写注册表，避免每次打开设置都强制写入。
         if (AutoStartToggle.IsOn != _initialAutoStart)

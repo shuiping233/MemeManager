@@ -1718,9 +1718,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             if (!page.IsSaved)
             {
                 await page.SaveAsync();
-                // 存放路径可能已改变：重新加载分类与表情，反映新路径内容
-                // 刷新场景：以内存当前分类为准（不被尚未 flush 的旧 config 覆盖）。
-                LoadCategories(restoreSelectionFromConfig: false);
             }
         }
     }
