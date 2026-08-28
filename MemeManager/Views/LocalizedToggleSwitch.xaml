@@ -1,11 +1,12 @@
-<UserControl
+﻿<UserControl
     x:Class="MemeManager.Views.LocalizedToggleSwitch"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:MemeManager.Views"
     xmlns:l="using:WinUI3Localizer">
 
-    <ToggleSwitch x:Name="InnerToggle"
+    <ToggleSwitch MinWidth="85"
+                  x:Name="InnerToggle"
                   l:Uids.Uid="LocalizedToggleSwitch"
                   IsOn="{x:Bind IsOn, Mode=TwoWay}"
                   Toggled="InnerToggle_Toggled"/>
