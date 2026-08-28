@@ -152,6 +152,47 @@ The `log` directory holds runtime logs named `debug.log`; once the log exceeds 5
     └── fa779d7d485fae8366d53e102ded5258131378eb02b95175c813b018748a570c.jpg
 ```
 
+## `.metadata.json` File Structure
+
+There are two types of `.metadata.json` files: one type manages category metadata and is located directly in the data directory; the other type manages image metadata and is stored in the corresponding category folder for the images.
+
+- Both category and image metadata contain a `Priority` field. The sorting rule is **higher first** — meaning the larger the value, the higher the priority, and the image will appear earlier.
+- In image metadata, `Title` represents the content the user has **renamed** within the application. It can also be understood as an alias for the image. When searching via the application's search box, this field is queried. `Tags` is a reserved field and is currently unused, with no tag-adding functionality implemented yet.
+
+Category metadata structure:
+
+```json
+{
+    "Categories": {
+        "Owl": {
+            "Priority": 2
+        },
+        "test": {
+            "Priority": 1
+        }
+    }
+}
+```
+
+Image metadata structure:
+
+```json
+{
+    "Items": {
+        "64e9e9e7a967517f711410628a3c8746906f94985e5989589153030d08bc230e.jpg": {
+            "Title": "Owl Image 1",
+            "Tags": [],
+            "Priority": 2
+        },
+        "e3ebf937c2ddae3376c11db6b31f5c0b5ef2a6c4826faf1f87ed260ae19aedec.webp": {
+            "Title": "Snipaste_2026-07-11_16-00-51",
+            "Tags": [],
+            "Priority": 1
+        }
+    }
+}
+```
+
 ## Building from Source
 
 For setting up the development environment, refer to the official Microsoft documentation: [WinUI3 app development (Visual Studio)](https://learn.microsoft.com/windows/apps/get-started/start-here?tabs=visual-studio).
