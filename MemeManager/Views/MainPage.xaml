@@ -279,9 +279,10 @@
             </GridView.ItemsPanel>
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="viewmodels:MemeViewModel">
-                    <Grid Width="90" Height="90" Margin="4"
+                    <local:CursorGrid Width="90" Height="90" Margin="4"
                           Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                           CornerRadius="6"
+                          Cursor="Hand"
                            PointerEntered="MemeItem_PointerEntered"
                            PointerExited="MemeItem_PointerExited"
                            Tapped="MemeItem_Tapped">
@@ -365,7 +366,7 @@
                                     Color="#CC000000"/>
                             </CheckBox.Resources>
                         </CheckBox>
-                    </Grid>
+                    </local:CursorGrid>
                 </DataTemplate>
             </GridView.ItemTemplate>
         </GridView>

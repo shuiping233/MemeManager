@@ -103,10 +103,11 @@
                                         </ItemsRepeater.Layout>
                                         <ItemsRepeater.ItemTemplate>
                                             <DataTemplate x:DataType="viewmodels:MemeViewModel">
-                                                <Grid Margin="3"
+                                                <local:CursorGrid Margin="3"
                                                       Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                       CornerRadius="6"
                                                       Padding="2"
+                                                      Cursor="Hand"
                                                       Tag="{x:Bind}"
                                                       CanDrag="True"
                                                       DragStarting="PickerItem_DragStarting"
@@ -115,7 +116,7 @@
                                                            Stretch="{x:Bind ImageStretch, Mode=OneWay}"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"/>
-                                                </Grid>
+                                                </local:CursorGrid>
                                             </DataTemplate>
                                         </ItemsRepeater.ItemTemplate>
                                     </ItemsRepeater>
