@@ -6,9 +6,17 @@
     <RootNamespace>MemeManager</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
-    <Platforms>x64</Platforms>
-    <PlatformTarget>x64</PlatformTarget>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- 平台：x64 + ARM64（win-arm64）。Platform 由 VS 或 CI（-p:Platform=ARM64）传入，
+         RID 与 PlatformTarget 随之派生；不传 Platform 时（如普通 dotnet build）保持 x64，
+         与加入 ARM64 之前的行为一致。 -->
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <!-- 显式与 RID 对齐，避免依赖 SDK 的 RID→PlatformTarget 推断；值须与 RID 匹配，
+         否则 SDK 报 CannotHaveRuntimeIdentifierPlatformMismatchPlatformTarget（见 NETSDK1083 系列）。 -->
+    <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-arm64'">arm64</PlatformTarget>
+    <PlatformTarget Condition="'$(RuntimeIdentifier)' == 'win-x64'">x64</PlatformTarget>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
