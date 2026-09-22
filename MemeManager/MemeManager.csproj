@@ -7,8 +7,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <!-- 平台：x64 + ARM64（win-arm64）。Platform 由 VS 或 CI（-p:Platform=ARM64）传入，
-         RID 与 PlatformTarget 随之派生；不传 Platform 时（如普通 dotnet build）保持 x64，
-         与加入 ARM64 之前的行为一致。 -->
+         RID 与 PlatformTarget 随之派生；不传 Platform 时（如普通 dotnet build）保持 x64，-->
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
@@ -80,8 +79,6 @@
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
-  <!-- .editorconfig 在仓库根目录，显式 include 使其在 Solution Explorer 可见。
-       注意：EditorConfig 按目录自动发现，此 include 不影响其生效，仅为可见性。 -->
   <ItemGroup>
     <None Include="..\.editorconfig" />
   </ItemGroup>
@@ -115,7 +112,7 @@
     <PackageReference Include="XBindLeakFix" Version="1.0.0" />
   </ItemGroup>
 
-  <!-- WinUI3Localizer 从输出目录的 Strings 文件夹读取 resw（非 PRI 内嵌），需复制到输出 -->
+  <!-- WinUI3Localizer 从输出目录的 Strings 文件夹读取 resw（非 PRI 内嵌），非打包模式需复制到输出 -->
   <ItemGroup>
     <Content Include="Strings\**\*.resw">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
