@@ -5,10 +5,23 @@ on:
     tags:
       - 'v*'
 
+# 架构矩阵：x64 与 ARM64（win-arm64）同定义并行产出，每个含产物的 job 各写一份。
+#   platform —— -p:Platform 取值，须与 MemeManager.csproj 的 <Platforms>x64;ARM64</Platforms> 一致
+#   rid      —— win-* RID，决定 MSIX PublishProfile 名（$rid-msix）与产物名后缀
+# 产物名形如 MemeManager-win-x64-runtime-<tag>.zip / MemeManager-win-arm64-<tag>.zip / MSIX。
+
 jobs:
   # 文件系统发布：自包含（自带 .NET 运行时）exe 文件夹，压缩为带 -runtime 后缀的 zip
   publish-zip-runtime:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            rid: win-x64
+          - platform: ARM64
+            rid: win-arm64
     env:
       PUBLISH_DIR: ${{ github.workspace }}\publish-runtime
     steps:
@@ -21,20 +34,28 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish (FileSystem, Self-Contained)
-        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=true -p:AppVersion=${{ github.ref_name }} -o "$env:PUBLISH_DIR"
+        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=${{ matrix.platform }} -p:PublishProfile=${{ matrix.rid }} -p:SelfContained=true -p:AppVersion=${{ github.ref_name }} -o "$env:PUBLISH_DIR"
 
       - name: Compress publish output
-        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-runtime-${{ github.ref_name }}.zip" -Force
+        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-${{ matrix.rid }}-runtime-${{ github.ref_name }}.zip" -Force
 
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MemeManager-win-x64-runtime-zip
-          path: MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
+          name: MemeManager-${{ matrix.rid }}-runtime-zip
+          path: MemeManager-${{ matrix.rid }}-runtime-${{ github.ref_name }}.zip
 
   # 文件系统发布：依赖系统运行时（Framework-Dependent），压缩为不带后缀的 zip
   publish-zip-fd:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            rid: win-x64
+          - platform: ARM64
+            rid: win-arm64
     env:
       PUBLISH_DIR: ${{ github.workspace }}\publish-fd
     steps:
@@ -47,16 +68,16 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish (FileSystem, Framework-Dependent)
-        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64 -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -o "$env:PUBLISH_DIR"
+        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=${{ matrix.platform }} -p:PublishProfile=${{ matrix.rid }} -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -o "$env:PUBLISH_DIR"
 
       - name: Compress publish output
-        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-win-x64-${{ github.ref_name }}.zip" -Force
+        run: Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath "MemeManager-${{ matrix.rid }}-${{ github.ref_name }}.zip" -Force
 
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MemeManager-win-x64-zip
-          path: MemeManager-win-x64-${{ github.ref_name }}.zip
+          name: MemeManager-${{ matrix.rid }}-zip
+          path: MemeManager-${{ matrix.rid }}-${{ github.ref_name }}.zip
 
   # 创建 GitHub Release 并附上 zip + msix 产物
   release:
@@ -102,21 +123,27 @@ jobs:
         with:
           path: artifacts
 
+      # 两个架构的 msix 文件名自带架构后缀（MemeManager_<ver>_x64.msix / _arm64.msix），不会撞名；
+      # 但 .cer 是同一张证书导出的同名文件（MemeManager-sign.cer），只取 x64 那份上传，避免附件重名。
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.build_changelog.outputs.changelog }}
           files: |
             artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-arm64-runtime-zip/MemeManager-win-arm64-runtime-${{ github.ref_name }}.zip
             artifacts/MemeManager-win-x64-zip/MemeManager-win-x64-${{ github.ref_name }}.zip
+            artifacts/MemeManager-win-arm64-zip/MemeManager-win-arm64-${{ github.ref_name }}.zip
             artifacts/MemeManager-win-x64-msix-sideload/*.msix
+            artifacts/MemeManager-win-arm64-msix-sideload/*.msix
             artifacts/MemeManager-win-x64-msix-sideload/*.cer
             artifacts/MemeManager-win-x64-msix-store/*.msix
+            artifacts/MemeManager-win-arm64-msix-store/*.msix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 同步发布到 CNB（GitHub 下载不便，CNB 面向国内用户）。
-      # 上传 zip×2 + 旁加载签名 msix + cer；Store 未签名 msix 对普通用户无意义，不传。
+      # 上传 zip×4 + 两个架构的旁加载签名 msix + cer；Store 未签名 msix 对普通用户无意义，不传。
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -129,8 +156,11 @@ jobs:
         run: |
           assets=()
           for p in artifacts/MemeManager-win-x64-runtime-zip/*.zip \
+                   artifacts/MemeManager-win-arm64-runtime-zip/*.zip \
                    artifacts/MemeManager-win-x64-zip/*.zip \
+                   artifacts/MemeManager-win-arm64-zip/*.zip \
                    artifacts/MemeManager-win-x64-msix-sideload/*.msix \
+                   artifacts/MemeManager-win-arm64-msix-sideload/*.msix \
                    artifacts/MemeManager-win-x64-msix-sideload/*.cer; do
             [ -f "$p" ] && assets+=("$p")
           done
@@ -144,6 +174,14 @@ jobs:
   # 附带导出的 .cer 供安装者先安装到“受信任的根证书颁发机构”。
   pack-msix-sideload:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            rid: win-x64
+          - platform: ARM64
+            rid: win-arm64
     env:
       MSIX_DIR: ${{ github.workspace }}\msix-sideload
     steps:
@@ -194,7 +232,7 @@ jobs:
       # 改为「证书导入 CurrentUser\My + PackageCertificateThumbprint」，指纹精确指向我们的固定证书。
       - name: Publish signed MSIX (sideload)
         shell: pwsh
-        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64-msix -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -p:AppxPackageVersion=$env:APPX_VERSION -p:PackageCertificateThumbprint=$env:CERT_THUMBPRINT
+        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=${{ matrix.platform }} -p:PublishProfile=${{ matrix.rid }}-msix -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -p:AppxPackageVersion=$env:APPX_VERSION -p:PackageCertificateThumbprint=$env:CERT_THUMBPRINT
 
       - name: Collect msix and export cer
         shell: pwsh
@@ -212,12 +250,20 @@ jobs:
       - name: Upload msix artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MemeManager-win-x64-msix-sideload
+          name: MemeManager-${{ matrix.rid }}-msix-sideload
           path: ${{ env.MSIX_DIR }}
 
   # MSIX 打包·Store 轨：未签名（Store 认证通过后会用微软证书重新签名，无需自签名证书）
   pack-msix-store:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            rid: win-x64
+          - platform: ARM64
+            rid: win-arm64
     env:
       MSIX_DIR: ${{ github.workspace }}\msix-store
     steps:
@@ -252,7 +298,7 @@ jobs:
 
       - name: Publish unsigned MSIX (Store)
         shell: pwsh
-        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=x64 -p:PublishProfile=win-x64-msix -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -p:AppxPackageVersion=$env:APPX_VERSION -p:AppxPackageSigningEnabled=false
+        run: dotnet publish ./MemeManager/MemeManager.csproj -c Release -p:Platform=${{ matrix.platform }} -p:PublishProfile=${{ matrix.rid }}-msix -p:SelfContained=false -p:AppVersion=${{ github.ref_name }} -p:AppxPackageVersion=$env:APPX_VERSION -p:AppxPackageSigningEnabled=false
 
       - name: Collect msix
         shell: pwsh
@@ -264,5 +310,5 @@ jobs:
       - name: Upload msix artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MemeManager-win-x64-msix-store
+          name: MemeManager-${{ matrix.rid }}-msix-store
           path: ${{ env.MSIX_DIR }}
