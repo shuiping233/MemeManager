@@ -143,7 +143,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 同步发布到 CNB（GitHub 下载不便，CNB 面向国内用户）。
-      # 上传 zip×4 + 两个架构的旁加载签名 msix + cer；Store 未签名 msix 对普通用户无意义，不传。
+      # 上传打包好的 zip + 两个架构的旁加载签名 msix + cer；Store 未签名 msix 对普通用户无意义，不传。
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
