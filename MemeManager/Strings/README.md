@@ -22,12 +22,12 @@ settings dropdown — **no code changes required**.
 
 ## IMPORTANT: the `Settings_Language_*` keys
 
-The language dropdown itself is built from these keys:
+The language dropdown on the Settings page is built from these keys:
 
 - `Settings_Language_System` — the "Follow system" item (one per language file).
 - `Settings_Language_<culture-code>` — the label for each specific language.
 
-For a new language folder `Strings/ja/`, you MUST include:
+When creating a new language folder, such as `Strings/ja/`, its .resw file MUST contain content similar to the following; otherwise, blank options will appear in the language dropdown:
 
 ```xml
 <data name="Settings_Language_ja" xml:space="preserve">
@@ -69,12 +69,11 @@ but adding the key keeps the wording consistent and intentional.
 - The language code must be a valid .NET culture name understood by
   `CultureInfo` (used for the fallback display name). See the Microsoft
   locale/culture reference for valid codes:
-  https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/
+  <https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/>
   or use the following PowerShell command to list culture names
+
   ```powershell
   [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object { -not $_.IsNeutralCulture } | Select-Object Name, NativeName | Where-Object Name
   ```
-
-
 
 [简体中文]: ./README.zh-CN.md

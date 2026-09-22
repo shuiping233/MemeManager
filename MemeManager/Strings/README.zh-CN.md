@@ -20,12 +20,12 @@
 
 ## 重要：`Settings_Language_*` 这一组 key
 
-语言下拉菜单本身是由以下 key 构建的：
+设置页面中的语言下拉菜单本身是由以下 key 构建的：
 
 - `Settings_Language_System` —— “跟随系统”那一项（每个语言文件都要有）。
 - `Settings_Language_<语言代码>` —— 每一种具体语言的显示名。
 
-对于新语言文件夹 `Strings/ja/`，必须包含：
+创建新新语言文件夹时, 例如 `Strings/ja/`，其中的 .resw 文件中必须包含类似如下内容, 否则语言下拉菜单中会出现空白的选项：
 
 ```xml
 <data name="Settings_Language_ja" xml:space="preserve">
@@ -61,8 +61,9 @@
 - `DefaultLanguage` 优先取 `zh-CN`，若不存在则取第一个被发现的语言。
 - 语言代码必须是 `.NET` 能识别的有效文化名（回退显示名时会用到 `CultureInfo`）。
   可参考微软的区域/文化代码文档查看合法代码：
-  https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/
+  <https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/>
   或者使用以下PowerShell命令来快速列出文化名
+
   ```powershell
   [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object { -not $_.IsNeutralCulture } | Select-Object Name, NativeName | Where-Object Name
   ```
