@@ -34,8 +34,8 @@ A high-performance tool for managing and using your meme/sticker collection, bui
 
 ### First Install
 
-1. Go to the [Release](https://github.com/shuiping233/MemeManager/releases) page and download the latest version. The installer with `runtime` bundles the runtime; the one without `runtime` is recommended.
-2. After extracting the archive, run `MemeManager.exe`. The app depends on the [`Windows App Runtime`](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads) and the [`.NET 10 Desktop Runtime`](https://dotnet.microsoft.com/download/dotnet/10.0). You need to install these runtimes. Alternatively, just run the program — it will show an error dialog that redirects you to the download page for the missing dependency.
+1. Visit the [GitHub Release](https://github.com/shuiping233/MemeManager/releases) or the [CNB Release](https://cnb.cool/shuiping233/MemeManager/-/releases) page of this repository and download the latest build. The archive with `runtime` in its name already bundles the .NET runtime, so you only need to install [Windows App Runtime] as well; the archive without `runtime` is recommended here, so the app can reuse the runtime already present on your system.
+2. After extracting the archive, run `MemeManager.exe`. The app depends on [Windows App Runtime] and the [.NET 10 Desktop Runtime], so you need to install them. Alternatively, you can just run the program first — it will show an error dialog that redirects you to the download page for the missing dependency.
 
 ### Import / Export Images
 
@@ -234,3 +234,6 @@ The app's languages are driven by resource files under `Strings/`. For details o
 [EmoticonTool]: https://github.com/xcsbhjz/EmoticonTool
 [emoji-manager]: https://github.com/morinoyuki/emoji-manager-releases
 [EmojiManager]: https://github.com/Natsukage/EmojiManager
+
+[Windows App Runtime]: https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads
+[.NET 10 Desktop Runtime]: https://dotnet.microsoft.com/download/dotnet/10.0

@@ -37,9 +37,9 @@
 
 ### 初次安装
 
-1. 去本仓库的[CNB仓库高速Release下载](https://cnb.cool/shuiping233/MemeManager/-/releases)/[Release](https://github.com/shuiping233/MemeManager/releases)页面下载最新版本, 带`runtime`的安装包中包含运行时, 此处推荐无`runtime`的安装包,
+1. 访问本仓库的 [Github Release](https://github.com/shuiping233/MemeManager/releases) 或 [CNB仓库Release](https://cnb.cool/shuiping233/MemeManager/-/releases) 页面下载最新版本的构建产物, 带`runtime`字样的压缩包中是包含了dotnet运行时的, 仅需安装 [Windows App runtime] 即可, 此处推荐无`runtime`的安装包, 以便软件复用系统已有的运行时
 
-2. 解压压缩包后, 运行`MemeManager.exe`即可, 由于软件依赖[`Windows App runtime`](https://learn.microsoft.com/zh-cn/windows/apps/windows-app-sdk/downloads)和[`.NET 10 桌面运行时`](https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0), 你需要下载此运行时, 当然你也可以直接运行运行程序, 程序会自动弹窗报错来重定向到你需要下载的依赖下载页面
+2. 解压压缩包后, 运行`MemeManager.exe`即可, 由于软件依赖 [Windows App runtime] 和 [.NET 10 桌面运行时], 你需要下载此运行时, 当然也可以先直接运行运行程序, 程序会自动弹窗报错来重定向到你需要下载的依赖下载页面
 
 ### 图片导入导出
 
@@ -248,3 +248,6 @@ Mini模式时, 主窗口置顶状态跟随Full模式的置顶状态, 提供基�
 [EmoticonTool]: https://github.com/xcsbhjz/EmoticonTool
 [emoji-manager]: https://github.com/morinoyuki/emoji-manager-releases
 [EmojiManager]: https://github.com/Natsukage/EmojiManager
+
+[Windows App runtime]: https://learn.microsoft.com/zh-cn/windows/apps/windows-app-sdk/downloads
+[.NET 10 桌面运行时]: https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0
