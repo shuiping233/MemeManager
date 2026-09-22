@@ -201,7 +201,7 @@ Simply open `MemeManager.sln` at the repository root with Visual Studio to build
 
 ### Internationalization (i18n)
 
-The app's languages are driven by resource files under `Strings/`. For details on adding or maintaining languages, see [Strings/README.md](Strings/README.md) (Chinese version: [Strings/README.zh-CN.md](Strings/README.zh-CN.md)).
+The app's languages are driven by resource files under `Strings/`. For details on adding or maintaining languages, see [Strings/README.md](MemeManager/Strings/README.md) (Chinese version: [Strings/README.zh-CN.md](MemeManager/Strings/README.zh-CN.md)).
 
 ## Acknowledgements
 

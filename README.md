@@ -216,7 +216,7 @@ Mini模式时, 主窗口置顶状态跟随Full模式的置顶状态, 提供基�
 
 ### 国际化 (i18n) 说明
 
-本程序的语言支持由 `Strings/` 目录下的资源文件驱动，新增/维护语言的详细说明请见 [Strings/README.zh-CN.md](Strings/README.zh-CN.md)（英文版见 [Strings/README.md](Strings/README.md)）。
+本程序的语言支持由 `Strings/` 目录下的资源文件驱动，新增/维护语言的详细说明请见 [Strings/README.zh-CN.md](MemeManager/Strings/README.zh-CN.md)（英文版见 [Strings/README.md](MemeManager/Strings/README.md)）。
 
 ## 鸣谢
 
