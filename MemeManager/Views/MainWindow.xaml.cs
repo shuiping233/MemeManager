@@ -588,10 +588,10 @@ public sealed partial class MainWindow : Window
     /// 幂等：窗口已隐藏时直接返回，不重复 SW_HIDE / 不重复清理。
     /// flag 与 win32 调用只在本方法内发生，入口回调不得自行 set flag。
     /// </summary>
-    private void HideWindow()
+    private void HideWindow(bool force = false)
     {
         // 已隐藏（不可见且非最小化）则跳过，避免重复隐藏导致的清理错位
-        if (!NativeMethods.IsWindowVisible(_hWnd) && !NativeMethods.IsIconic(_hWnd))
+        if (!NativeMethods.IsWindowVisible(_hWnd) && !NativeMethods.IsIconic(_hWnd) && !force)
         {
             Log("[窗口] 隐藏：已隐藏，跳过");
             _isVisible = false;
@@ -653,7 +653,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void StartHidden()
     {
-        HideWindow();
+        HideWindow(force: true);
     }
 
     /// <summary>
