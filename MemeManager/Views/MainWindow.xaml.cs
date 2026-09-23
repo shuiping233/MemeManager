@@ -563,9 +563,14 @@ public sealed partial class MainWindow : Window
             ApplyTopMost(true);
 
         _isVisible = true;
-        CurrentMainPage?.SetMemeViewVisible(true);
+        // 重建完成后由页面 UiElement_Loaded 门控统一执行“重绑数据 + 恢复交互”；
+        bool awaitingUiReload = CurrentMainPage?.SetUiLoaded(true) == true;
+        if (!awaitingUiReload)
+        {
+            CurrentMainPage?.SetMemeViewVisible(true);
+            ResumeWindowInteractions();
+        }
         _fgTimer?.Start();
-        ResumeWindowInteractions();
 
         // 从托盘/快捷键呼出后，将焦点重新定位到当前模式的默认交互控件，
         // 避免焦点残留在系统标题栏关闭按钮上（用户点 X 隐藏后焦点被系统三键截持）。
@@ -578,7 +583,6 @@ public sealed partial class MainWindow : Window
             else
                 CurrentMiniPage?.FocusDropHint();
         });
-
         Log($"[窗口] 显示完成 (activate={activate})");
     }
 
@@ -600,14 +604,28 @@ public sealed partial class MainWindow : Window
 
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
-        // 窗口隐藏：两种模式都断开图像引用并统一 GC。
+
         // 传 detachItemsSource:true——隐藏时视觉树保留，必须摘掉网格 ItemsSource 卸载
         // Image 容器才能真正释放 GPU 纹理（仅清 VM 字段不够，85eb33c 回归）；
         // 切模式走默认 false，避免重演"切模式后空白"的老 bug。
         ReleaseCurrentPageImages(detachItemsSource: true);
+
         // 分类控件与图片资源分开管理：单独卸载分类栏容器（ListViewItem/x:Bind 绑定/Flyout）。
         CurrentMainPage?.ReleaseCategoryList();
         SuspendWindowInteractions(closing: false);
+
+        // 所有控件访问完成后，最后卸载表情网格/分类面板整棵子树。
+        // 必须放在 SuspendWindowInteractions 之后——它内部要写 MemeGridView/CategoryList 的拖拽开关
+        CurrentMainPage?.SetUiLoaded(false);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        // 实测的两次gc的效果来看, 只有一个回收速度的的区别
+        // 从最后关闭窗口的提交内存占用结果看, 回收后的的内存占用差距非常小
+        // 这是理所应当的, 因为本身内存占用大头就不在dotnet托管堆里
+        // 一次gc会0.2秒的速度两次降低内存占用至270mb左右
+        // 两次gc会即刻降低内存占用到270mb左右
+        // 仅此而已
         Log("[窗口] 隐藏完成 (SW_HIDE)");
     }
 

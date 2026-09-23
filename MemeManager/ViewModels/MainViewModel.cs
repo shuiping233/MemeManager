@@ -18,6 +18,9 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     // 用委托属性（非 event）：单 Page 对接场景下 '=' 赋值天然不累积，避免单例 VM 事件订阅泄漏。
     public Func<Task>? RefreshRequested { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsUiLoaded { get; set; } = true;
+
     [RelayCommand]
     private async Task RefreshAsync()
     {
