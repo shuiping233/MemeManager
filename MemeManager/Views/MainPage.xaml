@@ -132,7 +132,11 @@
         </Grid>
 
         <!-- 左侧分类栏 -->
-        <Grid Grid.Row="3" Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}">
+        <Grid x:Name="CategoryPanel"
+              Grid.Row="3" Grid.Column="0"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              x:Load="{x:Bind ViewModel.IsUiLoaded, Mode=OneWay}"
+              Loaded="UiElement_Loaded">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -274,10 +278,13 @@
         </Grid>
 
         <!-- 右侧表情网格 -->
+        <!-- [x:Load 实验] 隐藏窗口时整块卸载（x:Load），重建完成信号见 MainPage.UiElement_Loaded -->
         <GridView x:Name="MemeGridView"
                   Grid.Row="3" Grid.Column="1"
                   Margin="12"
                   HorizontalAlignment="Stretch"
+                  x:Load="{x:Bind ViewModel.IsUiLoaded, Mode=OneWay}"
+                  Loaded="UiElement_Loaded"
                   SelectionMode="None"
                   IsItemClickEnabled="False"
                   AllowDrop="True"
