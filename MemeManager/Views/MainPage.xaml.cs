@@ -280,10 +280,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 2.7：分类数据变更后刷新表情列表（VM 只发通知，刷新逻辑留本页）
         ViewModel.CategoriesChangedRequested = () =>
         {
-            // 同步分类栏选中态：删除分类后 CurrentCategory 已切到新分类，
-            // 需让 ListView.SelectedItem 跟随，触发 SelectionChanged 恢复焦点/写配置/刷新。
-            CategoryList.SelectedItem = CategoryList.Items.Cast<CategoryViewModel>()
-                .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
+            // 分类增删改后：过滤视图已由 VM 同步维护（搜索态同样生效），这里做分类栏 UI 收尾。
+            // 选中态按 CurrentCategory 在过滤视图里重新断言（删除分类后 CurrentCategory 已切到新分类；
+            // 搜索态下选中项可能已不在结果里 → 保持不选中）。
+            RefreshCategoryPaneUi();
             RefreshMemes();
         };
         // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
@@ -391,6 +391,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (sel is null || ReferenceEquals(CategoryList.SelectedItem, sel)) return;
         CategoryList.SelectedItem = null;
         DispatcherQueue.TryEnqueue(() => CategoryList.SelectedItem = sel);
+    }
+
+    // 分类栏 UI 收尾（分类数据增/删/改名后调用）：空状态提示 + 选中视觉 + 拖拽排序快照。
+    private void RefreshCategoryPaneUi()
+    {
+        UpdateCategoryEmptyHint();
+        RestoreCategorySelectionVisual();
+        SnapshotCategoryOrders();
     }
 
     // 分类栏选中赋值的统一入口：搜索态下选中项可能不在过滤结果里，
@@ -977,8 +985,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         bool added = await _categories.AddCategoryAsync(name);
         if (added)
         {
-            ViewModel.CategoryList.Add(new CategoryViewModel(name, 0));
-            CategoryList.SelectedItem = ViewModel.CategoryList.Last();
+            // 经 VM 插入：数据源 + 过滤视图（分类栏）一起更新，分类栏即时可见。
+            var created = ViewModel.InsertCategory(name);
+            RefreshCategoryPaneUi();
+            // 选中新分类；搜索态下它可能不在结果里 → 不选中（不把不在 Items 中的对象设为 SelectedItem）。
+            if (ViewModel.FilteredCategoryList.Contains(created))
+                CategoryList.SelectedItem = created;
         }
     }
 
@@ -1802,8 +1814,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         await _importExport.RunBatchImportAsync(files, category, onCategoryCreated: createdName =>
         {
+            // 导入过程中引擎新建了分类：经 VM 插入（数据源 + 过滤视图），分类栏即时可见。
             if (!ViewModel.CategoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
-                ViewModel.CategoryList.Add(new CategoryViewModel(createdName, 0));
+            {
+                ViewModel.InsertCategory(createdName);
+                RefreshCategoryPaneUi();
+            }
         });
     }
 

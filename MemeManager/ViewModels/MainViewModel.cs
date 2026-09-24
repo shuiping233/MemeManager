@@ -103,7 +103,10 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
         for (int i = CategoryList.Count - 1; i >= 0; i--)
             if (CategoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                SyncFilteredOnRemove(CategoryList[i]);
                 CategoryList.RemoveAt(i);
+            }
 
         if (CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
         {
@@ -137,6 +140,8 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
         string oldName = cat.Name;
         cat.Name = newName;
+        // 改名可能让它匹配 / 不再匹配当前分类搜索词：同步过滤视图。
+        SyncFilteredOnRename(cat);
         // 注意：必须用改名前的旧名判断“被重命名的分类是否就是当前正在查看的分类”，
         // 不能用改名后的 cat.Name（那永远不等于 CurrentCategory 的旧值），否则 CurrentCategory 不更新、
         // 分类栏按旧名重新选中会找不到项，导致重命名后高亮丢失。
@@ -297,6 +302,54 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         foreach (var cat in CategoryList)
             if (kw is null || cat.Name.Contains(kw, StringComparison.OrdinalIgnoreCase))
                 FilteredCategoryList.Add(cat);
+    }
+
+    // ---------- 分类集合变更：同步过滤视图 ----------
+    // 保证 FilteredCategoryList ≡ CategoryList ∩ 关键词匹配。分类栏绑定的是过滤视图，
+    // 所以任何对 CategoryList 的增 / 删 / 改名都必须经这里同步，否则分类栏不会即时反映：
+    // 新建看不见、删除后残留、改名后匹配状态不同步。
+
+    // 新建分类：加入数据源并插入过滤视图；搜索态下仅当匹配当前关键词才显示。返回新建的 VM。
+    public CategoryViewModel InsertCategory(string name, int count = 0)
+    {
+        var vm = new CategoryViewModel(name, count);
+        CategoryList.Add(vm);
+        SyncFilteredOnInsert(vm);
+        return vm;
+    }
+
+    // 插入过滤视图：按数据源顺序定位插入点（分类栏顺序始终跟随 CategoryList）；不匹配关键词则不显示。
+    private void SyncFilteredOnInsert(CategoryViewModel cat)
+    {
+        if (CategoryFilterKeyword.Length > 0 &&
+            !cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase))
+            return;
+        if (FilteredCategoryList.Contains(cat)) return;
+
+        int sourceIndex = CategoryList.IndexOf(cat);
+        for (int i = 0; i < FilteredCategoryList.Count; i++)
+        {
+            if (CategoryList.IndexOf(FilteredCategoryList[i]) > sourceIndex)
+            {
+                FilteredCategoryList.Insert(i, cat);
+                return;
+            }
+        }
+        FilteredCategoryList.Add(cat);
+    }
+
+    // 从过滤视图移除（删除分类时调用）。
+    private void SyncFilteredOnRemove(CategoryViewModel cat) => FilteredCategoryList.Remove(cat);
+
+    // 改名后按新名字重新判定是否留在过滤视图（分类顺序不变，只需增/删）。
+    private void SyncFilteredOnRename(CategoryViewModel cat)
+    {
+        bool matches = CategoryFilterKeyword.Length == 0
+            || cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase);
+        if (matches)
+            SyncFilteredOnInsert(cat); // 已在视图里则是 no-op
+        else
+            FilteredCategoryList.Remove(cat);
     }
 
     // “全部表情”虚拟项（左侧栏固定头项，Name 空串代表全部表情）
@@ -471,7 +524,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
                     Logger.Log($"[MemeManager] [剪贴板] 新建分类失败，已取消粘贴: {name}");
                     return null;
                 }
-                CategoryList.Add(new CategoryViewModel(name, 0));
+                InsertCategory(name);
                 Logger.Log($"[MemeManager] [剪贴板] 新建分类 {name}");
             }
             return name;
