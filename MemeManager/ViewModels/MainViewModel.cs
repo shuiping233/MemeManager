@@ -338,11 +338,11 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         FilteredCategoryList.Add(cat);
     }
 
-    // 从过滤视图移除（删除分类时调用）。
-    private void SyncFilteredOnRemove(CategoryViewModel cat) => FilteredCategoryList.Remove(cat);
+    // 分类被删除时把该项移出过滤视图（由删除流程调用）。
+    public void SyncFilteredOnRemove(CategoryViewModel cat) => FilteredCategoryList.Remove(cat);
 
-    // 改名后按新名字重新判定是否留在过滤视图（分类顺序不变，只需增/删）。
-    private void SyncFilteredOnRename(CategoryViewModel cat)
+    // 分类改名后按新名字重新判定是否留在过滤视图（分类顺序不变，只需增/删；由改名流程调用）。
+    public void SyncFilteredOnRename(CategoryViewModel cat)
     {
         bool matches = CategoryFilterKeyword.Length == 0
             || cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase);
