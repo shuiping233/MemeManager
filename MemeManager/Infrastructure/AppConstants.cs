@@ -99,7 +99,7 @@ public static class AppConstants
     public const double CategoryContentMinWidth = 10;
 
     public const double DefaultCategoryWidth = 160;
-    public const double DefaultCategorySearchBoxWidth = DefaultCategoryWidth - 11;
+    public const double DefaultCategorySearchBoxWidth = DefaultCategoryWidth - 20;
 
     // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放）
     public const int MiniModeWidth = 280;
