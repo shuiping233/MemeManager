@@ -9,6 +9,7 @@
     xmlns:viewmodels="using:MemeManager.ViewModels"
     xmlns:l="using:WinUI3Localizer"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:infra="using:MemeManager.Infrastructure"
     NavigationCacheMode="Disabled"
     mc:Ignorable="d">
 
@@ -73,12 +74,24 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="SearchBox" Grid.Column="0" l:Uids.Uid="Main_Search"
-                      Margin="0,0,8,0" TextChanged="SearchBox_TextChanged">
-                <ToolTipService.ToolTip>
-                    <ToolTip l:Uids.Uid="Main_SearchToolTip"/>
-                </ToolTipService.ToolTip>
-            </TextBox>
+            <!-- 分类搜索框 + 表情搜索框：同格内联排，不改动右侧按钮的列索引。
+                 分类框固定宽 = 分类栏默认宽度（AppConstants.DefaultCategoryWidth），不随分类栏拖宽联动。 -->
+            <Grid Grid.Column="0" Margin="0,0,8,0" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="CategorySearchBox" Grid.Column="0"
+                         Width="{x:Bind infra:AppConstants.DefaultCategoryWidth}"
+                         l:Uids.Uid="Category_Search"
+                         TextChanged="CategorySearchBox_TextChanged"/>
+                <TextBox x:Name="SearchBox" Grid.Column="1" l:Uids.Uid="Main_Search"
+                          TextChanged="SearchBox_TextChanged">
+                    <ToolTipService.ToolTip>
+                        <ToolTip l:Uids.Uid="Main_SearchToolTip"/>
+                    </ToolTipService.ToolTip>
+                </TextBox>
+            </Grid>
             <ToggleButton x:Name="TopMostToggle" Grid.Column="1" l:Uids.Uid="Main_TopMost" Margin="0,0,8,0"
                           IsChecked="True" Checked="TopMostToggle_Checked" Unchecked="TopMostToggle_Unchecked">
                 <ToolTipService.ToolTip>
@@ -169,6 +182,7 @@
                       AllowDrop="True"
                       CanDragItems="True"
                       CanReorderItems="True"
+                      DragItemsStarting="CategoryList_DragItemsStarting"
                       DragItemsCompleted="CategoryList_DragItemsCompleted"
                       DragOver="CategoryList_DragOver"
                       SelectionChanged="CategoryList_SelectionChanged">
@@ -236,6 +250,20 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+
+            <!-- 分类栏空状态提示：搜索无匹配 / 本身就一个分类都没有。
+                 与 CategoryList 同格叠在其上；IsHitTestVisible=False 以免挡住空白区右键「新建分类」。 -->
+            <TextBlock x:Name="CategoryEmptyHint"
+                       Grid.Row="2"
+                       Margin="12,0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Opacity="0.5"
+                       IsHitTestVisible="False"
+                       Visibility="Collapsed"/>
+
             <Button x:Name="AddCategoryButton" Grid.Row="3" Content="+" FontSize="20"
             HorizontalAlignment="Stretch" Margin="8" Command="{x:Bind ViewModel.NewCategoryCommand}">
                 <ToolTipService.ToolTip>

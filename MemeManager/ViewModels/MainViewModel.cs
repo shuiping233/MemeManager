@@ -278,6 +278,27 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     // 左侧分类列表（绑定到分类栏），ReadOnly 集合，仅内部增删改
     public ObservableCollection<CategoryViewModel> CategoryList { get; } = new();
 
+    // 分类搜索的"过滤视图"（分类栏的 ItemsSource）：有关键词时是 CategoryList 的子集，无关键词时与其成员一致。
+    // 必须与 CategoryList 分开——引擎同步 / 选中恢复 / 重排写回都依赖 CategoryList 的全量语义。
+    public ObservableCollection<CategoryViewModel> FilteredCategoryList { get; } = new();
+
+    // 当前分类搜索关键词（空 = 不过滤）。只驱动 FilteredCategoryList；
+    // 表情搜索的关键词走 SearchService.Keyword，两者互不影响。
+    public string CategoryFilterKeyword { get; private set; } = string.Empty;
+
+    // 按关键词重建分类过滤视图（大小写不敏感 Contains，与表情搜索的匹配语义一致）。
+    // 关键词为空/空白 = 不过滤（视图与 CategoryList 等成员）。
+    public void ApplyCategoryFilter(string? keyword)
+    {
+        var kw = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
+        CategoryFilterKeyword = kw ?? string.Empty;
+
+        FilteredCategoryList.Clear();
+        foreach (var cat in CategoryList)
+            if (kw is null || cat.Name.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                FilteredCategoryList.Add(cat);
+    }
+
     // “全部表情”虚拟项（左侧栏固定头项，Name 空串代表全部表情）
     public CategoryViewModel AllMemesVm { get; } = new("", 0);
 
