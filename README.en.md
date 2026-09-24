@@ -103,6 +103,7 @@ All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported
 
 - In-main-window shortcuts:
   - `Ctrl`+`F` : focus search box
+  - `Ctrl`+`Shift`+`F` : focus the category search box (left `Shift` only)
   - `Ctrl`+`E` : enter/exit edit mode
   - `Ctrl`+`V` : after copying an image, paste it into the current category in the main window
   - `Ctrl`+`N` : create new category
