@@ -103,7 +103,10 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
         for (int i = CategoryList.Count - 1; i >= 0; i--)
             if (CategoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                SyncFilteredOnRemove(CategoryList[i]);
                 CategoryList.RemoveAt(i);
+            }
 
         if (CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
         {
@@ -137,6 +140,8 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
         string oldName = cat.Name;
         cat.Name = newName;
+        // 改名可能让它匹配 / 不再匹配当前分类搜索词：同步过滤视图。
+        SyncFilteredOnRename(cat);
         // 注意：必须用改名前的旧名判断“被重命名的分类是否就是当前正在查看的分类”，
         // 不能用改名后的 cat.Name（那永远不等于 CurrentCategory 的旧值），否则 CurrentCategory 不更新、
         // 分类栏按旧名重新选中会找不到项，导致重命名后高亮丢失。
@@ -277,6 +282,75 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
     // 左侧分类列表（绑定到分类栏），ReadOnly 集合，仅内部增删改
     public ObservableCollection<CategoryViewModel> CategoryList { get; } = new();
+
+    // 分类搜索的"过滤视图"（分类栏的 ItemsSource）：有关键词时是 CategoryList 的子集，无关键词时与其成员一致。
+    // 必须与 CategoryList 分开——引擎同步 / 选中恢复 / 重排写回都依赖 CategoryList 的全量语义。
+    public ObservableCollection<CategoryViewModel> FilteredCategoryList { get; } = new();
+
+    // 当前分类搜索关键词（空 = 不过滤）。只驱动 FilteredCategoryList；
+    // 表情搜索的关键词走 SearchService.Keyword，两者互不影响。
+    public string CategoryFilterKeyword { get; private set; } = string.Empty;
+
+    // 按关键词重建分类过滤视图（大小写不敏感 Contains，与表情搜索的匹配语义一致）。
+    // 关键词为空/空白 = 不过滤（视图与 CategoryList 等成员）。
+    public void ApplyCategoryFilter(string? keyword)
+    {
+        var kw = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
+        CategoryFilterKeyword = kw ?? string.Empty;
+
+        FilteredCategoryList.Clear();
+        foreach (var cat in CategoryList)
+            if (kw is null || cat.Name.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                FilteredCategoryList.Add(cat);
+    }
+
+    // ---------- 分类集合变更：同步过滤视图 ----------
+    // 保证 FilteredCategoryList ≡ CategoryList ∩ 关键词匹配。分类栏绑定的是过滤视图，
+    // 所以任何对 CategoryList 的增 / 删 / 改名都必须经这里同步，否则分类栏不会即时反映：
+    // 新建看不见、删除后残留、改名后匹配状态不同步。
+
+    // 新建分类：加入数据源并插入过滤视图；搜索态下仅当匹配当前关键词才显示。返回新建的 VM。
+    public CategoryViewModel InsertCategory(string name, int count = 0)
+    {
+        var vm = new CategoryViewModel(name, count);
+        CategoryList.Add(vm);
+        SyncFilteredOnInsert(vm);
+        return vm;
+    }
+
+    // 插入过滤视图：按数据源顺序定位插入点（分类栏顺序始终跟随 CategoryList）；不匹配关键词则不显示。
+    private void SyncFilteredOnInsert(CategoryViewModel cat)
+    {
+        if (CategoryFilterKeyword.Length > 0 &&
+            !cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase))
+            return;
+        if (FilteredCategoryList.Contains(cat)) return;
+
+        int sourceIndex = CategoryList.IndexOf(cat);
+        for (int i = 0; i < FilteredCategoryList.Count; i++)
+        {
+            if (CategoryList.IndexOf(FilteredCategoryList[i]) > sourceIndex)
+            {
+                FilteredCategoryList.Insert(i, cat);
+                return;
+            }
+        }
+        FilteredCategoryList.Add(cat);
+    }
+
+    // 分类被删除时把该项移出过滤视图（由删除流程调用）。
+    public void SyncFilteredOnRemove(CategoryViewModel cat) => FilteredCategoryList.Remove(cat);
+
+    // 分类改名后按新名字重新判定是否留在过滤视图（分类顺序不变，只需增/删；由改名流程调用）。
+    public void SyncFilteredOnRename(CategoryViewModel cat)
+    {
+        bool matches = CategoryFilterKeyword.Length == 0
+            || cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase);
+        if (matches)
+            SyncFilteredOnInsert(cat); // 已在视图里则是 no-op
+        else
+            FilteredCategoryList.Remove(cat);
+    }
 
     // “全部表情”虚拟项（左侧栏固定头项，Name 空串代表全部表情）
     public CategoryViewModel AllMemesVm { get; } = new("", 0);
@@ -450,7 +524,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
                     Logger.Log($"[MemeManager] [剪贴板] 新建分类失败，已取消粘贴: {name}");
                     return null;
                 }
-                CategoryList.Add(new CategoryViewModel(name, 0));
+                InsertCategory(name);
                 Logger.Log($"[MemeManager] [剪贴板] 新建分类 {name}");
             }
             return name;

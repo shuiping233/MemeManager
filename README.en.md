@@ -89,6 +89,8 @@ You can also use `Ctrl`+`A` to select all or invert all images.
 
 Performs a fuzzy search on the image `Title`, limited to the current category. Use the `Ctrl`+`F` shortcut to focus the search box quickly.
 
+The category search box works the same way: it fuzzy-matches category names and only filters the ordinary category list on the left (the "All Memes" item and the image grid are unaffected). Use the `Ctrl`+`Shift`+`F` shortcut to focus it quickly (left `Shift` only).
+
 ### Settings
 
 The settings items are self-explanatory, so we won't repeat them here.
@@ -103,6 +105,7 @@ All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported
 
 - In-main-window shortcuts:
   - `Ctrl`+`F` : focus search box
+  - `Ctrl`+`Shift`+`F` : focus the category search box (left `Shift` only)
   - `Ctrl`+`E` : enter/exit edit mode
   - `Ctrl`+`V` : after copying an image, paste it into the current category in the main window
   - `Ctrl`+`N` : create new category

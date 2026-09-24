@@ -290,6 +290,12 @@ public static class DialogHelper
         ShowMessageAsync(xamlRoot, Localization.Get("Dialog_BaseDirReverted_Title"),
             string.Format(Localization.Get("Dialog_BaseDirReverted_Message"), badPath, defaultPath));
 
+    // 拖拽重排失败：过滤视图与拖拽结果不再匹配（拖拽期间搜索词或数据发生变化）。
+    // 调用方已把容器顺序回滚到拖拽前，这里提示原因并建议重试。
+    public static Task ShowSortFailedAsync(XamlRoot xamlRoot, string reason) =>
+        ShowMessageAsync(xamlRoot, Localization.Get("Dialog_SortFailed_Title"),
+            string.Format(Localization.Get("Dialog_SortFailed_Message"), reason));
+
     // 通用安全弹窗：统一处理 XamlRoot 为空、模态计数与主题，供自定义内容弹窗（如关于框）复用，
     // 避免各调用方重复样板，并保证 IsModalOpen 计数一致（入口层据此拦截叠加）。
     public static async Task SafeShowAsync(ContentDialog dialog)

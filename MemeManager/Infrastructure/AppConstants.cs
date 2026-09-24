@@ -85,6 +85,9 @@ public static class AppConstants
     // 表情搜索框的防抖时长
     public static readonly TimeSpan SearchBoxDebounce = TimeSpan.FromMilliseconds(150);
 
+    // 分类搜索框的防抖时长（与表情搜索框保持一致）
+    public static readonly TimeSpan CategorySearchBoxDebounce = SearchBoxDebounce;
+
     // 文件监听器防抖静默时长：连续事件流停止后多久统一处理
     public static readonly TimeSpan FileWatchDebounce = TimeSpan.FromMilliseconds(500);
 
@@ -96,6 +99,7 @@ public static class AppConstants
     public const double CategoryContentMinWidth = 10;
 
     public const double DefaultCategoryWidth = 160;
+    public const double DefaultCategorySearchBoxWidth = DefaultCategoryWidth - 20;
 
     // Mini 模式窗口尺寸（DIP，实际 Resize 时按 DPI 缩放）
     public const int MiniModeWidth = 280;
