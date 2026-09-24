@@ -1999,6 +1999,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 这样截图等写剪贴板的行为不会误触发“粘贴到分类”；无焦点时的 Ctrl+V 仍走投回外部逻辑。
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.LeftShift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         if (ctrl && e.Key == Windows.System.VirtualKey.V)
         {
             if (!App.MainWindow.IsWindowActive)
@@ -2037,7 +2039,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-        // Ctrl+F：聚焦搜索框
+        // Ctrl+Shift+F：聚焦分类搜索框
+        if (ctrl && shift && e.Key == Windows.System.VirtualKey.F)
+        {
+            e.Handled = true;
+            CategorySearchBox.Focus(FocusState.Keyboard);
+            return;
+        }
+
+        // Ctrl+F：聚焦表情搜索框
         if (ctrl && e.Key == Windows.System.VirtualKey.F)
         {
             e.Handled = true;
