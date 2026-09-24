@@ -82,7 +82,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="CategorySearchBox" Grid.Column="0"
-                         Width="{x:Bind infra:AppConstants.DefaultCategoryWidth}"
+                         Width="{x:Bind infra:AppConstants.DefaultCategorySearchBoxWidth}"
                          l:Uids.Uid="Category_Search"
                          TextChanged="CategorySearchBox_TextChanged"/>
                 <TextBox x:Name="SearchBox" Grid.Column="1" l:Uids.Uid="Main_Search"
