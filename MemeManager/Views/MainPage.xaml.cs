@@ -446,7 +446,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 不能用尚未 flush 的旧 config 覆盖（否则会把刚切走的分类又切回去，见 https://github.com/shuiping233/MemeManager/issues/16 相关回归）。
     private void LoadCategories(bool restoreSelectionFromConfig = true)
     {
-        // [x:Load 实验] 隐藏期间分类面板已被 x:Load 卸载（x:Name 为 null），
+        // 隐藏期间分类面板已被 x:Load 卸载（x:Name 为 null），
         // 本方法下方会写 SelectedItem，这里短路跳过；重载后 SetMemeViewVisible(true) 会重绑并恢复选中。
         if (CategoryList is null || AllMemesList is null)
         {
@@ -781,7 +781,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 可见时重新绑回数据源并恢复选中视觉；隐藏时断开 ItemsSource 释放 GPU 纹理。
     public void SetMemeViewVisible(bool visible)
     {
-        // [x:Load 实验] 控件尚未构造（x:Load 卸载态，或调用早于 x:Bind applied）时跳过：
+        // 控件尚未构造（x:Load 卸载态，或调用早于 x:Bind applied）时跳过：
         // 首次初始化与重绑分别由 Page.Loaded → EnsureGridInitialized、重建门控 UiElement_Loaded 兜底。
         if (MemeGridView is null || CategoryList is null || AllMemesList is null)
         {
@@ -835,16 +835,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    // ---------- [x:Load 实验] 重型控件卸载/重建门控 ----------
-
     // 等待 x:Load 重建完成的门控标志：ShowWindow 置 IsUiLoaded=true 后，
     // MemeGridView / CategoryPanel 异步重建，两个都 Loaded 才能安全重绑数据与恢复交互。
     private bool _awaitingUiReload;
 
-    // 三个列表的首次初始化是否已完成（幂等门）。
+    // 三个列表的首次初始化是否已完成。
     private bool _gridDataInitialized;
 
-    // [x:Load 实验] 三个列表的首次 ItemsSource 赋值 + 分类数据加载（幂等）。
+    // 三个列表的首次 ItemsSource 赋值 + 分类数据加载（幂等）。
     // 不能放在构造函数里：x:Load 元素在 x:Bind applied（Page.Loading 阶段）之前不存在，
     // 构造期访问其 x:Name 恒为 null。正常启动由 Page.Loaded 调用；
     // --hidden 启动时首帧即处于卸载态（StartHidden 早于 Loading 把 IsUiLoaded 置 false，
@@ -899,7 +897,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 分类只存在于 MainPage（MiniPage 的分类是 ComboBox，每次进入都重建，无需释放）。
     public void ReleaseCategoryList()
     {
-        // [x:Load 实验] 控件尚未构造时（--hidden 启动，或在 x:Load 卸载态被重复调用）无可释放，直接跳过。
+        // 控件尚未构造时（--hidden 启动，或在 x:Load 卸载态被重复调用）无可释放，直接跳过。
         if (CategoryList is null || AllMemesList is null) return;
 
         CategoryList.ItemsSource = null;
@@ -921,7 +919,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 摘容器后 Image 从可视化树移除，WinUI 框架在下一帧释放纹理。
         if (detachItemsSource)
         {
-            // [x:Load 实验] 控件尚未构造（--hidden 启动走 HideWindow(force:true) 绕过幂等早退）时
+            // 控件尚未构造（--hidden 启动走 HideWindow(force:true) 绕过幂等早退）时
             // 无可摘容器，仅断 VM 位图引用即可；元素重建后由 SetMemeViewVisible 重绑。
             if (MemeGridView is not null)
             {
@@ -1085,7 +1083,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void RefreshMemes()
     {
-        // [x:Load 实验] 隐藏期间网格已卸载（x:Name 为 null）：本方法下方读 SearchBox、结束后
+        // 隐藏期间网格已卸载（x:Name 为 null）：本方法下方读 SearchBox、结束后
         // 由选择链路触碰网格，这里短路跳过；重载后 SetMemeViewVisible(true) 会按最新 VM 集合重绑。
         if (SearchBox is null || MemeGridView is null)
         {
@@ -1869,13 +1867,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         DialogHelper.ShowMoveConflictAsync(this.XamlRoot, targetCategory, pairs);
 
     // IMemeOperationUi：删除完成后清空网格选中态。
-    // [x:Load 实验] 用 ?. ——批量删除进行中用户可能关闭主窗口（x:Load 卸载网格），
+    // MemeGridView 用 ?. ——批量删除进行中用户可能关闭主窗口（x:Load 卸载网格），
     // 完成回调此时到达，x:Name 为 null。
     public void OnDeleteComplete() => MemeGridView?.SelectedItems.Clear();
-
-    // 注：ShowWriteBusyAsync 已在 IImportExportUi 实现处提供（两接口签名相同，单一实现即可满足）。
-
-    // ---------- 批量操作 ----------
 
     private async Task BatchImportCoreAsync()
     {
@@ -2305,7 +2299,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         DispatcherQueue.TryEnqueue(() =>
         {
             if (App.MainWindow.IsClosing) return;
-            // [x:Load 实验] 回调延迟到下一帧，期间可能已隐藏窗口导致网格被 x:Load 卸载。
+            // 回调延迟到下一帧，期间可能已隐藏窗口导致网格被 x:Load 卸载。
             if (MemeGridView is null) return;
             foreach (var item in MemeGridView.Items)
             {
@@ -2348,7 +2342,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 立即停止预览浮窗（不淡出），避免隐藏/销毁期间其异步回调访问已卸载的可视化树
         HidePreviewPopup(immediate: true, "SuspendInteractions");
 
-        // [x:Load 实验] 隐藏态下点托盘“退出”会再次走到这里（Window_Closed → SuspendWindowInteractions），
+        // 隐藏态下点托盘“退出”会再次走到这里（Window_Closed → SuspendWindowInteractions），
         // 此时网格/分类面板已被 x:Load 卸载（x:Name 为 null）：控件不在树上、拖拽能力天然不存在，直接跳过。
         if (MemeGridView is null || CategoryList is null) return;
 
@@ -2366,7 +2360,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         if (App.MainWindow.IsClosing) return;
 
-        // [x:Load 实验] 控件尚未重建（x:Load 卸载态）时跳过：
+        // 控件尚未重建（x:Load 卸载态）时跳过：
         // 下方会写 CategoryList/MemeGridView 的拖拽开关；重建完成后由 UiElement_Loaded 门控再次调用本方法。
         if (MemeGridView is null || CategoryList is null) return;
 
