@@ -278,7 +278,6 @@
         </Grid>
 
         <!-- 右侧表情网格 -->
-        <!-- [x:Load 实验] 隐藏窗口时整块卸载（x:Load），重建完成信号见 MainPage.UiElement_Loaded -->
         <GridView x:Name="MemeGridView"
                   Grid.Row="3" Grid.Column="1"
                   Margin="12"
