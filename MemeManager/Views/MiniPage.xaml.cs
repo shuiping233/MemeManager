@@ -5,6 +5,7 @@ using MemeManager.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace MemeManager.Views;
@@ -220,12 +221,51 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     // detachItemsSource 参数忽略：Picker 容器每次都需摘（每次 Opening 都会换新批次）。
     public void ReleaseImages(bool detachItemsSource)
     {
-        if (_pickerMemes != null)
-        {
-            foreach (var vm in _pickerMemes)
-                vm.ClearImages();
-        }
+        // 顺序有讲究：趁 Flyout 还开着（元素确实在可视化树上、可 enumerate）先断 Image.Source。
+        // ClearImages() 只清 VM 字段且刻意不触发 PropertyChanged，已 realize 元素上的 Image.Source
+        // 仍引用旧 BitmapImage —— 不显式置 null 纹理不会释放，而 ItemsSource=null 触发的元素回收
+        // 要等一次布局，Flyout 卷起的 Popup 子树根本不参与布局（同 MainPage 预览浮窗
+        // "PreviewImage.Source = null" 那条路径）。所以顺序必须是：断元素源 → 收 Popup → 摘 ItemsSource。
+        DetachRepeaterItemImages();
+
+        foreach (var vm in _pickerMemes)
+            vm.ClearImages();
+        // 断列表对 VM 的引用：全部表情视图下 Picker 会一次建出全库的 VM，
+        // 隐藏期间无需常驻（下次 Opening 按当前分类重新加载）。
+        _pickerMemes.Clear();
+
+        // 收起 Popup：SW_HIDE 主窗口不会自动关 Flyout，Popup 子树（含未被回收的元素）会一直挂在
+        // 窗口上，也避免再次呼出窗口时 Picker 残留打开。未打开时 Hide() 是 no-op。
+        PickerFlyout.Hide();
+
         PickerRepeater.ItemsSource = null;
+    }
+
+    // 把 PickerRepeater 已 realize 元素里 Image 的 Source 置 null，断开元素对 BitmapImage 的引用
+    // （纹理随 BitmapImage 失去引用被框架回收）。未 realize 的索引 TryGetElement 返回 null，天然跳过。
+    private void DetachRepeaterItemImages()
+    {
+        int count = PickerRepeater.ItemsSourceView?.Count ?? 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (PickerRepeater.TryGetElement(i) is UIElement element)
+                ClearImageSources(element);
+        }
+    }
+
+    // 递归清空子树里的 Image.Source：不依赖模板固定层级（当前模板根是 Grid、其子级为 Image，
+    // 模板将来加包裹层也能找到）。
+    private static void ClearImageSources(DependencyObject root)
+    {
+        int children = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < children; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is Image image)
+                image.Source = null;
+            else
+                ClearImageSources(child);
+        }
     }
 
     // ---------- 拖入导入（XAML DataPackage + Win32 WM_DROPFILES 转发）----------
