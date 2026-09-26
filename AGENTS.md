@@ -118,7 +118,7 @@ WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, 
 消息机制纪律（前两条已踩过）：
 
 - **只能在构造函数里 `Register` 一次**：同一实例对同一消息重复注册会抛 `InvalidOperationException`，绝不能放进 `OnShow()` 这类每次打开都会执行的方法。
-- **订阅方是 Transient 时必须过滤"已关闭的旧实例"**：弱引用只保证"不拖住回收"，不保证"收不到消息"——旧实例在被 GC 之前仍挂在总线上，不作废就会重复响应（弹两个选择器/两个弹窗）。做法：页面自持 `_closed`（`Detach()` 置位）+ 宿主在新建前同步作废旧实例。
+- **订阅方若是"每次打开都新建"的短命实例**：必须额外过滤"已关闭的旧实例"——弱引用只保证"不拖住回收"，不保证"收不到消息"（旧实例在被 GC 之前仍挂在总线上，会重复响应）。当前设置页已改成"单例 + `x:Load`"，不存在这个场景；将来若真引入 Transient Page 再照此办理。
 - 短命订阅方**无需反订阅**（这正是它优于 `+=` 事件的地方）；页面被回收后也不会滞留在总线上。
 - **不要用 `RequestMessage<T>` 表达"VM 要 UI 的返回值"**：它要求单次响应，多个订阅者都 `Reply` 会抛 `InvalidOperationException`，与"可能同时存在多个 Page 实例"的现实冲突。需要结果时优先把整段逻辑下沉到 Page（picker 结果、路径回填、错误弹窗都在 Page 内部闭环）。
 
@@ -126,7 +126,9 @@ WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, 
 
 - 必须用 `=` 覆盖式赋值，**不要用 `+=`**：覆盖式天然不累积（新 Page 构造时替换旧引用），也无需 `-=` 反订阅。
 - ⚠️ **单例 VM + 短命 Page 的累积坑（已踩并修复）**：不要用 `+=` 把短命 Page 的处理器挂到单例 VM 上——每打开一次累积一份，第 N 次打开点一次按钮触发 N 次。确实需要多订阅者时才不得不 `+=`，那时才要"具名字段保存处理器 + `Page.Unloaded` 里 `-=`"。
-- 覆盖式的代价：旧 Page 会被单例 VM 持有到"下次打开"才被替换。要求"关闭即回收"的页面（如 `SettingsPage`）请用消息 + 页面自己的 `Detach()`。
+- 覆盖式的代价：旧 Page 会被单例 VM 持有到"下次打开"才被替换。要求"关闭即释放控件树"的页面请用
+  「单例 + `x:Load`」卸载内容（见《9. 频繁开关的重型 UI：优先「单例 + x:Load 卸载内容」》），
+  不要指望 `Transient` 让 GC 帮你回收。
 - 例外：纯系统 API（如 `Launcher.LaunchFolderPathAsync`）不依赖窗口实例，可直接进 VM（参考 `SettingsViewModel.OpenConfigFolderCommand`），无需走消息/委托。
 
 ### DataTemplate / ContextFlyout 内绑定 Page VM 的 Command（WinUI 高频坑）
@@ -232,8 +234,9 @@ UI 生命周期事件 → 留 Code Behind（不迁）
 
 - 容器：`Microsoft.Extensions.DependencyInjection`；Page/Window 由框架实例化，用字段式
   `App.GetService<T>()` 取（Service Locator 过渡方案，可接受）。
-- 生命周期：全局单例用 `AddSingleton`；需要每实例隔离的才 `AddTransient`（如 `SettingsPage`：
-  每次打开新建、关闭即释放整棵视觉树）。
+- 生命周期：全局单例用 `AddSingleton`；需要每实例隔离的才 `AddTransient`。注意 `Transient` 只保证
+  "每次解析给新实例"，回收仍完全交给 GC —— **频繁开关的重型 UI 不要靠 `Transient` 反复新建**，
+  见《9. 频繁开关的重型 UI：优先「单例 + x:Load 卸载内容」》。
 - `MemeDataEngine` 进容器（核心数据层）；`Localization`/`Logger`/`LangHelper`/`EcoQos`/`Utils`
   保持 static（无状态工具，强行进容器会让 100+ 处调用改签名，得不偿失）；`ViewDragService`
   保持 static（View 层 UI 适配器，非 Service）；`FileWatcher` 作为 Engine 成员随其注入，不单独注册。
@@ -301,5 +304,23 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 - 允许使用community toolkit的ui控件和类库, 因为很方便, 可以减少重复代码
 - 推荐用 `WeakReferenceMessenger` 单向消息做跨组件（VM↔Page、跨窗口/控件）的能力调用与状态广播；
   判据与纪律见上文《VM → Page 的意图传递纪律（消息优先，勿反向依赖窗口）》。
+
+### 9. 频繁开关的重型 UI：优先「单例 + x:Load 卸载内容」
+
+- **反复 `new` 的 WinUI 控件/Page 不会被主动回收**：`Transient` 只保证"每次解析给新实例"，回收完全
+  交给 GC，而一次性建出来的整棵控件树会长期滞留，表现为"开关几次内存只涨不降"。所以频繁开关的
+  重型 UI 不要靠 `Transient` 反复新建。
+- **已用且验证过的做法**：`MainPage`（`CategoryPanel` / `MemeGridView`）与 `SettingsPage`
+  （`RootContent`）—— **Page 保持 `AddSingleton`，给内容根元素加
+  `x:Load="{x:Bind VM.IsUiLoaded, Mode=OneWay}"`**：关闭时置 `false` 卸载整棵树，再次打开置 `true`
+  重建。这套机制是 `x:Load` 实验（commit b1a91d6）验证过的。
+- ⚠️ **Flyout / Popup 内容特有的坑（已踩）**：Page 不在视觉树上时 `x:Bind` 尚未 applied、
+  `x:Load` 根本不生效——所以必须 **先 `ShowAt` 让 Page 进树，再置 `IsUiLoaded = true`**。
+  反过来写会永远等不到内容（浮窗一片空白）。`MainPage` 没有这个问题是因为它一直在窗口里。
+- ⚠️ **控件赋值（含 `ItemsSource`）绝不能放在 Page 构造函数**：`x:Load` 元素在 x:Bind applied
+  之前不存在，构造期读 `x:Name` 恒为 null。回填统一放在内容根的 `Loaded` 里，并保证幂等
+  （参考 `SettingsPage.PrepareShow` / `RootContent_Loaded` / `OnShowCore` 的分工）。
+- 单例 Page **不要**调 `Bindings.StopTracking()`：它会让 OneWay 绑定永久停更（该 API 只适用于
+  会被真正销毁的 Page）。单例 + 内容卸载的形态下，绑定始终有效、无需也不能断开。
 
 ---
