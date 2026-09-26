@@ -602,6 +602,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // 隐藏窗口（关闭到托盘）前先收起设置浮窗：Flyout 属于 MainPage、不随 SW_HIDE 关闭，
+        // 若用户开着设置页直接点 X，设置页会连整棵视觉树随 MainPage 常驻，未点"完成"的改动也会丢。
+        // Hide() 走与手动关闭相同的路径（SaveAsync + Content=null + Detach）；浮窗本就关着时是 no-op。
+        // 放在 SW_HIDE 之前：此时页面状态完好，SaveAsync 的取控件值/构造补丁先同步跑完。
+        CurrentMainPage?.CloseSettingsFlyout();
+
         NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_HIDE);
         _isVisible = false;
 
