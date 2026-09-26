@@ -81,12 +81,7 @@ MemeManager/
   - 目标：把纯逻辑代码（SafePath / FileNameValidator / 未来的 MemeDataEngine、Service 逻辑等）抽成 `MemeManager.Core`（纯 .NET，不引用 WinUI），`MemeManager` 主项目与 `MemeManager.Tests` 都引用它；测试只依赖 Core → 秒级启动、CI 无需装 runtime。
   - 范围：按"UI 无关"边界抽（Infrastructure 的纯逻辑部分 + Models + Service 逻辑），Views/Clipboard/TrayIcon/P-Invoke 留在主项目。
   - 现有 51 用例（SafePathTests / FileNameValidatorTests）届时改为引用 Core。
-
-- **复杂多选导出子窗口**（分类多选 + 跨分类 meme 批量导出，待评估未开始）：
-  - 背景：主界面做"分类三态复选框 ↔ meme 全局跨分类选中 ↔ 批量操作"联动太过复杂、状态耦合（切虚拟分类"全部表情"会难以处理）。
-  - 方案：新增独立子窗口承载复杂多选导出，子窗口内多选分类 → 预览/勾选 meme → 导出，状态完全隔离，不污染主界面 meme 多选与 CurrentCategory。
-  - 待定：入口（批量导出按钮/右键）、分类多选交互、预览是否可二次勾选、导出参数、虚拟分类排除规则。
-
+  
 - **封装 `MemeDataCache`（数据层缓存整理，待开工）**：
   - 动机：`MemeDataEngine` 里三个缓存字段——`List<MemeModel> _memeCache`、`Dictionary<string, List<string>> _titleReverseMap`（title→文件名列表）、`Dictionary<string, uint> _categoryOrder`（分类名→优先级，越大越靠前）——互相之间存在必须同步的不变量（图片改名要同时改 cache 与标题反查索引；分类改名/删除要同步顺序表）。现在这些散在 1000+ 行引擎代码里靠人肉维护，字段一多/结构一变，上游查询很容易漏同步。
   - 顺带解掉性能担忧：`GetCategories()` 现在为了收集分类名要 `_memeCache.ToList()` + 全量 foreach（万级图片就是万级遍历），`ComputeCounts()` 同理。Cache 内部维护「分类名集合 / 计数」后，两者都降为 O(分类数)。
@@ -101,4 +96,9 @@ MemeManager/
     1. **零行为变化的搬运**：字段 + 维护代码搬进 Cache，`MemeDataEngine` 方法体改为转发调用（引擎保留路径解析 / 权限 / 写盘 / 事件 / FileWatcher / EcoQos 编排）；逐处核对 1300 行里每个字段读写的语义（哪些取快照、哪些是写），`_memeCache.ToList()` 的快照拷贝语义必须保留。
     2. **再做性能优化**：`GetCategories()` / `ComputeCounts()` 改走内部的分类名集合与计数。
   - 测试：`MemeDataCache` 是纯内存结构，不需要临时目录 / `InternalsVisibleTo` 那套前置改造即可 xUnit 覆盖——分类改名/删除时顺序表与计数同步、图片改名时标题反查的旧键清理 + 新键建立、`GetAllMemes` 返回拷贝（外部改动不污染内部）、`GetCategories` 排序稳定性。这些不变量目前只能靠手测。
-  - 关系：与上一条「抽离 `MemeManager.Core`」同向——Cache 属 UI 无关的纯逻辑，抽 Core 时一并迁入。
+。
+
+- **复杂多选导出子窗口**（分类多选 + 跨分类 meme 批量导出，待评估未开始）：
+  - 背景：主界面做"分类三态复选框 ↔ meme 全局跨分类选中 ↔ 批量操作"联动太过复杂、状态耦合（切虚拟分类"全部表情"会难以处理）。
+  - 方案：新增独立子窗口承载复杂多选导出，子窗口内多选分类 → 预览/勾选 meme → 导出，状态完全隔离，不污染主界面 meme 多选与 CurrentCategory。
+  - 待定：入口（批量导出按钮/右键）、分类多选交互、预览是否可二次勾选、导出参数、虚拟分类排除规则。
