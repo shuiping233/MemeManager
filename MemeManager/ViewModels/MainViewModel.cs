@@ -364,8 +364,11 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     // 全量重载（F5）进行中标记：防止重载与自身/后台写任务并发重建缓存导致崩溃
     public bool Reloading { get; set; }
 
-    // 搜索框防抖定时器
+    // 表情搜索框防抖定时器
     public Debouncer? SearchDebouncer { get; set; }
+
+    // 分类搜索框防抖定时器
+    public Debouncer<string>? CategorySearchDebouncer { get; set; }
 
     // 悬停放大预览：当前待显示（已延迟、尚未弹出）的表情项
     public MemeViewModel? PendingPreviewVm { get; set; }

@@ -228,7 +228,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         });
 
         // 分类搜索框防抖：只刷新分类栏（过滤视图 + 空状态 + 选中视觉 + 排序快照）。
-        _categorySearchDebouncer = new Debouncer<string>(AppConstants.CategorySearchBoxDebounce, ApplyCategorySearch);
+        ViewModel.CategorySearchDebouncer = new Debouncer<string>(AppConstants.CategorySearchBoxDebounce, ApplyCategorySearch);
     }
 
     private void MainPage_Unloaded(object sender, RoutedEventArgs e)
@@ -332,17 +332,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         };
     }
 
-    // ---------- 分类 ----------
-
-    // ---------- 分类搜索（只过滤普通分类栏；不影响"全部表情"虚拟项与表情网格） ----------
-
-    // 分类搜索框防抖器（Page 级，与表情搜索框的防抖互不干扰）。
-    private readonly Debouncer<string> _categorySearchDebouncer;
-
     // 分类搜索框文本变化：交给防抖后只刷新分类栏。
     private void CategorySearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        _categorySearchDebouncer.Trigger(CategorySearchBox.Text);
+        ViewModel.CategorySearchDebouncer?.Trigger(CategorySearchBox.Text);
     }
 
     // 应用分类搜索关键词：重建过滤视图 → 更新空状态 → 恢复选中视觉 → 刷新排序快照。
