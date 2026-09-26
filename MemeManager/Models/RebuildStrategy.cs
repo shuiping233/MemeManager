@@ -1,4 +1,3 @@
-using MemeManager.Infrastructure;
 using MemeManager.ViewModels;
 
 namespace MemeManager.Models;
@@ -11,20 +10,6 @@ namespace MemeManager.Models;
 /// </summary>
 public sealed class RebuildStrategy : IMemeListStrategy
 {
-    private readonly MemeDataEngine _engine;
-
-    public RebuildStrategy(MemeDataEngine engine)
-    {
-        _engine = engine;
-    }
-
-    public void SyncCategories(ICollection<CategoryViewModel> list, IEnumerable<string> categories, Func<string, int> getCount)
-    {
-        list.Clear();
-        foreach (var cat in categories)
-            list.Add(new CategoryViewModel(cat, getCount(cat)));
-    }
-
     public void RefreshMemes(ICollection<MemeViewModel> list, IEnumerable<MemeModel> memes)
     {
         list.Clear();

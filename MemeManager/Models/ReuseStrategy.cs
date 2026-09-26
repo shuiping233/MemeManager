@@ -1,4 +1,3 @@
-using MemeManager.Infrastructure;
 using MemeManager.ViewModels;
 
 namespace MemeManager.Models;
@@ -11,67 +10,6 @@ namespace MemeManager.Models;
 /// </summary>
 public sealed class ReuseStrategy : IMemeListStrategy
 {
-    private readonly MemeDataEngine _engine;
-
-    public ReuseStrategy(MemeDataEngine engine)
-    {
-        _engine = engine;
-    }
-
-    public void SyncCategories(ICollection<CategoryViewModel> list, IEnumerable<string> categories, Func<string, int> getCount)
-    {
-        var cats = categories.ToList();
-        var newNames = new HashSet<string>(cats, StringComparer.OrdinalIgnoreCase);
-
-        // 移除已不存在的分类（按名匹配，避免位置错位）
-        if (list is IList<CategoryViewModel> l)
-        {
-            for (int i = l.Count - 1; i >= 0; i--)
-                if (!newNames.Contains(l[i].Name))
-                    l.RemoveAt(i);
-
-            // 按目标顺序：已有的原地复用（仅更新 Count），新增的在正确位置插入
-            int idx = 0;
-            foreach (var cat in cats)
-            {
-                var existingVm = l.FirstOrDefault(c => c.Name.Equals(cat, StringComparison.OrdinalIgnoreCase));
-                int count = getCount(cat);
-                if (existingVm != null)
-                {
-                    int existing = l.IndexOf(existingVm);
-                    if (existing != idx)
-                    {
-                        l.RemoveAt(existing);
-                        l.Insert(idx, existingVm);
-                    }
-                    existingVm.Count = count;
-                }
-                else
-                {
-                    l.Insert(idx, new CategoryViewModel(cat, count));
-                }
-                idx++;
-            }
-        }
-        else
-        {
-            foreach (var dead in list.Where(c => !newNames.Contains(c.Name)).ToList())
-                list.Remove(dead);
-
-            int idx = 0;
-            foreach (var cat in cats)
-            {
-                var existingVm = list.FirstOrDefault(c => c.Name.Equals(cat, StringComparison.OrdinalIgnoreCase));
-                int count = getCount(cat);
-                if (existingVm != null)
-                    existingVm.Count = count;
-                else
-                    list.Add(new CategoryViewModel(cat, count));
-                idx++;
-            }
-        }
-    }
-
     public void RefreshMemes(ICollection<MemeViewModel> list, IEnumerable<MemeModel> memes)
     {
         var memeArr = memes.ToList();

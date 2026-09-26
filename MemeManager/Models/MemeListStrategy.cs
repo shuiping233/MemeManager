@@ -3,7 +3,7 @@ using MemeManager.ViewModels;
 namespace MemeManager.Models;
 
 /// <summary>
-/// 列表构建/维护策略的抽象。把“表情/分类列表如何构建与重排”从 MainWindow 里抽离，
+/// 表情网格列表构建/维护策略的抽象。把“表情列表如何构建与重排”从 MainWindow 里抽离，
 /// 使“复用控件”与“每次重建控件”两种模式可以互换，而不在 MainWindow 里散落 if/else。
 ///
 /// 两种具体实现：
@@ -12,14 +12,15 @@ namespace MemeManager.Models;
 /// - RebuildStrategy：每次全量 Clear+重建 VM（旧 Image 控件随旧容器从树消失，
 ///   WinUI 框架会在下一帧自动释放其 GPU 纹理），隐藏后台内存能显著回落。
 ///
+/// 分类栏集合（CategoryList）的维护不在这里：分类全量名单与“关键词过滤视图”都由
+/// MainViewModel 自己维护（见 SetAllCategoryNames / ApplyCategoryFilter），
+/// 避免两份 VM 集合互相同步导致“谁被 ListView 重排、谁被写回”分叉。
+///
 /// MainWindow 持有当前策略实例，按配置“启用控件复用策略”在两者间切换；
-/// 切换后下一次 RefreshMemes/LoadCategories 自然走不同实现。
+/// 切换后下一次 RefreshMemes 自然走不同实现。
 /// </summary>
 public interface IMemeListStrategy
 {
-    /// <summary>按目标分类集合同步分类列表（Reuse=增量复用，Rebuild=整体重建）。</summary>
-    void SyncCategories(ICollection<CategoryViewModel> list, IEnumerable<string> categories, System.Func<string, int> getCount);
-
     /// <summary>按当前表情数据刷新表情列表（Reuse=增量复用 VM，Rebuild=整体重建）。</summary>
     void RefreshMemes(ICollection<MemeViewModel> list, IEnumerable<MemeModel> memes);
 

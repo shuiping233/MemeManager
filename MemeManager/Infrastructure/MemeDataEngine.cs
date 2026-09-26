@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using MemeManager.Models;
@@ -106,7 +105,7 @@ public class MemeDataEngine(ConfigService _config)
     private void LoadConfig() => _config.LoadConfig();
 
     private async Task SaveConfigAsync() => await _config.SaveConfigAsync();
-    
+
     // 打补丁配置并持久化（委托 ConfigService），随后处理数据目录解析与（必要时）元数据重载——
     // 这部分属于引擎职责（数据目录归属），不归入 ConfigService。
     public async Task UpdateConfigAsync(Action<AppConfig> patch)
@@ -248,22 +247,20 @@ public class MemeDataEngine(ConfigService _config)
     public IReadOnlyList<string> GetCategories()
     {
         // 分类 = 内存中已有分类 ∪ 磁盘上实际存在的分类文件夹
-        var set = new System.Collections.Generic.SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var set = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         // 先快照再枚举，避免枚举过程中 _memeCache 被并发修改导致崩溃
         foreach (var m in _memeCache.ToList())
             if (!string.IsNullOrWhiteSpace(m.Category)) set.Add(m.Category);
 
-        if (Directory.Exists(_baseDir))
+        if (!Directory.Exists(_baseDir)) return set.ToArray();
+        foreach (var dir in Directory.GetDirectories(_baseDir))
         {
-            foreach (var dir in Directory.GetDirectories(_baseDir))
-            {
-                // 仅将含有 .metadata.json 的文件夹视为有效分类
-                if (File.Exists(Path.Combine(dir, AppConstants.MetadataFileName)))
-                    set.Add(Path.GetFileName(dir));
-            }
+            // 仅将含有 .metadata.json 的文件夹视为有效分类
+            if (File.Exists(Path.Combine(dir, AppConstants.MetadataFileName)))
+                set.Add(Path.GetFileName(dir));
         }
 
-        var result = set.ToList();
+        var result = set.ToArray();
         // 按优先级降序（值越大越靠前），同优先级按名称稳定排序
         result.Sort((a, b) =>
         {

@@ -172,8 +172,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 抽成 Subscribe/Unsubscribe 成对方法：F5 刷新会重建 Watcher，刷新后需重新订阅。
         SubscribeWatcher();
 
-        // 分类栏绑定的是"搜索过滤视图"（无关键词时与 CategoryList 等成员）；
-        // 数据源仍是 ViewModel.CategoryList —— 引擎同步 / 选中恢复 / 重排写回都依赖它的全量语义。
+        // 分类栏绑定 ViewModel.CategoryList（唯一集合：无关键词=全量，有关键词=匹配子集）。
+        // 全量分类名由 LoadCategories 从引擎灌入 VM，视图由 VM 内部重算；此处只清空搜索状态。
         ViewModel.ApplyCategoryFilter(null);
 
         SettingsFlyout.Closed += SettingsFlyout_Closed;
@@ -227,7 +227,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             RefreshMemes();
         });
 
-        // 分类搜索框防抖：只刷新分类栏（过滤视图 + 空状态 + 选中视觉 + 排序快照）。
+        // 分类搜索框防抖：只刷新分类栏（视图重算 + 计数 + 空状态 + 选中视觉 + 排序快照）。
         ViewModel.CategorySearchDebouncer = new Debouncer<string>(AppConstants.CategorySearchBoxDebounce, ApplyCategorySearch);
     }
 
@@ -278,9 +278,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             // 同步分类栏选中态：删除分类后 CurrentCategory 已切到新分类，
             // 需让 ListView.SelectedItem 跟随，触发 SelectionChanged 恢复焦点/写配置/刷新。
-            // 分类增删改后：过滤视图已由 VM 同步维护（搜索态同样生效），这里做分类栏 UI 收尾。
-            // 选中态按 CurrentCategory 在过滤视图里重新断言（删除分类后 CurrentCategory 已切到新分类；
-            // 搜索态下选中项可能已不在结果里 → 保持不选中）。
+            // 分类增删改后：分类栏视图已由 VM 内部按当前关键词重算（搜索态同样生效），这里做分类栏 UI 收尾。
+            // 选中态按 CurrentCategory 在分类栏视图里重新断言（删除分类后 CurrentCategory 已切到新分类；
+            // 搜索态下选中项可能已不在视图里 → 保持不选中）。
             RefreshCategoryPaneUi();
 
             RefreshMemes();
@@ -338,10 +338,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.CategorySearchDebouncer?.Trigger(CategorySearchBox.Text);
     }
 
-    // 应用分类搜索关键词：重建过滤视图 → 更新空状态 → 恢复选中视觉 → 刷新排序快照。
+    // 应用分类搜索关键词：重算分类栏视图 → 刷新可见分类计数 → 更新空状态 → 恢复选中视觉 → 刷新排序快照。
     private void ApplyCategorySearch(string keyword)
     {
         ViewModel.ApplyCategoryFilter(keyword);
+        // 视图成员可能随关键词增删：新出现的分类其 Count 还是缓存实例的旧值，这里按当前数据统一重算。
+        UpdateCategoryCounts();
         UpdateCategoryEmptyHint();
         RestoreCategorySelectionVisual();
         SnapshotCategoryOrders();
@@ -354,15 +356,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 文案走 Localization（"没有匹配"需运行时拼词，故不用 XAML 的 Uid 静态赋值）。
     private void UpdateCategoryEmptyHint()
     {
+        // 分类栏视图（CategoryList）= 全量名单 ∩ 关键词：为空时按"有关键词 / 无关键词"给不同文案。
         string? text = null;
-        if (ViewModel.CategoryFilterKeyword.Length > 0)
+        if (ViewModel.CategoryList.Count == 0)
         {
-            if (ViewModel.FilteredCategoryList.Count == 0)
-                text = string.Format(Localization.Get("Category_NoMatch"), ViewModel.CategoryFilterKeyword);
-        }
-        else if (ViewModel.CategoryList.Count == 0)
-        {
-            text = Localization.Get("Category_Empty");
+            text = ViewModel.CategoryFilterKeyword.Length > 0
+                ? string.Format(Localization.Get("Category_NoMatch"), ViewModel.CategoryFilterKeyword)
+                : Localization.Get("Category_Empty");
         }
 
         if (text is null)
@@ -374,12 +374,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         CategoryEmptyHint.Visibility = Visibility.Visible;
     }
 
-    // 过滤视图重建（Clear+Add）会让 ListView 丢弃选中容器：当前分类仍在结果里时重新断言选中；
-    // 不在结果里则什么都不做（按需求"正常不显示"，也不自动跳到别的分类）。
+    // 关键词变化会重算分类栏视图，选中容器随之销毁：当前分类仍在视图里时重新断言选中；
+    // 不在视图里则什么都不做（按需求"正常不显示"，也不自动跳到别的分类）。
     private void RestoreCategorySelectionVisual()
     {
         if (ViewModel.CurrentCategoryKind == CategoryKind.All) return; // 全部表情视图：选中在 AllMemesList
-        var sel = ViewModel.FilteredCategoryList
+        var sel = ViewModel.CategoryList
             .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
         if (sel is null || ReferenceEquals(CategoryList.SelectedItem, sel)) return;
         CategoryList.SelectedItem = null;
@@ -399,11 +399,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SnapshotCategoryOrders();
     }
 
-    // 分类栏选中赋值的统一入口：搜索态下选中项可能不在过滤结果里，
-    // 此时不设 SelectedItem（避免把不在 Items 中的对象设为选中），由 RestoreCategorySelectionVisual 兜底。
+    // 分类栏选中赋值的统一入口：仅当目标项在当前视图（CategoryList）里才设置，
+    // 避免把不在 Items 中的对象设为 SelectedItem；搜索态下选中的分类可能被过滤掉，
+    // 此时由 RestoreCategorySelectionVisual 在关键词变化后兜底恢复。
     private void SelectCategoryItem(CategoryViewModel target)
     {
-        if (ViewModel.CategoryFilterKeyword.Length > 0) return;
+        if (!ViewModel.CategoryList.Contains(target)) return;
         CategoryList.SelectedItem = target;
     }
 
@@ -416,7 +417,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 按配置创建对应的列表策略实例。
     private IMemeListStrategy CreateStrategy(bool reuse) =>
-        reuse ? new ReuseStrategy(_engine) : new RebuildStrategy(_engine);
+        reuse ? new ReuseStrategy() : new RebuildStrategy();
 
     // 从配置读取并应用列表策略；首次启动与“设置”保存后均会调用。
     // 复用模式切换会打日志，便于观察内存/行为变化。
@@ -448,24 +449,23 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // 若没有任何分类文件夹，默认创建一个 "Default"
-        if (_engine.GetCategories().Count == 0)
+        var allCategories = _engine.GetCategories();
+        if (allCategories.Count == 0)
         {
             _engine.EnsureDefaultCategory();
+            allCategories = _engine.GetCategories();
         }
 
-        // 用当前策略同步分类列表（复用=增量复用容器，重建=整体重建）。
-        // 具体算法封装在 IMemeListStrategy.SyncCategories 内。
-        _listStrategy.SyncCategories(
-            ViewModel.CategoryList,
-            _engine.GetCategories(),
-            cat => _engine.GetMemes(cat).Count);
+        // 引擎是分类全量的权威（含没有任何图片的空分类，顺序即 _categoryOrder）：整体灌入 VM 名单，
+        // 由 VM 按当前关键词重算分类栏视图（差分同步，保 VM 实例与容器）。
+        ViewModel.SetAllCategoryNames(allCategories);
 
         if (restoreSelectionFromConfig)
         {
             // 默认选中上次或第一项。
-            // 注意：重建模式下 SyncCategories 会整体 Clear+新建 VM 并销毁旧容器，选中视觉（蓝条/高亮）
-            // 随之丢失，因此必须无条件重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
-            // 跳过，避免无谓触发 SelectionChanged（复用模式下这一支基本不会命中，因为容器未重建）。
+            // 注意：分类栏视图（CategoryList）可能因关键词过滤而重建成员，选中视觉（蓝条/高亮）
+            // 随之丢失，因此必须重新赋值 SelectedItem 才能恢复高亮；仅当 target 与当前选中同名时
+            // 跳过，避免无谓触发 SelectionChanged。
             var (lastKind, lastName) = ConfigService.Config.LastCategory.Resolve();
             if (lastKind != CategoryKind.Normal)
             {
@@ -509,7 +509,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             }
         }
 
-        // 分类数据可能已变化（新建/删除/重命名/F5 刷新）：按当前关键词重算过滤视图、空状态与排序快照。
+        // 分类数据可能已变化（新建/删除/重命名/F5 刷新）：按当前关键词重算分类栏视图、空状态与排序快照。
         ApplyCategorySearch(ViewModel.CategoryFilterKeyword);
 
         RefreshMemes();
@@ -636,19 +636,22 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // ---------- 拖拽重排：过滤视图的"多集交换"接入 ----------
 
     // 拖拽前的配对快照（多集交换的基准，与"优先级越大越靠前"的展示顺序一致，取的就是当前显示顺序）：
-    //  - 分类：完整顺序(CategoryList) + 过滤视图顺序(FilteredCategoryList)
+    //  - 分类：全量名单顺序 + 当前视图顺序 + 视图 VM 列表（回滚容器顺序用）
     //  - 图片：当前分类全量文件名(引擎 Priority 降序) + 过滤视图顺序(含 VM 引用，供回滚容器顺序)
     // 刷新时机：搜索结果变化 / 切分类（仅普通分类）/ 拖拽开始。
-    private List<CategoryViewModel>? _categoryFullOrderSnapshot;
-    private List<CategoryViewModel>? _categoryFilterOrderSnapshot;
+    // 分类侧存"名字"而非 VM 列表：全量里被搜索过滤掉的分类不在 CategoryList 中，拿不到对应 VM。
+    private List<string>? _categoryFullOrderSnapshot;
+    private List<string>? _categoryFilterOrderSnapshot;
+    private List<CategoryViewModel> _categoryFilterVmSnapshot = new();
     private List<string>? _memeFullOrderSnapshot;
     private List<string>? _memeFilterOrderSnapshot;
     private List<MemeViewModel> _memeFilterVmSnapshot = new();
 
     private void SnapshotCategoryOrders()
     {
-        _categoryFullOrderSnapshot = ViewModel.CategoryList.ToList();
-        _categoryFilterOrderSnapshot = ViewModel.FilteredCategoryList.ToList();
+        _categoryFullOrderSnapshot = ViewModel.AllCategoryNames.ToList();
+        _categoryFilterOrderSnapshot = ViewModel.CategoryList.Select(c => c.Name).ToList();
+        _categoryFilterVmSnapshot = ViewModel.CategoryList.ToList();
     }
 
     // 图片侧全量顺序取自引擎（当前分类、无关键词 → 与网格展示同源）。
@@ -669,7 +672,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         _memeFilterVmSnapshot = ViewModel.MemeList.ToList();
     }
 
-    // 分类栏拖拽开始：配对快照（完整顺序 + 当前过滤视图顺序）。
+    // 分类栏拖拽开始：配对快照（全量名单顺序 + 当前视图顺序 + 视图 VM）。
     private void CategoryList_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
         SnapshotCategoryOrders();
@@ -691,18 +694,22 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-        var reordered = ViewModel.FilteredCategoryList.ToList();
+        // ListView 重排的就是 CategoryList（分类栏唯一的 ItemsSource），拖后顺序直接读它。
+        var reordered = ViewModel.CategoryList.Select(c => c.Name).ToList();
 
-        List<CategoryViewModel>? newFullOrder;
+        List<string> newFullOrder;
         try
         {
-            newFullOrder = Utils.MergeSubsetOrder(_categoryFullOrderSnapshot, _categoryFilterOrderSnapshot, reordered);
+            // 三份都是"名字"：拖前全量名单 + 拖前视图顺序 + 拖后视图顺序（大小写不敏感，与分类名比较语义一致）。
+            newFullOrder = Utils.MergeSubsetOrder(
+                _categoryFullOrderSnapshot, _categoryFilterOrderSnapshot, reordered,
+                StringComparer.OrdinalIgnoreCase);
         }
         catch (Utils.SubsetMismatchException ex)
         {
             // 合并基准失效（拖拽期间分类数据或搜索词变化）：回滚容器顺序、不写盘、提示用户重试。
             Log($"[拖拽] 分类重排放弃（{ex.Message}），已回滚分类栏顺序");
-            Utils.RestoreOrder(ViewModel.FilteredCategoryList, _categoryFilterOrderSnapshot);
+            Utils.RestoreOrder(ViewModel.CategoryList, _categoryFilterVmSnapshot);
             await DialogHelper.ShowSortFailedAsync(XamlRoot, ex.Message);
             return;
         }
@@ -711,15 +718,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (!TryGuardWrite())
         {
             Log("[拖拽] 写任务进行中，放弃本次分类重排并回滚分类栏顺序");
-            Utils.RestoreOrder(ViewModel.FilteredCategoryList, _categoryFilterOrderSnapshot);
+            Utils.RestoreOrder(ViewModel.CategoryList, _categoryFilterVmSnapshot);
             return;
         }
 
-        // 内存中的完整顺序同步为合并结果（后续过滤/合并以此为基准），再写盘。
-        Utils.RestoreOrder(ViewModel.CategoryList, newFullOrder);
-        var ordered = newFullOrder.Select(c => c.Name).ToList();
-        await _engine.ReorderCategoriesAsync(ordered);
-        Log($"分类重排写回 {ordered.Count} 个分类顺序");
+        // 内存中的全量名单同步为合并结果（后续过滤/合并以此为基准），视图随之对齐；再写盘。
+        ViewModel.SetCategoryNameOrder(newFullOrder);
+        await _engine.ReorderCategoriesAsync(newFullOrder);
+        Log($"分类重排写回 {newFullOrder.Count} 个分类顺序");
     }
 
     private async void CategoryListItem_Drop(object sender, DragEventArgs e)
@@ -787,8 +793,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             bool rebind = MemeGridView.ItemsSource != ViewModel.MemeList;
             if (rebind)
             {
-                // 分类栏绑过滤视图（与构造函数一致）；数据源仍是 ViewModel.CategoryList。
-                CategoryList.ItemsSource = ViewModel.FilteredCategoryList;
+                // 分类栏与首次初始化绑同一个集合（ViewModel.CategoryList）：ItemsSource 恒定，
+                // 避免"ListView 重排的集合"与"代码里读回的集合"不是同一个（分类拖拽重排失效的根因）。
+                CategoryList.ItemsSource = ViewModel.CategoryList;
                 MemeGridView.ItemsSource = ViewModel.MemeList;
             }
             // 隐藏时 ReleaseCategoryList 会置空 AllMemesList 的 ItemsSource：重绑时重建固定单项集合
@@ -808,10 +815,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             }
             else
             {
-                // 搜索态下选中项可能不在过滤结果里：此时不选中任何项（不回退到第一项，避免误切分类）。
-                var sel = ViewModel.FilteredCategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory);
+                // 搜索态下选中项可能不在视图里：此时不选中任何项（不回退到第一项，避免误切分类）。
+                var sel = ViewModel.CategoryList.FirstOrDefault(c => c.Name == ViewModel.CurrentCategory);
                 if (sel is null && ViewModel.CategoryFilterKeyword.Length == 0)
-                    sel = ViewModel.FilteredCategoryList.FirstOrDefault();
+                    sel = ViewModel.CategoryList.FirstOrDefault();
                 if (sel != null && (rebind || CategoryList.SelectedItem != sel))
                 {
                     CategoryList.SelectedItem = null;
@@ -1049,7 +1056,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         var name = await DialogHelper.PromptNewCategoryAsync(this.XamlRoot);
         if (string.IsNullOrWhiteSpace(name)) return;
-        if (ViewModel.CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        // 已存在校验走全量分类名（含搜索态下未显示的分类），避免同名分类漏判。
+        if (ViewModel.AllCategoryNames.Any(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)))
         {
             await DialogHelper.ShowCategoryExistsAsync(this.XamlRoot, name);
             return;
@@ -1063,11 +1071,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         bool added = await _categories.AddCategoryAsync(name);
         if (added)
         {
-            // 经 VM 插入：数据源 + 过滤视图（分类栏）一起更新，分类栏即时可见。
+            // 经 VM 插入：追加进全量名单并按当前关键词重算视图（分类栏即时可见）。
             var created = ViewModel.InsertCategory(name);
             RefreshCategoryPaneUi();
-            // 选中新分类；搜索态下它可能不在结果里 → 不选中（不把不在 Items 中的对象设为 SelectedItem）。
-            if (ViewModel.FilteredCategoryList.Contains(created))
+            // 选中新分类；搜索态下它可能不匹配当前关键词（不在视图里）→ 不选中。
+            if (ViewModel.CategoryList.Contains(created))
                 CategoryList.SelectedItem = created;
         }
     }
@@ -1817,12 +1825,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         bool hasTarget = false;
-        foreach (var cat in ViewModel.CategoryList)
+        // 目标分类取全量名单：搜索态下被过滤掉的分类同样可选（移动能力不受分类搜索影响）。
+        foreach (var catName in ViewModel.AllCategoryNames)
         {
-            if (cat.Name.Equals(vm.Category, StringComparison.OrdinalIgnoreCase)) continue;
+            if (catName.Equals(vm.Category, StringComparison.OrdinalIgnoreCase)) continue;
             hasTarget = true;
-            var targetName = cat.Name;
-            var moveItem = new MenuFlyoutItem { Text = cat.Name };
+            var targetName = catName;
+            var moveItem = new MenuFlyoutItem { Text = catName };
             moveItem.Click += async (_, __) => MoveMemeToCategory(vm, targetName);
             moveSub.Items.Add(moveItem);
         }
@@ -1898,8 +1907,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         await _importExport.RunBatchImportAsync(files, category, onCategoryCreated: createdName =>
         {
-            // 导入过程中引擎新建了分类：经 VM 插入（数据源 + 过滤视图），分类栏即时可见。
-            if (!ViewModel.CategoryList.Any(c => c.Name.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
+            // 导入过程中引擎新建了分类：经 VM 插入（全量名单 + 按关键词重算视图），分类栏即时可见。
+            // 判重用全量名单（搜索态下新分类可能不在视图里）。
+            if (!ViewModel.AllCategoryNames.Any(n => n.Equals(createdName, StringComparison.OrdinalIgnoreCase)))
             {
                 ViewModel.InsertCategory(createdName);
                 RefreshCategoryPaneUi();
@@ -1964,14 +1974,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         bool hasTarget = false;
-        foreach (var cat in ViewModel.CategoryList)
+        // 目标分类取全量名单：搜索态下被过滤掉的分类同样可选（移动能力不受分类搜索影响）。
+        foreach (var catName in ViewModel.AllCategoryNames)
         {
             // 跳过当前所在分类（移动过去无意义）
-            if (ViewModel.CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
+            if (ViewModel.CurrentCategory.Equals(catName, StringComparison.OrdinalIgnoreCase))
                 continue;
             hasTarget = true;
-            var targetName = cat.Name;
-            var item = new MenuFlyoutItem { Text = cat.Name };
+            var targetName = catName;
+            var item = new MenuFlyoutItem { Text = catName };
             item.Click += async (_, __) =>
             {
                 var models = selected.Select(m => m.Model).ToList();

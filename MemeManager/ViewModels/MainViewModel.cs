@@ -94,7 +94,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         Utils.OpenInExplorer(dir, select: false, logTag: "打开分类文件夹");
     }
 
-    // 删除分类：确认弹窗 → 调 DataEngine 删除 → 维护 CategoryList 集合 → 切换当前分类 → 通知刷新。
+    // 删除分类：确认弹窗 → 调 DataEngine 删除 → 名单/视图移除 → 切换当前分类 → 通知刷新。
     [RelayCommand]
     private async Task DeleteCategoryAsync(CategoryViewModel cat)
     {
@@ -104,16 +104,12 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         bool ok = await categories.DeleteCategoryAsync(cat.Name);
         if (!ok) return;
 
-        for (int i = CategoryList.Count - 1; i >= 0; i--)
-            if (CategoryList[i].Name.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
-            {
-                SyncFilteredOnRemove(CategoryList[i]);
-                CategoryList.RemoveAt(i);
-            }
+        RemoveCategoryName(cat.Name);
 
         if (CurrentCategory.Equals(cat.Name, StringComparison.OrdinalIgnoreCase))
         {
-            CurrentCategory = CategoryList.FirstOrDefault()?.Name ?? string.Empty;
+            // 回退目标取自全量名单（不受当前搜索关键词影响）。
+            CurrentCategory = _allCategoryNames.FirstOrDefault() ?? string.Empty;
         }
 
         CategoriesChangedRequested?.Invoke();
@@ -128,7 +124,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         if (string.IsNullOrWhiteSpace(newName)) return;
 
         if (newName.Equals(cat.Name, StringComparison.OrdinalIgnoreCase)
-            || CategoryList.Any(c => c.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+            || _allCategoryNames.Any(n => n.Equals(newName, StringComparison.OrdinalIgnoreCase)))
         {
             RenameCategoryFailedRequested?.Invoke(cat);
             return;
@@ -142,9 +138,8 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         }
 
         string oldName = cat.Name;
-        cat.Name = newName;
-        // 改名可能让它匹配 / 不再匹配当前分类搜索词：同步过滤视图。
-        SyncFilteredOnRename(cat);
+        // 名单换名 + 重算视图（VM 实例复用，实例名由 RenameCategoryName 内同步）。
+        RenameCategoryName(oldName, newName);
         // 注意：必须用改名前的旧名判断“被重命名的分类是否就是当前正在查看的分类”，
         // 不能用改名后的 cat.Name（那永远不等于 CurrentCategory 的旧值），否则 CurrentCategory 不更新、
         // 分类栏按旧名重新选中会找不到项，导致重命名后高亮丢失。
@@ -286,73 +281,128 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     // 左侧分类列表（绑定到分类栏），ReadOnly 集合，仅内部增删改
     public ObservableCollection<CategoryViewModel> CategoryList { get; } = new();
 
-    // 分类搜索的"过滤视图"（分类栏的 ItemsSource）：有关键词时是 CategoryList 的子集，无关键词时与其成员一致。
-    // 必须与 CategoryList 分开——引擎同步 / 选中恢复 / 重排写回都依赖 CategoryList 的全量语义。
-    public ObservableCollection<CategoryViewModel> FilteredCategoryList { get; } = new();
+    // 全量分类名（顺序即分类栏顺序；由 Page 从引擎 GetCategories() 灌入）：
+    // 分类的增 / 删 / 改名 / 重排 / 引擎重载都只维护这一份名单，分类栏视图由 ApplyCategoryView 重算。
+    private readonly List<string> _allCategoryNames = new();
 
-    // 当前分类搜索关键词（空 = 不过滤）。只驱动 FilteredCategoryList；
+    // 名字 → VM 实例缓存：过滤 / 恢复时复用同一实例，避免分类栏容器整批重建（搜索不闪、保选中与滚动）。
+    private readonly Dictionary<string, CategoryViewModel> _categoryVmByName = new(StringComparer.OrdinalIgnoreCase);
+
+    // 全量分类名（只读）：拖拽重排取"拖前全量基准"、右键移动菜单列目标分类都用它（不受搜索关键词影响）。
+    public IReadOnlyList<string> AllCategoryNames => _allCategoryNames;
+
+    // 当前分类搜索关键词（空 = 不过滤）。只驱动 CategoryList；
     // 表情搜索的关键词走 SearchService.Keyword，两者互不影响。
     public string CategoryFilterKeyword { get; private set; } = string.Empty;
 
-    // 按关键词重建分类过滤视图（大小写不敏感 Contains，与表情搜索的匹配语义一致）。
-    // 关键词为空/空白 = 不过滤（视图与 CategoryList 等成员）。
-    public void ApplyCategoryFilter(string? keyword)
+    // 引擎侧全量分类名刷新（启动 / F5 / 设置改存放路径后由 Page 传入）：整体替换名单后重算视图。
+    public void SetAllCategoryNames(IReadOnlyList<string> names)
     {
-        var kw = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
-        CategoryFilterKeyword = kw ?? string.Empty;
+        _allCategoryNames.Clear();
+        _allCategoryNames.AddRange(names);
 
-        FilteredCategoryList.Clear();
-        foreach (var cat in CategoryList)
-            if (kw is null || cat.Name.Contains(kw, StringComparison.OrdinalIgnoreCase))
-                FilteredCategoryList.Add(cat);
+        // 丢弃已不存在的名字对应的 VM（分类被删 / 改名后旧名不再出现），其余实例保留供复用。
+        foreach (var name in _categoryVmByName.Keys.ToList())
+            if (!_allCategoryNames.Any(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                _categoryVmByName.Remove(name);
+
+        ApplyCategoryView();
     }
 
-    // ---------- 分类集合变更：同步过滤视图 ----------
-    // 保证 FilteredCategoryList ≡ CategoryList ∩ 关键词匹配。分类栏绑定的是过滤视图，
-    // 所以任何对 CategoryList 的增 / 删 / 改名都必须经这里同步，否则分类栏不会即时反映：
-    // 新建看不见、删除后残留、改名后匹配状态不同步。
-
-    // 新建分类：加入数据源并插入过滤视图；搜索态下仅当匹配当前关键词才显示。返回新建的 VM。
-    public CategoryViewModel InsertCategory(string name, int count = 0)
+    // 按关键词重算分类栏视图（大小写不敏感 Contains，与表情搜索的匹配语义一致）。
+    // 关键词为空/空白 = 不过滤（视图 = 全量名单）。
+    public void ApplyCategoryFilter(string? keyword)
     {
-        var vm = new CategoryViewModel(name, count);
-        CategoryList.Add(vm);
-        SyncFilteredOnInsert(vm);
+        CategoryFilterKeyword = string.IsNullOrWhiteSpace(keyword) ? string.Empty : keyword.Trim();
+        ApplyCategoryView();
+    }
+
+    // 重算视图：把 CategoryList 差分同步为「全量名单 ∩ 关键词」，顺序严格跟随名单。
+    // 用差分（而非 Clear+Add）是为了复用 VM 实例与 ListView 容器：搜索时只增删不匹配项，
+    // 列表不整体重建，避免闪烁、滚动位置与选中容器丢失。
+    private void ApplyCategoryView()
+    {
+        var kw = CategoryFilterKeyword;
+        var target = kw.Length == 0
+            ? _allCategoryNames
+            : _allCategoryNames.Where(n => n.Contains(kw, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // 1) 移除已不在视图里的项
+        for (int i = CategoryList.Count - 1; i >= 0; i--)
+        {
+            string name = CategoryList[i].Name;
+            if (!target.Any(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                CategoryList.RemoveAt(i);
+        }
+
+        // 2) 按名单顺序对齐（复用已有实例 / 新建实例）
+        for (int i = 0; i < target.Count; i++)
+        {
+            var vm = GetOrCreateCategoryVm(target[i]);
+            int cur = CategoryList.IndexOf(vm);
+            if (cur < 0) CategoryList.Insert(i, vm);
+            else if (cur != i) CategoryList.Move(cur, i);
+        }
+    }
+
+    // 取名字对应的 VM（复用缓存实例）。图片计数由 Page 统一刷新（UpdateCategoryCounts），此处不读引擎。
+    private CategoryViewModel GetOrCreateCategoryVm(string name)
+    {
+        if (!_categoryVmByName.TryGetValue(name, out var vm))
+        {
+            vm = new CategoryViewModel(name, 0);
+            _categoryVmByName[name] = vm;
+        }
         return vm;
     }
 
-    // 插入过滤视图：按数据源顺序定位插入点（分类栏顺序始终跟随 CategoryList）；不匹配关键词则不显示。
-    private void SyncFilteredOnInsert(CategoryViewModel cat)
+    // 新建分类（引擎已建好目录后调用）：追加到全量名单末尾并重算视图——搜索态下不匹配关键词的分类
+    // 只留在名单里、不进视图（清空关键词后自然出现）。返回该分类的 VM。
+    public CategoryViewModel InsertCategory(string name)
     {
-        if (CategoryFilterKeyword.Length > 0 &&
-            !cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase))
-            return;
-        if (FilteredCategoryList.Contains(cat)) return;
+        if (!_allCategoryNames.Any(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            _allCategoryNames.Add(name);
 
-        int sourceIndex = CategoryList.IndexOf(cat);
-        for (int i = 0; i < FilteredCategoryList.Count; i++)
-        {
-            if (CategoryList.IndexOf(FilteredCategoryList[i]) > sourceIndex)
-            {
-                FilteredCategoryList.Insert(i, cat);
-                return;
-            }
-        }
-        FilteredCategoryList.Add(cat);
+        var vm = GetOrCreateCategoryVm(name);
+        ApplyCategoryView();
+        return vm;
     }
 
-    // 分类被删除时把该项移出过滤视图（由删除流程调用）。
-    public void SyncFilteredOnRemove(CategoryViewModel cat) => FilteredCategoryList.Remove(cat);
-
-    // 分类改名后按新名字重新判定是否留在过滤视图（分类顺序不变，只需增/删；由改名流程调用）。
-    public void SyncFilteredOnRename(CategoryViewModel cat)
+    // 分类被删除：从名单与视图一并移除。
+    public void RemoveCategoryName(string name)
     {
-        bool matches = CategoryFilterKeyword.Length == 0
-            || cat.Name.Contains(CategoryFilterKeyword, StringComparison.OrdinalIgnoreCase);
-        if (matches)
-            SyncFilteredOnInsert(cat); // 已在视图里则是 no-op
-        else
-            FilteredCategoryList.Remove(cat);
+        _allCategoryNames.RemoveAll(n => n.Equals(name, StringComparison.OrdinalIgnoreCase));
+        _categoryVmByName.Remove(name);
+        ApplyCategoryView();
+    }
+
+    // 分类改名：名单里换名（保持原位置），VM 实例沿用（实例名一并同步），再按新名字重算视图。
+    public void RenameCategoryName(string oldName, string newName)
+    {
+        for (int i = 0; i < _allCategoryNames.Count; i++)
+        {
+            if (!_allCategoryNames[i].Equals(oldName, StringComparison.OrdinalIgnoreCase)) continue;
+            _allCategoryNames[i] = newName;
+            break;
+        }
+
+        if (_categoryVmByName.Remove(oldName, out var vm))
+        {
+            // 实例名同步在这里做，避免"名单已换名、VM 还是旧名"的错位（视图按 VM.Name 判断归属）。
+            vm.Name = newName;
+            _categoryVmByName[newName] = vm;
+        }
+
+        ApplyCategoryView();
+    }
+
+    // 拖拽重排写回：用"合并后的全量顺序"整体替换名单顺序，视图随之对齐
+    // （搜索态下未显示的分类也拿到新位置，清空关键词后顺序正确）。
+    public void SetCategoryNameOrder(IReadOnlyList<string> orderedNames)
+    {
+        _allCategoryNames.Clear();
+        _allCategoryNames.AddRange(orderedNames);
+        ApplyCategoryView();
     }
 
     // “全部表情”虚拟项（左侧栏固定头项，Name 空串代表全部表情）
@@ -520,7 +570,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
                 return null;
             }
 
-            if (!CategoryList.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            if (!_allCategoryNames.Any(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
                 // 仅在引擎真正创建成功后才加入 UI 列表；失败（如目录已存在）则取消本次粘贴，
                 // 避免 UI 出现指向错误目录的分类项。
