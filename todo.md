@@ -50,7 +50,7 @@ MemeManager/
 ## 覆盖方案（按优先级）
 
 | 模块（文件 · 行数） | 可测性 | 预估用例数 | 预估测试代码量 | 优先级 | 备注 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | **MemeDataEngine**（Infrastructure · 1022） | ✅ 高 | **35–45** | 1200–1800 行 | **P0** | 临时目录驱动；需 InternalsVisibleTo + 存储路径注入 |
 | **MainViewModel**（ViewModels · 239） | ✅ 高 | **15–25** | 500–800 行 | **P1** | 注入临时目录引擎 + 假委托（PromptRenameMemeRequested 等）；OpenMeme/OpenFolder 不测（进程） |
 | **Utils**（Infrastructure · 145） | ✅ 高 | **8–12** | 200–250 行 | **P1** | FitWithin / PlacePopup / ClassifySize 纯几何；OpenInExplorer 不测 |
@@ -67,23 +67,12 @@ MemeManager/
 ## 明确不测
 
 | 模块 | 原因 |
-|---|---|
+| --- | --- |
 | ClipboardService / TrayIcon / Views 全部 | 剪贴板、托盘、拖拽、XAML——UI/系统级 |
 | NativeMethods / HotKey / EcoQos | P/Invoke + 线程/进程 API |
 | StartupManager | 写真实注册表（HKCU Run），测试污染系统 |
 | Logger / Localization / AppConstants | 静态 + App 依赖，无逻辑 |
 | CategoryService / CategoryViewModel / MiniViewModel / MemeModel / 枚举类 | 薄包装/POCO，测试价值低 |
-
-## 前置改造（影响测试可行性）
-
-1. `MemeDataEngine`：csproj 加 `<InternalsVisibleTo Include="MemeManager.Tests"/>` + internal 构造支持注入测试存储路径（~5 行，不改生产行为）——测试必须把库目录指到临时目录，否则会读真实 `%LOCALAPPDATA%\config.json`。
-2. `ConfigService`（P2 才需要）：同理支持注入 ConfigPath（~5 行）。
-
-## 分期
-
-- **第一批（P0+P1）**：MemeDataEngine（含已修安全逻辑的回归锁：SanitizeCategory / IsSafeMetadataFileName / 导入扩展名校验 / 移动冲突 / 分类非法名）→ MainViewModel 命令 → Utils。约 60–80 用例，占核心价值 80%。
-- **第二批（P2）**：SearchService / ConfigService / FileWatcher / LangHelper / MemeOperationService。约 20–30 用例。
-- **第三批（P3）**：随缘补充，价值递减。
 
 ## 后续优化（勿忘）
 
@@ -97,3 +86,19 @@ MemeManager/
   - 背景：主界面做"分类三态复选框 ↔ meme 全局跨分类选中 ↔ 批量操作"联动太过复杂、状态耦合（切虚拟分类"全部表情"会难以处理）。
   - 方案：新增独立子窗口承载复杂多选导出，子窗口内多选分类 → 预览/勾选 meme → 导出，状态完全隔离，不污染主界面 meme 多选与 CurrentCategory。
   - 待定：入口（批量导出按钮/右键）、分类多选交互、预览是否可二次勾选、导出参数、虚拟分类排除规则。
+
+- **封装 `MemeDataCache`（数据层缓存整理，待开工）**：
+  - 动机：`MemeDataEngine` 里三个缓存字段——`List<MemeModel> _memeCache`、`Dictionary<string, List<string>> _titleReverseMap`（title→文件名列表）、`Dictionary<string, uint> _categoryOrder`（分类名→优先级，越大越靠前）——互相之间存在必须同步的不变量（图片改名要同时改 cache 与标题反查索引；分类改名/删除要同步顺序表）。现在这些散在 1000+ 行引擎代码里靠人肉维护，字段一多/结构一变，上游查询很容易漏同步。
+  - 顺带解掉性能担忧：`GetCategories()` 现在为了收集分类名要 `_memeCache.ToList()` + 全量 foreach（万级图片就是万级遍历），`ComputeCounts()` 同理。Cache 内部维护「分类名集合 / 计数」后，两者都降为 O(分类数)。
+  - 形态：新建 `Models/MemeDataCache.cs`（纯内存结构，可脱 UI/磁盘单测），按「内容 × 操作」提供入口：
+    - 图片：`AddMeme` / `ReplaceMeme`（按 hash 或 fileName 去重）/ `RemoveMeme` / `RemoveMemes(category)` / `UpdateMeme`（Title / Priority / Category）/ `GetMemeByHash` / `GetAllMemes`（返回快照拷贝）/ `GetMemes(category, keyword)`。
+    - 分类：`GetCategories`（有序：优先级降序 + 同名稳定）/ `AddCategory` / `RemoveCategory` / `RenameCategory` / `SetCategoryOrder(names)` / `GetCategoryCount(name)` / `ReloadCategories`（合并磁盘上含 `.metadata.json` 的目录）。
+    - 查询第三类：`ReverseLookupByTitle(title)`——派生索引只由内部增删改维护，外部永不直接碰 `_titleReverseMap`。
+  - 边界铁律：Cache 只管「内存结构 + Reload（读盘）」，所有写盘 IO（`SaveCategoryMetadataAsync` / `SaveCategoryOrderAsync`）仍留在 `MemeDataEngine`，别让 Cache 变成第二层引擎。
+  - 线程模型先定死并写进类注释：现状无锁，靠「UI 线程写 + EcoQos 后台读 + FileWatcher 回调」的约定；入口变多后误用面变大，选其一——内部统一一把锁，或硬性声明「仅 UI 线程可写」。
+  - `ReloadMeme(category)` 暂缓：按分类重载会与 FileWatcher 增量事件、导入/删除流程交叉，容易出现「重载冲掉刚增量写的条目」；先只留 `ReloadAll` + 细粒度增删改。
+  - 迁移节奏（两个 commit，别混着做）：
+    1. **零行为变化的搬运**：字段 + 维护代码搬进 Cache，`MemeDataEngine` 方法体改为转发调用（引擎保留路径解析 / 权限 / 写盘 / 事件 / FileWatcher / EcoQos 编排）；逐处核对 1300 行里每个字段读写的语义（哪些取快照、哪些是写），`_memeCache.ToList()` 的快照拷贝语义必须保留。
+    2. **再做性能优化**：`GetCategories()` / `ComputeCounts()` 改走内部的分类名集合与计数。
+  - 测试：`MemeDataCache` 是纯内存结构，不需要临时目录 / `InternalsVisibleTo` 那套前置改造即可 xUnit 覆盖——分类改名/删除时顺序表与计数同步、图片改名时标题反查的旧键清理 + 新键建立、`GetAllMemes` 返回拷贝（外部改动不污染内部）、`GetCategories` 排序稳定性。这些不变量目前只能靠手测。
+  - 关系：与上一条「抽离 `MemeManager.Core`」同向——Cache 属 UI 无关的纯逻辑，抽 Core 时一并迁入。
