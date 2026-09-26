@@ -22,13 +22,6 @@ public sealed partial class SettingsPage : Page
 
     public SettingsViewModel ViewModel => (SettingsViewModel)DataContext;
 
-    // 回调处理器：单例 Page 构造时用 '=' 赋给 SettingsViewModel 的委托属性（不累积、无需反订阅）。
-    private readonly Action _onBrowseFolder;
-    private readonly Action<string> _onOpenFolder;
-    private readonly Action _onClose;
-    private readonly Action _onAbout;
-    private readonly Action _onProgramExit;
-
     public SettingsPage()
     {
         // 语言下拉项需在 InitializeComponent 之前就绪，x:Bind(OneTime) 才能正确绑定。
@@ -37,23 +30,15 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
 
         DataContext = App.GetService<SettingsViewModel>();
-        _onBrowseFolder = () => _ = BrowseFolderAsync();
-        _onOpenFolder = path => _ = OpenFolderAsync(path);
-        _onClose = () => _ = SaveAndCloseAsync();
-        _onAbout = () => _ = AboutPage.ShowAsync(XamlRoot);
-        _onProgramExit = async () =>
-        {
-            var result = await DialogHelper.ShowProgramExitNoticeAsync(XamlRoot);
-            if (result != ContentDialogResult.Primary) return;
-            isProgramExiting = true;
-            WeakReferenceMessenger.Default.Send(new CloseAppMessage());
-        };
-        // 单例 Page 常驻：用 '=' 覆盖回调查至 SettingsViewModel 的委托属性（构造一次即可）。
-        ViewModel.BrowseFolderRequested = _onBrowseFolder;
-        ViewModel.OpenFolderRequested = _onOpenFolder;
-        ViewModel.CloseRequested = _onClose;
-        ViewModel.AboutRequested = _onAbout;
-        ViewModel.ProgramExitRequested = _onProgramExit;
+
+        // VM 的"用户意图"经 WeakReferenceMessenger 回本页执行（弱引用订阅：页面回收后不会滞留
+        // 在消息总线上，无需反订阅）。只能在构造函数里注册一次——同一实例对同一消息重复注册会抛
+        // InvalidOperationException，所以绝不能挪进 OnShow。
+        WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, _) => _ = BrowseFolderAsync());
+        WeakReferenceMessenger.Default.Register<OpenFolderRequestedMessage>(this, (_, m) => _ = OpenFolderAsync(m.Path));
+        WeakReferenceMessenger.Default.Register<CloseSettingsRequestedMessage>(this, (_, _) => _ = SaveAndCloseAsync());
+        WeakReferenceMessenger.Default.Register<AboutRequestedMessage>(this, (_, _) => _ = AboutPage.ShowAsync(XamlRoot));
+        WeakReferenceMessenger.Default.Register<ProgramExitRequestedMessage>(this, (_, _) => _ = OnProgramExitRequestedAsync());
 
         LanguageComboBox.ItemsSource = LanguageItems;
 
@@ -336,6 +321,16 @@ public sealed partial class SettingsPage : Page
         RecordHotKeyButton.Content = Localization.Get("Settings_Record");
         RecordHotKeyButton.Click -= CancelRecord_Click;
         RecordHotKeyButton.Click += RecordHotKeyButton_Click;
+    }
+
+    // 退出程序（由 ProgramExitRequestedMessage 触发）：确认弹窗依赖 XamlRoot，故留在页面；
+    // 确认后广播全局退出消息（App 订阅后关窗退出），并把 isProgramExiting 置位让 SaveAsync 跳过主题应用。
+    private async Task OnProgramExitRequestedAsync()
+    {
+        var result = await DialogHelper.ShowProgramExitNoticeAsync(XamlRoot);
+        if (result != ContentDialogResult.Primary) return;
+        isProgramExiting = true;
+        WeakReferenceMessenger.Default.Send(new CloseAppMessage());
     }
 
     private async Task BrowseFolderAsync()

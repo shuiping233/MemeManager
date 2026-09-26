@@ -11,7 +11,7 @@ namespace MemeManager.ViewModels;
 
 // 设置页 ViewModel：仅承载"明确用户意图"的命令；配置双向绑定/UI 状态（Toggle/文本框/热键录制）
 // 仍留 SettingsPage code-behind（见 Phase 2.11 方案 A 范围）。涉及 Window/文件选择器/XamlRoot 的
-// 副作用经事件回 Page 执行。
+// 副作用经 WeakReferenceMessenger 单向消息回 Page 执行。
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly UpdateService _updateService;
@@ -207,45 +207,36 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    // 关于：需弹窗（依赖 XamlRoot），经回调回 Page 执行。
-    // 用委托属性而非 event：单例 VM 每次打开设置页由 Page 用 '=' 覆盖，不累积、无需反订阅。
-    public Action? AboutRequested { get; set; }
+    // ---------- 需要 Page 配合的"请求"命令 ----------
+    // 统一用 WeakReferenceMessenger 单向广播意图（弱引用订阅 → Page 可回收、无需反订阅）。
+    // 不再用 VM 上的委托属性：那会让单例 VM 强引用最后一次打开的 Page，其整棵视觉树无法回收。
 
+    // 关于：需弹窗（依赖 XamlRoot），发消息由 Page 执行。
     [RelayCommand]
     private void About()
-        => AboutRequested?.Invoke();
+        => WeakReferenceMessenger.Default.Send(new AboutRequestedMessage());
 
-    // 退出程序：需弹窗（依赖 XamlRoot），经回调回 MainWindow 执行。
-    public Action? ProgramExitRequested { get; set; }
-
+    // 退出程序：需弹窗（依赖 XamlRoot），发消息由 Page 执行。
     [RelayCommand]
     private void ProgramExit()
-    {
-        ProgramExitRequested?.Invoke();
-    }
+        => WeakReferenceMessenger.Default.Send(new ProgramExitRequestedMessage());
 
-    // 浏览选目录并立即保存：依赖文件选择器 + MainWindow 状态，经回调回 Page。
-    public Action? BrowseFolderRequested { get; set; }
-
+    // 浏览选目录并立即保存：依赖文件选择器 + MainWindow 状态，发消息由 Page 执行。
     [RelayCommand]
     private void BrowseFolder()
-        => BrowseFolderRequested?.Invoke();
+        => WeakReferenceMessenger.Default.Send(new BrowseFolderRequestedMessage());
 
-    // 打开数据文件夹：路径来自 UI 文本框（UI 状态），经回调把路径回 Page 打开。
-    public Action<string>? OpenFolderRequested { get; set; }
-
+    // 打开数据文件夹：路径来自 UI 文本框，随消息带给 Page（由页面校验并打开）。
     [RelayCommand]
     private void OpenMemeDataFolder(string path)
-        => OpenFolderRequested?.Invoke(path);
+        => WeakReferenceMessenger.Default.Send(new OpenFolderRequestedMessage(path));
 
     [RelayCommand]
     private void ResetCategorySplitter()
         => WeakReferenceMessenger.Default.Send(new ResetCategorySplitterMesssage());
 
-    // 关闭设置浮窗：UI 行为，经回调回 Page。
-    public Action? CloseRequested { get; set; }
-
+    // 关闭设置浮窗：UI 行为，发消息由 Page 执行。
     [RelayCommand]
     private void Close()
-        => CloseRequested?.Invoke();
+        => WeakReferenceMessenger.Default.Send(new CloseSettingsRequestedMessage());
 }
