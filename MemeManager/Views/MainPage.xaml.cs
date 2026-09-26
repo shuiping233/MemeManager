@@ -2016,6 +2016,17 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ShowSettingsFlyout();
     }
 
+    // 收起设置浮窗（供窗口隐藏时调用）。与用户手动关闭走同一条路径：
+    // Flyout.Hide() → Closed → SaveAsync + Content=null + Detach。
+    // 之所以需要它：Flyout 属于 MainPage，不会随窗口 SW_HIDE 而关闭，
+    // 若用户开着设置页直接点 X 关窗口，设置页会连同整棵视觉树随 MainPage 常驻，
+    // 且未点"完成"的改动会被丢弃。
+    public void CloseSettingsFlyout()
+    {
+        if (!SettingsFlyout.IsOpen) return;
+        SettingsFlyout.Hide();
+    }
+
     // 切换到 Mini 模式（仅当配置允许时，按钮本身也会隐藏）
     private void SwitchToMiniMode()
     {
