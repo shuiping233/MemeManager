@@ -94,37 +94,40 @@ public MainViewModel ViewModel => (MainViewModel)DataContext;
 - 方法必须是**实例方法**，不能是 `static`（Command 需绑定 VM 实例）
 - 不要手动声明与生成名相同的 `XxxCommand` 属性（会冲突）
 
-### VM → Page 的事件桥接纪律（单例 VM 必须反订阅）
+### VM → Page 的意图传递纪律（消息优先，勿反向依赖窗口）
 
-VM 需要触发"依赖窗口/视觉树/XamlRoot 的副作用"（切窗口模式、解析外部窗口句柄、弹文件选择器、关浮窗等）时，**不能**在 VM 里直接写 `App.MainWindow.Xxx()`——那会引入 VM→Window 反向依赖，破坏 MVVM 边界且让 VM 无法独立测试。
+VM 需要触发"依赖窗口/视觉树/XamlRoot 的副作用"（切窗口模式、弹文件选择器、关浮窗、弹对话框等）时，**不能**在 VM 里直接写 `App.MainWindow.Xxx()`——那会引入 VM→Window 反向依赖，破坏 MVVM 边界且让 VM 无法独立测试。VM 只表达意图，Page 负责接线。
 
-正确做法：VM 只发一个"请求"事件（如 `ExpandToFullRequested` / `SendToExternalRequested` / `BrowseFolderRequested` / `OpenFolderRequested` / `CloseRequested`），由 Page 在订阅里调用 `App.MainWindow` 等具体实现。VM 表达意图，Page 负责接线。这等价于一种手写、事件形式的极简消息隧道，与 DI 的依赖倒置同构。
+**首选：`WeakReferenceMessenger` 单向消息**。模板见 `SettingsViewModel`（发送）与 `SettingsPage`（订阅），消息定义在 `Models/UIMessage.cs`。
+适用条件：**单向、无返回值、订阅方是短命 UI 对象**（每次打开都重建的 Page/控件）。
 
-⚠️ **单例 VM + 重建 Page 的订阅累积坑（已踩并修复）**：本项目 VM 统一 `AddSingleton`，但 Page（如 `SettingsPage` / `MiniPage`）每次打开/进入都会重新 `new` 实例。若 Page 在构造里把处理方法订阅到单例 VM 的事件上，旧 Page 销毁时**必须反订阅**，否则每打开一次就累积一份处理器，第 N 次打开点一次按钮会触发 N 次。
+```csharp
+// VM：只发意图
+[RelayCommand]
+private void BrowseFolder()
+    => WeakReferenceMessenger.Default.Send(new BrowseFolderRequestedMessage());
 
-规范：
+// Page：构造函数里订阅一次，自己执行依赖窗口/视觉树的具体实现
+WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, _) =>
+{
+    if (_closed) return;   // 旧实例必须静默，见下
+    _ = BrowseFolderAsync();
+});
+```
 
-- **用具名字段保存处理器**（匿名 lambda 无法 `-=`），不要写 `ViewModel.XxxRequested += async () => ...` 这种无法反订阅的写法。
-- 在 `Page.Unloaded` 里 `-=` 对应事件，并移除 `Unloaded` 自身：
+消息机制纪律（前两条已踩过）：
 
-  ```csharp
-  private readonly Action _onExpandToFull;
-  public MiniPage()
-  {
-      _onExpandToFull = () => App.MainWindow.SwitchMode(AppMode.Full);
-      ViewModel.ExpandToFullRequested += _onExpandToFull;
-      Unloaded += MiniPage_Unloaded;
-  }
-  private void MiniPage_Unloaded(object sender, RoutedEventArgs e)
-  {
-      if (DataContext is MiniViewModel vm)
-          vm.ExpandToFullRequested -= _onExpandToFull;
-      Unloaded -= MiniPage_Unloaded;
-  }
-  ```
+- **只能在构造函数里 `Register` 一次**：同一实例对同一消息重复注册会抛 `InvalidOperationException`，绝不能放进 `OnShow()` 这类每次打开都会执行的方法。
+- **订阅方是 Transient 时必须过滤"已关闭的旧实例"**：弱引用只保证"不拖住回收"，不保证"收不到消息"——旧实例在被 GC 之前仍挂在总线上，不作废就会重复响应（弹两个选择器/两个弹窗）。做法：页面自持 `_closed`（`Detach()` 置位）+ 宿主在新建前同步作废旧实例。
+- 短命订阅方**无需反订阅**（这正是它优于 `+=` 事件的地方）；页面被回收后也不会滞留在总线上。
+- **不要用 `RequestMessage<T>` 表达"VM 要 UI 的返回值"**：它要求单次响应，多个订阅者都 `Reply` 会抛 `InvalidOperationException`，与"可能同时存在多个 Page 实例"的现实冲突。需要结果时优先把整段逻辑下沉到 Page（picker 结果、路径回填、错误弹窗都在 Page 内部闭环）。
 
-- 例外：纯系统 API（如 `Launcher.LaunchFolderPathAsync`）不依赖窗口实例，可直接进 VM（参考 `SettingsViewModel.OpenConfigFolderCommand`），无需走事件。
-- 若今后某 VM 改为"每页一个实例"（非 singleton），此纪律可免；但本项目统一 singleton，务必执行。
+**次选：VM 上的委托属性**（仍在用：`MainViewModel` 的 `XxxRequested`，多为"带参数 + 明确一对一"的请求）。
+
+- 必须用 `=` 覆盖式赋值，**不要用 `+=`**：覆盖式天然不累积（新 Page 构造时替换旧引用），也无需 `-=` 反订阅。
+- ⚠️ **单例 VM + 短命 Page 的累积坑（已踩并修复）**：不要用 `+=` 把短命 Page 的处理器挂到单例 VM 上——每打开一次累积一份，第 N 次打开点一次按钮触发 N 次。确实需要多订阅者时才不得不 `+=`，那时才要"具名字段保存处理器 + `Page.Unloaded` 里 `-=`"。
+- 覆盖式的代价：旧 Page 会被单例 VM 持有到"下次打开"才被替换。要求"关闭即回收"的页面（如 `SettingsPage`）请用消息 + 页面自己的 `Detach()`。
+- 例外：纯系统 API（如 `Launcher.LaunchFolderPathAsync`）不依赖窗口实例，可直接进 VM（参考 `SettingsViewModel.OpenConfigFolderCommand`），无需走消息/委托。
 
 ### DataTemplate / ContextFlyout 内绑定 Page VM 的 Command（WinUI 高频坑）
 
@@ -229,7 +232,8 @@ UI 生命周期事件 → 留 Code Behind（不迁）
 
 - 容器：`Microsoft.Extensions.DependencyInjection`；Page/Window 由框架实例化，用字段式
   `App.GetService<T>()` 取（Service Locator 过渡方案，可接受）。
-- 生命周期：全局单例用 `AddSingleton`；需要每实例隔离的才 `AddTransient`。
+- 生命周期：全局单例用 `AddSingleton`；需要每实例隔离的才 `AddTransient`（如 `SettingsPage`：
+  每次打开新建、关闭即释放整棵视觉树）。
 - `MemeDataEngine` 进容器（核心数据层）；`Localization`/`Logger`/`LangHelper`/`EcoQos`/`Utils`
   保持 static（无状态工具，强行进容器会让 100+ 处调用改签名，得不偿失）；`ViewDragService`
   保持 static（View 层 UI 适配器，非 Service）；`FileWatcher` 作为 Engine 成员随其注入，不单独注册。
@@ -247,23 +251,21 @@ UI 生命周期事件 → 留 Code Behind（不迁）
 - 不要给项 VM（`CategoryViewModel`/`MemeViewModel`）加删除/重命名等触及 DataEngine/文件系统的 Command——
   这类操作属页面业务，放 `MainViewModel`，参数用项 VM 类型。
 
-### 3. VM → Page 的事件桥接纪律（单例 VM 必须反订阅）
+### 3. VM → Page 的意图传递纪律（消息优先）
 
 VM 需触发依赖窗口/视觉树/XamlRoot 的副作用（弹文件选择器、切窗口模式、关浮窗等）时，**不能**在 VM 里
-直接写 `App.MainWindow.Xxx()`（破坏 MVVM 边界、VM 无法独立测试）。正确做法：VM 只发"请求"事件
-（`XxxRequested`），由 Page 在订阅里调用 `App.MainWindow` 等具体实现。
+直接写 `App.MainWindow.Xxx()`（破坏 MVVM 边界、VM 无法独立测试）。VM 只表达意图，Page 负责接线。
 
-⚠️ **单例 VM + 重建 Page 的订阅累积坑**：VM 统一 `AddSingleton`，但 Page 每次打开/进入都重新 `new`。
-若 Page 在构造里把处理方法订阅到单例 VM 事件，旧 Page 销毁时**必须反订阅**，否则每打开一次累积一份
-处理器，第 N 次打开点一次按钮触发 N 次。
-
-重点: 如果只是简单的单向事件, 或者以后都不会有其他page或者windows来订阅类似事件,那就直接最简单的直接当单个回调就行了 xx = xx 即可,不是什么事件都指的引入 += -= 来处理的,因为这很麻烦容易出问题
-
-规范：
-
-- 用具名字段保存处理器（匿名 lambda 无法 `-=`），不写 `ViewModel.XxxRequested += async () => ...`。
-- 在 `Page.Unloaded` 里 `-=` 对应事件并移除 `Unloaded` 自身。
+- **首选 `WeakReferenceMessenger` 单向消息**：适合"单向、无返回值、订阅方是短命 UI 对象"。短命订阅方
+  **无需反订阅**；但 `Register` 只能在构造函数里注册一次（重复注册抛 `InvalidOperationException`），
+  且订阅方是 Transient 时处理器必须过滤"已关闭的旧实例"（旧实例在被 GC 之前仍会收到消息）。要返回值
+  别用 `RequestMessage<T>`——单响应约束遇多订阅者会抛异常。
+- **次选 VM 上的委托属性**（`MainViewModel` 的 `XxxRequested`）：简单的单向请求直接 `=` 赋值即可
+  （`xx = xx`），**不要 `+=`**——覆盖式天然不累积；只有确实需要多订阅者时才 `+=`，那时才需要
+  "具名字段保存处理器 + `Page.Unloaded` 里 `-=`"。覆盖式的旧 Page 会活到下次打开为止；要求
+  "关闭即回收"的页面（`SettingsPage`）请用消息 + `Detach()`。
 - 例外：纯系统 API（如 `Launcher.LaunchFolderPathAsync`）不依赖窗口实例，可直接进 VM。
+- 详见上文《VM → Page 的意图传递纪律（消息优先，勿反向依赖窗口）》。
 
 ### 4. RelayCommand 命名与用法
 
@@ -297,6 +299,7 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 ### 8. community toolkit
 
 - 允许使用community toolkit的ui控件和类库, 因为很方便, 可以减少重复代码
-- `WeakReferenceMessenger`是个好东西, 遇到跨page或者控件通信去call某些能力时可以考虑用这个
+- 推荐用 `WeakReferenceMessenger` 单向消息做跨组件（VM↔Page、跨窗口/控件）的能力调用与状态广播；
+  判据与纪律见上文《VM → Page 的意图传递纪律（消息优先，勿反向依赖窗口）》。
 
 ---
