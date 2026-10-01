@@ -81,7 +81,7 @@ public static class AboutPage
         panel.Children.Add(depSdk);
         panel.Children.Add(depLoc);
 
-        var dialog = new ContentDialog
+        var dialog = new AppContentDialog
         {
             Title = Localization.Get("Settings_About"),
             Content = panel,

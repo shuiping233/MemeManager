@@ -4,9 +4,50 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace MemeManager.Views;
 
+// 详见 https://github.com/Editird/ContentDialog_EntranceTransitionBug/blob/main/report-zh.md#12-app-%E7%AB%AF%E6%9A%AB%E6%99%82%E8%A7%A3%E6%B3%95%E5%B7%B2%E5%AF%A6%E6%B8%AC%E6%9C%89%E6%95%88
+// 此class用于修复 WinUI3 dialog "第一次打开没有进场动画" 的bug
+public partial class AppContentDialog : ContentDialog
+{
+    // 资源键在 App 生命周期内稳定，缓存一次即可，避免每个弹窗都查字典。
+    private static Style? _defaultContentDialogStyle;
+    private static bool _styleResolved;
+
+    public AppContentDialog()
+    {
+        var style = ResolveDefaultStyle();
+        if (style is not null)
+        {
+            // 显式设置 Style 会压过隐式样式，ShowAsync 时 OnApplyTemplate
+            // 拿到的不再是框架内置默认样式，不会触发 re-host。
+            Style = style;
+        }
+    }
+
+    private static Style? ResolveDefaultStyle()
+    {
+        if (_styleResolved) return _defaultContentDialogStyle;
+        _styleResolved = true;
+
+        try
+        {
+            if (Application.Current?.Resources is { } res
+                && res.TryGetValue("DefaultContentDialogStyle", out var value)
+                && value is Style s)
+            {
+                _defaultContentDialogStyle = s;
+            }
+        }
+        catch
+        {
+            // 资源缺失时静默回退（退化成原 WinUI 行为：第一次没进场动画，但不会崩）。
+        }
+        return _defaultContentDialogStyle;
+    }
+}
+
 // 统一模态弹窗 helper：所有弹窗的"标题 + 描述文本"等业务文案都集中在此处，
 // 对外只暴露语义化静态方法（如 ShowMoveConflictAsync / ShowCategoryExistsAsync），
-// 调用方不再出现硬编码文案，避免各处重复 new ContentDialog 的样板。
+// 调用方不再出现硬编码文案，避免各处重复 new AppContentDialog 的样板。
 public static class DialogHelper
 {
     private const int ConflictLabelMaxLen = 32;
@@ -40,7 +81,7 @@ public static class DialogHelper
                 TextWrapping = TextWrapping.Wrap,
                 IsTextSelectionEnabled = selectable,
             };
-            var dialog = new ContentDialog
+            var dialog = new AppContentDialog
             {
                 Title = title,
                 Content = content,
@@ -108,7 +149,7 @@ public static class DialogHelper
                 TextWrapping = TextWrapping.Wrap,
                 IsTextSelectionEnabled = true,
             };
-            var dialog = new ContentDialog
+            var dialog = new AppContentDialog
             {
                 Title = title,
                 Content = content,
@@ -154,7 +195,7 @@ public static class DialogHelper
                 PlaceholderText = placeholder,
                 Text = defaultText ?? string.Empty,
             };
-            var dialog = new ContentDialog
+            var dialog = new AppContentDialog
             {
                 Title = title,
                 Content = box,
