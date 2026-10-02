@@ -187,6 +187,43 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 - 阶段 5（Working Set trim）**提前**：它是唯一能显著改变"任务管理器内存列"的手段 ——
   目标正是那约 120 MB 的镜像/共享页。
 
+### 0.5 第二轮实测：延迟 trim 生效（2026-10-02，`WorkingSetTrimDelay = 5s`）★
+
+| 时点 | Managed | Private | Working Set |
+| --- | --- | --- | --- |
+| 启动空载（列表未加载） | 2.8 MB | **81.9 MB** | 169.6 MB |
+| 加载 72 张图后隐藏前 | 5.6 MB | 207.6 MB | 321.3 MB |
+| AfterTeardown | 4.3 MB | 204.6 MB | 319.1 MB |
+| AfterWorkingSetTrim（5s 后） | 4.0 MB | **141.8 MB** | **5.5 MB** |
+| 呼出后 AfterShow | 5.5 MB | 145.5 MB | 56.9 MB |
+
+**结论（其中第 2 条修正 §0.4 的判断）：**
+
+1. **EmptyWorkingSet 有效且效果持久**：WS 321 MB → **4~11 MB**；呼出后只回升到 30~57 MB（不是弹回 320 MB）。
+2. ⚠️ **修正 §0.4**：上节说"EmptyWorkingSet 不释放 Private Bytes"**是错的** —— 实测每次 trim 后
+   Private 都降约 60 MB（~25%）。机制未确认 → 已把 trim 拆成 `CompactManagedHeap()`（GC）与
+   `EmptyProcessWorkingSet()` 两步、分别打点 `AfterCompactGc` / `AfterWorkingSetTrim`，
+   下一轮日志可直接定位是哪一步释放的。
+3. **空载基线 ~82 MB Private**，加载 72 张图后变 207 MB → **"图片列表" ≈ 125 MB Private / 152 MB WS**，
+   远大于 84 张缩略图位图的 4.8 MB。而 `AfterTeardown` 只回收 ~4 MB（x:Load 摘掉 GridView 之后）
+   → **这 125 MB 里绝大部分不在控件树的生命周期里**（框架的容器回收池 / glyph cache / Composition /
+   WIC 解码池），这正是"WinRT 不愿意回收"的部分：XAML 只提供 `UnloadObject`（释放对象树）与 LRU，
+   不提供"立刻归还框架池"的 API。
+4. **隐藏态本身几乎不增长**：50 秒隐藏期间 Private 145.0 → 146.6 MB（+1.6 MB）。所以"每秒 WS 缓涨 +
+   页面错误增加"是 trim 的正常后续（页留在 standby，被访问即软错误回到工作集），**不是泄漏**。
+5. **真正值得追的是"呼出 → 加载列表"循环**：多次循环后 trim 基线从 145 MB 抬到 182~231 MB。
+   需要受控循环实验判定是线性泄漏还是稳态。
+
+**后续实验（按信息量排序）：**
+
+| # | 实验 | 怎么做 | 产出 |
+| --- | --- | --- | --- |
+| E1 | trim 分步归因 | 看新日志 `AfterCompactGc` 与 `AfterWorkingSetTrim` 的差值 | 那 ~60 MB 是 GC 还是 EmptyWorkingSet 释放的 |
+| E2 | 受控循环 | 呼出→等列表加载→隐藏→等 trim，重复 10 轮，每轮记快照 | Private 是线性增长（泄漏）还是收敛到稳态 |
+| E3 | 图片数量线性度 | **零代码**：用 8 张图的分类与 200 张图的分类各跑一次，比较 Private 增量 | 成比例 → 每张图的 native 成本（可优化）；不成比例 → 一次性框架池（属基线） |
+| E4 | 空闲长跑 | 隐藏 10 分钟，比较各时点快照 | 确认隐藏态不涨（已被结论 4 初步证明） |
+| E5 | VMMap 归因 | 隐藏前后各拍一次快照，看 Private Data / Image 两栏 | 分辨那 125 MB 的组成，回答"还有没有可压空间" |
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
@@ -273,7 +310,7 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
 ### 阶段 5 · 延迟 EmptyWorkingSet ✅ 已实现（commit 4519f45），待实测数据
 
 - 时机：隐藏后**延迟**执行（避免"隐藏完马上呼出"时缺页重新调入导致可见卡顿）。
-- **延迟时长写成 `AppConstants` 常量**：实际为 `AppConstants.WorkingSetTrimDelay`（默认 30s；`<= TimeSpan.Zero` 表示禁用）。
+- **延迟时长写成 `AppConstants` 常量**：实际为 `AppConstants.WorkingSetTrimDelay`（实测中调成 5s；`<= TimeSpan.Zero` 表示禁用）。
 - 实现建议：隐藏时启动 `Task.Delay(常量, cts.Token)`，`ShowWindow` 里 Cancel；trim 前再判一次
   `!IsAppVisible && !_isClosing`。
 - 调用：`GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true)`
