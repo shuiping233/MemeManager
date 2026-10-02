@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
-using MemeManager.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -53,12 +52,6 @@ public sealed partial class MainWindow : Window
     // 窗口正在关闭/销毁中：所有异步回调(XAML 操作)据此放弃触碰控件，
     // 避免 WinUI 在视觉树销毁后仍被访问导致 native AV(0xc0000005)。
     private bool _isClosing;
-
-    // 内存诊断用弱引用探针：GC 后判断"被卸载的页面实例"是否真的死了。
-    // 注意：当前实现（只 x:Load 卸载分类栏/网格，RootFrame.Content 仍强引用页面）下探针必然为 true，
-    // 它的价值在整页卸载（隐藏时置 RootFrame.Content = null）落地之后——
-    // 那时才能证明 MainPage 是否被别的外部根（VM 委托 / TitleBar / Timer）钉住。
-    private WeakReference? _pageProbe;
 
     // 当前 UI 模式（Full/Mini）
     private AppMode _currentMode = AppMode.Full;
@@ -597,8 +590,6 @@ public sealed partial class MainWindow : Window
                 CurrentMiniPage?.FocusDropHint();
         });
         Log($"[窗口] 显示完成 (activate={activate})");
-        // 呼出后的快照：用于观察 trim → 呼出后工作集回升多少（探针在显示态无意义，故不传）。
-        MemoryDiagnostics.Log("AfterShow", MemeViewModel.LiveBitmapImageCount);
     }
 
     /// <summary>
@@ -616,10 +607,6 @@ public sealed partial class MainWindow : Window
             _isVisible = false;
             return;
         }
-
-        // 内存诊断：隐藏前基准 + 采集弱引用探针（记录随后会被卸载的页面实例）。
-        _pageProbe = RootFrame.Content is null ? null : new WeakReference(RootFrame.Content);
-        MemoryDiagnostics.Log("BeforeHide", MemeViewModel.LiveBitmapImageCount);
 
         // 隐藏窗口（关闭到托盘）前先收起设置浮窗：Flyout 属于 MainPage、不随 SW_HIDE 关闭，
         // 若用户开着设置页直接点 X，设置页会连整棵视觉树随 MainPage 常驻，未点"完成"的改动也会丢。
@@ -645,7 +632,6 @@ public sealed partial class MainWindow : Window
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-        MemoryDiagnostics.Log("AfterTeardown", MemeViewModel.LiveBitmapImageCount);
         // 实测的两次gc的效果来看, 只有一个回收速度的的区别
         // 从最后关闭窗口的提交内存占用结果看, 回收后的的内存占用差距非常小
         // 这是理所应当的, 因为本身内存占用大头就不在dotnet托管堆里
@@ -654,10 +640,9 @@ public sealed partial class MainWindow : Window
         // 仅此而已
         Log("[窗口] 隐藏完成 (SW_HIDE)");
 
-        // 交给后台回收策略：延迟首次回收 + 周期维护。
-        // 总开关见 AppConfig.AggressiveBackgroundReclaim——关闭时本调用直接返回，
-        // 隐藏流程即保持"只做 x:Load 卸载 + 一次 GC"的原有行为。
-        _memoryReclaimer.BeginHiddenSession(() => MemeViewModel.LiveBitmapImageCount, _pageProbe);
+        // 交给后台回收策略：延迟做一次回收（总开关见 AppConfig.AggressiveBackgroundReclaim——
+        // 关闭时本调用直接返回，隐藏流程即保持"只做 x:Load 卸载 + 一次 GC"的原有行为）。
+        _memoryReclaimer.BeginHiddenSession();
     }
 
     /// <summary>

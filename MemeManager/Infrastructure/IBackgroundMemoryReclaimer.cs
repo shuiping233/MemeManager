@@ -12,13 +12,7 @@ public interface IBackgroundMemoryReclaimer
     /// <summary>
     /// 进入隐藏态：安排延迟首次回收，随后按间隔周期维护。重复调用会重置为一次新会话。
     /// </summary>
-    /// <param name="liveBitmapImageCount">
-    /// 采样时读取"仍存活的 BitmapImage 数量"的委托。由 View 层传入，避免本层依赖 ViewModel。
-    /// </param>
-    /// <param name="pageProbe">
-    /// 可选的页面弱引用探针：用于验证"隐藏后页面是否真的可被回收"（诊断用，可为 null）。
-    /// </param>
-    void BeginHiddenSession(Func<int>? liveBitmapImageCount = null, WeakReference? pageProbe = null);
+    void BeginHiddenSession();
 
     /// <summary>退出隐藏态（窗口重新可见）：取消所有待执行与进行中的回收动作。</summary>
     void EndHiddenSession();

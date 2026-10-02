@@ -42,9 +42,6 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
     private readonly ConfigService _config;
 
     private CancellationTokenSource? _cts;
-    private Func<int>? _liveBitmapImageCount;
-    private WeakReference? _pageProbe;
-    private MemorySnapshot? _lastSnapshot;
 
     public BackgroundMemoryReclaimer(BackgroundMemoryOptions options, ConfigService config)
     {
@@ -60,14 +57,10 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         => aggressiveEnabled
            && (options.FirstTrimDelay > TimeSpan.Zero || options.MaintenanceInterval > TimeSpan.Zero);
 
-    public void BeginHiddenSession(Func<int>? liveBitmapImageCount = null, WeakReference? pageProbe = null)
+    public void BeginHiddenSession()
     {
         // 总开关关闭：完全不介入，隐藏流程保持"只做 x:Load 卸载 + 一次 GC"的原有行为。
         if (!ShouldStart(_config.Config.AggressiveBackgroundReclaim, _options)) return;
-
-        _liveBitmapImageCount = liveBitmapImageCount;
-        _pageProbe = pageProbe;
-        _lastSnapshot = null;
 
         _cts?.Cancel();
         _cts?.Dispose();
@@ -89,7 +82,7 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         if (_options.FirstTrimDelay > TimeSpan.Zero)
         {
             if (!await DelayAsync(_options.FirstTrimDelay, token).ConfigureAwait(false)) return;
-            FirstReclaim();
+            Reclaim();
         }
 
         if (_options.MaintenanceInterval <= TimeSpan.Zero) return;
@@ -97,47 +90,16 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         for (int round = 1; !token.IsCancellationRequested; round++)
         {
             if (!await DelayAsync(_options.MaintenanceInterval, token).ConfigureAwait(false)) return;
-            Maintain(round);
+            Reclaim();
             if (_options.MaintenanceRounds > 0 && round >= _options.MaintenanceRounds) return;
         }
     }
 
-    // 首次回收：一次强制 GC + 工作集裁剪，并记录三步快照（Private 的变化基本都发生在 GC 那一步）。
-    private void FirstReclaim()
+    // 一次回收动作：强制压缩 GC（含终结器队列，这一步才是拿回 Private Bytes 的）+ 裁剪工作集。
+    private void Reclaim()
     {
-        MemoryDiagnostics.Log("BeforeReclaim", LiveBitmapImages());
-        MemoryDiagnostics.CompactManagedHeap();
-        MemoryDiagnostics.Log("AfterCompactGc", LiveBitmapImages());
-        MemoryDiagnostics.EmptyProcessWorkingSet();
-        MemoryDiagnostics.Log("AfterReclaim", LiveBitmapImages(), ProbePageAlive());
-    }
-
-    // 周期维护：GC + 裁剪，并打出相对上一轮的增量。
-    // 判读：`after` 的 ΔManaged 若每轮都把那点增长收回去（负数），说明只是"垃圾未被回收"而非泄漏；
-    // 若某轮起收不回去，才是真泄漏（那时该用 dotnet-trace 找引用根）。
-    private void Maintain(int round)
-    {
-        var before = MemoryDiagnostics.Capture(LiveBitmapImages());
-        if (MemoryDiagnostics.Enabled)
-        {
-            string allocSinceLast = _lastSnapshot is { } prev
-                ? $" ΔAlloc={MemoryDiagnostics.FormatMB(before.TotalAllocatedBytes - prev.TotalAllocatedBytes)}"
-                : string.Empty;
-            Logger.Log(before.ToLogLine($"Idle#{round} before") + allocSinceLast);
-        }
-
         MemoryDiagnostics.CompactManagedHeap();
         MemoryDiagnostics.EmptyProcessWorkingSet();
-
-        var after = MemoryDiagnostics.Capture(LiveBitmapImages());
-        _lastSnapshot = after;
-        if (MemoryDiagnostics.Enabled)
-        {
-            Logger.Log(after.ToLogLine($"Idle#{round} after") +
-                       $" ΔManaged={MemoryDiagnostics.FormatDelta(before.ManagedHeapBytes, after.ManagedHeapBytes)}" +
-                       $" ΔPrivate={MemoryDiagnostics.FormatDelta(before.PrivateBytes, after.PrivateBytes)}" +
-                       $" ΔWS={MemoryDiagnostics.FormatDelta(before.WorkingSetBytes, after.WorkingSetBytes)}");
-        }
     }
 
     private static async Task<bool> DelayAsync(TimeSpan delay, CancellationToken token)
@@ -151,16 +113,5 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         {
             return false;
         }
-    }
-
-    private int LiveBitmapImages() => _liveBitmapImageCount?.Invoke() ?? -1;
-
-    // 页面弱引用探针：GC 后页面是否仍存活。页面被回收后清空探针，便于下次会话重新采集。
-    private bool? ProbePageAlive()
-    {
-        if (_pageProbe is null) return null;
-        bool alive = _pageProbe.IsAlive;
-        if (!alive) _pageProbe = null;
-        return alive;
     }
 }
