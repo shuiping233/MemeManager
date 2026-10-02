@@ -275,6 +275,38 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 | E6 | 隐藏态分配源排查 | dotnet-trace 采 alloc profile；或用"逐项屏蔽 FileWatcher / 托盘 / 探针"做对照跑 | 8 KiB/s 分配是进程固有还是可消除 |
 | E7 | 周期维护（视 E6 结果） | 若分配源消不掉，再加"隐藏态每 N 分钟 GC+trim"的常量开关 | 让稳态数字持续保持低位 |
 
+### 0.8 第四轮实测（30s × 10）+ 实验装置落地
+
+| 轮次 | Managed | Private | WS | AllocTotal | GC |
+| --- | --- | --- | --- | --- | --- |
+| trim 后 | 4.0 MB | 147.1 MB | 4.7 MB | 14.2 MB | 8/8/8 |
+| #1..#10 | 4.4 → **7.6 MB** | 140.9 → 146.4 MB | 35.1 → 52.9 MB | 14.6 → **17.8 MB** | **8/8/8（全程不变）** |
+
+**判读（重要，纠正一个易混概念）：**
+
+1. **`AllocTotal` 在涨 ≠ 泄漏**。本轮 Managed 增量 +3.6MB 与 AllocTotal 增量 +3.6MB **完全相等**，
+   而 GC 计数 10 轮里一次没变 → 「分配了多少、堆里就留了多少」，因为**分配太慢（~0.4MB/min，
+   约 7 KiB/s），gen0 预算从未填满，GC 一次都没触发**。
+   真正的泄漏判据只有一个：**强制 GC 之后对象是否还在**。
+2. `ΔAlloc` 稳定在 0.3~0.4MB / 30s（≈0.7MB/min）→ **1 小时约 42MB、24 小时约 1GB**。量级不算离谱，
+   但对"长期挂机常驻"的定位来说，**值得压住**。
+3. WS 4.7 → 52.9MB 与 Managed 增量不成比例 → WS 回升的主因不是我们的托管分配，而是被触及的其他页。
+
+**已落地的两组实验装置（本轮代码）：**
+
+| 装置 | 位置 | 作用 |
+| --- | --- | --- |
+| 隐藏态**周期维护** | `AppConstants.IdleMemoryProbeInterval`(30s) × `IdleMemoryProbeTimes`(10；**0/负 = 无限轮**)；`MainWindow.StartIdleMaintenance` | 每轮做「强制 GC + EmptyWorkingSet」并在**前后各打一条快照**。`Idle#n after` 的 `ΔManaged` 若每轮都把那点增长收回去（负数）→ **只是垃圾未回收**；收不回去 → **真泄漏** |
+| **FileWatcher 挂起**开关 | `AppConstants.SuspendFileWatcherWhileHidden`（默认 false） | 隐藏时 `Watcher.Stop()`、呼出时 `Start()`。用于对照判定：FileWatcher 是不是那 0.7MB/min 分配的主源 |
+
+**下一轮要跑的两组对照：**
+
+| 组 | 配置 | 看什么 | 结论指向 |
+| --- | --- | --- | --- |
+| A | 现状（开关 false） | `Idle#n after` 的 `ΔManaged` 是否每轮为负 | 为负 → 不是泄漏（dotnet 侧完全可控，周期 GC 即可压住） |
+| B | `SuspendFileWatcherWhileHidden = true` | 每轮 `ΔAlloc` 是否明显下降 | 下降 → FileWatcher 是主源，采纳"隐藏时停监听"（呼出需补一次刷新） |
+| C | A、B 都不变 | 用 `dotnet-trace collect --profile gc-verbose` + `topN` 看分配栈 | 定位真正的分配源（很可能就是 WinUI/DispatcherQueue 消息泵的固有微分配） |
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
