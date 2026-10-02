@@ -137,6 +137,6 @@ public static class AppConstants
     /// 隐藏态「周期维护」的轮数上限；<b>0 或负数表示无限轮（一直持续到呼出窗口）</b>。
     /// 每轮间隔见 <see cref="IdleMemoryProbeInterval"/>。
     /// </summary>
-    public const int IdleMemoryProbeTimes = 10;
+    public const int IdleMemoryProbeTimes = 0;
 }
 
