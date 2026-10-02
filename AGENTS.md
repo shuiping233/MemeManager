@@ -127,7 +127,7 @@ WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, 
 - 必须用 `=` 覆盖式赋值，**不要用 `+=`**：覆盖式天然不累积（新 Page 构造时替换旧引用），也无需 `-=` 反订阅。
 - ⚠️ **单例 VM + 短命 Page 的累积坑（已踩并修复）**：不要用 `+=` 把短命 Page 的处理器挂到单例 VM 上——每打开一次累积一份，第 N 次打开点一次按钮触发 N 次。确实需要多订阅者时才不得不 `+=`，那时才要"具名字段保存处理器 + `Page.Unloaded` 里 `-=`"。
 - 覆盖式的代价：旧 Page 会被单例 VM 持有到"下次打开"才被替换。要求"关闭即释放控件树"的页面请用
-  「单例 + `x:Load`」卸载内容（见《9. 频繁开关的重型 UI：优先「单例 + x:Load 卸载内容」》），
+  卸载内容（见《9. 频繁开关的重型 UI：卸载内容，别反复新建》），
   不要指望 `Transient` 让 GC 帮你回收。
 - 例外：纯系统 API（如 `Launcher.LaunchFolderPathAsync`）不依赖窗口实例，可直接进 VM（参考 `SettingsViewModel.OpenConfigFolderCommand`），无需走消息/委托。
 
@@ -236,9 +236,9 @@ UI 生命周期事件 → 留 Code Behind（不迁）
   `App.GetService<T>()` 取（Service Locator 过渡方案，可接受）。
 - 生命周期：全局单例用 `AddSingleton`；需要每实例隔离的才 `AddTransient`。注意 `Transient` 只保证
   "每次解析给新实例"，回收仍完全交给 GC —— **频繁开关的重型 UI 不要靠 `Transient` 反复新建**，
-  见《9. 频繁开关的重型 UI：优先「单例 + x:Load 卸载内容」》。
+  见《9. 频繁开关的重型 UI：卸载内容，别反复新建》。
 - `MemeDataEngine` 进容器（核心数据层）；`Localization`/`Logger`/`LangHelper`/`EcoQos`/`Utils`
-  保持 static（无状态工具，强行进容器会让 100+ 处调用改签名，得不偿失）；`ViewDragService`
+  保持 static（无状态工具，强行进容器会让 100+ 处调用改签名，得不偿失）；`ImageDragHelper`
   保持 static（View 层 UI 适配器，非 Service）；`FileWatcher` 作为 Engine 成员随其注入，不单独注册。
 
 ### 2. XAML 绑定规范（x:Bind 优先）
@@ -290,7 +290,7 @@ VM 需触发依赖窗口/视觉树/XamlRoot 的副作用（弹文件选择器、
 ### 6. 拖拽逻辑不重构决策
 
 拖拽是"View 决策 + ViewModel 执行"混合体，不搬进 VM、不新增 `DragDropHelper` 附加属性、不拆独立 Service。
-`ViewDragService` 作为 View 层适配器，把 `DataView` 萃取成纯 `List<string>`（图片过滤 + Bitmap 落临时文件），
+`ImageDragHelper`（static 类）作为 View 层适配器，把 `DataView` / `DataPackageView` 萃取成纯 `List<string>`（图片过滤 + Bitmap 落临时文件），
 code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。强行抽成 Service 或附加属性只重复
 萃取逻辑、不提升解耦度。
 
@@ -305,21 +305,28 @@ code-behind 的 `Drop`/`DragItemsCompleted` 拿纯数据后交给 Service/VM。�
 - 推荐用 `WeakReferenceMessenger` 单向消息做跨组件（VM↔Page、跨窗口/控件）的能力调用与状态广播；
   判据与纪律见上文《VM → Page 的意图传递纪律（消息优先，勿反向依赖窗口）》。
 
-### 9. 频繁开关的重型 UI：优先「单例 + x:Load 卸载内容」
+### 9. 频繁开关的重型 UI：卸载内容，别反复新建
 
 - **反复 `new` 的 WinUI 控件/Page 不会被主动回收**：`Transient` 只保证"每次解析给新实例"，回收完全
   交给 GC，而一次性建出来的整棵控件树会长期滞留，表现为"开关几次内存只涨不降"。所以频繁开关的
   重型 UI 不要靠 `Transient` 反复新建。
-- **已用且验证过的做法**：`MainPage`（`CategoryPanel` / `MemeGridView`）与 `SettingsPage`
-  （`RootContent`）—— **Page 保持 `AddSingleton`，给内容根元素加
-  `x:Load="{x:Bind VM.IsUiLoaded, Mode=OneWay}"`**：关闭时置 `false` 卸载整棵树，再次打开置 `true`
-  重建。这套机制是 `x:Load` 实验（commit b1a91d6）验证过的。
+- **已用且验证过的做法（`MainPage`）**：给 `CategoryPanel` / `MemeGridView` 这两个内容根加
+  `x:Load="{x:Bind ViewModel.IsUiLoaded, Mode=OneWay}"`（见 `MainPage.xaml`）：隐藏窗口时置 `false`
+  卸载整棵子树（分类 `ListView` 容器 + `x:Bind` 绑定对象 + `ContextFlyout` + `GridView` 容器池），
+  再次打开置 `true` 重建。这套机制是 `x:Load` 实验（commit b1a91d6）验证过的。
+  注意 `MainPage` 本身**不是**单例——它由 `RootFrame.Navigate` 按模式重建
+  （`NavigationCacheMode="Disabled"`），所以 `Unloaded` 里可以且应该调 `Bindings.StopTracking()`。
+- **设置浮窗走的是另一条路（注意：`SettingsPage` 没有 `x:Load`）**：`SettingsPage` 是 `AddSingleton`，
+  作为 `SettingsFlyout.Content` 复用；关闭时在 `SettingsFlyout.Closed` 里把 `SettingsFlyout.Content`
+  置 null 断开浮窗引用（`MainPage.SettingsFlyout_Closed`），每次打开前调 `SettingsPage.OnShow()`
+  从 Config 重新回填全部控件值。之所以不用 `x:Load`：浮窗内容在 Page 不在视觉树上时 `x:Bind`
+  尚未 applied、`x:Load` 不生效（见下一条）。
 - ⚠️ **Flyout / Popup 内容特有的坑（已踩）**：Page 不在视觉树上时 `x:Bind` 尚未 applied、
   `x:Load` 根本不生效——所以必须 **先 `ShowAt` 让 Page 进树，再置 `IsUiLoaded = true`**。
   反过来写会永远等不到内容（浮窗一片空白）。`MainPage` 没有这个问题是因为它一直在窗口里。
 - ⚠️ **控件赋值（含 `ItemsSource`）绝不能放在 Page 构造函数**：`x:Load` 元素在 x:Bind applied
   之前不存在，构造期读 `x:Name` 恒为 null。回填统一放在内容根的 `Loaded` 里，并保证幂等
-  （参考 `SettingsPage.PrepareShow` / `RootContent_Loaded` / `OnShowCore` 的分工）。
+  （`MainPage` 参考 `EnsureGridInitialized` / `UiElement_Loaded` 门控；`SettingsPage` 参考 `OnShow`）。
 - 单例 Page **不要**调 `Bindings.StopTracking()`：它会让 OneWay 绑定永久停更（该 API 只适用于
   会被真正销毁的 Page）。单例 + 内容卸载的形态下，绑定始终有效、无需也不能断开。
 
