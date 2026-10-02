@@ -94,4 +94,25 @@ public static class MemoryDiagnostics
             : ((delta * 100.0 / before).ToString("F1", CultureInfo.InvariantCulture)) + "%";
         return $"{FormatMB(delta)} ({percent})";
     }
+
+    /// <summary>
+    /// 是否应当执行工作集裁剪（纯函数，可单测）：延迟已配置、窗口仍不可见、且不在退出流程中。
+    /// 三个条件缺一不可——延迟为 0/负表示禁用；可见时裁剪会让用户立刻感到缺页卡顿。
+    /// </summary>
+    public static bool ShouldTrimWorkingSet(TimeSpan delay, bool isVisible, bool isClosing)
+        => delay > TimeSpan.Zero && !isVisible && !isClosing;
+
+    /// <summary>
+    /// 执行一次"隐藏后"的工作集裁剪：强制压缩 GC（含 LOH 压缩）→ 再 EmptyWorkingSet。
+    /// 返回 EmptyWorkingSet 是否成功。注意：只压 Working Set，不释放 Private Bytes。
+    /// </summary>
+    public static bool TrimWorkingSet()
+    {
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+
+        using var process = Process.GetCurrentProcess();
+        return NativeMethods.EmptyWorkingSet(process.Handle);
+    }
 }

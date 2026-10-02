@@ -59,6 +59,10 @@ public sealed partial class MainWindow : Window
     // 那时才能证明 MainPage 是否被别的外部根（VM 委托 / TitleBar / Timer）钉住。
     private WeakReference? _pageProbe;
 
+    // 隐藏后"延迟裁剪工作集"的取消令牌：用户在延迟期间呼出窗口即取消，
+    // 避免刚显示就付一次缺页重新调入的代价。见 MainWindow.TrimWorkingSetAfterDelayAsync。
+    private CancellationTokenSource? _workingSetTrimCts;
+
     // 当前 UI 模式（Full/Mini）
     private AppMode _currentMode = AppMode.Full;
     public AppMode CurrentMode => _currentMode;
@@ -555,6 +559,9 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // 延迟的工作集裁剪期间被呼出：取消待执行 trim，避免刚显示就付缺页重新调入的代价。
+        _workingSetTrimCts?.Cancel();
+
         // 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）
         if (NativeMethods.IsIconic(_hWnd))
             NativeMethods.ShowWindow(_hWnd, NativeMethods.SW_RESTORE);
@@ -591,6 +598,8 @@ public sealed partial class MainWindow : Window
                 CurrentMiniPage?.FocusDropHint();
         });
         Log($"[窗口] 显示完成 (activate={activate})");
+        // 呼出后的快照：用于观察 trim → 呼出后工作集回升多少（探针在显示态无意义，故不传）。
+        MemoryDiagnostics.Log("AfterShow", MemeViewModel.LiveBitmapImageCount);
     }
 
     /// <summary>
@@ -645,6 +654,10 @@ public sealed partial class MainWindow : Window
         // 两次gc会即刻降低内存占用到270mb左右
         // 仅此而已
         Log("[窗口] 隐藏完成 (SW_HIDE)");
+
+        // 工作集裁剪延迟执行：立即 trim 会让"隐藏后马上呼出"付缺页重新调入的代价
+        // （见 AppConstants.WorkingSetTrimDelay；<= TimeSpan.Zero 表示禁用）。
+        ScheduleWorkingSetTrimAfterHide();
     }
 
     // 读取弱引用探针结果：GC 后页面实例是否仍然存活。
@@ -655,6 +668,47 @@ public sealed partial class MainWindow : Window
         bool alive = _pageProbe.IsAlive;
         if (!alive) _pageProbe = null;
         return alive;
+    }
+
+    // ---------- 隐藏后延迟裁剪工作集（EmptyWorkingSet）----------
+
+    // 之所以延迟而不是立即 trim：EmptyWorkingSet 会把整个进程（含 .NET / WinAppSDK 的镜像页）踢出
+    // 工作集，"隐藏后马上呼出"就会付一次缺页重新调入的代价（可见卡顿）。延迟到时若仍未被呼出再执行。
+    // 它只压 Working Set（任务管理器"内存"列），不释放 Private Bytes，也不修任何泄漏。
+    private void ScheduleWorkingSetTrimAfterHide()
+    {
+        var delay = AppConstants.WorkingSetTrimDelay;
+        if (delay <= TimeSpan.Zero) return;
+
+        _workingSetTrimCts?.Cancel();
+        _workingSetTrimCts?.Dispose();
+        _workingSetTrimCts = new CancellationTokenSource();
+        _ = TrimWorkingSetAfterDelayAsync(delay, _workingSetTrimCts.Token);
+    }
+
+    // 延迟到时若仍处于隐藏态且不在退出流程中，才真正裁剪（回 UI 线程执行，避免与 dispatcher/XAML 抢）。
+    private async Task TrimWorkingSetAfterDelayAsync(TimeSpan delay, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(delay, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!MemoryDiagnostics.ShouldTrimWorkingSet(AppConstants.WorkingSetTrimDelay, _isVisible, _isClosing))
+                return;
+
+            bool trimmed = MemoryDiagnostics.TrimWorkingSet();
+            if (MemoryDiagnostics.Enabled)
+                Log($"[窗口] 工作集裁剪(EmptyWorkingSet) 结果={trimmed}");
+            // 裁剪后再采一次快照：便于对比 BeforeHide / AfterTeardown / AfterWorkingSetTrim 的 Working Set。
+            MemoryDiagnostics.Log("AfterWorkingSetTrim", MemeViewModel.LiveBitmapImageCount, ProbePageAlive());
+        });
     }
 
     /// <summary>
@@ -866,6 +920,11 @@ public sealed partial class MainWindow : Window
 
     private void Window_Closed(object sender, WindowEventArgs args)
     {
+        // 退出流程：取消并释放待执行的延迟裁剪，避免进程退出期间还挂着任务。
+        _workingSetTrimCts?.Cancel();
+        _workingSetTrimCts?.Dispose();
+        _workingSetTrimCts = null;
+
         SuspendWindowInteractions(closing: true);
         // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。
         CurrentMainPage?.FlushLastCategory();

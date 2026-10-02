@@ -278,4 +278,13 @@ internal static partial class NativeMethods
         public string szTip;
         public uint uVersion;
     }
+
+    // ---------- 工作集裁剪（内存诊断 / 后台驻留优化）----------
+
+    // EmptyWorkingSet：把进程工作集中的页尽可能移出（镜像/共享页可直接丢弃，私有页回退到 pagefile）。
+    // 注意：只影响 Working Set（任务管理器"内存"列），**不等于**释放 Private Bytes，更不等于修泄漏。
+    // 调用时机见 MainWindow.ScheduleWorkingSetTrimAfterHide + AppConstants.WorkingSetTrimDelay。
+    [LibraryImport("psapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EmptyWorkingSet(IntPtr hProcess);
 }
