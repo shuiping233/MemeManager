@@ -734,4 +734,10 @@ Reverted to the previous valid path.</value>
   <data name="Dialog_SortFailed_Message" xml:space="preserve">
     <value>Sorting failed: {0}. Please try again.</value>
   </data>
+  <data name="Settings_AggressiveBgReclaim.Text" xml:space="preserve">
+    <value>Aggressive background memory reclaim</value>
+  </data>
+  <data name="Settings_AggressiveBgReclaimHint.Text" xml:space="preserve">
+    <value>After the main window is closed, run a forced GC and working-set trim once, then keep it trimmed every 30 seconds so background usage drops to a few MB. When off, only control unloading happens (background usage stays around 300 MB).</value>
+  </data>
 </root>

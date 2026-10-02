@@ -69,6 +69,7 @@ public sealed partial class SettingsPage : Page
         ApplyHotKeyControlsEnabled();
         SaveLogToggle.IsOn = cfg.SaveLogFile;
         EcoModeToggle.IsOn = cfg.EcoMode;
+        AggressiveBgReclaimToggle.IsOn = cfg.AggressiveBackgroundReclaim;
         AutoStartToggle.IsOn = StartupManager.IsEnabled();
         _initialAutoStart = AutoStartToggle.IsOn;
         AutoCheckUpdateToggle.IsOn = cfg.AutoCheckForUpdates;
@@ -229,6 +230,11 @@ public sealed partial class SettingsPage : Page
     {
         // 即时生效：切换进程级效率模式（保存延后到点击“完成”）
         EcoQos.ApplyProcessLevel(EcoModeToggle.IsOn);
+    }
+
+    private void AggressiveBgReclaimToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        // 改动延后到点击“完成”时保存；策略在“下次隐藏窗口”时才读取配置，无需即时通知。
     }
 
     private void AutoStartToggle_Toggled(object sender, RoutedEventArgs e)
@@ -506,6 +512,7 @@ public sealed partial class SettingsPage : Page
             cfg.ImageStretch = ((ImageStretchMode)ImageStretchSegmented.SelectedIndex).ToString();
             cfg.SaveLogFile = SaveLogToggle.IsOn;
             cfg.EcoMode = EcoModeToggle.IsOn;
+            cfg.AggressiveBackgroundReclaim = AggressiveBgReclaimToggle.IsOn;
             cfg.AutoStart = AutoStartToggle.IsOn;
             cfg.AutoCheckForUpdates = AutoCheckUpdateToggle.IsOn;
             cfg.UseControlReuse = UseControlReuseToggle.IsOn;
