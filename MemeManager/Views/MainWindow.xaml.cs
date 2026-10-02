@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 using MemeManager.Services;
+using MemeManager.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -51,6 +52,12 @@ public sealed partial class MainWindow : Window
     // 窗口正在关闭/销毁中：所有异步回调(XAML 操作)据此放弃触碰控件，
     // 避免 WinUI 在视觉树销毁后仍被访问导致 native AV(0xc0000005)。
     private bool _isClosing;
+
+    // 内存诊断用弱引用探针：GC 后判断"被卸载的页面实例"是否真的死了。
+    // 注意：当前实现（只 x:Load 卸载分类栏/网格，RootFrame.Content 仍强引用页面）下探针必然为 true，
+    // 它的价值在整页卸载（隐藏时置 RootFrame.Content = null）落地之后——
+    // 那时才能证明 MainPage 是否被别的外部根（VM 委托 / TitleBar / Timer）钉住。
+    private WeakReference? _pageProbe;
 
     // 当前 UI 模式（Full/Mini）
     private AppMode _currentMode = AppMode.Full;
@@ -602,6 +609,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // 内存诊断：隐藏前基准 + 采集弱引用探针（记录随后会被卸载的页面实例）。
+        _pageProbe = RootFrame.Content is null ? null : new WeakReference(RootFrame.Content);
+        MemoryDiagnostics.Log("BeforeHide", MemeViewModel.LiveBitmapImageCount);
+
         // 隐藏窗口（关闭到托盘）前先收起设置浮窗：Flyout 属于 MainPage、不随 SW_HIDE 关闭，
         // 若用户开着设置页直接点 X，设置页会连整棵视觉树随 MainPage 常驻，未点"完成"的改动也会丢。
         // Hide() 走与手动关闭相同的路径（SaveAsync + Content=null + Detach）；浮窗本就关着时是 no-op。
@@ -626,6 +637,7 @@ public sealed partial class MainWindow : Window
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
+        MemoryDiagnostics.Log("AfterTeardown", MemeViewModel.LiveBitmapImageCount, ProbePageAlive());
         // 实测的两次gc的效果来看, 只有一个回收速度的的区别
         // 从最后关闭窗口的提交内存占用结果看, 回收后的的内存占用差距非常小
         // 这是理所应当的, 因为本身内存占用大头就不在dotnet托管堆里
@@ -633,6 +645,16 @@ public sealed partial class MainWindow : Window
         // 两次gc会即刻降低内存占用到270mb左右
         // 仅此而已
         Log("[窗口] 隐藏完成 (SW_HIDE)");
+    }
+
+    // 读取弱引用探针结果：GC 后页面实例是否仍然存活。
+    // 返回 null 表示本次未采集探针（例如隐藏路径幂等早退）；页面已被回收时清空探针，便于下次重新采集。
+    private bool? ProbePageAlive()
+    {
+        if (_pageProbe is null) return null;
+        bool alive = _pageProbe.IsAlive;
+        if (!alive) _pageProbe = null;
+        return alive;
     }
 
     /// <summary>

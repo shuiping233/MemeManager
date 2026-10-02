@@ -106,5 +106,22 @@ public static class AppConstants
     public const int MiniModeHeight = 100;
 
     public static readonly TimeSpan HttpClientTimeout = TimeSpan.FromSeconds(15);
+
+    // ---------- 内存诊断 / 实验开关（调试用，故意不做成配置项：改常量重编译即可，避免把调试旋钮暴露给用户） ----------
+
+    /// <summary>
+    /// 内存诊断总开关：打开后，隐藏/呼出等低频时点会输出一行
+    /// <c>[Memory] 标签: Managed/Private/WorkingSet/LiveBitmapImages/PageAlive</c> 快照。
+    /// 见 Infrastructure/MemoryDiagnostics.cs 与 todo.md「主窗口隐藏后 UI 全量 teardown」。
+    /// </summary>
+    public const bool EnableMemoryDiagnostics = true;
+
+    /// <summary>
+    /// 「隐藏后延迟 trim 工作集（EmptyWorkingSet）」的延迟时长。
+    /// 之所以延迟而不立即 trim：trim 会把整个进程（含 .NET / WinAppSDK 代码页）踢出工作集，
+    /// 「隐藏后马上又呼出」时首次显示会有可见的缺页卡顿；延迟到时若仍未被呼出再执行。
+    /// 设为 &lt;= TimeSpan.Zero 表示不 trim。见 todo.md 阶段 5。
+    /// </summary>
+    public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(30);
 }
 
