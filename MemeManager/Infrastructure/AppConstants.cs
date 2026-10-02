@@ -125,13 +125,28 @@ public static class AppConstants
     public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    /// 隐藏态「稳态观察」探针的间隔：trim 完成后每隔这么久记一次内存快照（仅隐藏态），
-    /// 用来判定"工作集在 trim 后缓慢回升"属于正常重新调入（涨到稳态就停）还是真泄漏（线性无上限）。
-    /// 与 <see cref="IdleMemoryProbeTimes"/> 任一为非正数、或诊断开关关闭时，不启动。
+    /// 隐藏态「周期维护」的节奏：每隔这么久做一次「强制压缩 GC → EmptyWorkingSet」，并在动作前后各打一条快照。
+    /// 用途有二：
+    ///   ① 让后台驻留的 Managed / Working Set 保持低位（EmptyWorkingSet 的效果是暂时的，会自然回填）；
+    ///   ② **判定"Managed 缓慢增长"是"垃圾未回收"还是"真泄漏"** —— 每轮 GC 后 Managed 都回落＝前者，不回落＝后者。
+    /// 与 <see cref="IdleMemoryProbeTimes"/> 任一非正数、或诊断开关关闭时不启动。
     /// </summary>
-    public static readonly TimeSpan IdleMemoryProbeInterval = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan IdleMemoryProbeInterval = TimeSpan.FromSeconds(30);
 
-    /// <summary>隐藏态「稳态观察」探针的轮数（每轮间隔见 <see cref="IdleMemoryProbeInterval"/>）。</summary>
-    public const int IdleMemoryProbeTimes = 5;
+    /// <summary>
+    /// 隐藏态「周期维护」的轮数上限；<b>0 或负数表示无限轮（一直持续到呼出窗口）</b>。
+    /// 每轮间隔见 <see cref="IdleMemoryProbeInterval"/>。
+    /// </summary>
+    public const int IdleMemoryProbeTimes = 10;
+
+    /// <summary>
+    /// 隐藏窗口期间是否暂停 `FileWatcher`（实验开关，默认关闭＝保持现状）。
+    /// 动机：主窗口隐藏后界面不可见，原本"监听文件变化并就地更新控件"的价值为零。
+    /// 但收益待实测 —— `FileSystemWatcher` 无文件事件时本应几乎零分配（完成端口等待，不轮询），
+    /// "它是那 ~0.4MB/min 分配的主源吗"用本开关做一次对照跑即可判定。
+    /// ⚠️ 启用后隐藏期间的外部增删不会被感知，呼出后列表可能过期（需配合一次刷新）。
+    /// 用 `static readonly`（而非 const）：否则 `if` 恒假的分支会触发 CS0162「无法访问的代码」警告。
+    /// </summary>
+    public static readonly bool SuspendFileWatcherWhileHidden = false;
 }
 

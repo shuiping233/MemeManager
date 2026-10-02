@@ -63,11 +63,12 @@ public sealed partial class MainWindow : Window
     // 避免刚显示就付一次缺页重新调入的代价。见 MainWindow.TrimWorkingSetAfterDelayAsync。
     private CancellationTokenSource? _workingSetTrimCts;
 
-    // 隐藏态"稳态观察"探针的取消令牌：呼出窗口或退出即取消。见 MainWindow.StartIdleMemoryProbe。
-    private CancellationTokenSource? _idleProbeCts;
+    // 隐藏态"周期维护"循环（GC + 工作集裁剪 + 前后打点）的取消令牌：呼出窗口或退出即取消。
+    // 见 MainWindow.StartIdleMaintenance。
+    private CancellationTokenSource? _idleMaintenanceCts;
 
-    // 稳态探针的上一轮快照：用来在日志里附出"每轮增量"（ΔAlloc / ΔPrivate）。
-    // 这是区分"真泄漏"与"垃圾还没被回收"的关键（见 todo.md §0.6）。
+    // 周期维护的上一轮快照：用来在日志里附出"距上一轮分配了多少"（ΔAlloc）——
+    // 这是区分"真泄漏"与"垃圾还没被回收"的关键（见 todo.md §0.6/§0.7）。
     private MemorySnapshot? _lastIdleSnapshot;
 
     // 当前 UI 模式（Full/Mini）
@@ -569,7 +570,7 @@ public sealed partial class MainWindow : Window
         // 延迟的工作集裁剪 / 稳态探针期间被呼出：一律取消——既避免刚显示就付缺页代价，
         // 也避免隐藏态探针在窗口重新可见后还继续活动。
         _workingSetTrimCts?.Cancel();
-        _idleProbeCts?.Cancel();
+        _idleMaintenanceCts?.Cancel();
 
         // 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）
         if (NativeMethods.IsIconic(_hWnd))
@@ -594,6 +595,10 @@ public sealed partial class MainWindow : Window
             ResumeWindowInteractions();
         }
         _fgTimer?.Start();
+
+        // 实验开关：恢复文件监听（与隐藏路径的 SuspendFileWatcher 成对）。
+        if (AppConstants.SuspendFileWatcherWhileHidden)
+            ResumeFileWatcher();
 
         // 从托盘/快捷键呼出后，将焦点重新定位到当前模式的默认交互控件，
         // 避免焦点残留在系统标题栏关闭按钮上（用户点 X 隐藏后焦点被系统三键截持）。
@@ -648,6 +653,10 @@ public sealed partial class MainWindow : Window
         // 分类控件与图片资源分开管理：单独卸载分类栏容器（ListViewItem/x:Bind 绑定/Flyout）。
         CurrentMainPage?.ReleaseCategoryList();
         SuspendWindowInteractions(closing: false);
+
+        // 实验开关：隐藏期间暂停文件监听（界面不可见时，"监听变化并就地更新控件"没有价值）。
+        if (AppConstants.SuspendFileWatcherWhileHidden)
+            SuspendFileWatcher();
 
         // 所有控件访问完成后，最后卸载表情网格/分类面板整棵子树。
         // 必须放在 SuspendWindowInteractions 之后——它内部要写 MemeGridView/CategoryList 的拖拽开关
@@ -721,29 +730,33 @@ public sealed partial class MainWindow : Window
             if (MemoryDiagnostics.Enabled)
                 Log($"[窗口] 工作集裁剪(EmptyWorkingSet) 结果={trimmed}");
             MemoryDiagnostics.Log("AfterWorkingSetTrim", MemeViewModel.LiveBitmapImageCount, ProbePageAlive());
-            StartIdleMemoryProbe();
+            StartIdleMaintenance();
         });
     }
 
-    // 隐藏态"稳态观察"探针：trim 之后每隔固定间隔采一次快照，用来判定
-    // "工作集缓慢回升"是正常重新调入（涨到稳态就停）还是真泄漏（线性无上限）。
-    // 呼出窗口即取消——探针本身不该变成常驻活动。
-    private void StartIdleMemoryProbe()
+    // 隐藏态"周期维护"：每隔 AppConstants.IdleMemoryProbeInterval 做一次
+    // 「强制压缩 GC → EmptyWorkingSet」，并在动作前后各打一条快照。呼出窗口即取消。
+    //
+    // 核心用途是**判定"Managed 缓慢增长"到底是"垃圾未回收"还是"真泄漏"**：
+    //   每轮 after 的 Managed 都回落（ΔManaged 为负）→ 只是垃圾没被 GC 回收
+    //   （分配太慢、gen0 预算从未填满，GC 一直不触发）；after 不回落 → 真泄漏，需要 dotnet-trace 找引用根。
+    // 顺带它本身就是"后台稳态维护"：EmptyWorkingSet 的效果是暂时的（页会自然回填），周期做一次即可压住。
+    private void StartIdleMaintenance()
     {
         var interval = AppConstants.IdleMemoryProbeInterval;
-        int times = AppConstants.IdleMemoryProbeTimes;
-        if (!MemoryDiagnostics.Enabled || interval <= TimeSpan.Zero || times <= 0) return;
+        int times = AppConstants.IdleMemoryProbeTimes;   // <= 0 表示无限轮
+        if (!MemoryDiagnostics.Enabled || interval <= TimeSpan.Zero) return;
 
         _lastIdleSnapshot = null;
-        _idleProbeCts?.Cancel();
-        _idleProbeCts?.Dispose();
-        _idleProbeCts = new CancellationTokenSource();
-        _ = IdleMemoryProbeAsync(interval, times, _idleProbeCts.Token);
+        _idleMaintenanceCts?.Cancel();
+        _idleMaintenanceCts?.Dispose();
+        _idleMaintenanceCts = new CancellationTokenSource();
+        _ = IdleMaintenanceAsync(interval, times, _idleMaintenanceCts.Token);
     }
 
-    private async Task IdleMemoryProbeAsync(TimeSpan interval, int times, CancellationToken token)
+    private async Task IdleMaintenanceAsync(TimeSpan interval, int times, CancellationToken token)
     {
-        for (int i = 1; i <= times; i++)
+        for (int round = 1; times <= 0 || round <= times; round++)
         {
             try
             {
@@ -754,25 +767,29 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            int round = i;
+            int currentRound = round;
             DispatcherQueue.TryEnqueue(() =>
             {
-                // 期间被呼出或正在退出：停止观察，不再继续后续轮次。
+                // 期间被呼出或正在退出：停止维护（它本身不该变成常驻活动）。
                 if (!MemoryDiagnostics.ShouldRunHiddenMaintenance(_isVisible, _isClosing)) return;
                 if (!MemoryDiagnostics.Enabled) return;
 
-                var snapshot = MemoryDiagnostics.Capture(MemeViewModel.LiveBitmapImageCount);
-                // 附上"相对上一轮"的增量：ΔAlloc 一路涨而 GC 计数不动 = 垃圾没被回收（不是泄漏）；
-                // ΔPrivate 与 ΔAlloc 同量级 = 提交量只是跟着分配在走。见 todo.md §0.6。
-                string extra = string.Empty;
-                if (_lastIdleSnapshot is { } prev)
-                {
-                    extra = $" ΔAlloc={MemoryDiagnostics.FormatMB(snapshot.TotalAllocatedBytes - prev.TotalAllocatedBytes)}" +
-                            $" ΔPrivate={MemoryDiagnostics.FormatDelta(prev.PrivateBytes, snapshot.PrivateBytes)}";
-                }
-                _lastIdleSnapshot = snapshot;
+                var before = MemoryDiagnostics.Capture(MemeViewModel.LiveBitmapImageCount);
+                string allocSinceLast = _lastIdleSnapshot is { } prev
+                    ? $" ΔAlloc={MemoryDiagnostics.FormatMB(before.TotalAllocatedBytes - prev.TotalAllocatedBytes)}"
+                    : string.Empty;
+                Logger.Log(before.ToLogLine($"Idle#{currentRound} before") + allocSinceLast);
 
-                Logger.Log(snapshot.ToLogLine($"IdleProbe#{round}") + extra);
+                MemoryDiagnostics.CompactManagedHeap();
+                MemoryDiagnostics.EmptyProcessWorkingSet();
+
+                var after = MemoryDiagnostics.Capture(MemeViewModel.LiveBitmapImageCount);
+                _lastIdleSnapshot = after;
+                // 判读这一行：ΔManaged 若每轮都把增长收回去（如 -3.5MB），即"垃圾未回收"而非泄漏。
+                Logger.Log(after.ToLogLine($"Idle#{currentRound} after") +
+                           $" ΔManaged={MemoryDiagnostics.FormatDelta(before.ManagedHeapBytes, after.ManagedHeapBytes)}" +
+                           $" ΔPrivate={MemoryDiagnostics.FormatDelta(before.PrivateBytes, after.PrivateBytes)}" +
+                           $" ΔWS={MemoryDiagnostics.FormatDelta(before.WorkingSetBytes, after.WorkingSetBytes)}");
             });
         }
     }
@@ -984,15 +1001,31 @@ public sealed partial class MainWindow : Window
         CurrentMainPage?.ResumeInteractions();
     }
 
+    // ---------- 文件监听挂起/恢复（实验开关 SuspendFileWatcherWhileHidden 控制）----------
+
+    // 隐藏期间停止文件监听。动机：主窗口隐藏后界面不可见，原本"监听文件变化并就地更新控件"的价值为零。
+    // ⚠️ 副作用：隐藏期间的外部增删不会被感知，呼出后列表可能过期（实验阶段暂不补刷新）。
+    private void SuspendFileWatcher()
+    {
+        _engine.Watcher?.Stop();
+        Log("[FileWatcher] 隐藏期间已暂停监听（实验开关）");
+    }
+
+    private void ResumeFileWatcher()
+    {
+        _engine.Watcher?.Start();
+        Log("[FileWatcher] 已恢复监听（实验开关）");
+    }
+
     private void Window_Closed(object sender, WindowEventArgs args)
     {
         // 退出流程：取消并释放待执行的延迟裁剪与稳态探针，避免进程退出期间还挂着任务。
         _workingSetTrimCts?.Cancel();
         _workingSetTrimCts?.Dispose();
         _workingSetTrimCts = null;
-        _idleProbeCts?.Cancel();
-        _idleProbeCts?.Dispose();
-        _idleProbeCts = null;
+        _idleMaintenanceCts?.Cancel();
+        _idleMaintenanceCts?.Dispose();
+        _idleMaintenanceCts = null;
 
         SuspendWindowInteractions(closing: true);
         // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。
