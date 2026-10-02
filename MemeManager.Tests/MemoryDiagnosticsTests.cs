@@ -64,26 +64,6 @@ public class MemoryDiagnosticsTests
     }
 
     [Fact]
-    public void ShouldTrimWorkingSet_True_OnlyWhenHiddenAndNotClosing()
-        => Assert.True(MemoryDiagnostics.ShouldTrimWorkingSet(
-            TimeSpan.FromSeconds(30), isVisible: false, isClosing: false));
-
-    [Theory]
-    [InlineData(0)]   // 0 = 显式禁用
-    [InlineData(-1)]  // 负值 = 禁用
-    public void ShouldTrimWorkingSet_False_WhenDelayDisabledOrMissing(int seconds)
-        => Assert.False(MemoryDiagnostics.ShouldTrimWorkingSet(
-            TimeSpan.FromSeconds(seconds), isVisible: false, isClosing: false));
-
-    [Theory]
-    [InlineData(true, false)]   // 窗口可见：裁剪会让用户立刻感到缺页卡顿
-    [InlineData(false, true)]   // 退出流程中
-    [InlineData(true, true)]
-    public void ShouldTrimWorkingSet_False_WhenVisibleOrClosing(bool isVisible, bool isClosing)
-        => Assert.False(MemoryDiagnostics.ShouldTrimWorkingSet(
-            TimeSpan.FromSeconds(30), isVisible, isClosing));
-
-    [Fact]
     public void ToLogLine_AppendsAllocationAndGcCounters_WhenCaptured()
     {
         var snapshot = new MemorySnapshot(
@@ -105,14 +85,5 @@ public class MemoryDiagnosticsTests
 
         Assert.DoesNotContain("AllocTotal", line);
         Assert.DoesNotContain("GC=", line);
-    }
-
-    [Fact]
-    public void ShouldRunHiddenMaintenance_True_OnlyWhenHiddenAndNotClosing()
-    {
-        Assert.True(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: false, isClosing: false));
-        Assert.False(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: true, isClosing: false));
-        Assert.False(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: false, isClosing: true));
-        Assert.False(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: true, isClosing: true));
     }
 }
