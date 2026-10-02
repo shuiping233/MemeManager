@@ -348,6 +348,34 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 3. 删除 `SuspendFileWatcherWhileHidden`（实测它不是分配主源）。
 4. README 的目标表述更新（现写"平均 200MB 专用工作集"，应改为"后台专用工作集个位数 MB + Private 基线 ~140MB"）。
 
+### 0.10 收尾完成（2026-10-02）
+
+| 项 | 状态 |
+| --- | --- |
+| 后台回收策略收敛为 `Infrastructure/IBackgroundMemoryReclaimer`（实例类 + DI；MainWindow 只剩 `BeginHiddenSession` / `EndHiddenSession` / `Shutdown` 三处调用） | ✅ f6a57a3 |
+| SettingsPage 新增「后台内存回收策略」总开关（默认开；关闭 = 回到"只做 x:Load 卸载 + 一次 GC"） | ✅ |
+| FileWatcher 实验开关回退（实测它不是分配主源） | ✅ 1c0365a |
+| `MemoryDiagnostics` 整理为独立静态类（补 `process.Refresh()`、精简注释、API 保留供调试） | ✅ 1c0365a |
+| README 目标表述更新（"平均 200MB 专用工作集" → 个位数 MB + ~140MB 框架基线） | ✅ |
+
+**剩余可选实验（零代码）：**
+- **E3 图片数量线性度**：8 张图的分类 vs 200 张图的分类各跑一次 → 判定 Private 里那 ~57MB 是"每张图的 native 成本"（可优化）还是"一次性框架池"（属基线）。
+- **alloc 源**：`dotnet-trace collect --profile gc-verbose` + `topN -n 20` → 定位每 30s ~0.4MB 的分配来源（现已被周期 GC 兜住，无害）。
+
+**关于「`PageAlive=True` 才是下一刀」这个主张 —— 本项目的判断与理由（供复核）：**
+
+1. **数据不支持高收益预期**：`x:Load` 摘掉 GridView/分类栏之后，`AfterTeardown` 只回收 ~4MB；
+   而延迟 GC 拿回的 ~47MB 属于"已不可达但未 finalize"的对象，与 Page 是否可达无关。
+2. **10 轮周期 GC 后 Private 恒定 139.4MB 不动** → 这部分已不受 GC 影响，属**框架内部池**
+   （容器回收池 / glyph cache / Composition / WIC 池），不是"被 Page 引用钉住的对象"。
+3. 因此"整页卸载"（`RootFrame.Content = null` + VM 委托/TitleBar 断开）的预期收益是**几 MB 级**，
+   代价是 ShowWindow 重建分支、MiniPage 同等处理、SetTitleBar 时序、DropFiles 取件、拖拽/焦点时序
+   一整套风险（作者此前因类似改动踩过"切模式空白"）。**本方案刻意绕开了它**，也因此不存在
+   "呼出后状态丢失"的问题（分类/搜索框/滚动位置原样保留）。
+4. **若仍想验证**，有一个廉价代理实验：隐藏时清空 `MainViewModel.MemeList`（单例 VM 持有的那 72 个 VM）
+   + GC → 若 Private 明显下降，说明与"存活 VM/页面数据"有关；若不降，则整页卸载也救不了，
+   可正式判为框架基线并收工。
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
