@@ -224,6 +224,57 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 | E4 | 空闲长跑 | 隐藏 10 分钟，比较各时点快照 | 确认隐藏态不涨（已被结论 4 初步证明） |
 | E5 | VMMap 归因 | 隐藏前后各拍一次快照，看 Private Data / Image 两栏 | 分辨那 125 MB 的组成，回答"还有没有可压空间" |
 
+### 0.6 第三轮实测：E1 有结论了 —— 那 ~47 MB 是 **GC** 释放的，不是 EmptyWorkingSet ★★
+
+```text
+22:38:41.152 BeforeHide:          Managed=5.6MB Private=207.4MB WorkingSet=318.9MB LiveBitmapImages=72
+22:38:41.444 AfterTeardown:       Managed=4.2MB Private=203.8MB WorkingSet=315.6MB LiveBitmapImages=0
+22:38:46.473 AfterCompactGc:      Managed=3.9MB Private=157.1MB WorkingSet=268.9MB   ← -46.7MB 全在这里
+22:38:46.497 AfterWorkingSetTrim: Managed=4.0MB Private=157.1MB WorkingSet=4.7MB      ← 对 Private 贡献 0
+```
+
+- `AfterTeardown → AfterCompactGc`：Private **−46.7 MB**，而 Managed 只降 0.3 MB → 释放的是 **native**
+  （经 RCW/finalizer）。`AfterCompactGc → AfterWorkingSetTrim`：Private **±0**，只压 WS（268.9 → 4.7 MB）。
+- **即 §0.5 里那条"修正"本身是错的**：当时 GC 与 trim 合并打点，才看起来像 EmptyWorkingSet 释放了 60 MB。
+  真正的功臣是**延迟数秒后才执行的强制压缩 GC + `WaitForPendingFinalizers`**。
+
+**直接推论（对隐藏路径很重要）：**
+
+> `HideWindow` 里现有的两次 `GC.Collect()` **太早**——与 teardown 同一毫秒执行，此时刚被判离的 WinRT
+> 对象还没进终结队列，所以它们几乎回收不到东西。作者注释里那句"回收后的内存占用差距非常小"正源于此。
+> **真正有效的是延迟几秒后的那一轮强制 GC**（现在落在 trim 阶段）。将来若有人"优化"掉这段延迟 GC，需重新验证。
+
+### 0.7 IdleProbe 实测（隐藏后 5 分钟，每 60s 一条）
+
+| 轮次 | Managed | Private | WorkingSet |
+| --- | --- | --- | --- |
+| trim 后 | 4.0 MB | 157.1 MB | 4.7 MB |
+| #1 | 4.7 MB | 157.7 MB | 35.6 MB |
+| #2 | 5.5 MB | 158.9 MB | 42.2 MB |
+| #3 | 6.2 MB | 159.5 MB | 43.4 MB |
+| #4 | 6.9 MB | 160.2 MB | 44.5 MB |
+| #5 | 7.6 MB | 161.0 MB | 48.4 MB |
+
+判读：
+
+1. **Managed 严格线性 +0.7 MB/min、Private +0.8 MB/min —— 但不必然是泄漏。**
+   对照 dotnet-counters 的 `Allocation Rate 8.01 KiB/s` 与 **`Gen 0 GC Count 0`**：
+   8 KiB/s × 60s ≈ 0.47 MB/min，与观察值同量级；因为分配太慢、gen0 预算从未填满，**GC 一次都没触发**，
+   垃圾自然一直堆在 gen0。→ 属"垃圾还没被回收"，不是"对象漏了"。
+   已给探针加上 `AllocTotal` / `GC=g0/g1/g2` 与逐轮 `ΔAlloc` / `ΔPrivate`，下一轮日志可直接判定。
+2. **WS 4.7 → 48.4 MB**：EmptyWorkingSet 的效果本就是**暂时**的（页留在 standby，被访问即回）。
+   首分钟 +31 MB，之后 +1~4 MB/min 趋于平缓。→ **"任务管理器里 11 MB"不是稳态，40~50 MB 才是隐藏态稳态。**
+3. **真正待查的是"隐藏态为什么还有 8 KiB/s 分配"**（完全空闲的进程应接近 0）。候选：`FileWatcher` 的
+   完成端口回调、`DispatcherQueue` 消息泵、托盘消息、WinUI 内部活动。
+   **这是目前最值得挖的点**——若能把分配源压到接近 0，WS 与 Managed 都会自然稳住，也不必上周期性 trim。
+
+**实验更新**：E1 ✅ 已完成；E2 / E3 待做；新增：
+
+| # | 实验 | 怎么做 | 产出 |
+| --- | --- | --- | --- |
+| E6 | 隐藏态分配源排查 | dotnet-trace 采 alloc profile；或用"逐项屏蔽 FileWatcher / 托盘 / 探针"做对照跑 | 8 KiB/s 分配是进程固有还是可消除 |
+| E7 | 周期维护（视 E6 结果） | 若分配源消不掉，再加"隐藏态每 N 分钟 GC+trim"的常量开关 | 让稳态数字持续保持低位 |
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
