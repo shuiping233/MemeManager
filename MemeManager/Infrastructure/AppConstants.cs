@@ -110,33 +110,17 @@ public static class AppConstants
     // ---------- 内存诊断 / 实验开关（调试用，故意不做成配置项：改常量重编译即可，避免把调试旋钮暴露给用户） ----------
 
     /// <summary>
-    /// 内存诊断总开关：打开后，隐藏/呼出等低频时点会输出一行
-    /// <c>[Memory] 标签: Managed/Private/WorkingSet/LiveBitmapImages/PageAlive</c> 快照。
-    /// 见 Infrastructure/MemoryDiagnostics.cs 与 todo.md「主窗口隐藏后 UI 全量 teardown」。
+    /// 内存诊断总开关：只影响 <see cref="MemoryDiagnostics.Log"/> 是否输出。
+    /// 当前业务路径**已不打点**（排查时手动加一行调用即可）。见 Infrastructure/MemoryDiagnostics.cs。
     /// </summary>
     public const bool EnableMemoryDiagnostics = true;
 
     /// <summary>
-    /// 「隐藏后延迟 trim 工作集（EmptyWorkingSet）」的延迟时长。
-    /// 之所以延迟而不立即 trim：trim 会把整个进程（含 .NET / WinAppSDK 代码页）踢出工作集，
-    /// 「隐藏后马上又呼出」时首次显示会有可见的缺页卡顿；延迟到时若仍未被呼出再执行。
-    /// 设为 &lt;= TimeSpan.Zero 表示不 trim。见 todo.md 阶段 5。
+    /// 「后台内存回收策略」在窗口隐藏后，隔多久做这一次「强制 GC + 工作集裁剪」。
+    /// 之所以延迟而不立即做：会把整个进程（含 .NET / WinAppSDK 代码页）踢出工作集，
+    /// 「隐藏后马上又呼出」时首次显示会有可见的缺页卡顿；延迟到点时若已被呼出则直接取消。
+    /// 设为 &lt;= TimeSpan.Zero 表示禁用（等同关掉设置页的那个开关）。
     /// </summary>
     public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
-
-    /// <summary>
-    /// 隐藏态「周期维护」的节奏：每隔这么久做一次「强制压缩 GC → EmptyWorkingSet」，并在动作前后各打一条快照。
-    /// 用途有二：
-    ///   ① 让后台驻留的 Managed / Working Set 保持低位（EmptyWorkingSet 的效果是暂时的，会自然回填）；
-    ///   ② **判定"Managed 缓慢增长"是"垃圾未回收"还是"真泄漏"** —— 每轮 GC 后 Managed 都回落＝前者，不回落＝后者。
-    /// 与 <see cref="IdleMemoryProbeTimes"/> 任一非正数、或诊断开关关闭时不启动。
-    /// </summary>
-    public static readonly TimeSpan IdleMemoryProbeInterval = TimeSpan.FromSeconds(30);
-
-    /// <summary>
-    /// 隐藏态「周期维护」的轮数上限；<b>0 或负数表示无限轮（一直持续到呼出窗口）</b>。
-    /// 每轮间隔见 <see cref="IdleMemoryProbeInterval"/>。
-    /// </summary>
-    public const int IdleMemoryProbeTimes = 0;
 }
 

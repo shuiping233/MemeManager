@@ -376,6 +376,23 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
    + GC → 若 Private 明显下降，说明与"存活 VM/页面数据"有关；若不降，则整页卸载也救不了，
    可正式判为框架基线并收工。
 
+### 0.11 收敛：取消日志与周期维护（2026-10-02）
+
+**根因确认（用户实测）**：后台那"+8KB/秒增量"与"每秒缺页"是 **debugger / VS 性能探测器挂载**造成的观测者效应
+—— **Release 且不挂调试器时不存在**。（与 `dotnet-trace` 那次报告一致：Top 里 53% 是工具自己的 EventCounters
+每秒轮询，没有一帧是 MemeManager 的代码。）
+
+据此收敛为最小形态：
+
+| 项 | 结果 |
+| --- | --- |
+| 本轮引入的全部诊断打点（`BeforeHide` / `AfterTeardown` / `AfterShow` / `BeforeReclaim` / `AfterCompactGc` / `AfterReclaim` / `Idle#n before\|after`） | ✅ 全部删除（`MemoryDiagnostics` 工具类保留，需要时手动加一行调用即可） |
+| 「周期维护」循环 | ✅ 删除。`BackgroundMemoryReclaimer` 现在只做一次：**隐藏后延迟 5s → 强制压缩 GC + EmptyWorkingSet** → 结束 |
+| `AppConstants.IdleMemoryProbeInterval` / `IdleMemoryProbeTimes` | ✅ 删除；`BackgroundMemoryOptions` 只剩 `FirstTrimDelay` |
+| 设置页「后台内存回收策略」总开关、`AppConstants.WorkingSetTrimDelay`(5s) | 保留 |
+
+**为什么取消周期维护**：它会让后台出现规律的缺页与工作集回填（观感上像"持续增长"），收益并不值得。
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，

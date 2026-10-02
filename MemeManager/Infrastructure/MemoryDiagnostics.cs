@@ -76,8 +76,8 @@ public readonly record struct MemorySnapshot(
 
 /// <summary>
 /// 内存诊断与后台回收动作的唯一入口（开关 / 采集 / 格式化 / GC / 工作集裁剪），便于后续调试直接调用。
-/// 诊断开关见 <see cref="AppConstants.EnableMemoryDiagnostics"/>；后台回收的节奏见
-/// <see cref="AppConstants.WorkingSetTrimDelay"/> 与 <see cref="AppConstants.IdleMemoryProbeInterval"/>。
+/// 诊断开关见 <see cref="AppConstants.EnableMemoryDiagnostics"/>；后台回收的延迟见
+/// <see cref="AppConstants.WorkingSetTrimDelay"/>。
 /// </summary>
 public static class MemoryDiagnostics
 {

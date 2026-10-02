@@ -5,36 +5,29 @@ namespace MemeManager.Infrastructure;
 /// <summary>
 /// 后台内存回收策略的参数。默认取 <see cref="AppConstants"/>，也可单独注入以便测试或调参。
 /// </summary>
-/// <param name="FirstTrimDelay">窗口隐藏后，隔多久做第一次回收（延迟是为了避开"隐藏后马上呼出"）。</param>
-/// <param name="MaintenanceInterval">首次回收之后，每隔多久维护一次（&lt;= 0 表示不周期维护）。</param>
-/// <param name="MaintenanceRounds">周期维护的轮数上限；<b>0 或负数表示无限轮</b>（直到窗口重新可见）。</param>
-public sealed record BackgroundMemoryOptions(
-    TimeSpan FirstTrimDelay,
-    TimeSpan MaintenanceInterval,
-    int MaintenanceRounds)
+/// <param name="FirstTrimDelay">窗口隐藏后，隔多久做这一次回收（延迟是为了避开"隐藏后马上呼出"）。</param>
+public sealed record BackgroundMemoryOptions(TimeSpan FirstTrimDelay)
 {
-    public static BackgroundMemoryOptions FromAppConstants() => new(
-        AppConstants.WorkingSetTrimDelay,
-        AppConstants.IdleMemoryProbeInterval,
-        AppConstants.IdleMemoryProbeTimes);
+    public static BackgroundMemoryOptions FromAppConstants() => new(AppConstants.WorkingSetTrimDelay);
 }
 
 /// <summary>
-/// <see cref="IBackgroundMemoryReclaimer"/> 的默认实现。时间顺序：
+/// <see cref="IBackgroundMemoryReclaimer"/> 的默认实现：
 ///
 /// ```text
-/// 窗口隐藏
-///   │  等 FirstTrimDelay（默认 5s，避开"隐藏后马上呼出"）
-///   ├─ 强制 GC（含终结器队列）→ EmptyWorkingSet        ← 首次回收
-///   │     · GC 才是拿回 Private Bytes 的那一步（实测 -47MB：元素摘除后 WinRT 引用是异步断开的，
-///   │       隐藏瞬间 GC 几乎回收不到东西，必须等几秒）
-///   │     · EmptyWorkingSet 只压 Working Set（实测对 Private 零贡献），且效果是暂时的
-///   │  之后每 MaintenanceInterval（默认 30s）重复一次同样动作，直到窗口可见或达到轮数上限
-/// 窗口可见 / 进程退出 → 立即取消
+/// 窗口隐藏 → 等 FirstTrimDelay（默认 5s，避开"隐藏后马上呼出"）
+///          → 强制压缩 GC（含终结器队列）+ EmptyWorkingSet    ← 只做这一次
+/// 窗口可见 / 进程退出 → 取消（还没到点就什么都不做）
 /// ```
 ///
-/// 线程：全部在后台线程执行（GC 与工作集裁剪不需要 UI 线程），因此不会阻塞 UI，
-/// 也天然串行（单条 async 流程 + CancellationToken），无需加锁。
+/// **为什么延迟**：元素从视觉树摘除后，WinRT 侧引用是异步断开的——隐藏瞬间 GC 几乎回收不到东西；
+/// 等几秒后再 GC + WaitForPendingFinalizers 才拿得到那几十 MB（实测 -47MB 全在 GC 这一步）。
+/// EmptyWorkingSet 只压 Working Set、对 Private 零贡献，且效果会被后续访问自然回填。
+///
+/// **为什么只做一次**：早期试过"每隔 N 秒再压一次"的周期维护，结果是后台出现规律的缺页与工作集
+/// 回填（观感上像"持续增长"），收益不值得，故取消。
+///
+/// 线程：在后台线程执行（GC 与工作集裁剪不需要 UI 线程），不阻塞 UI。
 /// </summary>
 public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
 {
@@ -50,12 +43,10 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
     }
 
     /// <summary>
-    /// 是否应当启动隐藏态回收（纯函数，可单测）：总开关开启，且至少配置了一种动作
-    /// （首次回收的延迟 &gt; 0，或周期维护间隔 &gt; 0）。两者都为 0/负 = 该策略整体禁用。
+    /// 是否应当启动隐藏态回收（纯函数，可单测）：总开关开启，且回收延迟 &gt; 0（&lt;= 0 表示整体禁用）。
     /// </summary>
     public static bool ShouldStart(bool aggressiveEnabled, BackgroundMemoryOptions options)
-        => aggressiveEnabled
-           && (options.FirstTrimDelay > TimeSpan.Zero || options.MaintenanceInterval > TimeSpan.Zero);
+        => aggressiveEnabled && options.FirstTrimDelay > TimeSpan.Zero;
 
     public void BeginHiddenSession()
     {
@@ -77,22 +68,12 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         _cts = null;
     }
 
+    // 隐藏后只做一次：延迟到点（期间被呼出即取消）→ 回收。
     private async Task RunAsync(CancellationToken token)
     {
-        if (_options.FirstTrimDelay > TimeSpan.Zero)
-        {
-            if (!await DelayAsync(_options.FirstTrimDelay, token).ConfigureAwait(false)) return;
-            Reclaim();
-        }
-
-        if (_options.MaintenanceInterval <= TimeSpan.Zero) return;
-
-        for (int round = 1; !token.IsCancellationRequested; round++)
-        {
-            if (!await DelayAsync(_options.MaintenanceInterval, token).ConfigureAwait(false)) return;
-            Reclaim();
-            if (_options.MaintenanceRounds > 0 && round >= _options.MaintenanceRounds) return;
-        }
+        if (_options.FirstTrimDelay <= TimeSpan.Zero) return;
+        if (!await DelayAsync(_options.FirstTrimDelay, token).ConfigureAwait(false)) return;
+        Reclaim();
     }
 
     // 一次回收动作：强制压缩 GC（含终结器队列，这一步才是拿回 Private Bytes 的）+ 裁剪工作集。
