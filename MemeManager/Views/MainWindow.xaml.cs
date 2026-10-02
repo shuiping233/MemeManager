@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly IntPtr _hWnd;
     private readonly MemeDataEngine _engine;
+    private readonly IBackgroundMemoryReclaimer _memoryReclaimer;
     private readonly ConfigService ConfigService = App.GetService<ConfigService>();
 
     private AppWindow? _appWindow;
@@ -58,18 +59,6 @@ public sealed partial class MainWindow : Window
     // 它的价值在整页卸载（隐藏时置 RootFrame.Content = null）落地之后——
     // 那时才能证明 MainPage 是否被别的外部根（VM 委托 / TitleBar / Timer）钉住。
     private WeakReference? _pageProbe;
-
-    // 隐藏后"延迟裁剪工作集"的取消令牌：用户在延迟期间呼出窗口即取消，
-    // 避免刚显示就付一次缺页重新调入的代价。见 MainWindow.TrimWorkingSetAfterDelayAsync。
-    private CancellationTokenSource? _workingSetTrimCts;
-
-    // 隐藏态"周期维护"循环（GC + 工作集裁剪 + 前后打点）的取消令牌：呼出窗口或退出即取消。
-    // 见 MainWindow.StartIdleMaintenance。
-    private CancellationTokenSource? _idleMaintenanceCts;
-
-    // 周期维护的上一轮快照：用来在日志里附出"距上一轮分配了多少"（ΔAlloc）——
-    // 这是区分"真泄漏"与"垃圾还没被回收"的关键（见 todo.md §0.6/§0.7）。
-    private MemorySnapshot? _lastIdleSnapshot;
 
     // 当前 UI 模式（Full/Mini）
     private AppMode _currentMode = AppMode.Full;
@@ -115,9 +104,10 @@ public sealed partial class MainWindow : Window
         GC.WaitForPendingFinalizers();
     }
 
-    public MainWindow(MemeDataEngine engine)
+    public MainWindow(MemeDataEngine engine, IBackgroundMemoryReclaimer memoryReclaimer)
     {
         _engine = engine;
+        _memoryReclaimer = memoryReclaimer;
         InitializeComponent();
 
         Title = AppConstants.WindowTitle;
@@ -559,6 +549,10 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void ShowWindow(bool activate)
     {
+        // 窗口重新可见：立即取消后台回收（待执行与进行中的都停），
+        // 避免刚显示就付缺页重新调入的代价、也避免隐藏态维护在可见后继续活动。
+        _memoryReclaimer.EndHiddenSession();
+
         // 已可见（且非最小化）则跳过，避免重复显示导致的状态/清理错位
         if (NativeMethods.IsWindowVisible(_hWnd) && !NativeMethods.IsIconic(_hWnd))
         {
@@ -566,11 +560,6 @@ public sealed partial class MainWindow : Window
             _isVisible = true;
             return;
         }
-
-        // 延迟的工作集裁剪 / 稳态探针期间被呼出：一律取消——既避免刚显示就付缺页代价，
-        // 也避免隐藏态探针在窗口重新可见后还继续活动。
-        _workingSetTrimCts?.Cancel();
-        _idleMaintenanceCts?.Cancel();
 
         // 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）
         if (NativeMethods.IsIconic(_hWnd))
@@ -656,7 +645,7 @@ public sealed partial class MainWindow : Window
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-        MemoryDiagnostics.Log("AfterTeardown", MemeViewModel.LiveBitmapImageCount, ProbePageAlive());
+        MemoryDiagnostics.Log("AfterTeardown", MemeViewModel.LiveBitmapImageCount);
         // 实测的两次gc的效果来看, 只有一个回收速度的的区别
         // 从最后关闭窗口的提交内存占用结果看, 回收后的的内存占用差距非常小
         // 这是理所应当的, 因为本身内存占用大头就不在dotnet托管堆里
@@ -665,125 +654,10 @@ public sealed partial class MainWindow : Window
         // 仅此而已
         Log("[窗口] 隐藏完成 (SW_HIDE)");
 
-        // 工作集裁剪延迟执行：立即 trim 会让"隐藏后马上呼出"付缺页重新调入的代价
-        // （见 AppConstants.WorkingSetTrimDelay；<= TimeSpan.Zero 表示禁用）。
-        ScheduleWorkingSetTrimAfterHide();
-    }
-
-    // 读取弱引用探针结果：GC 后页面实例是否仍然存活。
-    // 返回 null 表示本次未采集探针（例如隐藏路径幂等早退）；页面已被回收时清空探针，便于下次重新采集。
-    private bool? ProbePageAlive()
-    {
-        if (_pageProbe is null) return null;
-        bool alive = _pageProbe.IsAlive;
-        if (!alive) _pageProbe = null;
-        return alive;
-    }
-
-    // ---------- 隐藏后延迟裁剪工作集（EmptyWorkingSet）----------
-
-    // 之所以延迟而不是立即 trim：EmptyWorkingSet 会把整个进程（含 .NET / WinAppSDK 的镜像页）踢出
-    // 工作集，"隐藏后马上呼出"就会付一次缺页重新调入的代价（可见卡顿）。延迟到时若仍未被呼出再执行。
-    // 它只压 Working Set（任务管理器"内存"列），不释放 Private Bytes，也不修任何泄漏。
-    private void ScheduleWorkingSetTrimAfterHide()
-    {
-        var delay = AppConstants.WorkingSetTrimDelay;
-        if (delay <= TimeSpan.Zero) return;
-
-        _workingSetTrimCts?.Cancel();
-        _workingSetTrimCts?.Dispose();
-        _workingSetTrimCts = new CancellationTokenSource();
-        _ = TrimWorkingSetAfterDelayAsync(delay, _workingSetTrimCts.Token);
-    }
-
-    // 延迟到时若仍处于隐藏态且不在退出流程中，才真正裁剪（回 UI 线程执行，避免与 dispatcher/XAML 抢）。
-    private async Task TrimWorkingSetAfterDelayAsync(TimeSpan delay, CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(delay, token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (!MemoryDiagnostics.ShouldTrimWorkingSet(AppConstants.WorkingSetTrimDelay, _isVisible, _isClosing))
-                return;
-
-            // 分两步做、分两步打点：用来定位"到底哪一步回收了内存"（GC 压缩 vs EmptyWorkingSet，
-            // 见 todo.md §0.5——实测 trim 后 Private Bytes 也会掉约 25%，需要归因）。
-            MemoryDiagnostics.CompactManagedHeap();
-            MemoryDiagnostics.Log("AfterCompactGc", MemeViewModel.LiveBitmapImageCount);
-
-            bool trimmed = MemoryDiagnostics.EmptyProcessWorkingSet();
-            if (MemoryDiagnostics.Enabled)
-                Log($"[窗口] 工作集裁剪(EmptyWorkingSet) 结果={trimmed}");
-            MemoryDiagnostics.Log("AfterWorkingSetTrim", MemeViewModel.LiveBitmapImageCount, ProbePageAlive());
-            StartIdleMaintenance();
-        });
-    }
-
-    // 隐藏态"周期维护"：每隔 AppConstants.IdleMemoryProbeInterval 做一次
-    // 「强制压缩 GC → EmptyWorkingSet」，并在动作前后各打一条快照。呼出窗口即取消。
-    //
-    // 核心用途是**判定"Managed 缓慢增长"到底是"垃圾未回收"还是"真泄漏"**：
-    //   每轮 after 的 Managed 都回落（ΔManaged 为负）→ 只是垃圾没被 GC 回收
-    //   （分配太慢、gen0 预算从未填满，GC 一直不触发）；after 不回落 → 真泄漏，需要 dotnet-trace 找引用根。
-    // 顺带它本身就是"后台稳态维护"：EmptyWorkingSet 的效果是暂时的（页会自然回填），周期做一次即可压住。
-    private void StartIdleMaintenance()
-    {
-        var interval = AppConstants.IdleMemoryProbeInterval;
-        int times = AppConstants.IdleMemoryProbeTimes;   // <= 0 表示无限轮
-        if (!MemoryDiagnostics.Enabled || interval <= TimeSpan.Zero) return;
-
-        _lastIdleSnapshot = null;
-        _idleMaintenanceCts?.Cancel();
-        _idleMaintenanceCts?.Dispose();
-        _idleMaintenanceCts = new CancellationTokenSource();
-        _ = IdleMaintenanceAsync(interval, times, _idleMaintenanceCts.Token);
-    }
-
-    private async Task IdleMaintenanceAsync(TimeSpan interval, int times, CancellationToken token)
-    {
-        for (int round = 1; times <= 0 || round <= times; round++)
-        {
-            try
-            {
-                await Task.Delay(interval, token);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            int currentRound = round;
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                // 期间被呼出或正在退出：停止维护（它本身不该变成常驻活动）。
-                if (!MemoryDiagnostics.ShouldRunHiddenMaintenance(_isVisible, _isClosing)) return;
-                if (!MemoryDiagnostics.Enabled) return;
-
-                var before = MemoryDiagnostics.Capture(MemeViewModel.LiveBitmapImageCount);
-                string allocSinceLast = _lastIdleSnapshot is { } prev
-                    ? $" ΔAlloc={MemoryDiagnostics.FormatMB(before.TotalAllocatedBytes - prev.TotalAllocatedBytes)}"
-                    : string.Empty;
-                Logger.Log(before.ToLogLine($"Idle#{currentRound} before") + allocSinceLast);
-
-                MemoryDiagnostics.CompactManagedHeap();
-                MemoryDiagnostics.EmptyProcessWorkingSet();
-
-                var after = MemoryDiagnostics.Capture(MemeViewModel.LiveBitmapImageCount);
-                _lastIdleSnapshot = after;
-                // 判读这一行：ΔManaged 若每轮都把增长收回去（如 -3.5MB），即"垃圾未回收"而非泄漏。
-                Logger.Log(after.ToLogLine($"Idle#{currentRound} after") +
-                           $" ΔManaged={MemoryDiagnostics.FormatDelta(before.ManagedHeapBytes, after.ManagedHeapBytes)}" +
-                           $" ΔPrivate={MemoryDiagnostics.FormatDelta(before.PrivateBytes, after.PrivateBytes)}" +
-                           $" ΔWS={MemoryDiagnostics.FormatDelta(before.WorkingSetBytes, after.WorkingSetBytes)}");
-            });
-        }
+        // 交给后台回收策略：延迟首次回收 + 周期维护。
+        // 总开关见 AppConfig.AggressiveBackgroundReclaim——关闭时本调用直接返回，
+        // 隐藏流程即保持"只做 x:Load 卸载 + 一次 GC"的原有行为。
+        _memoryReclaimer.BeginHiddenSession(() => MemeViewModel.LiveBitmapImageCount, _pageProbe);
     }
 
     /// <summary>
@@ -995,13 +869,8 @@ public sealed partial class MainWindow : Window
 
     private void Window_Closed(object sender, WindowEventArgs args)
     {
-        // 退出流程：取消并释放待执行的延迟裁剪与稳态探针，避免进程退出期间还挂着任务。
-        _workingSetTrimCts?.Cancel();
-        _workingSetTrimCts?.Dispose();
-        _workingSetTrimCts = null;
-        _idleMaintenanceCts?.Cancel();
-        _idleMaintenanceCts?.Dispose();
-        _idleMaintenanceCts = null;
+        // 退出流程：停掉后台回收，避免退出期间还挂着任务。
+        _memoryReclaimer.Shutdown();
 
         SuspendWindowInteractions(closing: true);
         // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。

@@ -108,14 +108,6 @@ public static class MemoryDiagnostics
         return $"{FormatMB(delta)} ({percent})";
     }
 
-    /// <summary>是否该做工作集裁剪（纯函数）：延迟已配置、窗口不可见、且不在退出流程中。</summary>
-    public static bool ShouldTrimWorkingSet(TimeSpan delay, bool isVisible, bool isClosing)
-        => delay > TimeSpan.Zero && ShouldRunHiddenMaintenance(isVisible, isClosing);
-
-    /// <summary>隐藏态维护动作（延迟裁剪 / 周期维护）是否该继续：不可见且不在退出流程中。纯函数。</summary>
-    public static bool ShouldRunHiddenMaintenance(bool isVisible, bool isClosing)
-        => !isVisible && !isClosing;
-
     /// <summary>
     /// 强制压缩式 GC（含 LOH 压缩）+ 跑完终结器队列。
     /// 必须等"元素已从视觉树摘除"若干秒后再跑才有效——隐藏瞬间跑几乎回收不到东西（WinRT 引用尚未断）。

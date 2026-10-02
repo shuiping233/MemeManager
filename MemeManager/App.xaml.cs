@@ -147,7 +147,9 @@ public partial class App : Application
             await DataEngine.AddCategoryAsync(AppConstants.DefaultCategory);
         }
 
-        _window = new MainWindow(Services.GetRequiredService<MemeDataEngine>());
+        _window = new MainWindow(
+            Services.GetRequiredService<MemeDataEngine>(),
+            Services.GetRequiredService<IBackgroundMemoryReclaimer>());
         // 必须在 _window 赋值后再导航页面：Page 构造中会访问 App.MainWindow
         ((MainWindow)_window).InitializeMode();
         ApplyTheme();
@@ -282,6 +284,10 @@ public partial class App : Application
         services.AddSingleton<IUpdateServiceClient, GithubReleaseClient>();
         services.AddSingleton<IUpdateServiceClient, CnbReleaseClient>();
         services.AddSingleton<UpdateService>();
+        // 后台内存回收策略（窗口隐藏期间延迟 GC + 工作集裁剪）：无 UI 依赖，参数取 AppConstants。
+        services.AddSingleton<IBackgroundMemoryReclaimer>(sp => new BackgroundMemoryReclaimer(
+            BackgroundMemoryOptions.FromAppConstants(),
+            sp.GetRequiredService<ConfigService>()));
         return services.BuildServiceProvider();
     }
 }

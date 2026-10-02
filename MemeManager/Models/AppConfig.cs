@@ -120,4 +120,11 @@ public record AppConfig
     // true：启用。拖出时写入 StorageFile，支持作为文件拖出（动态 GIF 正常），
     //       使用异步 SetProvider 方案后, 未见用户反馈拖拽时会闪退崩溃了, 估保持默认开启
     public bool StorageFileDrag { get; set; } = true;
+
+    // 是否启用「激进的后台进程回收策略」（默认开）：
+    // 主窗口隐藏后延迟做一次「强制 GC + EmptyWorkingSet」，并按间隔周期维护，
+    // 使后台驻留的 Working Set 从数百 MB 降到个位数 MB（Managed 亦不再缓慢增长）。
+    // 关闭后行为回到"隐藏只做 x:Load 卸载 + 一次 GC"（隐藏后 Working Set 维持 300MB 上下）。
+    // 实现见 Infrastructure/BackgroundMemoryReclaimer.cs。
+    public bool AggressiveBackgroundReclaim { get; set; } = true;
 }
