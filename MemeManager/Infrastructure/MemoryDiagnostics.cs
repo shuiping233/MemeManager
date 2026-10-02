@@ -24,7 +24,11 @@ public readonly record struct MemorySnapshot(
     long PrivateBytes,
     long WorkingSetBytes,
     int LiveBitmapImages,
-    bool? PageAlive)
+    bool? PageAlive,
+    long TotalAllocatedBytes = -1,
+    int Gen0Collections = -1,
+    int Gen1Collections = -1,
+    int Gen2Collections = -1)
 {
     /// <summary>采集当前进程快照（依赖 Process/GC，不做单测）。</summary>
     /// <param name="liveBitmapImages">VM 仍持有的 BitmapImage 数量；负数表示不采集。</param>
@@ -37,16 +41,24 @@ public readonly record struct MemorySnapshot(
             process.PrivateMemorySize64,
             process.WorkingSet64,
             liveBitmapImages,
-            pageAlive);
+            pageAlive,
+            GC.GetTotalAllocatedBytes(precise: false),
+            GC.CollectionCount(0),
+            GC.CollectionCount(1),
+            GC.CollectionCount(2));
     }
 
     /// <summary>
     /// 格式化为一行日志（纯函数，可单测）。
-    /// 例：<c>[Memory] AfterTeardown: Managed=3.2MB Private=180.4MB WorkingSet=176.1MB LiveBitmapImages=0 PageAlive=False</c>
+    /// 例：<c>[Memory] IdleProbe#1: Managed=4.7MB Private=157.7MB WorkingSet=35.6MB LiveBitmapImages=0 AllocTotal=812.3MB GC=3/1/1</c>
+    ///
+    /// `AllocTotal` = 进程生命周期累计分配量，`GC` = 0/1/2 代回收次数。
+    /// **两者配合才能区分"真泄漏"与"垃圾还没被回收"**：分配一路涨而 GC 次数不动 = 后者
+    /// （分配太慢，gen0 预算没填满，GC 自然不触发），见 todo.md §0.6。
     /// </summary>
     public string ToLogLine(string tag)
     {
-        var parts = new List<string>(5)
+        var parts = new List<string>(8)
         {
             $"Managed={MemoryDiagnostics.FormatMB(ManagedHeapBytes)}",
             $"Private={MemoryDiagnostics.FormatMB(PrivateBytes)}",
@@ -58,6 +70,10 @@ public readonly record struct MemorySnapshot(
             parts.Add($"LiveBitmapImages={LiveBitmapImages}");
         if (PageAlive.HasValue)
             parts.Add($"PageAlive={PageAlive.Value}");
+        if (TotalAllocatedBytes >= 0)
+            parts.Add($"AllocTotal={MemoryDiagnostics.FormatMB(TotalAllocatedBytes)}");
+        if (Gen0Collections >= 0)
+            parts.Add($"GC={Gen0Collections}/{Gen1Collections}/{Gen2Collections}");
 
         return $"[Memory] {tag}: {string.Join(' ', parts)}";
     }
@@ -122,8 +138,8 @@ public static class MemoryDiagnostics
 
     /// <summary>
     /// 裁剪进程工作集（EmptyWorkingSet）。返回是否成功。
-    /// 主要压 Working Set（任务管理器"内存"列），但实测它**同时会让 Private Bytes 下降约 25%**
-    /// （机制未确认，见 todo.md §0.5），所以与 GC 分开打点以便归因。
+    /// 实测结论（todo.md §0.6）：它**只压 Working Set**（321MB → 4.7MB），对 Private Bytes 贡献为 0 ——
+    /// 上一版日志里"Private 降 ~60MB"其实全部来自 <see cref="CompactManagedHeap"/>（当时两者合并打点，现已拆开）。
     /// </summary>
     public static bool EmptyProcessWorkingSet()
     {

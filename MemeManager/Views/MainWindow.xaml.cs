@@ -66,6 +66,10 @@ public sealed partial class MainWindow : Window
     // 隐藏态"稳态观察"探针的取消令牌：呼出窗口或退出即取消。见 MainWindow.StartIdleMemoryProbe。
     private CancellationTokenSource? _idleProbeCts;
 
+    // 稳态探针的上一轮快照：用来在日志里附出"每轮增量"（ΔAlloc / ΔPrivate）。
+    // 这是区分"真泄漏"与"垃圾还没被回收"的关键（见 todo.md §0.6）。
+    private MemorySnapshot? _lastIdleSnapshot;
+
     // 当前 UI 模式（Full/Mini）
     private AppMode _currentMode = AppMode.Full;
     public AppMode CurrentMode => _currentMode;
@@ -730,6 +734,7 @@ public sealed partial class MainWindow : Window
         int times = AppConstants.IdleMemoryProbeTimes;
         if (!MemoryDiagnostics.Enabled || interval <= TimeSpan.Zero || times <= 0) return;
 
+        _lastIdleSnapshot = null;
         _idleProbeCts?.Cancel();
         _idleProbeCts?.Dispose();
         _idleProbeCts = new CancellationTokenSource();
@@ -754,7 +759,20 @@ public sealed partial class MainWindow : Window
             {
                 // 期间被呼出或正在退出：停止观察，不再继续后续轮次。
                 if (!MemoryDiagnostics.ShouldRunHiddenMaintenance(_isVisible, _isClosing)) return;
-                MemoryDiagnostics.Log($"IdleProbe#{round}", MemeViewModel.LiveBitmapImageCount);
+                if (!MemoryDiagnostics.Enabled) return;
+
+                var snapshot = MemoryDiagnostics.Capture(MemeViewModel.LiveBitmapImageCount);
+                // 附上"相对上一轮"的增量：ΔAlloc 一路涨而 GC 计数不动 = 垃圾没被回收（不是泄漏）；
+                // ΔPrivate 与 ΔAlloc 同量级 = 提交量只是跟着分配在走。见 todo.md §0.6。
+                string extra = string.Empty;
+                if (_lastIdleSnapshot is { } prev)
+                {
+                    extra = $" ΔAlloc={MemoryDiagnostics.FormatMB(snapshot.TotalAllocatedBytes - prev.TotalAllocatedBytes)}" +
+                            $" ΔPrivate={MemoryDiagnostics.FormatDelta(prev.PrivateBytes, snapshot.PrivateBytes)}";
+                }
+                _lastIdleSnapshot = snapshot;
+
+                Logger.Log(snapshot.ToLogLine($"IdleProbe#{round}") + extra);
             });
         }
     }

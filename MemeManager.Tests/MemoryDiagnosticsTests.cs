@@ -84,6 +84,30 @@ public class MemoryDiagnosticsTests
             TimeSpan.FromSeconds(30), isVisible, isClosing));
 
     [Fact]
+    public void ToLogLine_AppendsAllocationAndGcCounters_WhenCaptured()
+    {
+        var snapshot = new MemorySnapshot(
+            MB, 2 * MB, 3 * MB,
+            LiveBitmapImages: 0, PageAlive: false,
+            TotalAllocatedBytes: 512 * MB, Gen0Collections: 3, Gen1Collections: 1, Gen2Collections: 1);
+
+        Assert.Equal(
+            "[Memory] IdleProbe#1: Managed=1.0MB Private=2.0MB WorkingSet=3.0MB " +
+            "LiveBitmapImages=0 PageAlive=False AllocTotal=512.0MB GC=3/1/1",
+            snapshot.ToLogLine("IdleProbe#1"));
+    }
+
+    [Fact]
+    public void ToLogLine_OmitsAllocationAndGcCounters_WhenNotCaptured()
+    {
+        var snapshot = new MemorySnapshot(MB, MB, MB, LiveBitmapImages: -1, PageAlive: null);
+        string line = snapshot.ToLogLine("x");
+
+        Assert.DoesNotContain("AllocTotal", line);
+        Assert.DoesNotContain("GC=", line);
+    }
+
+    [Fact]
     public void ShouldRunHiddenMaintenance_True_OnlyWhenHiddenAndNotClosing()
     {
         Assert.True(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: false, isClosing: false));
