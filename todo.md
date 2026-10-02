@@ -307,6 +307,47 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 | B | `SuspendFileWatcherWhileHidden = true` | 每轮 `ΔAlloc` 是否明显下降 | 下降 → FileWatcher 是主源，采纳"隐藏时停监听"（呼出需补一次刷新） |
 | C | A、B 都不变 | 用 `dotnet-trace collect --profile gc-verbose` + `topN` 看分配栈 | 定位真正的分配源（很可能就是 WinUI/DispatcherQueue 消息泵的固有微分配） |
 
+### 0.9 第五轮实测：周期维护生效 → 判定"成功"（2026-10-02）★★★
+
+| 轮次 | before Managed | after Managed | ΔManaged | GC（轮内 +2） | before WS | after WS |
+| --- | --- | --- | --- | --- | --- | --- |
+| #1 | 4.4 MB | 3.4 MB | −1.0 MB | 8→10 | 33.6 MB | 2.6 MB |
+| #2 ~ #10 | 3.8 MB（每轮回到同一值） | **3.4 MB（恒定）** | **−0.4 MB/轮** | 10→28 | 21~37 MB | 2.5~11 MB |
+
+**判读：**
+
+1. **每轮 GC 后 Managed 恒定回到 3.4 MB** → **不是泄漏**（泄漏会逐轮抬高），而是 ~0.4MB/30s（≈13 KiB/s）
+   的正常垃圾累积，GC 一跑就干净。
+2. **Private 稳定在 139.4 MB**（10 轮只动 1.2 MB，后 6 轮完全不动）→ 这才是**真正的稳态基线**；
+   且比"单次 trim 后"的 157 MB 还低 18 MB → **反复的「GC + 时间」能持续把 native 也收掉，直到这个下限**。
+3. **WS 每轮被压回 2.5~11 MB** → 任务管理器"内存"列可长期维持个位数 MB。
+4. 每轮 `GC` 计数 +2（`CompactManagedHeap` 内两次 `GC.Collect`）→ 与实现完全吻合，维护确实在跑。
+
+**成功判定（针对"关闭主窗口后后台不占内存"这个目标）：**
+
+| 指标 | 结果 | 说明 |
+| --- | --- | --- |
+| 专用工作集（任务管理器"内存"列） | **2.5~11 MB**（原 337 MB） | 靠周期维护维持；停掉会回填到 40~50 MB |
+| Managed Heap | **3.4 MB 恒定** | 不再增长 |
+| Private Bytes | **139.4 MB 恒定** | 框架基线（~82 MB 启动即有，另 ~57 MB 与"加载过图片列表"相关） |
+| 后台增长 | **0（已消除）** | 每轮都被收回 |
+| 代价 | 隐藏态每 30s 一次同步 GC（10~40ms，用户不可见）+ 呼出首帧可能缺页 | **唯一需人工确认手感的地方** |
+
+**注意：本方案没有做「整页卸载」（阶段 2/3），所以不存在状态丢失问题** ——
+页面实例仍在（`PageAlive=True`），分类、搜索框文本、滚动位置全都保留在原地，
+不需要那套"呼出后重建 + 状态恢复 + 落盘 flush"的复杂度。这是绕开 ChatGPT 那套 teardown 方案换来的收益。
+
+**仍未解释的两个数字（可选实验）：**
+- **Private 139.4 MB 里的 ~57 MB**（139.4 − 82 空载）＝"加载过 72 张图后不释放"的部分。
+  E3（8 张图分类 vs 200 张图分类）可判定它属"每张图的成本"（可优化）还是"一次性框架池"（属基线）。
+- **每轮 0.4 MB 的分配源**：现被 GC 兜住、无害；要根治用 `dotnet-trace` alloc profile 看栈。
+
+**产品化收尾清单：**
+1. 关掉诊断/实验开关默认值，清理中间打点（保留最小集）。
+2. 定产品参数：`IdleMemoryProbeInterval`（30s 偏密，可放宽到 2~5min）、`WorkingSetTrimDelay`（配合手感）。
+3. 删除 `SuspendFileWatcherWhileHidden`（实测它不是分配主源）。
+4. README 的目标表述更新（现写"平均 200MB 专用工作集"，应改为"后台专用工作集个位数 MB + Private 基线 ~140MB"）。
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
