@@ -82,4 +82,13 @@ public class MemoryDiagnosticsTests
     public void ShouldTrimWorkingSet_False_WhenVisibleOrClosing(bool isVisible, bool isClosing)
         => Assert.False(MemoryDiagnostics.ShouldTrimWorkingSet(
             TimeSpan.FromSeconds(30), isVisible, isClosing));
+
+    [Fact]
+    public void ShouldRunHiddenMaintenance_True_OnlyWhenHiddenAndNotClosing()
+    {
+        Assert.True(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: false, isClosing: false));
+        Assert.False(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: true, isClosing: false));
+        Assert.False(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: false, isClosing: true));
+        Assert.False(MemoryDiagnostics.ShouldRunHiddenMaintenance(isVisible: true, isClosing: true));
+    }
 }

@@ -100,18 +100,33 @@ public static class MemoryDiagnostics
     /// 三个条件缺一不可——延迟为 0/负表示禁用；可见时裁剪会让用户立刻感到缺页卡顿。
     /// </summary>
     public static bool ShouldTrimWorkingSet(TimeSpan delay, bool isVisible, bool isClosing)
-        => delay > TimeSpan.Zero && !isVisible && !isClosing;
+        => delay > TimeSpan.Zero && ShouldRunHiddenMaintenance(isVisible, isClosing);
 
     /// <summary>
-    /// 执行一次"隐藏后"的工作集裁剪：强制压缩 GC（含 LOH 压缩）→ 再 EmptyWorkingSet。
-    /// 返回 EmptyWorkingSet 是否成功。注意：只压 Working Set，不释放 Private Bytes。
+    /// 隐藏态维护动作（延迟 trim / 稳态观察探针）是否应当继续：窗口不可见且不在退出流程中。纯函数。
+    /// 判据来自实测：可见时执行这些动作只会让用户感到缺页卡顿，退出时执行毫无意义。
     /// </summary>
-    public static bool TrimWorkingSet()
+    public static bool ShouldRunHiddenMaintenance(bool isVisible, bool isClosing)
+        => !isVisible && !isClosing;
+
+    /// <summary>
+    /// 强制压缩式 GC（含 LOH 压缩）+ 跑完终结器队列。
+    /// 与 <see cref="EmptyProcessWorkingSet"/> 刻意拆开，是为了能分别打点、定位"到底哪一步回收了内存"。
+    /// </summary>
+    public static void CompactManagedHeap()
     {
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+    }
 
+    /// <summary>
+    /// 裁剪进程工作集（EmptyWorkingSet）。返回是否成功。
+    /// 主要压 Working Set（任务管理器"内存"列），但实测它**同时会让 Private Bytes 下降约 25%**
+    /// （机制未确认，见 todo.md §0.5），所以与 GC 分开打点以便归因。
+    /// </summary>
+    public static bool EmptyProcessWorkingSet()
+    {
         using var process = Process.GetCurrentProcess();
         return NativeMethods.EmptyWorkingSet(process.Handle);
     }

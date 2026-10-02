@@ -63,6 +63,9 @@ public sealed partial class MainWindow : Window
     // 避免刚显示就付一次缺页重新调入的代价。见 MainWindow.TrimWorkingSetAfterDelayAsync。
     private CancellationTokenSource? _workingSetTrimCts;
 
+    // 隐藏态"稳态观察"探针的取消令牌：呼出窗口或退出即取消。见 MainWindow.StartIdleMemoryProbe。
+    private CancellationTokenSource? _idleProbeCts;
+
     // 当前 UI 模式（Full/Mini）
     private AppMode _currentMode = AppMode.Full;
     public AppMode CurrentMode => _currentMode;
@@ -559,8 +562,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // 延迟的工作集裁剪期间被呼出：取消待执行 trim，避免刚显示就付缺页重新调入的代价。
+        // 延迟的工作集裁剪 / 稳态探针期间被呼出：一律取消——既避免刚显示就付缺页代价，
+        // 也避免隐藏态探针在窗口重新可见后还继续活动。
         _workingSetTrimCts?.Cancel();
+        _idleProbeCts?.Cancel();
 
         // 最小化窗口必须用 SW_RESTORE（SW_SHOW 对 iconic 窗口无效）
         if (NativeMethods.IsIconic(_hWnd))
@@ -703,12 +708,55 @@ public sealed partial class MainWindow : Window
             if (!MemoryDiagnostics.ShouldTrimWorkingSet(AppConstants.WorkingSetTrimDelay, _isVisible, _isClosing))
                 return;
 
-            bool trimmed = MemoryDiagnostics.TrimWorkingSet();
+            // 分两步做、分两步打点：用来定位"到底哪一步回收了内存"（GC 压缩 vs EmptyWorkingSet，
+            // 见 todo.md §0.5——实测 trim 后 Private Bytes 也会掉约 25%，需要归因）。
+            MemoryDiagnostics.CompactManagedHeap();
+            MemoryDiagnostics.Log("AfterCompactGc", MemeViewModel.LiveBitmapImageCount);
+
+            bool trimmed = MemoryDiagnostics.EmptyProcessWorkingSet();
             if (MemoryDiagnostics.Enabled)
                 Log($"[窗口] 工作集裁剪(EmptyWorkingSet) 结果={trimmed}");
-            // 裁剪后再采一次快照：便于对比 BeforeHide / AfterTeardown / AfterWorkingSetTrim 的 Working Set。
             MemoryDiagnostics.Log("AfterWorkingSetTrim", MemeViewModel.LiveBitmapImageCount, ProbePageAlive());
+            StartIdleMemoryProbe();
         });
+    }
+
+    // 隐藏态"稳态观察"探针：trim 之后每隔固定间隔采一次快照，用来判定
+    // "工作集缓慢回升"是正常重新调入（涨到稳态就停）还是真泄漏（线性无上限）。
+    // 呼出窗口即取消——探针本身不该变成常驻活动。
+    private void StartIdleMemoryProbe()
+    {
+        var interval = AppConstants.IdleMemoryProbeInterval;
+        int times = AppConstants.IdleMemoryProbeTimes;
+        if (!MemoryDiagnostics.Enabled || interval <= TimeSpan.Zero || times <= 0) return;
+
+        _idleProbeCts?.Cancel();
+        _idleProbeCts?.Dispose();
+        _idleProbeCts = new CancellationTokenSource();
+        _ = IdleMemoryProbeAsync(interval, times, _idleProbeCts.Token);
+    }
+
+    private async Task IdleMemoryProbeAsync(TimeSpan interval, int times, CancellationToken token)
+    {
+        for (int i = 1; i <= times; i++)
+        {
+            try
+            {
+                await Task.Delay(interval, token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            int round = i;
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                // 期间被呼出或正在退出：停止观察，不再继续后续轮次。
+                if (!MemoryDiagnostics.ShouldRunHiddenMaintenance(_isVisible, _isClosing)) return;
+                MemoryDiagnostics.Log($"IdleProbe#{round}", MemeViewModel.LiveBitmapImageCount);
+            });
+        }
     }
 
     /// <summary>
@@ -920,10 +968,13 @@ public sealed partial class MainWindow : Window
 
     private void Window_Closed(object sender, WindowEventArgs args)
     {
-        // 退出流程：取消并释放待执行的延迟裁剪，避免进程退出期间还挂着任务。
+        // 退出流程：取消并释放待执行的延迟裁剪与稳态探针，避免进程退出期间还挂着任务。
         _workingSetTrimCts?.Cancel();
         _workingSetTrimCts?.Dispose();
         _workingSetTrimCts = null;
+        _idleProbeCts?.Cancel();
+        _idleProbeCts?.Dispose();
+        _idleProbeCts = null;
 
         SuspendWindowInteractions(closing: true);
         // 退出前立即把当前分类落盘（防抖可能尚未触发），确保无论何种关闭路径都不丢失最后选择。

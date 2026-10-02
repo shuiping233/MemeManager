@@ -122,6 +122,16 @@ public static class AppConstants
     /// 「隐藏后马上又呼出」时首次显示会有可见的缺页卡顿；延迟到时若仍未被呼出再执行。
     /// 设为 &lt;= TimeSpan.Zero 表示不 trim。见 todo.md 阶段 5。
     /// </summary>
-    public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(30);
+    public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// 隐藏态「稳态观察」探针的间隔：trim 完成后每隔这么久记一次内存快照（仅隐藏态），
+    /// 用来判定"工作集在 trim 后缓慢回升"属于正常重新调入（涨到稳态就停）还是真泄漏（线性无上限）。
+    /// 与 <see cref="IdleMemoryProbeTimes"/> 任一为非正数、或诊断开关关闭时，不启动。
+    /// </summary>
+    public static readonly TimeSpan IdleMemoryProbeInterval = TimeSpan.FromSeconds(60);
+
+    /// <summary>隐藏态「稳态观察」探针的轮数（每轮间隔见 <see cref="IdleMemoryProbeInterval"/>）。</summary>
+    public const int IdleMemoryProbeTimes = 5;
 }
 
