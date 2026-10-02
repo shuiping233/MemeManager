@@ -138,15 +138,5 @@ public static class AppConstants
     /// 每轮间隔见 <see cref="IdleMemoryProbeInterval"/>。
     /// </summary>
     public const int IdleMemoryProbeTimes = 10;
-
-    /// <summary>
-    /// 隐藏窗口期间是否暂停 `FileWatcher`（实验开关，默认关闭＝保持现状）。
-    /// 动机：主窗口隐藏后界面不可见，原本"监听文件变化并就地更新控件"的价值为零。
-    /// 但收益待实测 —— `FileSystemWatcher` 无文件事件时本应几乎零分配（完成端口等待，不轮询），
-    /// "它是那 ~0.4MB/min 分配的主源吗"用本开关做一次对照跑即可判定。
-    /// ⚠️ 启用后隐藏期间的外部增删不会被感知，呼出后列表可能过期（需配合一次刷新）。
-    /// 用 `static readonly`（而非 const）：否则 `if` 恒假的分支会触发 CS0162「无法访问的代码」警告。
-    /// </summary>
-    public static readonly bool SuspendFileWatcherWhileHidden = false;
 }
 

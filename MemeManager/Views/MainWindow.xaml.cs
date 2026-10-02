@@ -596,10 +596,6 @@ public sealed partial class MainWindow : Window
         }
         _fgTimer?.Start();
 
-        // 实验开关：恢复文件监听（与隐藏路径的 SuspendFileWatcher 成对）。
-        if (AppConstants.SuspendFileWatcherWhileHidden)
-            ResumeFileWatcher();
-
         // 从托盘/快捷键呼出后，将焦点重新定位到当前模式的默认交互控件，
         // 避免焦点残留在系统标题栏关闭按钮上（用户点 X 隐藏后焦点被系统三键截持）。
         // 放在 ShowWindow 统一处理，覆盖所有“显示窗口”入口（托盘显示、切换模式、设置等），
@@ -653,10 +649,6 @@ public sealed partial class MainWindow : Window
         // 分类控件与图片资源分开管理：单独卸载分类栏容器（ListViewItem/x:Bind 绑定/Flyout）。
         CurrentMainPage?.ReleaseCategoryList();
         SuspendWindowInteractions(closing: false);
-
-        // 实验开关：隐藏期间暂停文件监听（界面不可见时，"监听变化并就地更新控件"没有价值）。
-        if (AppConstants.SuspendFileWatcherWhileHidden)
-            SuspendFileWatcher();
 
         // 所有控件访问完成后，最后卸载表情网格/分类面板整棵子树。
         // 必须放在 SuspendWindowInteractions 之后——它内部要写 MemeGridView/CategoryList 的拖拽开关
@@ -999,22 +991,6 @@ public sealed partial class MainWindow : Window
     {
         if (_isClosing) return;
         CurrentMainPage?.ResumeInteractions();
-    }
-
-    // ---------- 文件监听挂起/恢复（实验开关 SuspendFileWatcherWhileHidden 控制）----------
-
-    // 隐藏期间停止文件监听。动机：主窗口隐藏后界面不可见，原本"监听文件变化并就地更新控件"的价值为零。
-    // ⚠️ 副作用：隐藏期间的外部增删不会被感知，呼出后列表可能过期（实验阶段暂不补刷新）。
-    private void SuspendFileWatcher()
-    {
-        _engine.Watcher?.Stop();
-        Log("[FileWatcher] 隐藏期间已暂停监听（实验开关）");
-    }
-
-    private void ResumeFileWatcher()
-    {
-        _engine.Watcher?.Start();
-        Log("[FileWatcher] 已恢复监听（实验开关）");
     }
 
     private void Window_Closed(object sender, WindowEventArgs args)
