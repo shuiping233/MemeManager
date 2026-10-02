@@ -155,6 +155,38 @@ PreviewPopup 子树 / TitleStrip / CategorySplitter / BatchProgressInfoBar）nat
    - 若差值里 **Image / Mapped** 是大头 → 已到框架基线，本任务只需做 Working Set trim（阶段 5）。
    - 若 **Private Data** 仍明显 → 还有 native 对象树没死，整页卸载（阶段 2/3）值得做。
 
+### 0.4 实测基线（2026-10-02）与结论 ★
+
+用阶段 0 落地后的诊断日志 + dotnet-counters 实采：
+
+| 时点 | Managed | Private Bytes | Working Set | LiveBitmapImages | PageAlive |
+| --- | --- | --- | --- | --- | --- |
+| BeforeHide | 6.2 MB | 219.1 MB | 337.0 MB | 84 | — |
+| AfterTeardown | 3.8 MB | 214.9 MB | 333.9 MB | 0 | True |
+| 第二次 BeforeHide | 6.0 MB | 228.3 MB | 347.5 MB | 72 | — |
+| 第二次 AfterTeardown | 3.9 MB | 229.4 MB | 348.7 MB | 0 | True |
+| 第三次 BeforeHide | 6.0 MB | 262.2 MB | 386.1 MB | 72 | — |
+| 第三次 AfterTeardown | 4.5 MB | 259.7 MB | 383.7 MB | 0 | True |
+
+dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB`。
+
+**结论（决定后面做什么）：**
+
+1. **图片这块已回收干净，且量级很小**：`LiveBitmapImages 84 → 0`，Private 只降 ~4.2 MB，
+   正好等于 84 张 120×120 缩略图的原生位图（120×120×4 ≈ 57.6 KB × 84 ≈ 4.8 MB）→ 无残留。
+2. **托管堆只占 Private 的 ~3%**（6 MB / 215 MB）→ 印证 §0.1：省托管堆不是目标。
+3. **teardown 的收益被噪声淹没**：Private 在多次隐藏之间自身就抖 ±30 MB（第二次反而涨了 1.1 MB），
+   比"控件树能省的那几 MB"大一个数量级 → **继续在控件层抠，测不出收益**。
+4. **~210 MB 在托管之外、且不随控件卸载移动** → 属框架/驱动/镜像页基线。
+   （`Working Set 337 MB > Private 219 MB`，说明约 120 MB 是 file-backed 镜像/共享页。）
+5. `PageAlive=True` 是预期值（现状下 `RootFrame.Content` 仍强引用着页面）。
+
+**因此：**
+- 阶段 2/3（整页卸载）**优先级下调**：预期收益几 MB 级且被噪声淹没，除非 §0.3 的 VMMap 归因
+  显示 Private Data 里还有未死的大块。
+- 阶段 5（Working Set trim）**提前**：它是唯一能显著改变"任务管理器内存列"的手段 ——
+  目标正是那约 120 MB 的镜像/共享页。
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
@@ -165,7 +197,7 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
 
 ## 2. 阶段划分（每阶段一个 commit，按 AGENTS.md 汇报"做了什么/你要测什么"）
 
-### 阶段 0 · 诊断与探针（P0，改代码）
+### 阶段 0 · 诊断与探针（P0）✅ 已完成（commit eab1f47：`MemoryDiagnostics` + 探针 + 常量）
 
 - 新增 `Infrastructure/MemoryDiagnostics.cs`：纯静态、**可开关**（Config 或 AppConstants 常量控制），
   输出 `Managed / Private Bytes / WorkingSet / LiveBitmapImageCount`。
@@ -199,7 +231,7 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
 4. **托盘退出路径**：`Window_Closed:849` 的 `CurrentMainPage?.FlushLastCategory()` 在 Content 为 null 后
    变 no-op → 需保证退出前 flush 已发生。
 
-### 阶段 2 · 整页卸载（核心）
+### 阶段 2 · 整页卸载（核心）⚠️ 按 §0.4 实测：预期收益仅几 MB 且被噪声淹没 → 优先级下调，先做阶段 5
 
 1. 新增 `TeardownMainPage()`（或 `ReleaseMainPageUi()`），顺序**严格**如下：
 
@@ -238,10 +270,10 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
 
 `SystemBackdrop = null` / 恢复 `new MicaBackdrop()`。**若三指标无变化就撤回**，不保留无收益复杂度。
 
-### 阶段 5 · 延迟 EmptyWorkingSet（已定策略）
+### 阶段 5 · 延迟 EmptyWorkingSet ✅ 已实现（commit 4519f45），待实测数据
 
 - 时机：隐藏后**延迟**执行（避免"隐藏完马上呼出"时缺页重新调入导致可见卡顿）。
-- **延迟时长写成 `AppConstants` 常量**（如 `WorkingSetTrimDelayMs`，便于调整）。
+- **延迟时长写成 `AppConstants` 常量**：实际为 `AppConstants.WorkingSetTrimDelay`（默认 30s；`<= TimeSpan.Zero` 表示禁用）。
 - 实现建议：隐藏时启动 `Task.Delay(常量, cts.Token)`，`ShowWindow` 里 Cancel；trim 前再判一次
   `!IsAppVisible && !_isClosing`。
 - 调用：`GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true)`
