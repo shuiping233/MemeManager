@@ -102,3 +102,189 @@ MemeManager/
   - 背景：主界面做"分类三态复选框 ↔ meme 全局跨分类选中 ↔ 批量操作"联动太过复杂、状态耦合（切虚拟分类"全部表情"会难以处理）。
   - 方案：新增独立子窗口承载复杂多选导出，子窗口内多选分类 → 预览/勾选 meme → 导出，状态完全隔离，不污染主界面 meme 多选与 CurrentCategory。
   - 待定：入口（批量导出按钮/右键）、分类多选交互、预览是否可二次勾选、导出参数、虚拟分类排除规则。
+
+---
+
+# 任务：主窗口隐藏后 UI 全量 teardown（WinUI 3 极限内存释放）
+
+> **目标**：让 `MainPage` 在窗口隐藏后**真正死亡**（`RootFrame.Content == null` 且被 GC），
+> 并把剩余内存**归因到 framework baseline 或我方残留**，而不是继续给控件打补丁。
+>
+> **先读 §0**：它决定这个任务该做到哪一层，以及"整页卸载"值不值得做。
+
+## 0. 归因前置（必须先做，否则可能白干）
+
+### 0.1 一个关键认知：托管堆不是主战场
+
+| 指标 | 现状 | 来源 |
+| --- | --- | --- |
+| Managed Heap | 几 MB | `MainPage.xaml.cs:947` 诊断日志 |
+| 关闭后专用工作集 | ~200MB（README）/ GC 后 ~270MB（注释实测） | `README.md:32`、`MainWindow.xaml.cs:629-633` |
+| `LiveBitmapImageCount` | 隐藏后应趋 0 | `MemeViewModel.cs:175` |
+
+托管堆只有几 MB 是**正常的**：WinUI 3 的 `GridView` / `Image` / `Popup` / `TextBlock` 在 C# 侧只是
+native 对象的薄包装（RCW），真正的占用在 Microsoft.UI.Xaml 的 native 对象树、Composition/D3D 资源、
+DWrite 字体缓存上。**因果链是：**
+
+```text
+断托管引用 → native 引用计数归零 → native XAML 对象析构 → native 内存才下降
+```
+
+所以本任务断托管引用，**不是为了省那几 MB 托管堆，而是拿托管引用当"总闸"去关 native 内存**。
+
+### 0.2 但收益上限要提前认清
+
+`x:Load` 已经卸载了最重的两块（分类 ListView、表情 GridView 及其容器池，
+`MainPage.xaml:138,285`）。剩下 x:Load **外**的（TopBar 6 按钮 / BatchBar 5 按钮 + Flyout /
+PreviewPopup 子树 / TitleStrip / CategorySplitter / BatchProgressInfoBar）native 量级较小。
+
+```text
+=> 整页卸载相比现状的额外收益「可能是几 MB 级」，不是能改变 200MB 的量级。
+=> 真正的大头更可能是「框架基线」：只要窗口还活着（SW_HIDE 也算活着），
+   Composition / D3D 设备与交换链、DWrite 字体缓存、XAML 元数据、
+   WinAppSDK/.NET 的 DLL 代码页就不会释放 —— 这部分对"卸载控件树"几乎零响应。
+```
+
+### 0.3 一次性人工归因（决定后续值不值得做）
+
+1. 启动 → 加载一个 1000+ 张图的分类 → 用 **VMMap**（Sysinternals）导出 Private Bytes 分类
+   （Image / Mapped File / Private Data / Managed Heap / Shareable），逐栏记录。
+2. 点 X 隐藏 → 等 GC 完成 → 再导一次做差。
+3. 结论必须回答「还剩多少可压空间」：
+   - 若差值里 **Image / Mapped** 是大头 → 已到框架基线，本任务只需做 Working Set trim（阶段 5）。
+   - 若 **Private Data** 仍明显 → 还有 native 对象树没死，整页卸载（阶段 2/3）值得做。
+
+## 1. 已到头，本轮不要碰
+
+`CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，
+`MainWindow.g.cs` 连 `bindings` 类都未生成）｜`Image.Source = null` + `BitmapImage` +
+`ItemsSource = null` + 延迟一帧（已比常规做法更细）｜`x:Load` 用法（Flyout/Popup 时序坑已踩过）｜
+GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`IgnoreImageCache`（项目既有取舍，不擅自回退）｜
+`SettingsPage` 生命周期（第一阶段不动）｜`CacheLength`（与 Page 生命周期无关）。
+
+## 2. 阶段划分（每阶段一个 commit，按 AGENTS.md 汇报"做了什么/你要测什么"）
+
+### 阶段 0 · 诊断与探针（P0，改代码）
+
+- 新增 `Infrastructure/MemoryDiagnostics.cs`：纯静态、**可开关**（Config 或 AppConstants 常量控制），
+  输出 `Managed / Private Bytes / WorkingSet / LiveBitmapImageCount`。
+  - 格式化函数做成**纯函数**，便于 xUnit 覆盖（本任务唯一的可单测部分）。
+- 打点三处：`BeforeHide` / `AfterTeardown` / `AfterWorkingSetTrim`。
+- **WeakReference 探针**（关键）：隐藏前 `_pageProbe = new WeakReference<MainPage>(CurrentMainPage)`，
+  GC 后记录 `IsAlive` —— 这是唯一能硬证明"MainPage 真的死了"的手段。
+- 验收：日志能完整给出三个时点的四指标 + 探针结果；关掉开关后零输出。
+
+### 阶段 1 · 断开外部根引用（不改变页面生命周期，风险低，先做）
+
+1. **VM → Page 委托断开/重连**（21 个，`MainPage.xaml.cs:265-332`）
+
+   ```text
+   RefreshRequested / SettingsRequested / MiniModeRequested / EditModeRequested / SelectAllRequested /
+   NewCategoryRequested / CategoriesChangedRequested / ConfirmDeleteCategoryRequested /
+   PromptRenameCategoryRequested / RenameCategoryFailedRequested / PromptPasteCategoryRequested /
+   InvalidCategoryNameRequested / RunBatchImportRequested / EnterEditModeAndSelectRequested /
+   PromptRenameMemeRequested / DeleteMemeRequested / BatchImportRequested / BatchExportRequested /
+   BatchDeleteRequested / HidePreviewRequested / PasteToExternalRequested
+   ```
+
+   外加 `ViewModel.SearchDebouncer`、`ViewModel.CategorySearchDebouncer`（`:225,231`，也是 Page 的 lambda）。
+   MiniPage 另有 2 个（`MiniPage.xaml.cs:49-50`：`ExpandToFullRequested` / `SendToExternalRequested`）。
+   实现 `DetachViewModelCallbacks()` / `AttachViewModelCallbacks()` 成对方法，**不要**只删不连。
+2. **`SetTitleBarElement(null)`**：隐藏时解除 `Window.TitleBar → TitleStrip → RootGrid → Page`。
+   显示时新 Page 的 `Loaded`（`MainPage.xaml.cs:196`）会自动重注册，无需手写。
+3. **teardown 前必须落盘**（spec 漏项 ⚠️）：显式 `FlushLastCategory()`。
+   否则 `SaveLastCategoryDebouncer`（`:210`）随 Page 消失，**防抖未触发的最后分类选择直接丢**。
+   同理检查窗口尺寸 / 分类栏宽度等 debouncer。
+4. **托盘退出路径**：`Window_Closed:849` 的 `CurrentMainPage?.FlushLastCategory()` 在 Content 为 null 后
+   变 no-op → 需保证退出前 flush 已发生。
+
+### 阶段 2 · 整页卸载（核心）
+
+1. 新增 `TeardownMainPage()`（或 `ReleaseMainPageUi()`），顺序**严格**如下：
+
+   ```text
+   1. 阻止新的 UI 操作（现有 SuspendInteractions）
+   2. 收 Flyout/Popup/Preview（CloseSettingsFlyout + HidePreviewPopup(immediate)）
+   3. 落盘 flush（阶段 1.3）
+   4. 断 Image/BitmapImage/ItemsSource（现有 ReleaseImages / ReleaseCategoryList）
+   5. DetachViewModelCallbacks()
+   6. SetTitleBarElement(null)                     ← 必须在 Content=null 之前
+   7. 探针记录 WeakReference
+   8. RootFrame.Content = null
+   9. （实验项，见阶段 4）SystemBackdrop = null
+   10. GC + WaitForPendingFinalizers
+   ```
+
+   `HideWindow()` 改为调用它，teardown 必须是**一个完整生命周期动作**，而不是散落补丁。
+2. **`ShowWindow` 必须新增重建分支**（spec 漏项 ⚠️）：`RootFrame.Content is null` 时**同步** `Navigate`
+   重建当前模式页面（**不要** `DispatcherQueue.TryEnqueue`，否则会与托盘"切换模式"
+   `ToggleMode:495` 的 Show→`SwitchMode`→Navigate 抢导航）。
+3. **MiniPage 一视同仁**（spec 漏项 ⚠️）：现在 `CurrentMainPage?.SetUiLoaded(false)` 对 MiniPage 是 no-op，
+   Mini 模式隐藏后整棵树常驻 → MiniPage 也要走 teardown/重建。
+4. **状态恢复范围（已定）**：当前分类（`MainViewModel.CurrentCategory`，单例天然保留）
+   + **搜索关键词**（`SearchService.Keyword` 是单例保留的，但 `SearchBox.Text` 会随 Page 重建变空 →
+   呼出时必须回填，否则出现"列表已过滤、搜索框空白"的不一致）。
+   滚动位置**不恢复**（回顶部），接受此退化。
+5. **`IsUiLoaded` 契约**（spec 漏项 ⚠️）：它是**单例 VM 状态**（`MainViewModel.cs:22`），跨 Page 实例残留。
+   整页卸载落地后，让隐藏路径**不再依赖** x:Load（保留 x:Load 作为 Page 内的二级机制），
+   避免"隐藏置 false、显示必须置 true"的隐性契约在 `SwitchMode` 等非 `ShowWindow` 路径上踩空。
+
+### 阶段 3 · 验证与回归（不写新代码）
+
+见 §4 测试清单。必须记录 `AfterTeardown` 三指标 + 探针 `IsAlive`。
+
+### 阶段 4 · SystemBackdrop 实验（可回退，独立 commit）
+
+`SystemBackdrop = null` / 恢复 `new MicaBackdrop()`。**若三指标无变化就撤回**，不保留无收益复杂度。
+
+### 阶段 5 · 延迟 EmptyWorkingSet（已定策略）
+
+- 时机：隐藏后**延迟**执行（避免"隐藏完马上呼出"时缺页重新调入导致可见卡顿）。
+- **延迟时长写成 `AppConstants` 常量**（如 `WorkingSetTrimDelayMs`，便于调整）。
+- 实现建议：隐藏时启动 `Task.Delay(常量, cts.Token)`，`ShowWindow` 里 Cancel；trim 前再判一次
+  `!IsAppVisible && !_isClosing`。
+- 调用：`GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true)`
+  → `WaitForPendingFinalizers` → `EmptyWorkingSet(Process.GetCurrentProcess().Handle)`（`psapi.dll`）。
+- 认知纪律：**`EmptyWorkingSet` 只压 Working Set，不等于释放 Private Bytes，更不等于修泄漏**。
+
+### 阶段 6 · 实验评估（可选，先别动手）
+
+若阶段 0 的 VMMap 归因显示大头是 **Composition/D3D/框架基线**（窗口还活着就不释放），
+则按 ChatGPT 第 8 节的思路评估：**"真 Close 主窗口 + 极简停车 Window 保进程存活"**。
+只有它能动大头；代价是多一个 WinUI Window 生命周期对象。**先评估，不要直接实现。**
+
+## 3. spec 中明确不做的（避免过度工程）
+
+| 项 | 原因 |
+| --- | --- |
+| 统一 UI lifetime CTS / 取消所有页面任务 | 隐藏时任务已用 `IsClosing/IsAppVisible` 守卫；新造 CTS 系统收益低 |
+| 给控件普遍加 `-=`（Timer 等） | `Page → Timer → Page` 是自环，GC 能处理；只优先处理"长生命周期对象持有页面" |
+| `CacheLength` 调优、`SettingsPage` 生命周期重构 | 与本轮归因目标无关，会污染测量 |
+| 删除 `IgnoreImageCache`、升级 Windows App SDK | 既有取舍 / 需先解决"放宽用户依赖"那条回落理由（`docs/version_history.md:128`） |
+| 大面积改绑定体系、重写图片清理 | 已到头 |
+
+## 4. 测试清单（手动回归）
+
+- 隐藏 → 呼出（托盘 / 全局热键 / 重复启动呼出旧实例）**循环 10 次**：内存不单调上涨、无崩溃。
+- 呼出后：当前分类正确、**搜索关键词回填且列表过滤一致**、标题栏可拖、min/max/close 正常。
+- 隐藏态下点托盘「设置」（`MainWindow.OpenSettings:478` 依赖 `CurrentMainPage`）→ 能正常弹出。
+- 隐藏态下点托盘「退出」→ 最后分类/配置已落盘（检查 `config.json`）。
+- Mini 模式：隐藏 → 呼出、Mini↔Full 来回切换、Picker 浮窗、拖入导入。
+- 隐藏态下从资源管理器往分类文件夹增删图片 → 呼出后列表正确（`FileWatcher` 隐藏期间仍活着）。
+- 窗口显示状态下：拖拽重排、拖入文件、Ctrl+V 粘贴、悬停预览、右键菜单全部正常。
+- 阶段 5 后：隐藏 → 等延迟 → 看工作集下降；再呼出测首次显示是否卡顿。
+
+## 5. 单元测试（非 UI 部分）
+
+- `MemoryDiagnostics` 的快照格式化/差值计算（纯函数）→ xUnit。
+- `AppConstants` 新增常量的默认值/边界断言（可选）。
+- UI 事件、Visual Tree、native 回收行为：以手动回归为准，不写单测（与 `MemeManager.Tests` 现有边界一致）。
+
+## 6. 成功标准
+
+1. **引用**：`RootFrame.Content == null`；WeakReference 探针在 GC 后 `IsAlive == false`。
+2. **托管**：Managed Heap 下降量 = Page 相关包装对象（量级小，属正常，不作为主指标）。
+3. **native**：记录 `BeforeHide / AfterTeardown` 的 Private Bytes 差值；剩余部分能归因到
+   Image/Mapped（框架基线）还是 Private Data（我方残留）。
+4. **Working Set**：`Before / After GC / After Trim` 三点对比。
+5. **体验**：呼出正常、分类 + 搜索词恢复、无任何功能回归（宁可少省几 MB，不能把体验搞坏）。
