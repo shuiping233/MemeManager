@@ -5,17 +5,18 @@
 ```
 MemeManager/
 ├── App.xaml / .cs                       ← 入口；DI 容器 (App.GetService<T>())
-├── Views/                               ← XAML + code-behind + UI 辅助
-│   ├── MainWindow.xaml / .cs            ← 窗口；标题栏、模式切换、键盘转发、拖入转发
-│   ├── Pages/
-│   │   ├── MainPage.xaml / .cs          ← 主页面（约 2054 行，仅 UI 接线）
-│   │   ├── SettingsPage.xaml / .cs
-│   │   └── MiniPage.xaml / .cs
-│   ├── Dialogs/DialogHelper.cs          ← 确认/输入/提示弹窗（需 XamlRoot）
-│   ├── ViewDragService.cs               ← 原 ImageDragHelper（View 层拖拽适配器，static）
+├── Views/                               ← XAML + code-behind + UI 辅助（平铺，无 Pages/Dialogs 子目录）
+│   ├── MainWindow.xaml / .cs            ← 窗口壳；标题栏、模式切换、键盘/拖入转发、隐藏/退出生命周期
+│   ├── MainPage.xaml / .cs              ← 完整模式页面（业务 UI 接线 + 批量/预览/拖拽）
+│   ├── MiniPage.xaml / .cs              ← Mini 模式页面（分类 ComboBox + Picker 浮窗）
+│   ├── SettingsPage.xaml / .cs          ← 设置页（DI 单例，作为设置浮窗内容；整棵树常驻，无 x:Load）
+│   ├── AboutPage.cs                     ← 关于页（代码构建）
+│   ├── DialogHelper.cs                  ← 确认/输入/提示弹窗（需 XamlRoot）
+│   ├── ImageDragHelper.cs               ← View 层拖拽适配器（static）
 │   ├── ImageBatchOperationRunner.cs     ← 批量操作编排（后台化+进度条+写锁+UI 收尾）
 │   ├── BatchProgressHelper.cs           ← 顶部 InfoBar 进度条封装
 │   ├── PickerHelper.cs                  ← 文件/文件夹选择器
+│   ├── LocalizedToggleSwitch.xaml / .cs ← 带 i18n 的 ToggleSwitch（全项目唯一 UserControl）
 │   └── IExternalDropPage / IImageReleasablePage  ← Page 对外接口（MainWindow 调用）
 ├── ViewModels/
 │   ├── MainViewModel.cs                 ← 主 VM（ObservableObject + RelayCommand，单例）
