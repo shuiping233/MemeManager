@@ -204,7 +204,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 if (iconPath != null)
                     TitleStripLogo.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
             }
-            catch (Exception ex) { Logger.Log("[标题条] 加载 Logo 失败: " + ex.Message); }
+            catch (Exception ex) { Logger.Log("[TitalBar] 加载 Logo 失败: " + ex.Message); }
         };
 
         SaveLastCategoryDebouncer = new(AppConstants.LastCategorySaveDebounce, async (category) =>
@@ -1114,16 +1114,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var memes = ViewModel.QueryMemes(
             IsAllMemesView ? null : ViewModel.CurrentCategory, keyword);
 
-        // 用当前策略刷新表情列表（复用=增量复用 VM，重建=整体 Clear+重建）。
+        // 用当前策略刷新表情列表
         _listStrategy.RefreshMemes(ViewModel.MemeList, memes);
-
-        // 复用语义下记录增量统计，便于诊断（重建模式为全量重建，无增量可记）。
-        if (_listStrategy is ReuseStrategy)
-        {
-            int newCount = memes.Count;
-            int oldCount = ViewModel.MemeList.Count;
-            Log($"[诊断] RefreshMemes VM数={ViewModel.MemeList.Count} 新项数={newCount}");
-        }
 
         UpdateCategoryCounts();
 

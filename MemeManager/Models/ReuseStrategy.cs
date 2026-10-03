@@ -1,3 +1,4 @@
+using MemeManager.Infrastructure;
 using MemeManager.ViewModels;
 
 namespace MemeManager.Models;
@@ -23,6 +24,8 @@ public sealed class ReuseStrategy : IMemeListStrategy
         }
 
         int oldCount = l.Count;
+        Logger.Log($"[诊断] ReuseStrategy RefreshMemes VM数={oldCount} 新项数={newCount}");
+
         if (oldCount == 0)
         {
             foreach (var m in memeArr) l.Add(new MemeViewModel(m));
