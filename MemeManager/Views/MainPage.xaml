@@ -84,7 +84,11 @@
                 <TextBox x:Name="CategorySearchBox" Grid.Column="0"
                          Width="{x:Bind infra:AppConstants.DefaultCategorySearchBoxWidth}"
                          l:Uids.Uid="Main_CategorySearch"
-                         TextChanged="CategorySearchBox_TextChanged"/>
+                         TextChanged="CategorySearchBox_TextChanged">
+                    <ToolTipService.ToolTip>
+                        <ToolTip l:Uids.Uid="Main_CatrgorySearchToolTip"/>
+                    </ToolTipService.ToolTip>
+                </TextBox>
                 <TextBox x:Name="MemeSearchBox" Grid.Column="1" 
                          l:Uids.Uid="Main_MemeSearch"
                          TextChanged="MemeSearchBox_TextChanged">

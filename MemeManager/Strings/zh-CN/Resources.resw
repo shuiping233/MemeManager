@@ -740,4 +740,7 @@
   <data name="Settings_AggressiveBgReclaimHint.Text" xml:space="preserve">
     <value>关闭主窗口后延迟（约 5 秒）做一次强制 GC 与工作集裁剪，使后台占用降到几 MB。关闭后行为回到仅卸载控件（后台占用仍在 300MB 上下）。</value>
   </data>
+  <data name="Main_CatrgorySearchToolTip.Content" xml:space="preserve">
+    <value>模糊查询所有分类(Ctrl+Shift+F)</value>
+  </data>
 </root>
