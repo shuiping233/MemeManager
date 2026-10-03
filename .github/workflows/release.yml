@@ -102,14 +102,15 @@ jobs:
               "categories": [
                 { "title": "## 🚀 Features", "labels": ["feat"] },
                 { "title": "## 🐛 Fixes", "labels": ["fix", "bugfix"] },
-                { "title": "## ♻️ Refactor", "labels": ["refactor"] },
+                { "title": "## ♻️ Refactor", "labels": ["refactor", "refacotr"] },
                 { "title": "## 📝 Docs", "labels": ["docs"] },
-                { "title": "## 🔧 Chore", "labels": ["chore"] },
+                { "title": "## 🔧 Chore", "labels": ["chore", "build", "ci", "style", "test", "perf"] },
+                { "title": "## 🌐 I18N", "labels": ["i18n"] },
                 { "title": "## Other", "labels": [] }
               ],
               "label_extractor": [
                 {
-                  "pattern": "^(build|chore|ci|docs|feat|fix|bugfix|perf|refactor|revert|style|test)(\\([\\w\\-\\.]+\\))?(!)?: (.+)",
+                  "pattern": "^(build|chore|ci|docs|feat|fix|bugfix|perf|refactor|revert|style|test|i18n)(?:\\([^)]*\\))?!?:\\s*",
                   "on_property": "title",
                   "target": "$1"
                 }
