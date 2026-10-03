@@ -83,13 +83,13 @@
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="CategorySearchBox" Grid.Column="0"
                          Width="{x:Bind infra:AppConstants.DefaultCategorySearchBoxWidth}"
-                         l:Uids.Uid="Category_Search"
+                         l:Uids.Uid="Main_CategorySearch"
                          TextChanged="CategorySearchBox_TextChanged"/>
-                <TextBox x:Name="SearchBox" Grid.Column="1" 
-                         l:Uids.Uid="Main_Search"
-                         TextChanged="SearchBox_TextChanged">
+                <TextBox x:Name="MemeSearchBox" Grid.Column="1" 
+                         l:Uids.Uid="Main_MemeSearch"
+                         TextChanged="MemeSearchBox_TextChanged">
                     <ToolTipService.ToolTip>
-                        <ToolTip l:Uids.Uid="Main_SearchToolTip"/>
+                        <ToolTip l:Uids.Uid="Main_MemeSearchToolTip"/>
                     </ToolTipService.ToolTip>
                 </TextBox>
             </Grid>

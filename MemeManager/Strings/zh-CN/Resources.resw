@@ -309,7 +309,7 @@
   <data name="Settings_ExplorerMultiSelectHint2.Text" xml:space="preserve">
     <value>开启：类似Windows资源管理器风格的单击和shift多选逻辑, 需要Ctrl+鼠标左键才能单独多选, 允许Shift灵活多选/反选</value>
   </data>
-  <data name="Main_SearchToolTip.Content" xml:space="preserve">
+  <data name="Main_MemeSearchToolTip.Content" xml:space="preserve">
     <value>模糊查询当前分类的表情 (Ctrl+F)</value>
   </data>
   <data name="Main_TopMostToolTip.Content" xml:space="preserve">
@@ -497,7 +497,7 @@
   <data name="Dialog_BaseDirReverted_Message" xml:space="preserve">
     <value>配置的数据目录“{0}”不存在或不是文件夹，已自动恢复为默认路径“{1}”。若需要，请到“设置”中重新调整数据目录。</value>
   </data>
-  <data name="Main_Search.PlaceholderText" xml:space="preserve">
+  <data name="Main_MemeSearch.PlaceholderText" xml:space="preserve">
     <value>搜索表情...</value>
   </data>
   <data name="Meme_MoveToThisCategory" xml:space="preserve">
@@ -719,7 +719,7 @@
   <data name="Settings_CategorySplitterReset.Content" xml:space="preserve">
     <value>重置分类列表宽度</value>
   </data>
-  <data name="Category_Search.PlaceholderText" xml:space="preserve">
+  <data name="Main_CategorySearch.PlaceholderText" xml:space="preserve">
     <value>搜索分类...</value>
   </data>
   <data name="Category_NoMatch" xml:space="preserve">

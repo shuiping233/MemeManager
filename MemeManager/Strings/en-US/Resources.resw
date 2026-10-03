@@ -309,7 +309,7 @@
   <data name="Settings_ExplorerMultiSelectHint2.Text" xml:space="preserve">
     <value>On: Windows Explorer-style click and Shift multi-select; Ctrl+left click needed for individual multi-select, Shift allows flexible multi-select/invert</value>
   </data>
-  <data name="Main_SearchToolTip.Content" xml:space="preserve">
+  <data name="Main_MemeSearchToolTip.Content" xml:space="preserve">
     <value>Fuzzy search memes in the current category (Ctrl+F)</value>
   </data>
   <data name="Main_TopMostToolTip.Content" xml:space="preserve">
@@ -497,7 +497,7 @@ Reverted to the previous valid path.</value>
   <data name="Dialog_BaseDirReverted_Message" xml:space="preserve">
     <value>The configured data directory "{0}" does not exist or is not a folder. It has been reset to the default path "{1}". If needed, please adjust the data directory again in Settings.</value>
   </data>
-  <data name="Main_Search.PlaceholderText" xml:space="preserve">
+  <data name="Main_MemeSearch.PlaceholderText" xml:space="preserve">
     <value>Search memes...</value>
   </data>
   <data name="Meme_MoveToThisCategory" xml:space="preserve">
@@ -719,7 +719,7 @@ Reverted to the previous valid path.</value>
   <data name="Settings_CategorySplitterReset.Content" xml:space="preserve">
     <value>Reset width of category list view</value>
   </data>
-  <data name="Category_Search.PlaceholderText" xml:space="preserve">
+  <data name="Main_CategorySearch.PlaceholderText" xml:space="preserve">
     <value>Search categories...</value>
   </data>
   <data name="Category_NoMatch" xml:space="preserve">

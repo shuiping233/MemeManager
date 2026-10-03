@@ -778,7 +778,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     /// <summary>将键盘焦点设置到搜索输入框（供窗口从托盘呼出后调用）</summary>
     public void FocusSearchBox()
     {
-        SearchBox.Focus(FocusState.Programmatic);
+        MemeSearchBox.Focus(FocusState.Programmatic);
     }
 
     // 窗口显示/隐藏时由 MainWindow 调用：控制列表 ItemsSource 的挂载与释放。
@@ -1104,13 +1104,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         // 隐藏期间网格已卸载（x:Name 为 null）：本方法下方读 SearchBox、结束后
         // 由选择链路触碰网格，这里短路跳过；重载后 SetMemeViewVisible(true) 会按最新 VM 集合重绑。
-        if (SearchBox is null || MemeGridView is null)
+        if (MemeSearchBox is null || MemeGridView is null)
         {
             Log("[x:Load] 控件已卸载，跳过 RefreshMemes");
             return;
         }
 
-        var keyword = SearchBox.Text?.Trim();
+        var keyword = MemeSearchBox.Text?.Trim();
         var memes = ViewModel.QueryMemes(
             IsAllMemesView ? null : ViewModel.CurrentCategory, keyword);
 
@@ -1142,7 +1142,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-        var keyword = SearchBox.Text?.Trim();
+        var keyword = MemeSearchBox.Text?.Trim();
         EmptyHint.Text = string.IsNullOrWhiteSpace(keyword)
             ? Localization.Get("Meme_EmptyHint")
             : string.Format(Localization.Get("Meme_SearchEmptyHint"), keyword);
@@ -2117,7 +2117,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
     // 搜索框输入防抖：避免每次按键都重建表情列表
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    private void MemeSearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         ViewModel.SearchDebouncer?.Trigger();
     }
@@ -2157,7 +2157,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 焦点在任一搜索框（分类 / 表情）时不消费：让搜索框自己粘贴文本，
             // 而不是把它当成"导入图片到分类"。
             var focusedElement = FocusManager.GetFocusedElement(this.XamlRoot);
-            if (ReferenceEquals(focusedElement, SearchBox) || ReferenceEquals(focusedElement, CategorySearchBox))
+            if (ReferenceEquals(focusedElement, MemeSearchBox) || ReferenceEquals(focusedElement, CategorySearchBox))
             {
                 return;
             }
@@ -2183,7 +2183,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (ctrl && e.Key == Windows.System.VirtualKey.F)
         {
             e.Handled = true;
-            SearchBox.Focus(FocusState.Keyboard);
+            MemeSearchBox.Focus(FocusState.Keyboard);
             return;
         }
 
