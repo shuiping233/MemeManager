@@ -28,7 +28,8 @@ public sealed class BatchUiContext
     public required Func<string> CurrentCategory { get; init; }
     public required Func<bool> IsAllMemesView { get; init; }
     public required Action UpdateCategoryCounts { get; init; }
-    public required Action RefreshMemes { get; init; }
+    public required Action<IReadOnlyList<MemeModel>> InsertMemesView { get; init; }
+    public required Action RefreshMemesView { get; init; }
     public required Action<IEnumerable<MemeModel>> RemoveFromCurrentView { get; init; }
 }
 
@@ -40,7 +41,8 @@ public sealed class BatchUiContext
 /// 3. 用 IsWriteActive 标志挡住“用户主动发起的写操作”并发（导入/移动/删除），
 ///    导出（copy 语义）与文件监听触发的导入不在其列——后者由用户自行 F5 刷新，不兜底。
 /// 4. 完成后默认 UI 刷新策略（按 kind 自动）：
-///    - Import：始终更新分类计数；仅当用户仍停留在导入时的分类才 RefreshMemes。
+///    - Import：始终更新分类计数；仅当用户仍停留在导入时的分类才刷新网格——
+///      优先用 work 返回的 ImportResult.Added 做增量插入，拿不到才退回全量刷新。
 ///    - Export：不改缓存，无需刷新。
 ///    - Move / Delete：从当前视图移除受影响项 + 更新分类计数。
 /// </summary>
@@ -91,12 +93,31 @@ public sealed class ImageBatchOperationRunner
         _ui = ui;
     }
 
+    public Task RunAsync(
+    BatchOperationKind kind,
+    int totalCount,
+    Func<IProgress<BatchProgress>, Task> work,
+    IEnumerable<MemeModel>? affectedModels = null,
+    string? targetCategory = null,
+    Action? onUiComplete = null,
+    string? titleOverride = null,
+    bool occupyWriteLock = true)
+    => RunAsync<object?>(
+        kind, totalCount,
+        async progress => { await work(progress); return null; },
+        affectedModels, targetCategory,
+        onUiComplete,
+        titleOverride, occupyWriteLock);
+
     /// <summary>
     /// 统一执行一次批量操作。
     /// </summary>
     /// <param name="kind">操作类型（决定阈值/标题/写锁/刷新策略）。</param>
     /// <param name="totalCount">总 item 数，用于阈值判断与初始“0/Total”显示。</param>
-    /// <param name="work">后台线程执行的实际工作，接收 IProgress&lt;BatchProgress&gt; 用于回报进度。</param>
+    /// <param name="work">
+    /// 后台线程执行的实际工作，接收 IProgress&lt;BatchProgress&gt; 用于回报进度；返回值原样交给
+    /// ApplyAutoRefresh（Import 返回 ImportResult 即可走增量插入）。
+    /// </param>
     /// <param name="affectedModels">受影响（将被移除出当前视图）的模型，Move/Delete 用。</param>
     /// <param name="targetCategory">导入目标分类；用于“仍停留在该分类才刷新”的分类守卫。</param>
     /// <param name="onUiComplete">在 UI 线程、守卫通过后、自动刷新之后额外执行的回调（如单张重复弹窗）。</param>
@@ -106,10 +127,10 @@ public sealed class ImageBatchOperationRunner
     /// 文件监听等“外部触发、不归用户主动发起”的导入传 false，避免误挡用户操作（用户自行改
     /// 目录应自己 F5 刷新，不在此兜底）。
     /// </param>
-    public async Task RunAsync(
+    public async Task RunAsync<TResult>(
         BatchOperationKind kind,
         int totalCount,
-        Func<IProgress<BatchProgress>, Task> work,
+        Func<IProgress<BatchProgress>, Task<TResult>> work,
         IEnumerable<MemeModel>? affectedModels = null,
         string? targetCategory = null,
         Action? onUiComplete = null,
@@ -135,7 +156,7 @@ public sealed class ImageBatchOperationRunner
                 : new Progress<BatchProgress>(_ => { });
 
             // 整个工作搬到线程池，避免 UI 线程被逐张 IO/缓存写入占满
-            await Task.Run(() => work(progress));
+            var jobResult = await Task.Run(() => work(progress));
 
             // 写锁在工作完成后立即释放（不等待 UI 收尾），避免收尾刷新（如重建网格）
             // 在 UI 线程执行期间仍占用写锁，导致后续用户操作（如再次拖入）的 guard 被延迟放行/拒绝。
@@ -156,7 +177,7 @@ public sealed class ImageBatchOperationRunner
                         return;
                     }
 
-                    ApplyAutoRefresh(kind, affectedModels, targetCategory);
+                    ApplyAutoRefresh(kind, jobResult, affectedModels, targetCategory);
 
                     onUiComplete?.Invoke();
 
@@ -178,7 +199,7 @@ public sealed class ImageBatchOperationRunner
     }
 
     // 按 kind 自动刷新 UI 控件（UI 线程）
-    private void ApplyAutoRefresh(BatchOperationKind kind, IEnumerable<MemeModel>? affectedModels, string? targetCategory)
+    private void ApplyAutoRefresh<TResult>(BatchOperationKind kind, TResult jobResult, IEnumerable<MemeModel>? affectedModels, string? targetCategory)
     {
         switch (kind)
         {
@@ -190,13 +211,22 @@ public sealed class ImageBatchOperationRunner
                 if (targetCategory != null &&
                     (_ui.IsAllMemesView() ||
                      _ui.CurrentCategory().Equals(targetCategory, StringComparison.OrdinalIgnoreCase)))
-                    _ui.RefreshMemes();
+                {
+                    // work 返回 ImportResult 时，用其中的“本次新建 model”做增量插入，
+                    // 避免整表重建（Rebuild 策略下所有图片都会被重新解码）。
+                    // 拿不到（Added 为空：全部重复、或调用方未回传结果）时退回全量刷新——
+                    // 不能简单跳过：僵尸缓存清理会让列表需要“减少”。
+                    if (jobResult is ImportResult { Added.Count: > 0 } importResult)
+                        _ui.InsertMemesView(importResult.Added);
+                    else
+                        _ui.RefreshMemesView();
+                }
                 break;
 
             case BatchOperationKind.Export:
-                // 不改缓存，无需刷新
                 break;
 
+            // move 和 delete 共用一个分支, 请勿手多break
             case BatchOperationKind.Move:
             case BatchOperationKind.Delete:
                 if (affectedModels != null)

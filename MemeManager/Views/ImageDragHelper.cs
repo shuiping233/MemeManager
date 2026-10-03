@@ -149,7 +149,7 @@ public static class ImageDragHelper
         }
 
         var result = await App.DataEngine.ImportMemesSafeAsync(list, category);
-        Logger.Log($"[Drag] 拖入导入：新增 {result.imported}，重复 {result.duplicate}（分类={category}）");
-        return (true, result.imported);
+        Logger.Log($"[Drag] 拖入导入：新增 {result.Imported}，重复 {result.Duplicate}（分类={category}）");
+        return (true, result.Imported);
     }
 }

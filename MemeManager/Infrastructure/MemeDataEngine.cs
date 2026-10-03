@@ -6,6 +6,22 @@ using MemeManager.Views;
 
 namespace MemeManager.Infrastructure;
 
+/// <summary>
+/// 一次批量导入的结果。
+/// 除统计数字外，还带回“本次真正新建的 model 列表”（<see cref="Added"/>），
+/// 让调用方能做“增量插入”而不是整表重建 —— 导入只增不减，重建整个网格
+/// （Rebuild 策略下连图片都要重新解码）纯属浪费。
+/// </summary>
+public sealed record ImportResult(
+    int Imported,
+    int Duplicate,
+    MemeModel? DuplicateModel,
+    IReadOnlyList<MemeModel> Added)
+{
+    /// <summary>空结果：无输入、或（<see cref="ImportMemesSafeAsync"/>）被“写忙”守卫拒绝。</summary>
+    public static ImportResult Empty { get; } = new(0, 0, null, Array.Empty<MemeModel>());
+}
+
 public class MemeDataEngine(ConfigService _config)
 {
     // 导入并行度：阶段1（算 hash+去重判定）与阶段2（File.Copy）各自的并发上限。
@@ -218,13 +234,11 @@ public class MemeDataEngine(ConfigService _config)
         IEnumerable<MemeModel> query = _memeCache.ToList();
 
         if (!string.IsNullOrWhiteSpace(category))
-            query = query.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(m => m.MatchesCategory(category));
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            query = query.Where(m =>
-                (m.Title != null && m.Title.Contains(keyword, StringComparison.OrdinalIgnoreCase)) ||
-                m.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            query = query.Where(m => m.HasKeyword(keyword));
         }
 
         // “全部表情”视图（category 为空）：跨分类合并，需按“分类顺序 + 分类内优先级”复合排序，
@@ -429,13 +443,13 @@ public class MemeDataEngine(ConfigService _config)
     // 只加载/保存一次（而非逐张各读写一次），并按分类预建文件名索引做 O(1) 去重，
     // 避免批量导入时大量冗余磁盘 IO 与 O(n2) 扫描。返回新增数、重复数及（仅当整体为单张
     // 且重复时的）重复模型，供调用方弹窗提示。
-    public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesAsync(
+    public async Task<ImportResult> ImportMemesAsync(
         IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null,
         Action<string>? onCategoryCreated = null)
     {
         var list = sourcePaths.ToList();
         uint total = (uint)list.Count;
-        if (total == 0) return (0, 0, null);
+        if (total == 0) return ImportResult.Empty;
 
         var safeTarget = SanitizeCategory(category);
         var categoryDir = SafePath.CombineChildPath(_baseDir, safeTarget);
@@ -455,6 +469,8 @@ public class MemeDataEngine(ConfigService _config)
 
         int imported = 0, duplicate = 0;
         MemeModel? duplicateModel = null;
+        // 本批真正新建的 model（按落地先后），回传给 UI 做增量插入。
+        var added = new List<MemeModel>();
 
         // 每张的判定/落地结果容器（并行阶段填充，不触碰共享字典）。
         var plans = new List<ImportPlan>(list.Count);
@@ -577,24 +593,25 @@ public class MemeDataEngine(ConfigService _config)
             IndexTitle(model);
             existingByFile[plan.FileName] = model;   // 同批次内后续重复也能识别
             imported++;
+            added.Add(model);
         }
 
         // 整批仅写回一次 metadata
         await SaveCategoryMetadataAsync(categoryDir, meta);
-        return (imported, duplicate, duplicateModel);
+        return new ImportResult(imported, duplicate, duplicateModel, added);
     }
 
     /// <summary>
     /// 带“写忙”守卫的导入入口：同一时刻仅允许一个导入写任务进行（数据安全）。
-    /// 已在进行中时直接返回 (0,0,null) 表示被拒（UI 据此提示“导入进行中”并忽略本次拖入）。
+    /// 已在进行中时直接返回空结果表示被拒（UI 据此提示“导入进行中”并忽略本次拖入）。
     /// Mini 等无 ImageBatchOperationRunner 的入口统一走这里；MainPage 自带 runner 锁，不强制改用。
     /// </summary>
-    public async Task<(int imported, int duplicate, MemeModel? duplicateModel)> ImportMemesSafeAsync(
+    public async Task<ImportResult> ImportMemesSafeAsync(
         IEnumerable<string> sourcePaths, string category, IProgress<BatchProgress>? progress = null,
         Action<string>? onCategoryCreated = null)
     {
         if (Interlocked.Exchange(ref _writeBusy, 1) != 0)
-            return (0, 0, null); // 已有导入任务在跑，拒绝本次
+            return ImportResult.Empty; // 已有导入任务在跑，拒绝本次
         try
         {
             return await ImportMemesAsync(sourcePaths, category, progress, onCategoryCreated);

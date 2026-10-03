@@ -121,7 +121,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             CurrentCategory = () => ViewModel.CurrentCategory,
             IsAllMemesView = () => IsAllMemesView,
             UpdateCategoryCounts = UpdateCategoryCounts,
-            RefreshMemes = RefreshMemes,
+            RefreshMemesView = RefreshMemesView,
+            InsertMemesView = InsertMemesView,
             RemoveFromCurrentView = RemoveFromCurrentView,
         });
 
@@ -224,7 +225,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         ViewModel.SearchDebouncer = new Debouncer(AppConstants.SearchBoxDebounce, () =>
         {
-            RefreshMemes();
+            RefreshMemesView();
         });
 
         // 分类搜索框防抖：只刷新分类栏（视图重算 + 计数 + 空状态 + 选中视觉 + 排序快照）。
@@ -288,7 +289,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 搜索态下选中项可能已不在视图里 → 保持不选中）。
             RefreshCategoryPaneUi();
 
-            RefreshMemes();
+            RefreshMemesView();
 
         };
         // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
@@ -517,7 +518,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 分类数据可能已变化（新建/删除/重命名/F5 刷新）：按当前关键词重算分类栏视图、空状态与排序快照。
         ApplyCategorySearch(ViewModel.CategoryFilterKeyword);
 
-        RefreshMemes();
+        RefreshMemesView();
         SyncMemeDragState();
 
         // 若当前处于编辑模式（如设置里切换了多选风格后重载），需重新应用 SelectionMode 与复选框，
@@ -555,7 +556,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.CurrentCategory = cat.Name;
         ViewModel.CurrentCategoryKind = CategoryKind.Normal;
         SaveLastCategoryDebouncer.Trigger(cat.Name);
-        RefreshMemes();
+        RefreshMemesView();
         SyncMemeDragState();
     }
 
@@ -600,7 +601,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 ViewModel.CurrentCategory = CategoryKind.All.VirtualName();
                 ViewModel.CurrentCategoryKind = CategoryKind.All;
                 SaveLastCategoryDebouncer.Trigger(ViewModel.CurrentCategory);
-                RefreshMemes();
+                RefreshMemesView();
                 SyncMemeDragState();
             }
         }
@@ -797,7 +798,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             // 实验开关（E8）：隐藏时列表被清空过 → 先从引擎内存缓存重建（不读盘），再走正常重绑。
             if (AppConstants.ClearViewModelsWhileHidden && ViewModel.MemeList.Count == 0)
-                RefreshMemes();
+                RefreshMemesView();
 
             bool rebind = MemeGridView.ItemsSource != ViewModel.MemeList;
             if (rebind)
@@ -1100,15 +1101,34 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // ---------- 表情渲染 ----------
 
-    private void RefreshMemes()
+    // 导入后把新图“增量插入”网格，替代整表重建（Rebuild 策略下重建会让所有图片重新解码）。
+    // 仅适用于「普通分类视图 + 无搜索」：
+    //  - 全部表情视图按“分类顺序 + 分类内优先级”复合排序，插入点无法用“插到开头”表达；
+    //  - 搜索态下新图未必匹配当前关键词，硬插会破坏“视图 = 过滤结果”的不变式。
+    // 这两种情况退回全量刷新（少见的组合，代价可接受）。
+    private void InsertMemesView(IReadOnlyList<MemeModel> memes)
     {
-        // 隐藏期间网格已卸载（x:Name 为 null）：本方法下方读 SearchBox、结束后
-        // 由选择链路触碰网格，这里短路跳过；重载后 SetMemeViewVisible(true) 会按最新 VM 集合重绑。
-        if (MemeSearchBox is null || MemeGridView is null)
+        if (MemeGridAndSearchBoxNotReady()) return;
+
+        if (IsAllMemesView || !string.IsNullOrWhiteSpace(MemeSearchBox.Text))
         {
-            Log("[x:Load] 控件已卸载，跳过 RefreshMemes");
+            RefreshMemesView();
             return;
         }
+
+        // memes 按导入先后返回，而引擎给的新 Priority 是逐张递增（取当前 max + 1），
+        // 列表又按 Priority 降序 → 后导入的应更靠前。
+        // 逐张插到同一位置（固定 index 0）即可得到“后导入在前”，与刷新后的顺序一致；
+        // 若写成 index++ 会让同一批的顺序颠倒。
+        foreach (var meme in memes)
+            ViewModel.MemeList.Insert(0, new MemeViewModel(meme));
+
+        ApplyMemeGridChanged();
+    }
+
+    private void RefreshMemesView()
+    {
+        if (MemeGridAndSearchBoxNotReady()) return;
 
         var keyword = MemeSearchBox.Text?.Trim();
         var memes = ViewModel.QueryMemes(
@@ -1117,6 +1137,23 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 用当前策略刷新表情列表
         _listStrategy.RefreshMemes(ViewModel.MemeList, memes);
 
+        ApplyMemeGridChanged();
+    }
+
+    private bool MemeGridAndSearchBoxNotReady()
+    {
+        // 隐藏期间网格已卸载（x:Name 为 null）：本方法下方读 SearchBox、结束后
+        // 由选择链路触碰网格，这里短路跳过；重载后 SetMemeViewVisible(true) 会按最新 VM 集合重绑。
+        if (MemeSearchBox is null || MemeGridView is null)
+        {
+            Log("[x:Load] 控件已卸载，跳过 RefreshMemesView");
+            return true;
+        }
+        return false;
+    }
+
+    private void ApplyMemeGridChanged()
+    {
         UpdateCategoryCounts();
 
         // 编辑模式下列表重建(如搜索/刷新)后，按当前配置重新显示/隐藏复选框并把原生选中态镜像回新 VM
@@ -2465,10 +2502,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 await _batchRunner.RunAsync(
                     BatchOperationKind.Import,
                     fullPaths.Count,
-                    async progress =>
-                    {
-                        await _engine.ImportMemesAsync(fullPaths, focus, progress);
-                    },
+                    progress => _engine.ImportMemesAsync(fullPaths, focus, progress),
                     targetCategory: focus,
                     occupyWriteLock: false,
                     onUiComplete: () => Log($"[文件监听] 新增 {fullPaths.Count} 个图片到分类「{focus}」"));
@@ -2528,10 +2562,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                     await _batchRunner.RunAsync(
                         BatchOperationKind.Import,
                         fullPaths.Count,
-                        async progress =>
-                        {
-                            await _engine.ImportMemesAsync(fullPaths, focus, progress);
-                        },
+                        progress => _engine.ImportMemesAsync(fullPaths, focus, progress),
                         targetCategory: focus,
                         occupyWriteLock: false,
                         onUiComplete: () => Log($"[文件监听] 移入 {fullPaths.Count} 个图片到分类「{focus}」"));

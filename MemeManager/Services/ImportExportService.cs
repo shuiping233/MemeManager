@@ -59,22 +59,22 @@ public class ImportExportService
 
         string targetCategory = category;
 
-        (int imported, int duplicate, MemeModel? duplicateModel) result = default;
+        ImportResult result = ImportResult.Empty;
 
         await _runner.RunAsync(
             BatchOperationKind.Import,
             total,
             work: async progress =>
             {
-                result = await _engine.ImportMemesAsync(list, targetCategory, progress,
+                return result = await _engine.ImportMemesAsync(list, targetCategory, progress,
                     onCategoryCreated: createdName => onCategoryCreated?.Invoke(createdName));
             },
             targetCategory: targetCategory,
             onUiComplete: () =>
             {
-                Logger.Log($"导入完成: 新增 {result.imported} 个, 重复跳过 {result.duplicate} 个");
-                if (list.Count == 1 && result.duplicateModel != null)
-                    _ = _ui.ShowSingleImportDuplicateAsync(result.duplicateModel);
+                Logger.Log($"导入完成: 新增 {result.Imported} 个, 重复跳过 {result.Duplicate} 个");
+                if (list.Count == 1 && result.DuplicateModel != null)
+                    _ = _ui.ShowSingleImportDuplicateAsync(result.DuplicateModel);
             });
     }
 
