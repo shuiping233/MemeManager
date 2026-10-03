@@ -107,30 +107,16 @@ public static class AppConstants
 
     public static readonly TimeSpan HttpClientTimeout = TimeSpan.FromSeconds(15);
 
-    // ---------- 内存诊断 / 实验开关（调试用，故意不做成配置项：改常量重编译即可，避免把调试旋钮暴露给用户） ----------
+    // ---------- 内存诊断（调试用，故意不做成配置项：改常量重编译即可，避免把调试旋钮暴露给用户） ----------
 
-    /// <summary>
-    /// 内存诊断总开关：只影响 <see cref="MemoryDiagnostics.Log"/> 是否输出。
-    /// 当前业务路径**已不打点**（排查时手动加一行调用即可）。见 Infrastructure/MemoryDiagnostics.cs。
-    /// </summary>
+    /// <summary>内存诊断总开关：只影响 <see cref="MemoryDiagnostics.Log"/> 是否输出（业务路径不打点，排查时手动加一行）。</summary>
     public const bool EnableMemoryDiagnostics = true;
 
     /// <summary>
-    /// 「后台内存回收策略」在窗口隐藏后，隔多久做这一次「强制 GC + 工作集裁剪」。
-    /// 之所以延迟而不立即做：会把整个进程（含 .NET / WinAppSDK 代码页）踢出工作集，
-    /// 「隐藏后马上又呼出」时首次显示会有可见的缺页卡顿；延迟到点时若已被呼出则直接取消。
-    /// 设为 &lt;= TimeSpan.Zero 表示禁用（等同关掉设置页的那个开关）。
+    /// 「后台内存回收策略」在窗口隐藏后隔多久做一次工作集裁剪
+    /// （<see href="https://learn.microsoft.com/zh-cn/windows/win32/api/psapi/nf-psapi-emptyworkingset">EmptyWorkingSet</see>）。
+    /// 延迟是为了避开「隐藏后马上呼出」的缺页卡顿；&lt;= TimeSpan.Zero 表示禁用。
     /// </summary>
     public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
-
-    /// <summary>
-    /// 【实验开关，默认关】隐藏窗口时额外清空 ViewModel 侧的列表（`MemeList` 与拖拽临时状态），
-    /// 用于验证「存活的 VM/数据是否钉住 native 内存」（todo.md 实验 E8）。
-    /// **实测结论（2026-10-03，§0.13）：只省 ~1.25 MB（Private −1.0%）** —— 那部分内存与存活 VM/数据无关，
-    /// 属框架池；故本开关保持关闭，仅留作将来再次验证用。
-    /// 打开后功能仍可用：呼出时由 `SetMemeViewVisible` 从引擎内存缓存重建列表（不读盘）。
-    /// 用 `static readonly`（非 const），避免恒假分支触发 CS0162「无法访问的代码」警告。
-    /// </summary>
-    public static readonly bool ClearViewModelsWhileHidden = false;
 }
 

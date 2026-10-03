@@ -34,8 +34,9 @@ public class MemeDataEngine(ConfigService _config)
     private string _baseDir = AppConstants.DefaultMemeDataStoragePath();
 
     // 写/导入忙标志：保证同一时刻只有一个导入写任务在进行（数据安全）。
-    // MainPage 通过自带的 ImageBatchOperationRunner 已有锁；Mini 等没有 runner 的入口
-    // 统一走 ImportMemesSafeAsync，由本标志兜底拒绝并发导入。也可供 UI 判断是否“导入中”。
+    // MainPage 路径靠自带的 ImageBatchOperationRunner 锁；Mini 拖入没有 runner，
+    // 故走 ImportMemesSafeAsync 由本标志兜底（目前仅 ImageDragHelper 一处使用）。
+    // ⚠️ 两把锁互不知情：本标志与 runner 的 _writeActive 并不互斥。
     private int _writeBusy;
     public bool IsBusyWriting => _writeBusy != 0;
 

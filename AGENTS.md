@@ -34,8 +34,10 @@
 页面必须暴露**强类型** ViewModel 属性（供 `x:Bind` 编译期解析）：
 
 ```csharp
-public MainViewModel ViewModel => (MainViewModel)DataContext;
+private MainViewModel ViewModel => (MainViewModel)DataContext;
 ```
+
+（`x:Bind` 生成的绑定代码与本类同处一个类，`private` 即可解析，无需 `public`。）
 
 不要写 `{x:Bind DataContext.SomeCommand}`（`DataContext` 类型是 `object`，编译期无法解析）。
 
@@ -118,7 +120,7 @@ WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, 
 消息机制纪律（前两条已踩过）：
 
 - **只能在构造函数里 `Register` 一次**：同一实例对同一消息重复注册会抛 `InvalidOperationException`，绝不能放进 `OnShow()` 这类每次打开都会执行的方法。
-- **订阅方若是"每次打开都新建"的短命实例**：必须额外过滤"已关闭的旧实例"——弱引用只保证"不拖住回收"，不保证"收不到消息"（旧实例在被 GC 之前仍挂在总线上，会重复响应）。当前设置页已改成"单例 + `x:Load`"，不存在这个场景；将来若真引入 Transient Page 再照此办理。
+- **订阅方若是"每次打开都新建"的短命实例**：必须额外过滤"已关闭的旧实例"——弱引用只保证"不拖住回收"，不保证"收不到消息"（旧实例在被 GC 之前仍挂在总线上，会重复响应）。当前设置页是 `AddSingleton`（浮窗内容每次开合复用同一实例，关闭时只把 `SettingsFlyout.Content` 置 null），不存在这个场景；将来若真引入 Transient Page 再照此办理。
 - 短命订阅方**无需反订阅**（这正是它优于 `+=` 事件的地方）；页面被回收后也不会滞留在总线上。
 - **不要用 `RequestMessage<T>` 表达"VM 要 UI 的返回值"**：它要求单次响应，多个订阅者都 `Reply` 会抛 `InvalidOperationException`，与"可能同时存在多个 Page 实例"的现实冲突。需要结果时优先把整段逻辑下沉到 Page（picker 结果、路径回填、错误弹窗都在 Page 内部闭环）。
 
@@ -179,8 +181,8 @@ WeakReferenceMessenger.Default.Register<BrowseFolderRequestedMessage>(this, (_, 
 
 ```text
 MainViewModel
-    DeleteCategory(CategoryViewModel category)
-    RenameCategory(CategoryViewModel category)
+    DeleteCategoryAsync(CategoryViewModel category)
+    RenameCategoryAsync(CategoryViewModel category)
     OpenCategoryFolder(CategoryViewModel category)
 ```
 

@@ -45,24 +45,26 @@ MemeManager/
 
 # 单元测试覆盖计划（减少手动测试工作）
 
-> 现状：`MemeManager.Tests`（xUnit）已有 51 用例（SafePath / FileNameValidator，路径安全核心）。
+> 现状：`MemeManager.Tests`（xUnit）已有 **178** 用例：SafePath / FileNameValidator（路径安全）、
+> MemeModel 谓词、ImportResult、MemoryDiagnostics、BackgroundMemoryReclaimer、UpdateService、
+> VersionString、MainViewModel 分类过滤。
 > 目标：把核心数据层 + 业务服务 + VM 命令纳入单测，UI/系统级（拖拽、剪贴板发送、托盘、P/Invoke）不测。
 
 ## 覆盖方案（按优先级）
 
 | 模块（文件 · 行数） | 可测性 | 预估用例数 | 预估测试代码量 | 优先级 | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| **MemeDataEngine**（Infrastructure · 1022） | ✅ 高 | **35–45** | 1200–1800 行 | **P0** | 临时目录驱动；需 InternalsVisibleTo + 存储路径注入 |
-| **MainViewModel**（ViewModels · 239） | ✅ 高 | **15–25** | 500–800 行 | **P1** | 注入临时目录引擎 + 假委托（PromptRenameMemeRequested 等）；OpenMeme/OpenFolder 不测（进程） |
-| **Utils**（Infrastructure · 145） | ✅ 高 | **8–12** | 200–250 行 | **P1** | FitWithin / PlacePopup / ClassifySize 纯几何；OpenInExplorer 不测 |
-| **SearchService**（Services · 30） | ✅ 高 | **5–8** | 100–150 行 | **P2** | 搜索/标签过滤，纯 LINQ |
-| **ConfigService**（Services · 74） | 🟡 中 | **5–8** | 150–200 行 | **P2** | 需支持注入 ConfigPath（当前硬编码 %LOCALAPPDATA%） |
-| **FileWatcher**（Infrastructure · 154） | 🟡 中 | **4–6** | 150–200 行 | **P2** | ToChange / ShouldTrack 纯逻辑（InternalsVisibleTo）；FSW 时序不测 |
-| **LangHelper**（Infrastructure · 176） | 🟡 中 | **4–6** | 100–150 行 | **P2** | 语言列表构建/索引，纯逻辑 |
-| **MemeOperationService**（Services · 120） | 🟡 中 | **3–5** | 100–150 行 | **P2** | 排除依赖 runner 的部分 |
-| **ReuseStrategy**（Models · 126） | 🟡 中 | **3–5** | 80–120 行 | **P3** | 策略决策逻辑，先确认是否纯逻辑 |
-| **SettingsViewModel**（ViewModels · 76） | 🟡 中 | **3–5** | 80–120 行 | **P3** | 事件触发（About/Browse/Close Requested）；Launcher 类不测 |
-| **AppConfig**（Models · 72） | ✅ 高 | **2–3** | 40–60 行 | **P3** | record 默认值/值相等 |
+| **MemeDataEngine**（Infrastructure · 1190） | ✅ 高 | **35–45** | 1200–1800 行 | **P0** | 临时目录驱动；需 InternalsVisibleTo + 存储路径注入 |
+| **MainViewModel**（ViewModels · 630） | ✅ 高 | **15–25** | 500–800 行 | **P1** | 注入临时目录引擎 + 假委托（PromptRenameMemeRequested 等）；OpenMeme/OpenFolder 不测（进程）。**已开始**：`MainViewModelCategoryFilterTests` |
+| **Utils**（Infrastructure · 258） | ✅ 高 | **8–12** | 200–250 行 | **P1** | FitWithin / PlacePopup / ClassifySize 纯几何；OpenInExplorer 不测 |
+| **SearchService**（Services · 35） | ✅ 高 | **5–8** | 100–150 行 | **P2** | 搜索/标签过滤，纯 LINQ |
+| **ConfigService**（Services · 81） | 🟡 中 | **5–8** | 150–200 行 | **P2** | 需支持注入 ConfigPath（当前硬编码 %LOCALAPPDATA%） |
+| **FileWatcher**（Infrastructure · 179） | 🟡 中 | **4–6** | 150–200 行 | **P2** | ToChange / ShouldTrack 纯逻辑（InternalsVisibleTo）；FSW 时序不测 |
+| **LangHelper**（Infrastructure · 194） | 🟡 中 | **4–6** | 100–150 行 | **P2** | 语言列表构建/索引，纯逻辑 |
+| **MemeOperationService**（Services · 133） | 🟡 中 | **3–5** | 100–150 行 | **P2** | 排除依赖 runner 的部分 |
+| **ReuseStrategy**（Models · 81） | 🟡 中 | **3–5** | 80–120 行 | **P3** | 策略决策逻辑，先确认是否纯逻辑 |
+| **SettingsViewModel**（ViewModels · 242） | 🟡 中 | **3–5** | 80–120 行 | **P3** | 事件触发（About/Browse/Close Requested）；Launcher 类不测 |
+| **AppConfig**（Models · 130） | ✅ 高 | **2–3** | 40–60 行 | **P3** | record 默认值/值相等 |
 | **合计** | | **~90–110 用例** | **~2700–4000 行** | | |
 
 ## 明确不测
@@ -522,6 +524,9 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
 
 ## 2. 阶段划分（每阶段一个 commit，按 AGENTS.md 汇报"做了什么/你要测什么"）
 
+> ⚠️ **本节为历史计划，已收工**：阶段 0 / 5 已完成；阶段 1 / 2 / 3 / 4 / 6 已随 §0.12（整页卸载实测失败）、
+> §0.13（数据层判死）、§0.14（VMMap 归因 = 框架/驱动基线）**判定不必执行**。保留仅作决策留痕。
+
 ### 阶段 0 · 诊断与探针（P0）✅ 已完成（commit eab1f47：`MemoryDiagnostics` + 探针 + 常量）
 
 - 新增 `Infrastructure/MemoryDiagnostics.cs`：纯静态、**可开关**（Config 或 AppConstants 常量控制），
@@ -595,7 +600,7 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
 
 `SystemBackdrop = null` / 恢复 `new MicaBackdrop()`。**若三指标无变化就撤回**，不保留无收益复杂度。
 
-### 阶段 5 · 延迟 EmptyWorkingSet ✅ 已实现（commit 4519f45），待实测数据
+### 阶段 5 · 延迟 EmptyWorkingSet ✅ 已实现并实测（§0.5 / §0.9 / §0.14）
 
 - 时机：隐藏后**延迟**执行（避免"隐藏完马上呼出"时缺页重新调入导致可见卡顿）。
 - **延迟时长写成 `AppConstants` 常量**：实际为 `AppConstants.WorkingSetTrimDelay`（实测中调成 5s；`<= TimeSpan.Zero` 表示禁用）。
@@ -605,11 +610,11 @@ GC 顺序（已是"停交互→收浮窗→断图像→摘容器→GC×2"）｜`
   → `WaitForPendingFinalizers` → `EmptyWorkingSet(Process.GetCurrentProcess().Handle)`（`psapi.dll`）。
 - 认知纪律：**`EmptyWorkingSet` 只压 Working Set，不等于释放 Private Bytes，更不等于修泄漏**。
 
-### 阶段 6 · 实验评估（可选，先别动手）
+### 阶段 6 · 实验评估（可选，先别动手）❌ 已作废
 
-若阶段 0 的 VMMap 归因显示大头是 **Composition/D3D/框架基线**（窗口还活着就不释放），
-则按 ChatGPT 第 8 节的思路评估：**"真 Close 主窗口 + 极简停车 Window 保进程存活"**。
-只有它能动大头；代价是多一个 WinUI Window 生命周期对象。**先评估，不要直接实现。**
+VMMap 归因（§0.14）已给出答案：大头是**框架堆 + 框架私有数据 + GPU 驱动镜像**，
+`MemeManager.dll` 自身 native 占比为 0；而"真 Close 主窗口 + 极简停车 Window"这条路线
+已在 §0.12 实测判死（"从 page 释放→window 释放，内存占用依旧下不来"）。故不再评估。
 
 ## 3. spec 中明确不做的（避免过度工程）
 
