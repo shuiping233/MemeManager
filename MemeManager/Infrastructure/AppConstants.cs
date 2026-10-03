@@ -107,8 +107,6 @@ public static class AppConstants
 
     public static readonly TimeSpan HttpClientTimeout = TimeSpan.FromSeconds(15);
 
-    // ---------- 内存诊断（调试用，故意不做成配置项：改常量重编译即可，避免把调试旋钮暴露给用户） ----------
-
     /// <summary>内存诊断总开关：只影响 <see cref="MemoryDiagnostics.Log"/> 是否输出（业务路径不打点，排查时手动加一行）。</summary>
     public const bool EnableMemoryDiagnostics = true;
 
