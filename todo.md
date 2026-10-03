@@ -453,8 +453,64 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 | 清空 VM / 数据：仅 −1.25 MB | §0.13（本节） |
 | "每秒 +8 KB / 每秒缺页" = debugger / VS profiler 的观测者效应 | §0.11 |
 
-**剩余可选**：VMMap 归因（看 120 MB 里 `Private Data` / `Image` 的分布）—— 只满足"想弄明白构成"，
-不改变上面的结论。
+**剩余可选**：VMMap 归因 —— ✅ 已做，见 §0.14（结论未变，只是把"框架基线"拆到了段级）。
+
+### 0.14 E5 VMMap 归因：剩余 ~130 MB Private 拆到段级，全部是框架/驱动基线（2026-10-03）★★★
+
+**实测条件**：Release、同一 PID 24676，「主窗口开着」与「关闭后 5 秒」各导出一次全量 VMMap（单位 KB）。
+
+**① 段级 Private（关闭前 → 关闭后 5s）：**
+
+| 段 | Private 前 | Private 后 | 变化 |
+| --- | ---: | ---: | ---: |
+| **Total** | **177,940**（173.8 MB） | **132,656**（129.5 MB） | **−45,284（−44.2 MB，−25.5%）** |
+| Heap（原生 NT 堆） | 122,936 | 81,168 | **−41,768（−40.8 MB）** |
+| Private Data | 28,672 | 28,700 | ±0 |
+| Image | 15,808 | 15,832 | ±0 |
+| Managed Heap | 9,036 | 5,684 | −3,352（−3.3 MB） |
+| Stack | 1,488 | 1,272 | −216 |
+| Total WS | 296,004（289 MB） | 37,728（36.8 MB） | **−258,276（−252 MB）** |
+| Private WS | 157,512 | 7,532 | −149,980 |
+
+**② 关闭后 132,656 KB 的 100% 闭合构成：**
+
+| 占位 | KB | 占比 | 是谁 |
+| --- | ---: | ---: | --- |
+| Heap（Win32 LFH 堆） | 81,168 | 61.2% | WinUI/XAML + WinRT 的原生堆 |
+| Private Data | 28,700 | 21.6% | 框架提交页（非堆） |
+| Image（private 拷贝页） | 15,832 | 11.9% | 见 ③ |
+| Managed Heap | 5,684 | 4.3% | .NET GC 堆 |
+| Stack | 1,272 | 1.0% | 线程栈 |
+| **合计** | **132,656** | **100%** | —— |
+
+**③ Image 段 15,832 KB private 的细分（关键）：**
+
+| 文件 | private KB | 归属 |
+| --- | ---: | --- |
+| `igc-default64.dll` | 6,620 | **Intel 显卡驱动** |
+| `igd10umt64xe.dll` | 2,604 | **Intel 显卡驱动** |
+| 其余 Intel 驱动（`iga64`/`igdml64`/`igd10iumd64`/`igdgmm*`…） | ~344 | **Intel 显卡驱动** |
+| `System.Private.CoreLib.dll` + `clrjit` + `System.*` | ~1,900 | .NET 运行时 |
+| Windows 系统 DLL（`shell32`/`combase`/`ntdll`…） | ~1,400+ | 操作系统 |
+| **`MemeManager.dll`** | **0** | **本项目** |
+| `MemeManager.exe`（`.data` 8 KB） | 8 | 本项目 |
+
+**结论：**
+
+1. **释放路径完全对上**：隐藏后 Private 少的 44.2 MB 里，**92% 是原生堆（−40.8 MB）** —— 即 XAML 控件树 /
+   WinRT 对象 / 排版与位图的原生内存，被 `x:Load` 卸载 + 图像置空 + GC 正确收回。托管堆只掉 3.3 MB
+   （且总量级本来就只有 5.7 MB），再次印证 §0.1「托管堆不是主战场」。
+2. **残留 129.5 MB 中，本项目自身代码的 native 占比 = 0**：`MemeManager.dll` 在 Image 段的 Private
+   列**为空**，`MemeManager.exe` 仅 8 KB。其余全部落在框架堆（81 MB）、框架私有数据（29 MB）、
+   Intel 显卡驱动镜像（~9.3 MB）、.NET 运行时镜像（~1.9 MB）、OS DLL 与托管堆（5.7 MB）。
+3. **与 §0.9 / §0.13 一致且更硬**：反复 GC + trim 后 Private 恒定不变（139.4 MB Debug /
+   ~121–130 MB Release），现在有了段级归因 —— **它是框架与 GPU 驱动基线，不是 MemeManager 能动的量**。
+4. **正式收工**：控件层（§0.4）、数据层（§0.13）、页面生命周期（§0.12）、托管堆（§0.1）四条路全部
+   到头且都判死；本条把最后一块"想弄明白构成"补上。
+
+**关于 Working Set**：关闭后 Total WS 仅 36.8 MB 而 Private 132.7 MB，差额 ~96 MB 已被
+`EmptyWorkingSet` 换出到 standby —— 这是后台"看着很小"的来源；代价是呼出时一次软缺页回填
+（正常且廉价，非泄漏）。
 
 ## 1. 已到头，本轮不要碰
 
