@@ -738,9 +738,9 @@ Reverted to the previous valid path.</value>
     <value>Aggressive background memory reclaim</value>
   </data>
   <data name="Settings_AggressiveBgReclaimHint.Text" xml:space="preserve">
-    <value>After the main window is closed, run a forced GC and working-set trim once (about 5 seconds later) so background usage drops to a few MB. When off, only control unloading happens (background usage stays around 300 MB).</value>
+    <value>When on, each time the main window is closed, the app waits 5 seconds, then forces a garbage collection and trims the working set (EmptyWorkingSet) to minimize memory usage as much as possible. If this noticeably affects how quickly the main window can be brought up, disable this feature.</value>
   </data>
   <data name="Main_CatrgorySearchToolTip.Content" xml:space="preserve">
-    <value>Fuzzy search catorgory in the category list(Ctrl+Shift+F)</value>
+    <value>Fuzzy search catorgory in the category list (Ctrl+Shift+F)</value>
   </data>
 </root>

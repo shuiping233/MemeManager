@@ -735,12 +735,12 @@
     <value>排序失败：{0}。请重试。</value>
   </data>
   <data name="Settings_AggressiveBgReclaim.Text" xml:space="preserve">
-    <value>后台内存回收策略</value>
+    <value>激进的后台内存回收策略</value>
   </data>
   <data name="Settings_AggressiveBgReclaimHint.Text" xml:space="preserve">
-    <value>关闭主窗口后延迟（约 5 秒）做一次强制 GC 与工作集裁剪，使后台占用降到几 MB。关闭后行为回到仅卸载控件（后台占用仍在 300MB 上下）。</value>
+    <value>开启后, 每次关闭主窗口后延迟 5 秒做一次强制 GC 与工作集裁剪(EmptyWorkingSet)，尽可能地减少内存占用. 若过于影响主窗口呼出效率, 请禁用此功能</value>
   </data>
   <data name="Main_CatrgorySearchToolTip.Content" xml:space="preserve">
-    <value>模糊查询所有分类(Ctrl+Shift+F)</value>
+    <value>模糊查询所有分类 (Ctrl+Shift+F)</value>
   </data>
 </root>
