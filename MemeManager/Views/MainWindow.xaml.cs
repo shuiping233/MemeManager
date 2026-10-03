@@ -76,7 +76,6 @@ public sealed partial class MainWindow : Window
     // 当前承载的页面（两种模式皆可），用于统一驱动图像资源释放。
     private IImageReleasablePage? CurrentReleasablePage => RootFrame.Content as IImageReleasablePage;
 
-    // 判断窗口是否最小化了
     private bool IsWindowMinimized()
     {
         return _appWindow?.Presenter is OverlappedPresenter op && op.State == OverlappedPresenterState.Minimized;
@@ -841,7 +840,6 @@ public sealed partial class MainWindow : Window
 
         CurrentMainPage?.SuspendInteractions();
 
-        // 停前台窗口轮询定时器
         _fgTimer?.Stop();
     }
 

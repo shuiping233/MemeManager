@@ -421,7 +421,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         LoadCategories(restoreSelectionFromConfig: false);
     }
 
-    // 按配置创建对应的列表策略实例。
     private IMemeListStrategy CreateStrategy(bool reuse) =>
         reuse ? new ReuseStrategy() : new RebuildStrategy();
 
@@ -1114,7 +1113,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var memes = ViewModel.QueryMemes(
             IsAllMemesView ? null : ViewModel.CurrentCategory, keyword);
 
-        // 用当前策略刷新表情列表
         _listStrategy.RefreshMemes(ViewModel.MemeList, memes);
 
         ApplyMemeGridChanged();
@@ -1209,9 +1207,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     private void MemeItem_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        // 编辑模式或窗口隐藏时不显示预览
-        // 正在拖拽（内部拖出/重排）时不显示预览：避免遮挡鼠标，并杜绝拖拽会话
-        // 与预览浮窗异步回调在 native 层交错访问可视化树。
+        // 编辑模式 / 窗口隐藏 / 正在拖拽（内部拖出·重排）时不显示预览：
+        // 避免遮挡鼠标，并杜绝拖拽会话与预览浮窗异步回调在 native 层交错访问可视化树。
         if (ViewModel.EditMode || !App.MainWindow.IsAppVisible || App.MainWindow.IsClosing || ViewModel.DraggingMemes != null) return;
         // 文件选择器打开期间不弹预览浮窗（避免对话框抢焦点后误触发）
         if (App.MainWindow.IsFilePickerOpen) return;
