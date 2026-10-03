@@ -205,22 +205,38 @@ public sealed class ImageBatchOperationRunner
         {
             case BatchOperationKind.Import:
                 _ui.UpdateCategoryCounts();
+
+                if (targetCategory == null) break;
+
                 // 刷新右侧图片容器的条件：
                 //  - 用户仍停留在导入时的分类；或
                 //  - 当前是“全部表情”聚合视图（导入到任何分类都应即时出现在全部表情里）。
-                if (targetCategory != null &&
-                    (_ui.IsAllMemesView() ||
-                     _ui.CurrentCategory().Equals(targetCategory, StringComparison.OrdinalIgnoreCase)))
+                if (!_ui.IsAllMemesView()
+                    && !_ui.CurrentCategory().Equals(targetCategory, StringComparison.OrdinalIgnoreCase))
                 {
-                    // work 返回 ImportResult 时，用其中的“本次新建 model”做增量插入，
-                    // 避免整表重建（Rebuild 策略下所有图片都会被重新解码）。
-                    // 拿不到（Added 为空：全部重复、或调用方未回传结果）时退回全量刷新——
-                    // 不能简单跳过：僵尸缓存清理会让列表需要“减少”。
-                    if (jobResult is ImportResult { Added.Count: > 0 } importResult)
-                        _ui.InsertMemesView(importResult.Added);
-                    else
-                        _ui.RefreshMemesView();
+                    break;
                 }
+
+
+                if (jobResult is not ImportResult importResult)
+                {
+                    _ui.RefreshMemesView();
+                    break;
+                }
+
+                // work 返回 ImportResult 时，用其中的“本次新建 model”做增量插入，
+                // 避免整表重建（Rebuild 策略下所有图片都会被重新解码）。
+                // 拿不到（Added 为空：全部重复、或调用方未回传结果）时退回全量刷新——
+                // 不能简单跳过：僵尸缓存清理会让列表需要“减少”。
+                if (importResult.Added.Count > 0)
+                {
+                    _ui.InsertMemesView(importResult.Added);
+                }
+                else
+                {
+                    _ui.RefreshMemesView();
+                }
+
                 break;
 
             case BatchOperationKind.Export:
