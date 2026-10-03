@@ -237,6 +237,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // 显式停止 x:Bind 跟踪：断开绑定对象对 VM/事件的订阅，让页面销毁后可被 GC。
         // 隐藏窗口（SW_HIDE）不会触发 Unloaded，此处只在页面真正被导航替换/销毁时执行。
         Bindings?.StopTracking();
+
+        // 退订引擎文件监听：FileWatcher 是单例 MemeDataEngine 的成员，订阅用的是本页的实例方法，
+        // 不退订则引擎会一直持有本页，页面被导航替换后无法回收（每次切模式泄漏一棵 Page 对象图）。
+        // 隐藏窗口不触发 Unloaded，所以隐藏期间监听照常有效（呼出时数据已是最新），互不影响。
+        UnsubscribeWatcher();
     }
 
     // 订阅引擎文件监听（Watcher 可能被 F5 刷新重建，需成对退订/重订）。
