@@ -795,6 +795,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         if (visible)
         {
+            // 实验开关（E8）：隐藏时列表被清空过 → 先从引擎内存缓存重建（不读盘），再走正常重绑。
+            if (AppConstants.ClearViewModelsWhileHidden && ViewModel.MemeList.Count == 0)
+                RefreshMemes();
+
             bool rebind = MemeGridView.ItemsSource != ViewModel.MemeList;
             if (rebind)
             {
@@ -943,6 +947,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             tcs.Task.Wait(100);
         }
 
+
+        // 实验开关（E8）：把 ViewModel 侧的列表与拖拽临时状态也清掉，
+        // 用于验证"存活的 VM/数据是否钉住 native 内存"。呼出时由 SetMemeViewVisible 重建。
+        if (AppConstants.ClearViewModelsWhileHidden)
+        {
+            ViewModel.MemeList.Clear();
+            ViewModel.DraggingMemes = null;
+            ViewModel.DragAnchorFileName = null;
+        }
 
         // 仅复用模式下打印内存诊断（重建模式无需关注 VM 常驻情况）。
         if (ConfigService.Config.UseControlReuse)

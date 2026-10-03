@@ -122,5 +122,14 @@ public static class AppConstants
     /// 设为 &lt;= TimeSpan.Zero 表示禁用（等同关掉设置页的那个开关）。
     /// </summary>
     public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// 【实验开关，默认关】隐藏窗口时额外清空 ViewModel 侧的列表（`MemeList` 与拖拽临时状态），
+    /// 用于验证「存活的 VM/数据是否钉住 native 内存」（todo.md 实验 E8）：
+    /// 清空后 Private Bytes 明显下降 → 说明 VM/数据这条路还有优化空间；不降 → 那部分是框架池。
+    /// 打开后功能仍可用：呼出时由 `SetMemeViewVisible` 从引擎内存缓存重建列表（不读盘）。
+    /// 用 `static readonly`（非 const），避免恒假分支触发 CS0162「无法访问的代码」警告。
+    /// </summary>
+    public static readonly bool ClearViewModelsWhileHidden = false;
 }
 
