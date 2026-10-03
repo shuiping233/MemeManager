@@ -422,6 +422,40 @@ dotnet-counters：`GC Heap Size 6.27 MiB`、`LOH 745 KiB`、`Working Set 295 MiB
 
 **动作**：**保留这些 stash 不删**（它们是实测证据）；本条仅归档结论。
 
+### 0.13 E8 实测：清空 ViewModel 列表只省 ~1.25 MB → 数据/VM 这条路判死（2026-10-03）
+
+**实验**：`AppConstants.ClearViewModelsWhileHidden` 开/关，Release 构建，隐藏后等 8 秒：
+
+| 配置 | Private Bytes | Working Set | Shared |
+| --- | --- | --- | --- |
+| `false`（基线） | 123,952 K（121 MB） | 24,732 K（24 MB） | 51,972 K（51 MB） |
+| `true`（清空 `MemeList` 的 72 个 VM + 拖拽状态） | 122,672 K（120 MB） | 23,412 K（23 MB） | 48,252 K（47 MB） |
+| **差值** | **−1,280 K（−1.0%）** | −1,320 K | −3,720 K |
+
+**结论：**
+
+1. **那 ~57 MB 与"存活的 VM / 数据"无关** —— 把 72 个 `MemeViewModel` 与拖拽状态全清掉，只回收 ~1.25 MB
+   （≈ 这些 VM 对象自身的托管大小），Private 变化在 1% 量级。
+2. 因此 **B2（21 个单例 VM 委托 + `SettingsPage.RequestClose`）与 B3（集合引用）不必做** ——
+   与 E8 同族、量级相同（百 KB ~ MB 级），收益不可能更有意义。
+3. **控件层与数据层都到头了**：`x:Load` 摘掉主要内容只回收 ~4 MB（§0.4）；整页卸载 / 真关窗口
+   "内存占用依旧下不来"（§0.12，stash 实测）；清空 VM / 数据只省 1.25 MB（本节）。
+4. 剩下的是 **WinUI / Windows App SDK 的框架基线**（Private ≈ 120~140 MB，Release 下更低），
+   以及已被 `EmptyWorkingSet` 处理掉的 Working Set 部分。
+
+**正式收工判定（证据汇总）：**
+
+| 证据 | 出处 |
+| --- | --- |
+| `x:Load` 卸完主要内容后，`AfterTeardown` 只回收 ~4 MB | §0.4 |
+| 反复 GC + trim 后 Private 恒定（139.4 MB；Release 下 ~121 MB） | §0.9 / §0.13 |
+| 整页卸载 / 真关窗口："内存占用依旧下不来，可能有一些减少但不会很多" | §0.12（stash） |
+| 清空 VM / 数据：仅 −1.25 MB | §0.13（本节） |
+| "每秒 +8 KB / 每秒缺页" = debugger / VS profiler 的观测者效应 | §0.11 |
+
+**剩余可选**：VMMap 归因（看 120 MB 里 `Private Data` / `Image` 的分布）—— 只满足"想弄明白构成"，
+不改变上面的结论。
+
 ## 1. 已到头，本轮不要碰
 
 `CacheMode`（全项目 0 处，默认即 null）｜`MainWindow` 的 `x:Bind`（XAML 里根本没有，

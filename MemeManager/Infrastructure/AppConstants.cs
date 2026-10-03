@@ -125,8 +125,9 @@ public static class AppConstants
 
     /// <summary>
     /// 【实验开关，默认关】隐藏窗口时额外清空 ViewModel 侧的列表（`MemeList` 与拖拽临时状态），
-    /// 用于验证「存活的 VM/数据是否钉住 native 内存」（todo.md 实验 E8）：
-    /// 清空后 Private Bytes 明显下降 → 说明 VM/数据这条路还有优化空间；不降 → 那部分是框架池。
+    /// 用于验证「存活的 VM/数据是否钉住 native 内存」（todo.md 实验 E8）。
+    /// **实测结论（2026-10-03，§0.13）：只省 ~1.25 MB（Private −1.0%）** —— 那部分内存与存活 VM/数据无关，
+    /// 属框架池；故本开关保持关闭，仅留作将来再次验证用。
     /// 打开后功能仍可用：呼出时由 `SetMemeViewVisible` 从引擎内存缓存重建列表（不读盘）。
     /// 用 `static readonly`（非 const），避免恒假分支触发 CS0162「无法访问的代码」警告。
     /// </summary>
