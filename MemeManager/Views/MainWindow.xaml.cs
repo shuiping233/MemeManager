@@ -460,8 +460,12 @@ public sealed partial class MainWindow : Window
     // 置顶开关（由页面上的置顶按钮/托盘等调用），仅会话内存有效，不持久化。
     public void SetTopMost(bool topMost)
     {
+        if (IsTopMost == topMost) return;
         _topMost = topMost;
         ApplyTopMost(topMost);
+
+        if (topMost) Log("[置顶] 已开启置顶");
+        else Log("[置顶] 已关闭置顶");
     }
 
     // ---------- 供 SettingsPage 调用的转发（保持原有调用面不变） ----------

@@ -2146,13 +2146,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void TopMostToggle_Checked(object sender, RoutedEventArgs e)
     {
         App.MainWindow.SetTopMost(true);
-        Log("[置顶] 已开启置顶");
     }
 
     private void TopMostToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         App.MainWindow.SetTopMost(false);
-        Log("[置顶] 已关闭置顶");
     }
 
     // 搜索框输入防抖：避免每次按键都重建表情列表
@@ -2238,10 +2236,27 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
+        // Ctrl+I 打开设置页面
         if (ctrl && e.Key == VirtualKey.I)
         {
             e.Handled = true;
             ShowSettingsFlyout();
+        }
+
+        // Ctrl+T 启用/关闭窗口指定
+        if (ctrl && e.Key == VirtualKey.T)
+        {
+            e.Handled = true;
+            if (App.MainWindow.IsTopMost)
+            {
+                App.MainWindow.SetTopMost(false);
+                TopMostToggle.IsChecked = false;
+            }
+            else
+            {
+                App.MainWindow.SetTopMost(true);
+                TopMostToggle.IsChecked = true;
+            }
         }
 
         // Ctrl+Shift+F：聚焦分类搜索框
