@@ -2240,7 +2240,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (ctrl && e.Key == VirtualKey.I)
         {
             e.Handled = true;
-            ShowSettingsFlyout();
+            if (!SettingsFlyout.IsOpen) ShowSettingsFlyout();
+            else CloseSettingsFlyout();
         }
 
         // Ctrl+T 启用/关闭窗口置顶
