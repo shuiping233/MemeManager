@@ -95,6 +95,8 @@ The category search box works the same way: it fuzzy-matches category names and 
 
 The settings items are self-explanatory, so we won't repeat them here.
 
+You can use `Ctrl`+`I` to quickly open the settings page.
+
 The settings page supports `Esc` to exit and `Enter` to apply configuration.
 
 All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported images and logs are saved in the specified data directory, whose default is `%USERPROFILE%/Pictures/MeMeManagerData`.
@@ -106,10 +108,13 @@ All configuration is saved in `%LOCALAPPDATA%/MemeManager/config.json`. Imported
 - In-main-window shortcuts:
   - `Ctrl`+`F` : focus search box
   - `Ctrl`+`Shift`+`F` : focus the category search box (left `Shift` only)
+  - `Ctrl`+`↑` / `Ctrl`+`↓`: switch to the previous/next category (currently conflicts with focus on the WinUI native Tab control. When the Tab control has focus (white highlighted border), this shortcut will not work. To be resolved.)
   - `Ctrl`+`E` : enter/exit edit mode
   - `Ctrl`+`V` : after copying an image, paste it into the current category in the main window
   - `Ctrl`+`N` : create new category
   - `Ctrl`+`A` : select all images; in non-edit mode this enters edit mode and selects all images in the current category
+  - `Ctrl`+`I`: open/close the main window settings page
+  - `Ctrl`+`T`: toggle the main window's always-on-top state
   - `F5` : refresh page (if `Enable control reuse strategy` is enabled, due to control-reuse implementation, no refresh animation shows if content is unchanged)
   - `F2` : rename the current category
   - `Delete` : delete the current category; in edit mode, delete the selected images.
