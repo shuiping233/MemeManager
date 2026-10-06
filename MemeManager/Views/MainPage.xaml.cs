@@ -12,6 +12,8 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
+using Windows.System;
+using DispatcherQueuePriority = Microsoft.UI.Dispatching.DispatcherQueuePriority;
 
 namespace MemeManager.Views;
 
@@ -2022,6 +2024,25 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
+    // 切到上一个/下一个分类，并把焦点落到图片网格第一张。
+    private void SwitchCategory(CategorySwitchAction action)
+    {
+        int count = CategoryList.Items.Count;
+        if (count == 0) return;
+        int index = CategoryList.SelectedIndex;
+        int target = action == CategorySwitchAction.Next ? Math.Min(count - 1, index + 1) : Math.Max(0, index - 1);
+        if (target == index) return;
+        CategoryList.SelectedIndex = target;
+
+        // 必须显式更新分类列表滚动条, 控件不会自动跟随 SelectedIndex 更新滚动条
+        CategoryList.DispatcherQueue.TryEnqueue(() =>
+        {
+            CategoryList.ScrollIntoView(CategoryList.SelectedItem);
+        });
+
+        // FocusFirstMeme(); // TODO 后续需要支持↑↓←→切图片容器中图片时才实现
+    }
+
     private void ShowSettingsFlyout()
     {
         // 单例浮窗页：反复打开只 new 一次、常驻复用（避免 WinUI 对反复 new 的 Page 回收不彻底）。
@@ -2137,6 +2158,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     }
 
 
+
+
     public void HandleHostKeyDown(KeyRoutedEventArgs e) => Root_KeyDown(null, e);
 
     private async void Root_KeyDown(object? sender, KeyRoutedEventArgs e)
@@ -2185,8 +2208,22 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
+        // Ctrl+↑ / Ctrl+↓ 快捷键切换上上一个分类/下一个分类
+        if (ctrl && e.Key == VirtualKey.Up)
+        {
+            e.Handled = true;
+            SwitchCategory(CategorySwitchAction.Previous);
+            return;
+        }
+        else if (ctrl && e.Key == VirtualKey.Down)
+        {
+            e.Handled = true;
+            SwitchCategory(CategorySwitchAction.Next);
+            return;
+        }
+
         // Ctrl+Shift+F：聚焦分类搜索框
-        if (ctrl && shift && e.Key == Windows.System.VirtualKey.F)
+        if (ctrl && shift && e.Key == VirtualKey.F)
         {
             e.Handled = true;
             CategorySearchBox.Focus(FocusState.Keyboard);
@@ -2194,7 +2231,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // Ctrl+F：聚焦表情搜索框
-        if (ctrl && e.Key == Windows.System.VirtualKey.F)
+        if (ctrl && e.Key == VirtualKey.F)
         {
             e.Handled = true;
             MemeSearchBox.Focus(FocusState.Keyboard);
@@ -2202,7 +2239,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // Ctrl+N：新建分类
-        if (ctrl && e.Key == Windows.System.VirtualKey.N)
+        if (ctrl && e.Key == VirtualKey.N)
         {
             e.Handled = true;
             await ShowAddCategoryDialog();
@@ -2210,7 +2247,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // F5：刷新（任意模式都可用）
-        if (e.Key == Windows.System.VirtualKey.F5)
+        if (e.Key == VirtualKey.F5)
         {
             e.Handled = true;
             _ = RefreshDataAsync();
@@ -2218,7 +2255,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // Ctrl+A：编辑模式下全选/取消全选；非编辑模式下自动进编辑模式并全选
-        if (ctrl && e.Key == Windows.System.VirtualKey.A)
+        if (ctrl && e.Key == VirtualKey.A)
         {
             if (!ViewModel.EditMode) EnterEditModeAndSelectAll();
             else ToggleSelectAll();
@@ -2227,7 +2264,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // Ctrl+E：切换编辑（多选）模式，与“修改”按钮语义一致
-        if (ctrl && e.Key == Windows.System.VirtualKey.E)
+        if (ctrl && e.Key == VirtualKey.E)
         {
             ToggleEditMode();
             e.Handled = true;
@@ -2235,7 +2272,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         // F2：重命名当前选中的分类（聚焦分类控件时）
-        if (e.Key == Windows.System.VirtualKey.F2)
+        if (e.Key == VirtualKey.F2)
         {
             if (CategoryList.SelectedItem is CategoryViewModel selCat)
             {
@@ -2247,7 +2284,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // Delete：编辑模式下删除已选中的表情（复用删除按钮的确认弹窗与流程）；
         // 若编辑模式但未选中任何图片则不响应。非编辑模式下仍按原逻辑删除选中的分类。
-        if (e.Key == Windows.System.VirtualKey.Delete)
+        if (e.Key == VirtualKey.Delete)
         {
             if (ViewModel.EditMode)
             {
@@ -2268,14 +2305,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
+
+        // 以下部分为编辑模式中响应的快捷键功能
         if (!ViewModel.EditMode) return;
 
-        if (e.Key == Windows.System.VirtualKey.Escape)
-        {
-            ExitEditMode();
-            e.Handled = true;
-        }
-        else if (e.Key == Windows.System.VirtualKey.Enter)
+        // esc 或 enter 退出编辑模式
+        if (e.Key == VirtualKey.Escape || e.Key == VirtualKey.Enter)
         {
             ExitEditMode();
             e.Handled = true;
@@ -2547,4 +2582,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             }
         });
     }
+}
+
+
+
+internal enum CategorySwitchAction
+{
+    Previous = 0,
+    Next = 1,
+
 }
