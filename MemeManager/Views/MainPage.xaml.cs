@@ -2159,9 +2159,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         ViewModel.SearchDebouncer?.Trigger();
     }
 
-
-
-
     public void HandleHostKeyDown(KeyRoutedEventArgs e) => Root_KeyDown(null, e);
 
     private async void Root_KeyDown(object? sender, KeyRoutedEventArgs e)
