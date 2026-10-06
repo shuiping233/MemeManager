@@ -390,8 +390,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var sel = ViewModel.CategoryList
             .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
         if (sel is null || ReferenceEquals(CategoryList.SelectedItem, sel)) return;
+
+
         CategoryList.SelectedItem = null;
-        DispatcherQueue.TryEnqueue(() => CategoryList.SelectedItem = sel);
+        SelectCategoryItem(sel);
     }
 
     // 分类栏 UI 收尾（分类数据增/删/改名后调用）：空状态提示 + 选中视觉 + 拖拽排序快照。
@@ -410,10 +412,15 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 分类栏选中赋值的统一入口：仅当目标项在当前视图（CategoryList）里才设置，
     // 避免把不在 Items 中的对象设为 SelectedItem；搜索态下选中的分类可能被过滤掉，
     // 此时由 RestoreCategorySelectionVisual 在关键词变化后兜底恢复。
-    private void SelectCategoryItem(CategoryViewModel target)
+    private void SelectCategoryItem(CategoryViewModel target, ScrollIntoViewAlignment alignment = ScrollIntoViewAlignment.Leading)
     {
         if (!ViewModel.CategoryList.Contains(target)) return;
         CategoryList.SelectedItem = target;
+        // 显示更新分类列表滚动条以跟随 SelectedItem 的item, 因为控件默认不随 SelectedItem 变化而更新滚动条
+        CategoryList.DispatcherQueue.TryEnqueue(() =>
+        {
+            CategoryList.ScrollIntoView(CategoryList.SelectedItem, alignment);
+        });
     }
 
     // 供设置页在“浏览”修改存放路径后即时刷新（分类/表情）
@@ -829,7 +836,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 if (sel != null && (rebind || CategoryList.SelectedItem != sel))
                 {
                     CategoryList.SelectedItem = null;
-                    DispatcherQueue.TryEnqueue(() => { CategoryList.SelectedItem = sel; });
+                    SelectCategoryItem(sel);
                 }
             }
         }
@@ -1076,7 +1083,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             RefreshCategoryPaneUi();
             // 选中新分类；搜索态下它可能不匹配当前关键词（不在视图里）→ 不选中。
             if (ViewModel.CategoryList.Contains(created))
-                CategoryList.SelectedItem = created;
+            {
+                SelectCategoryItem(created);
+            }
+
         }
     }
 
@@ -2588,7 +2598,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
 internal enum CategorySwitchAction
 {
-    Previous = 0,
-    Next = 1,
-
+    Previous,
+    Next,
 }
