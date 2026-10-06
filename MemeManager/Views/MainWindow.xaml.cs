@@ -481,7 +481,7 @@ public sealed partial class MainWindow : Window
         ShowWindow(activate: true);
         if (_currentMode != AppMode.Full)
             SwitchMode(AppMode.Full);
-        DispatcherQueue.TryEnqueue(() => CurrentMainPage?.OpenSettingsFlyout());
+        DispatcherQueue.TryEnqueue(() => CurrentMainPage?.ShowSettingsFlyout());
     }
 
     /// <summary>托盘菜单“显示主窗口”：显示并激活窗口（兼容最小化状态）</summary>

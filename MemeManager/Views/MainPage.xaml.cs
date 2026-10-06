@@ -2053,7 +2053,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // FocusFirstMeme(); // TODO 后续需要支持↑↓←→切图片容器中图片时才实现
     }
 
-    private void ShowSettingsFlyout()
+    internal void ShowSettingsFlyout()
     {
         // 单例浮窗页：反复打开只 new 一次、常驻复用（避免 WinUI 对反复 new 的 Page 回收不彻底）。
         var page = App.GetService<SettingsPage>();
@@ -2063,12 +2063,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         page.RequestClose = (_, _) => SettingsFlyout.Hide();
         SettingsFlyout.Content = page;
         SettingsFlyout.ShowAt(SettingsButton);
-    }
-
-    // 托盘菜单"设置"入口（由 MainWindow 转发）：直接弹出设置浮窗
-    public void OpenSettingsFlyout()
-    {
-        ShowSettingsFlyout();
     }
 
     // 收起设置浮窗（供窗口隐藏时调用）。与用户手动关闭走同一条路径：
@@ -2177,10 +2171,22 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         // Ctrl+V：仅在本窗口激活（焦点在主窗口）时，才把剪贴板里的图片导入到分类。
         // 这样截图等写剪贴板的行为不会误触发“粘贴到分类”；无焦点时的 Ctrl+V 仍走投回外部逻辑。
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
-            Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
-            Windows.System.VirtualKey.LeftShift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-        if (ctrl && e.Key == Windows.System.VirtualKey.V)
+            VirtualKey.LeftShift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        // TODO 禁用Tab和Shift+Tab, 这不是一个好主意, 无障碍几乎挡完了
+        // 但是这是简单的可以挡住大部分tab焦点影响ctrl+方向键的操作的方案
+        // 而且一旦要考虑无障碍的话, 几乎得手动处理一堆tab事件, 非常不划算但是也没什么招
+        // 要想ctrl+方向键操作分类和方向键操作分类而且不直接禁用tab的话
+        // 需要大量的实验以及在xaml测进行控件级别的特殊定义, 太麻烦了后面再说吧
+        // 目前先不好用着把
+        //if (e.Key == VirtualKey.Tab)
+        //{
+        //    e.Handled = true;   // Tab / Shift+Tab 全吃掉
+        //}
+
+        if (ctrl && e.Key == VirtualKey.V)
         {
             if (!App.MainWindow.IsWindowActive)
             {
@@ -2230,6 +2236,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             e.Handled = true;
             SwitchCategory(CategorySwitchAction.Next);
             return;
+        }
+
+        if (ctrl && e.Key == VirtualKey.I)
+        {
+            e.Handled = true;
+            ShowSettingsFlyout();
         }
 
         // Ctrl+Shift+F：聚焦分类搜索框
