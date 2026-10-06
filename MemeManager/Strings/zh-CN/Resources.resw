@@ -313,7 +313,7 @@
     <value>模糊查询当前分类的表情 (Ctrl+F)</value>
   </data>
   <data name="Main_TopMostToolTip.Content" xml:space="preserve">
-    <value>启用/关闭主窗口置顶</value>
+    <value>启用/关闭主窗口置顶 (Ctrl+T)</value>
   </data>
   <data name="Main_EditToolTip.Content" xml:space="preserve">
     <value>进入/退出多选模式 (Ctrl+E)</value>
@@ -322,7 +322,7 @@
     <value>刷新当前页面 (F5)</value>
   </data>
   <data name="Main_SettingsToolTip.Content" xml:space="preserve">
-    <value>打开/关闭设置页面</value>
+    <value>打开/关闭设置页面 (Ctrl+I)</value>
   </data>
   <data name="Meme_SelectAll.Content" xml:space="preserve">
     <value>全选</value>

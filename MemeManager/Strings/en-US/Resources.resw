@@ -313,7 +313,7 @@
     <value>Fuzzy search memes in the current category (Ctrl+F)</value>
   </data>
   <data name="Main_TopMostToolTip.Content" xml:space="preserve">
-    <value>Enable/disable main window always on top</value>
+    <value>Enable/disable main window always on top (Ctrl+T)</value>
   </data>
   <data name="Main_EditToolTip.Content" xml:space="preserve">
     <value>Enter/exit multi-select mode (Ctrl+E)</value>
@@ -322,7 +322,7 @@
     <value>Refresh current page (F5)</value>
   </data>
   <data name="Main_SettingsToolTip.Content" xml:space="preserve">
-    <value>Open/close settings page</value>
+    <value>Open/close settings page (Ctrl+I)</value>
   </data>
   <data name="Meme_SelectAll.Content" xml:space="preserve">
     <value>Select all</value>
