@@ -2243,7 +2243,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             ShowSettingsFlyout();
         }
 
-        // Ctrl+T 启用/关闭窗口指定
+        // Ctrl+T 启用/关闭窗口置顶
         if (ctrl && e.Key == VirtualKey.T)
         {
             e.Handled = true;
