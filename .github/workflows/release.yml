@@ -110,7 +110,7 @@ jobs:
               ],
               "label_extractor": [
                 {
-                  "pattern": "^(build|chore|ci|docs|feat|fix|bugfix|perf|refactor|revert|style|test|i18n)(?:\\([^)]*\\))?!?:\\s*",
+                  "pattern": "^(build|chore|ci|docs|feat|fix|bugfix|perf|refactor|revert|style|test|i18n)(\\([\\w\\-\\.]+\\))?(!)?: (.+)",
                   "on_property": "title",
                   "target": "$1"
                 }
