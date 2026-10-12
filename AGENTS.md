@@ -1,42 +1,50 @@
 # AGENTS.md
 
-项目特有约定。通用层（注释策略、`rg`/`ast-grep` 工具用法、命名与不用 emoji、祈使语气 commit、引用名字而非行号）见全局指令，此处不重复。详细背景、示例与踩坑记录见各 `docs/` 文档。
+## 全局指令
 
-## i18n
+尽量减少代码中的注释数量，保持严格的最低限度。你几乎不应添加注释，除非是在非平凡的代码、参数不自明的函数定义、以及类定义及其成员上。
+如果你发现了某些非直觉的当前仓库代码无法表示的bug或者框架性问题, 允许留下注释并指明资料地址url, 若没有外部资料路径, 则注释可以引用 docs/xxx 的文档, 并将详细注意事项和情况在docs/ 形成文档, 而不是直接塞一大坨注释进代码上下文附近
 
-见 `MemeManager/Strings/README.md`（English）/ `README.zh-CN.md`（中文）。核心：`Localization.Get()` 直接传资源 key，不带 `.xxx` 后缀；XAML 用 `l:Uids.Uid="xxx"`；resw type name 按控件读取字段补 `.Text`/`.Content`。
+除非注释与你正在修改的内容直接相关，否则不要删除已有注释。
+若注释和代码实际表现不一致, 请立刻提出并提供注释修改请求和具体注释修改内容
 
-## XAML 绑定（详见 `docs/xaml-binding.md`）
+## 工具
 
-- 默认 `x:Bind`；页面暴露强类型 `ViewModel` 属性（`private MainViewModel ViewModel => (MainViewModel)DataContext;`）。
-- `DataTemplate` 内 `x:Bind` 根是项 VM → 页面命令用 `Binding DataContext.XxxCommand, ElementName=RootGrid` + `CommandParameter="{Binding}"`。
-- 页面根锚点是 `RootGrid`，不要新增别的根名。
+- 使用 `rg` 进行搜索，它比 `grep` 更快。
+- 优先使用 `ast-grep`/`sg` 进行代码修改操作或者查询代码相关内容(尤其是操作代码部分), 可以和rg配合一起使用, 若此命令不存在, 请告诉用户并提醒他进行工具安装
+- 在大型解决方案中搜索时，尽量通过 `--glob` 或路径参数缩小范围，避免盲目全仓库扫描。
+- 对于 C# 代码，优先搜索标识符（类名、方法名、属性名）而非自由文本。
 
-## RelayCommand（详见 `docs/relay-command.md`）
+## 代码风格
 
-- 命名按用户意图非控件名；参数用 VM 类型非 `object sender`；异步返回 `Task` 非 `Task<T>`；类必须 `partial`。
+- 遵循 .NET/C# 常规命名约定：PascalCase 用于类型和成员，camelCase 用于局部变量和参数，`_camelCase` 用于私有字段。
+- CS / XAML 文件保持一致的缩进和属性顺序。
+- 我们的风格指南禁止使用 emoji。
 
-## VM → Page（详见 `docs/vm-to-page.md`）
+## 工作流程
 
-- VM 不写 `App.MainWindow.Xxx()`；用 `WeakReferenceMessenger` 单向消息，构造函数只 `Register` 一次；委托属性用 `=` 不用 `+=`。
+- 提交消息使用祈使语气。
+- 引用代码时，引用名称（类名、方法名、属性名）而非行号，因为行号会随代码变动而失效。
+- 自行拆解任务, 大型任务自动分解成小任务, 每个小任务一个commit；做完事情后汇报“做了什么 + 报告你要测什么（或『不用测』）”；非 UI 逻辑补 xUnit 到 `MemeManager.Tests/`, 发现能写单测但是没有单测的必须报告并询问是否补上单测。
 
-## 项级操作与 UI 生命周期（详见 `docs/item-vm-and-lifecycle.md`）
+## 架构相关
 
-- 删/重命名等触及 DataEngine+文件系统的命令放 `MainViewModel`，不给项 VM 加 Command。
-- `Opening`/`Loaded`/`Drop` 等 UI 生命周期/拖拽事件留 code-behind；只有 Click/Tapped 迁 Command。
+- 允许使用 community toolkit 的 UI 控件和类库，方便、能减少重复代码。
 
-## 依赖注入（详见 `docs/di.md`）
+## 其余详细细节件
 
-- `MemeDataEngine` 进容器；`Localization`/`Logger`/`LangHelper`/`EcoQos`/`Utils`/`ImageDragHelper` 保持 static；`FileWatcher` 随 Engine 注入。
+- 推荐用 `WeakReferenceMessenger` 单向消息做跨组件（VM↔Page、跨窗口/控件）能力调用与状态广播，判据与纪律见 `vm-to-page.md`。
 
-## 重型 UI（详见 `docs/heavy-ui.md`）
+- i18n (见 `README.zh-CN.md`（中文）/ `MemeManager/Strings/README.md`（English）)
 
-- 别靠 `Transient` 让 GC 回收重型 UI；`MainPage` 用 `x:Load`，`SettingsPage` 单例 + `Content=null` + `OnShow()`；Flyout 先 `ShowAt` 再 `IsUiLoaded=true`；控件赋值不放构造函数；单例 Page 别调 `Bindings.StopTracking()`。
+- XAML 绑定（详见 `docs/xaml-binding.md`）
 
-## 不做过度工程（详见 `docs/no-over-engineering.md`）
+- RelayCommand（详见 `docs/relay-command.md`）
 
-- 不硬拆 `MemeDataEngine` 为 Repository/Facade（只抽 `ConfigService`）；拖拽逻辑不重构进 VM/Service。
+- VM → Page（详见 `docs/vm-to-page.md`）
 
-## 汇报与测试（详见 `docs/reporting.md`）
+- 项级操作与 UI 生命周期（详见 `docs/item-vm-and-lifecycle.md`）
 
-- 每任务一 commit；汇报“做了什么 + 你要测什么（或『不用测』）”；非 UI 逻辑补 xUnit 到 `MemeManager.Tests/`。
+- 依赖注入（详见 `docs/di.md`）
+
+- 重型 UI（详见 `docs/heavy-ui.md`）
