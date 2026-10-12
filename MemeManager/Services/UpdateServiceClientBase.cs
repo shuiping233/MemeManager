@@ -21,14 +21,12 @@ public abstract class UpdateServiceClientBase : IUpdateServiceClient
 
     public abstract Task<string?> GetLatestVersionAsync(CancellationToken ct = default);
 
-    
-    
     protected static async Task<string?> FetchAsync(string sourceName, string url, CancellationToken ct)
     {
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            
+
             req.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
             using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
 
@@ -46,7 +44,7 @@ public abstract class UpdateServiceClientBase : IUpdateServiceClient
         }
         catch (OperationCanceledException)
         {
-            return null; 
+            return null;
         }
         catch (Exception ex)
         {

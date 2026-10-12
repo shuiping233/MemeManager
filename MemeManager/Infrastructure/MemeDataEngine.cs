@@ -18,7 +18,6 @@ public sealed record ImportResult(
     MemeModel? DuplicateModel,
     IReadOnlyList<MemeModel> Added)
 {
-    
     public static ImportResult Empty { get; } = new(0, 0, null, Array.Empty<MemeModel>());
 }
 
@@ -28,7 +27,6 @@ public class MemeDataEngine(ConfigService _config)
     // 兼顾 SSD 吞吐与句柄占用，后续调优直接改此处。
     private const int ImportParallelism = 16;
 
-    
     private static JsonSerializerOptions JsonOptions => AppConstants.JsonOptions;
 
     private string _baseDir = AppConstants.DefaultMemeDataStoragePath();
@@ -42,40 +40,28 @@ public class MemeDataEngine(ConfigService _config)
 
     private readonly List<MemeModel> _memeCache = new();
 
-    
-    
     public FileWatcher? Watcher { get; private set; }
 
-
-    
     private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
 
-    
     private readonly Dictionary<string, uint> _categoryOrder = new(StringComparer.OrdinalIgnoreCase);
 
     public string BaseDir => _baseDir;
 
     private AppConfig Config { get => _config.Config; set => _config.Config = value; }
 
-    
-    
     private static string ResolveBaseDir(string? storagePath)
     {
         string? candidate = string.IsNullOrWhiteSpace(storagePath) ? null : storagePath.Trim();
         if (!string.IsNullOrWhiteSpace(candidate) && !Path.IsPathRooted(candidate))
-            candidate = null; 
+            candidate = null;
 
         return string.IsNullOrWhiteSpace(candidate) ? AppConstants.DefaultMemeDataStoragePath() : candidate;
     }
 
-    
-    
     public string? LastDefaultCategoryWriteError { get; private set; }
 
-    
     public string? LastBaseDirRevertError { get; private set; }
-
-    
 
     public async Task InitializeAsync()
     {
@@ -97,7 +83,6 @@ public class MemeDataEngine(ConfigService _config)
             LastBaseDirRevertError = bad;
             Logger.Log($"[Engine] 配置的数据目录无效(不存在或非文件夹)，已回退默认: {bad} -> {_baseDir}");
         }
-        
         else if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
             Config.StoragePath = _baseDir;
 
@@ -114,17 +99,12 @@ public class MemeDataEngine(ConfigService _config)
         Watcher.Start();
     }
 
-    
     private string CategoryOrderPath => Path.Combine(_baseDir, AppConstants.MetadataFileName);
 
-    
-    
     private void LoadConfig() => _config.LoadConfig();
 
     private async Task SaveConfigAsync() => await _config.SaveConfigAsync();
 
-    
-    
     public async Task UpdateConfigAsync(Action<AppConfig> patch)
     {
         await _config.UpdateConfigAsync(patch);
@@ -133,17 +113,12 @@ public class MemeDataEngine(ConfigService _config)
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
         _baseDir = newBase;
 
-        
-        
         if (changed)
             await LoadAllMetadataAsync();
     }
 
-    
-
     private async Task LoadAllMetadataAsync()
     {
-        
         await EcoQos.RunAsync(() =>
         {
             LoadAllMetadataCore();
@@ -167,7 +142,7 @@ public class MemeDataEngine(ConfigService _config)
                 {
                     var json = File.ReadAllText(metaPath);
                     meta = JsonSerializer.Deserialize<CategoryMetadata>(json, JsonOptions)
-                           ?? new CategoryMetadata();
+                    ?? new CategoryMetadata();
                 }
                 catch
                 {
@@ -182,9 +157,7 @@ public class MemeDataEngine(ConfigService _config)
             foreach (var kv in meta.Items)
             {
                 var fileName = kv.Key;
-                
-                
-                
+
                 if (!IsSafeMetadataFileName(fileName))
                 {
                     Logger.Log($"[Engine] 跳过非法 metadata 条目: key='{fileName}' 分类='{category}'");
@@ -224,8 +197,6 @@ public class MemeDataEngine(ConfigService _config)
         list.Add(meme.FileName);
     }
 
-    
-
     public IReadOnlyList<MemeModel> GetAllMemes() => _memeCache.ToList();
 
     public IReadOnlyList<MemeModel> GetMemes(string? category = null, string? keyword = null)
@@ -249,34 +220,31 @@ public class MemeDataEngine(ConfigService _config)
         {
             return query
                 .OrderByDescending(m =>
-                    (_categoryOrder.TryGetValue(m.Category, out var catPrio) ? (long)catPrio : 0L) << 32
-                    | (m.Priority & 0xFFFFFFFFL))
+                        (_categoryOrder.TryGetValue(m.Category, out var catPrio) ? (long)catPrio : 0L) << 32
+                        | (m.Priority & 0xFFFFFFFFL))
                 .ThenByDescending(m => m.DateAdded)
                 .ToList();
         }
 
-        
         return query.OrderByDescending(m => m.Priority).ThenByDescending(m => m.DateAdded).ToList();
     }
 
     public IReadOnlyList<string> GetCategories()
     {
-        
         var set = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var m in _memeCache.ToList())
             if (!string.IsNullOrWhiteSpace(m.Category)) set.Add(m.Category);
 
         if (!Directory.Exists(_baseDir)) return set.ToArray();
         foreach (var dir in Directory.GetDirectories(_baseDir))
         {
-            
             if (File.Exists(Path.Combine(dir, AppConstants.MetadataFileName)))
                 set.Add(Path.GetFileName(dir));
         }
 
         var result = set.ToArray();
-        
+
         result.Sort((a, b) =>
         {
             int pa = _categoryOrder.TryGetValue(a, out var va) ? (int)va : 0;
@@ -286,8 +254,6 @@ public class MemeDataEngine(ConfigService _config)
         });
         return result;
     }
-
-    
 
     private async Task LoadCategoryOrderAsync()
     {
@@ -332,9 +298,6 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    
-    
-    
     public async Task ReorderCategoriesAsync(IReadOnlyList<string> orderedNames)
     {
         uint p = (uint)orderedNames.Count;
@@ -343,7 +306,6 @@ public class MemeDataEngine(ConfigService _config)
         await SaveCategoryOrderAsync();
     }
 
-    
     public IReadOnlyList<string> ReverseLookupByTitle(string title)
     {
         if (_titleReverseMap.TryGetValue(title, out var list))
@@ -351,13 +313,10 @@ public class MemeDataEngine(ConfigService _config)
         return new List<string>();
     }
 
-    
-
     public async Task<(MemeModel? model, bool duplicate)> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
     {
         if (!File.Exists(sourcePath)) return (null, false);
-        
-        
+
         if (!AppConstants.IsImage(Path.GetExtension(sourcePath)))
         {
             Logger.Log($"[Engine] 导入拒绝非图片扩展名: {sourcePath}");
@@ -370,14 +329,10 @@ public class MemeDataEngine(ConfigService _config)
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            
-            
-            
-            
             var categoryDir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
             var targetPath = Path.Combine(categoryDir, fileName);
             var existing = _memeCache.FirstOrDefault(m =>
-                m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+                    m.Category.Equals(category, StringComparison.OrdinalIgnoreCase) && m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
                 if (!File.Exists(existing.LocalPath))
@@ -454,38 +409,34 @@ public class MemeDataEngine(ConfigService _config)
 
         var safeTarget = SanitizeCategory(category);
         var categoryDir = SafePath.CombineChildPath(_baseDir, safeTarget);
-        
+
         bool created = !Directory.Exists(categoryDir);
         Directory.CreateDirectory(categoryDir);
         if (created) onCategoryCreated?.Invoke(safeTarget);
 
-        
         var meta = await LoadCategoryMetadataAsync(categoryDir);
 
-        
-        
         var existingByFile = _memeCache
             .Where(m => m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(m => m.FileName, m => m, StringComparer.OrdinalIgnoreCase);
 
         int imported = 0, duplicate = 0;
         MemeModel? duplicateModel = null;
-        
+
         var added = new List<MemeModel>();
 
-        
         var plans = new List<ImportPlan>(list.Count);
 
-        
         var po = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, po, async (sourcePath, _) =>
         {
             if (!File.Exists(sourcePath)) return;
-            
+
             if (!AppConstants.IsImage(Path.GetExtension(sourcePath))) return;
 
             string hash;
-            try { hash = await CalculateSha256Async(sourcePath); }
+            try
+            { hash = await CalculateSha256Async(sourcePath); }
             catch (Exception ex)
             {
                 Logger.Log($"[Engine] 导入算哈希失败: {sourcePath} {ex.Message}");
@@ -495,9 +446,8 @@ public class MemeDataEngine(ConfigService _config)
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            
             bool isDuplicate = false;
-            bool zombie = false;   
+            bool zombie = false;
             if (existingByFile.TryGetValue(fileName, out var existing))
             {
                 if (File.Exists(existing.LocalPath))
@@ -510,34 +460,30 @@ public class MemeDataEngine(ConfigService _config)
                 plans.Add(new ImportPlan(sourcePath, hash, ext, fileName, isDuplicate, zombie));
         });
 
-        
         long ioDone = 0;
 
-        
         var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(plans, copyPo, async (plan, _) =>
         {
-            if (!plan.IsDuplicate)   
+            if (!plan.IsDuplicate)
             {
                 try
                 {
                     await EcoQos.RunAsync(() =>
-                        File.Copy(plan.SourcePath, Path.Combine(categoryDir, plan.FileName), overwrite: true));
+                            File.Copy(plan.SourcePath, Path.Combine(categoryDir, plan.FileName), overwrite: true));
                     plan.CopyOk = true;
                 }
                 catch (Exception ex)
                 {
-                    
                     Logger.Log($"[Engine] 导入复制失败: {plan.SourcePath} {ex.Message}");
                     plan.CopyOk = false;
                 }
             }
-            
+
             var d = (uint)Interlocked.Increment(ref ioDone);
             progress?.Report(new BatchProgress(d, total));
         });
 
-        
         foreach (var plan in plans)
         {
             if (plan.IsDuplicate)
@@ -549,11 +495,9 @@ public class MemeDataEngine(ConfigService _config)
 
             if (!plan.CopyOk)
             {
-                
                 continue;
             }
 
-            
             if (plan.Zombie && existingByFile.TryGetValue(plan.FileName, out var dead))
             {
                 _memeCache.Remove(dead);
@@ -592,12 +536,11 @@ public class MemeDataEngine(ConfigService _config)
 
             _memeCache.Add(model);
             IndexTitle(model);
-            existingByFile[plan.FileName] = model;   
+            existingByFile[plan.FileName] = model;
             imported++;
             added.Add(model);
         }
 
-        
         await SaveCategoryMetadataAsync(categoryDir, meta);
         return new ImportResult(imported, duplicate, duplicateModel, added);
     }
@@ -612,7 +555,7 @@ public class MemeDataEngine(ConfigService _config)
         Action<string>? onCategoryCreated = null)
     {
         if (Interlocked.Exchange(ref _writeBusy, 1) != 0)
-            return ImportResult.Empty; 
+            return ImportResult.Empty;
         try
         {
             return await ImportMemesAsync(sourcePaths, category, progress, onCategoryCreated);
@@ -623,7 +566,6 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    
     private sealed record ImportPlan(
         string SourcePath,
         string Hash,
@@ -635,17 +577,14 @@ public class MemeDataEngine(ConfigService _config)
         public bool CopyOk;
     }
 
-    
-
     public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir, IProgress<BatchProgress>? progress = null)
     {
         Directory.CreateDirectory(targetDir);
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        
+
         long ioDone = 0;
 
-        
         var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, copyPo, async (meme, _) =>
         {
@@ -678,14 +617,12 @@ public class MemeDataEngine(ConfigService _config)
         var safeTarget = SanitizeCategory(targetCategory);
         try
         {
-            
             var existingHashes = GetMemes(safeTarget)
                 .Select(m => m.Hash)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var m in memes)
             {
-                
                 if (m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
                     continue;
                 if (existingHashes.Contains(m.Hash))
@@ -710,20 +647,15 @@ public class MemeDataEngine(ConfigService _config)
         var targetMeta = await LoadCategoryMetadataAsync(targetDir);
         bool targetDirty = false;
 
-        
-        
         uint targetMaxPriority = 0;
         foreach (var entry in targetMeta.Items.Values)
             if (entry.Priority > targetMaxPriority) targetMaxPriority = entry.Priority;
 
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        
+
         long ioDone = 0;
 
-        
-        
-        
         var sourceDirs = list
             .Where(m => !m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .Select(m => SafePath.CombineChildPath(_baseDir, SanitizeCategory(m.Category)))
@@ -733,16 +665,13 @@ public class MemeDataEngine(ConfigService _config)
         foreach (var dir in sourceDirs)
             sourceMetas[dir] = (await LoadCategoryMetadataAsync(dir), false);
 
-        
         var plans = new List<MovePlan>(list.Count);
 
-        
         var movePo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, movePo, async (meme, _) =>
         {
             try
             {
-                
                 if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
                 {
                     lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedSameTarget));
@@ -750,8 +679,7 @@ public class MemeDataEngine(ConfigService _config)
                 }
 
                 var destPath = Path.Combine(targetDir, meme.FileName);
-                
-                
+
                 if (File.Exists(destPath))
                 {
                     Logger.Log($"[Engine] 移动跳过(目标已存在): 文件={meme.FileName} 源分类=\"{meme.Category}\" -> 目标=\"{safeTarget}\"");
@@ -778,7 +706,6 @@ public class MemeDataEngine(ConfigService _config)
             }
         });
 
-        
         foreach (var plan in plans)
         {
             var meme = plan.Meme;
@@ -797,7 +724,6 @@ public class MemeDataEngine(ConfigService _config)
                         sourceMetas[sourceDir] = (sm.meta, true);
                     }
 
-                    
                     targetMeta.Items[meme.FileName] = new MemeMetaEntry
                     {
                         Title = meme.Title,
@@ -806,7 +732,6 @@ public class MemeDataEngine(ConfigService _config)
                     };
                     targetDirty = true;
 
-                    
                     meme.Category = safeTarget;
                     meme.LocalPath = plan.DestPath!;
                     meme.Priority = targetMaxPriority;
@@ -815,8 +740,6 @@ public class MemeDataEngine(ConfigService _config)
             }
         }
 
-        
-        
         if (targetDirty)
         {
             Directory.CreateDirectory(targetDir);
@@ -827,7 +750,6 @@ public class MemeDataEngine(ConfigService _config)
                 await SaveCategoryMetadataAsync(dir, entry.meta);
     }
 
-    
     private sealed record MovePlan(
         MemeModel Meme,
         MoveResult Result,
@@ -857,7 +779,7 @@ public class MemeDataEngine(ConfigService _config)
         var oldDir = SafePath.CombineChildPath(_baseDir, safeOld);
         var newDir = SafePath.CombineChildPath(_baseDir, safeNew);
         if (!Directory.Exists(oldDir)) return false;
-        if (Directory.Exists(newDir)) return false; 
+        if (Directory.Exists(newDir)) return false;
 
         try
         {
@@ -869,7 +791,6 @@ public class MemeDataEngine(ConfigService _config)
             return false;
         }
 
-        
         foreach (var m in _memeCache)
         {
             if (m.Category.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
@@ -879,14 +800,12 @@ public class MemeDataEngine(ConfigService _config)
             }
         }
 
-        
         if (Config.LastCategory.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
         {
             Config.LastCategory = safeNew;
             await SaveConfigAsync();
         }
 
-        
         if (_categoryOrder.TryGetValue(safeOld, out var prio))
         {
             _categoryOrder.Remove(safeOld);
@@ -909,8 +828,6 @@ public class MemeDataEngine(ConfigService _config)
         var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
         var meta = await LoadCategoryMetadataAsync(dir);
 
-        
-        
         uint p = (uint)orderedFileNames.Count;
         bool changed = false;
         foreach (var fileName in orderedFileNames)
@@ -921,7 +838,7 @@ public class MemeDataEngine(ConfigService _config)
                 p--;
             }
         }
-        
+
         uint tail = 0;
         foreach (var kv in meta.Items)
             if (kv.Value.Priority == 0 && !orderedFileNames.Contains(kv.Key))
@@ -930,7 +847,6 @@ public class MemeDataEngine(ConfigService _config)
                 tail++;
             }
 
-        
         if (changed)
             await SaveCategoryMetadataAsync(dir, meta);
 
@@ -943,8 +859,6 @@ public class MemeDataEngine(ConfigService _config)
             }
         }
     }
-
-    
 
     public async Task RenameMemeAsync(MemeModel meme, string newTitle)
     {
@@ -959,7 +873,6 @@ public class MemeDataEngine(ConfigService _config)
 
         await SaveCategoryMetadataAsync(dir, meta);
 
-        
         if (_titleReverseMap.TryGetValue(meme.Title, out var list))
         {
             list.Remove(meme.FileName);
@@ -969,13 +882,11 @@ public class MemeDataEngine(ConfigService _config)
         IndexTitle(meme);
     }
 
-    
-
     public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes, IProgress<BatchProgress>? progress = null)
     {
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        
+
         long ioDone = 0;
         var byCategory = list.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
         foreach (var group in byCategory)
@@ -984,11 +895,11 @@ public class MemeDataEngine(ConfigService _config)
             var meta = await LoadCategoryMetadataAsync(categoryDir);
             var groupList = group.ToList();
 
-            
             var delPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
             await Parallel.ForEachAsync(groupList, delPo, async (meme, _) =>
             {
-                try { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); }
+                try
+                { if (File.Exists(meme.LocalPath)) File.Delete(meme.LocalPath); }
                 catch (Exception ex)
                 {
                     Logger.Log($"[Engine] 删除文件失败: {meme.LocalPath} {ex.Message}");
@@ -997,7 +908,6 @@ public class MemeDataEngine(ConfigService _config)
                 progress?.Report(new BatchProgress(d, total));
             });
 
-            
             foreach (var meme in groupList)
             {
                 meta.Items.Remove(meme.FileName);
@@ -1014,7 +924,6 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    
     public void RemoveMemesFromCache(IEnumerable<MemeModel> memes)
     {
         foreach (var meme in memes)
@@ -1029,14 +938,10 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    
-
     public async Task<bool> AddCategoryAsync(string category)
     {
         var trimmed = (category ?? string.Empty).Trim();
-        
-        
-        
+
         if (!FileNameValidator.IsValidCategoryName(trimmed))
             return false;
 
@@ -1046,8 +951,7 @@ public class MemeDataEngine(ConfigService _config)
         {
             Directory.CreateDirectory(dir);
             await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
-            
-            
+
             _categoryOrder[trimmed] = 0;
             await SaveCategoryOrderAsync();
             Logger.Log($"[Engine] 创建分类: {trimmed}");
@@ -1055,8 +959,6 @@ public class MemeDataEngine(ConfigService _config)
         }
         catch (Exception ex)
         {
-            
-            
             LastDefaultCategoryWriteError = $"{dir}: {ex.GetType().Name}: {ex.Message}";
             Logger.Log($"[Engine] 创建分类失败({trimmed}): {LastDefaultCategoryWriteError}");
             return false;
@@ -1074,7 +976,7 @@ public class MemeDataEngine(ConfigService _config)
             var metaPath = Path.Combine(dir, AppConstants.MetadataFileName);
             if (!File.Exists(metaPath))
                 File.WriteAllTextAsync(metaPath,
-                    JsonSerializer.Serialize(new CategoryMetadata(), JsonOptions))
+                        JsonSerializer.Serialize(new CategoryMetadata(), JsonOptions))
                     .GetAwaiter().GetResult();
         }
         catch (Exception ex)
@@ -1083,8 +985,6 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    
-
     public async Task<bool> DeleteCategoryAsync(string category)
     {
         var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
@@ -1092,7 +992,6 @@ public class MemeDataEngine(ConfigService _config)
 
         try
         {
-            
             var toRemove = _memeCache.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var m in toRemove)
             {
@@ -1105,10 +1004,8 @@ public class MemeDataEngine(ConfigService _config)
                 }
             }
 
-            
             Directory.Delete(dir, recursive: true);
 
-            
             _categoryOrder.Remove(SanitizeCategory(category));
             await SaveCategoryOrderAsync();
 
@@ -1122,8 +1019,6 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    
-
     private async Task<CategoryMetadata> LoadCategoryMetadataAsync(string categoryDir)
     {
         var metaPath = Path.Combine(categoryDir, AppConstants.MetadataFileName);
@@ -1132,7 +1027,7 @@ public class MemeDataEngine(ConfigService _config)
         {
             var json = await File.ReadAllTextAsync(metaPath);
             return JsonSerializer.Deserialize<CategoryMetadata>(json, JsonOptions)
-                   ?? new CategoryMetadata();
+            ?? new CategoryMetadata();
         }
         catch
         {
@@ -1148,28 +1043,20 @@ public class MemeDataEngine(ConfigService _config)
         await File.WriteAllTextAsync(metaPath, json);
     }
 
-    
-
-    
-    
     private static bool IsSafeMetadataFileName(string? fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName)) return false;
-        
-        
+
         if (!fileName.Equals(Path.GetFileName(fileName), StringComparison.Ordinal))
             return false;
         if (fileName is "." or "..")
             return false;
-        
+
         return AppConstants.IsImage(Path.GetExtension(fileName));
     }
 
     private static string SanitizeCategory(string category)
     {
-        
-        
-        
         var trimmed = (category ?? string.Empty).Trim();
         if (!FileNameValidator.IsValidCategoryName(trimmed))
             return AppConstants.UncategorizedCategory;

@@ -101,7 +101,6 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-
     [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial int MessageBoxW(IntPtr hWnd, string lpText, string lpCaption, uint uType);
 
@@ -115,8 +114,6 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsIconic(IntPtr hWnd);
-
-    
 
     [DllImport("shell32.dll")]
     public static extern void DragAcceptFiles(IntPtr hWnd, bool fAccept);
@@ -132,7 +129,6 @@ internal static partial class NativeMethods
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int GetKeyNameTextW(int lParam, System.Text.StringBuilder lpString, int cchSize);
 
-    
     [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, IntPtr dwRefData);
@@ -140,7 +136,6 @@ internal static partial class NativeMethods
     [LibraryImport("comctl32.dll", EntryPoint = "DefSubclassProc")]
     public static partial IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
 
-    
     public const int INPUT_KEYBOARD = 1;
     public const uint KEYEVENTF_KEYUP = 0x0002;
     public const ushort VK_CONTROL = 0x11;
@@ -179,9 +174,12 @@ internal static partial class NativeMethods
     [StructLayout(LayoutKind.Explicit)]
     public struct InputUnion
     {
-        [FieldOffset(0)] public MOUSEINPUT mi;
-        [FieldOffset(0)] public KEYBDINPUT ki;
-        [FieldOffset(0)] public HARDWAREINPUT hi;
+        [FieldOffset(0)]
+        public MOUSEINPUT mi;
+        [FieldOffset(0)]
+        public KEYBDINPUT ki;
+        [FieldOffset(0)]
+        public HARDWAREINPUT hi;
     }
 
     // 🎯 核心修复 2：外层结构体必须使用 Explicit。
@@ -194,13 +192,12 @@ internal static partial class NativeMethods
         public uint type;
 
         [FieldOffset(8)] // 👈 跳过 4 字节 padding，从第 8 字节精确开始
+
         public InputUnion U;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-    
 
     [DllImport("shell32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern bool Shell_NotifyIcon(uint dwMessage, ref TrayNotifyIconData lpData);
@@ -255,12 +252,9 @@ internal static partial class NativeMethods
     [DllImport("uxtheme.dll", EntryPoint = "#135")]
     public static extern int SetPreferredAppMode(int mode);
 
-
     [LibraryImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
-
-    
 
     [LibraryImport("kernel32.dll")]
     public static partial IntPtr GetCurrentThread();

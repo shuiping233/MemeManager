@@ -88,8 +88,9 @@ public partial class SettingsViewModel : ObservableObject
         {
             UpdateCheckState.Checking => Localization.Get("Settings_UpdateCheck_State_Checking"),
             UpdateCheckState.UpToDate => Localization.Get("Settings_UpdateCheck_State_UpToDate"),
-            UpdateCheckState.HasUpdate => string.Format(
-                Localization.Get("Settings_UpdateCheck_State_HasUpdate"), LatestVersion),
+            UpdateCheckState.HasUpdate =>
+                string.Format(
+                    Localization.Get("Settings_UpdateCheck_State_HasUpdate"), LatestVersion),
             _ => Localization.Get("Settings_UpdateCheck_State_Idle"),
         };
     }

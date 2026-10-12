@@ -10,8 +10,7 @@ namespace MemeManager.Views;
 
 public sealed partial class SettingsPage : Page
 {
-    private readonly MemeDataEngine _engine =
-        App.GetService<MemeDataEngine>();
+    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
 
     // 语言下拉项（由 Strings 目录自动发现，显示名取自 resw）。
     public IList<LangHelper.LanguageOption> LanguageItems { get; private set; } = [];
@@ -46,9 +45,7 @@ public sealed partial class SettingsPage : Page
 
         this.KeyDown += SettingsPage_KeyDown;
 
-        ValidatePathDebouncer = new AsyncDebouncer(
-            AppConstants.StoragePathValidationDebounce, async (token) => { await ValidatePathAfterDelayAsync(token); return; }
-        );
+        ValidatePathDebouncer = new AsyncDebouncer(AppConstants.StoragePathValidationDebounce, async (token) => { await ValidatePathAfterDelayAsync(token); return; });
     }
 
     // 每次设置浮窗打开前调用：从 Config 重新填充全部控件值，并重置"每次进入才有效"的状态。
@@ -173,11 +170,11 @@ public sealed partial class SettingsPage : Page
 
             // 组合键的“主键”不能是纯修饰键
             bool isModifier = e.Key is Windows.System.VirtualKey.Control or Windows.System.VirtualKey.Shift
-                or Windows.System.VirtualKey.Menu or Windows.System.VirtualKey.LeftControl
-                or Windows.System.VirtualKey.RightControl or Windows.System.VirtualKey.LeftShift
-                or Windows.System.VirtualKey.RightShift or Windows.System.VirtualKey.LeftMenu
-                or Windows.System.VirtualKey.RightMenu or Windows.System.VirtualKey.LeftWindows
-                or Windows.System.VirtualKey.RightWindows;
+            or Windows.System.VirtualKey.Menu or Windows.System.VirtualKey.LeftControl
+            or Windows.System.VirtualKey.RightControl or Windows.System.VirtualKey.LeftShift
+            or Windows.System.VirtualKey.RightShift or Windows.System.VirtualKey.LeftMenu
+            or Windows.System.VirtualKey.RightMenu or Windows.System.VirtualKey.LeftWindows
+            or Windows.System.VirtualKey.RightWindows;
 
             if (isModifier) return;
 
@@ -491,7 +488,6 @@ public sealed partial class SettingsPage : Page
             var err = ValidateStoragePath(typedPath);
             if (err == StoragePathError.None)
             {
-
                 newStoragePath = typedPath;
                 if (!ConfigService.Config.StoragePath.Equals(newStoragePath))
                     pathChanged = true;

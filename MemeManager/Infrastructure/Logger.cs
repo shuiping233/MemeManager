@@ -12,7 +12,7 @@ public static class Logger
 {
     private static readonly object _lock = new();
     private const long MaxFileBytes = 5 * 1024 * 1024; // 单文件上限 5MB
-    private const int ReopenLimitMs = 1000;            // 重建失败后最短重试间隔，避免异常风暴
+    private const int ReopenLimitMs = 1000; // 重建失败后最短重试间隔，避免异常风暴
 
     private static ConfigService ConfigService => App.GetService<ConfigService>();
     private static bool SaveLogEnabled => ConfigService.Config?.SaveLogFile ?? false;
@@ -65,19 +65,13 @@ public static class Logger
                 }
                 catch
                 {
-                    
                     TryDisposeWriter();
                 }
             }
         }
-        catch
-        {
-            
-        }
+        catch { }
     }
 
-    
-    
     private static void EnsureWriter(string logDir, string logPath)
     {
         lock (_lock)

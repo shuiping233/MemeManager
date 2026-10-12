@@ -38,3 +38,6 @@ dotnet_style_prefer_conditional_expression_over_assignment = true:suggestion
 
 # file-scoped namespace（与现状一致：100% file-scoped）
 csharp_style_namespace_declarations = file_scoped:suggestion
+
+dotnet_style_allow_multiple_blank_lines_experimental = false
+dotnet_diagnostic.IDE2000.severity = warning

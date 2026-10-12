@@ -32,9 +32,9 @@ public sealed class BatchProgressHelper
     private Stopwatch? _sw;
     private uint _lastCompleted;
     private TimeSpan _lastSample;
-    private double _speed;          // 平滑后的速度（item/s）
-    private int _speedSamples;      // 已采样的次数，用于守卫 ETA 显示
-    private DateTime _lastRender;   // 上次真正写 UI 的时间，用于降频
+    private double _speed; // 平滑后的速度（item/s）
+    private int _speedSamples; // 已采样的次数，用于守卫 ETA 显示
+    private DateTime _lastRender; // 上次真正写 UI 的时间，用于降频
 
     // 速率指数平滑系数（0~1，越大越跟手）
     private const double SpeedSmoothing = 0.3;

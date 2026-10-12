@@ -79,9 +79,7 @@ public static class PickerHelper
 
     private static void Initialize(object picker, Window? owner)
     {
-        var hWnd = owner is null
-            ? WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow)
-            : WinRT.Interop.WindowNative.GetWindowHandle(owner);
+        var hWnd = owner is null ? WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow) : WinRT.Interop.WindowNative.GetWindowHandle(owner);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
     }
 }

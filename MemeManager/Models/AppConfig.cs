@@ -60,7 +60,7 @@ public record AppConfig
 
     // 快捷键修饰键：MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     public uint HotKeyModifiers { get; set; } = 3; // 默认 Ctrl(2) + Alt(1)
-    public ushort HotKeyVk { get; set; } = 0xBE;   // 默认 . (OEM_PERIOD)
+    public ushort HotKeyVk { get; set; } = 0xBE; // 默认 . (OEM_PERIOD)
 
     // 是否将日志写入数据目录下的 log/debug.log
     public bool SaveLogFile { get; set; } = false;

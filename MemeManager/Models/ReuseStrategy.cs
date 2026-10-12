@@ -60,7 +60,6 @@ public sealed class ReuseStrategy : IMemeListStrategy
             .FirstOrDefault(x => x.m.FileName.Equals(anchorFileName, StringComparison.OrdinalIgnoreCase))?.i ?? -1;
         if (anchorIdx < 0) return null;
 
-        
         int insertAt = 0;
         for (int i = 0; i < anchorIdx; i++)
             if (!groupNames.Contains(list[i].FileName)) insertAt++;

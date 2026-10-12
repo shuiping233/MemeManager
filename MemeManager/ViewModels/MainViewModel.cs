@@ -323,9 +323,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     private void ApplyCategoryView()
     {
         var kw = CategoryFilterKeyword;
-        var target = kw.Length == 0
-            ? _allCategoryNames
-            : _allCategoryNames.Where(n => n.Contains(kw, StringComparison.OrdinalIgnoreCase)).ToList();
+        var target = kw.Length == 0 ? _allCategoryNames : _allCategoryNames.Where(n => n.Contains(kw, StringComparison.OrdinalIgnoreCase)).ToList();
 
         // 1) 移除已不在视图里的项
         for (int i = CategoryList.Count - 1; i >= 0; i--)
@@ -459,7 +457,6 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         return (hasBitmap || hasStorageItems) ? ClipboardContentKind.Image : ClipboardContentKind.NotImage;
     }
 
-
     // 分类输入弹窗请求：参数为弹窗默认分类名（未分类 / 当前分类），返回用户输入（取消/空白返回 null）。
     public Func<string, Task<string?>>? PromptPasteCategoryRequested { get; set; }
 
@@ -472,9 +469,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
     [RelayCommand]
     private async Task PasteAsync()
     {
-        string? category = CurrentCategoryKind == CategoryKind.All
-            ? AppConstants.UncategorizedCategory
-            : CurrentCategory;
+        string? category = CurrentCategoryKind == CategoryKind.All ? AppConstants.UncategorizedCategory : CurrentCategory;
         await PasteFromClipboardAsync(category);
     }
 
@@ -548,9 +543,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
                 return categoryName;
 
             // Ctrl+V：弹窗输入分类名
-            var defaultName = CurrentCategoryKind == CategoryKind.All
-                ? AppConstants.UncategorizedCategory
-                : CurrentCategory;
+            var defaultName = CurrentCategoryKind == CategoryKind.All ? AppConstants.UncategorizedCategory : CurrentCategory;
             var name = await (PromptPasteCategoryRequested?.Invoke(defaultName) ?? Task.FromResult<string?>(null));
             if (string.IsNullOrWhiteSpace(name))
             {

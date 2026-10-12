@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <!-- <PackageReference Include="curb" Version="0.7.3" PrivateAssets="all" /> -->
+    <!-- curb formatting有些问题 , `'try' became '}'` 什么的, 得等0.8.1可用再试试  -->
+  </ItemGroup>
+</Project>

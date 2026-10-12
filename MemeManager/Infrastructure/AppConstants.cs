@@ -117,4 +117,3 @@ public static class AppConstants
     /// </summary>
     public static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
 }
-

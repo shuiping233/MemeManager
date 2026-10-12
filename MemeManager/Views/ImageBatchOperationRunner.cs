@@ -94,20 +94,20 @@ public sealed class ImageBatchOperationRunner
     }
 
     public Task RunAsync(
-    BatchOperationKind kind,
-    int totalCount,
-    Func<IProgress<BatchProgress>, Task> work,
-    IEnumerable<MemeModel>? affectedModels = null,
-    string? targetCategory = null,
-    Action? onUiComplete = null,
-    string? titleOverride = null,
-    bool occupyWriteLock = true)
-    => RunAsync<object?>(
-        kind, totalCount,
-        async progress => { await work(progress); return null; },
-        affectedModels, targetCategory,
-        onUiComplete,
-        titleOverride, occupyWriteLock);
+        BatchOperationKind kind,
+        int totalCount,
+        Func<IProgress<BatchProgress>, Task> work,
+        IEnumerable<MemeModel>? affectedModels = null,
+        string? targetCategory = null,
+        Action? onUiComplete = null,
+        string? titleOverride = null,
+        bool occupyWriteLock = true)
+        => RunAsync<object?>(
+            kind, totalCount,
+            async progress => { await work(progress); return null; },
+            affectedModels, targetCategory,
+            onUiComplete,
+            titleOverride, occupyWriteLock);
 
     /// <summary>
     /// 统一执行一次批量操作。
@@ -151,9 +151,7 @@ public sealed class ImageBatchOperationRunner
             if (showProgress)
                 _progress.Show(titleOverride ?? DefaultTitle(kind), (uint)totalCount);
 
-            IProgress<BatchProgress> progress = showProgress
-                ? _progress.CreateProgress()
-                : new Progress<BatchProgress>(_ => { });
+            IProgress<BatchProgress> progress = showProgress ? _progress.CreateProgress() : new Progress<BatchProgress>(_ => { });
 
             // 整个工作搬到线程池，避免 UI 线程被逐张 IO/缓存写入占满
             var jobResult = await Task.Run(() => work(progress));
@@ -216,7 +214,6 @@ public sealed class ImageBatchOperationRunner
                 {
                     break;
                 }
-
 
                 if (jobResult is not ImportResult importResult)
                 {

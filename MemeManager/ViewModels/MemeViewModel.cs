@@ -12,11 +12,7 @@ public partial class MemeViewModel : ObservableObject
     // 支持复用：切分类/刷新时复用同一 VM 实例仅替换 Model（见 UpdateModel），
     // 避免每次重建一批 BitmapImage 导致 WinUI 非托管纹理/解码资源累积泄漏。
     private MemeModel _model;
-    public MemeModel Model
-    {
-        get => _model;
-        private set => _model = value;
-    }
+    public MemeModel Model { get => _model; private set => _model = value; }
 
     public string Hash => _model.Hash;
     public string LocalPath => _model.LocalPath;

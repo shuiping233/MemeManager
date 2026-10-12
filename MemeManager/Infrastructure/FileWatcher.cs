@@ -12,26 +12,20 @@ public sealed class FileWatcher : IDisposable
 {
     private static readonly TimeSpan Debounce = AppConstants.FileWatchDebounce;
 
-    
     public sealed record Change(string Category, string FileName);
 
-    
     public sealed record Move(Change From, Change To);
 
-    
     public event Action<IReadOnlyList<Change>>? FilesRemoved;
 
-    
     public event Action<IReadOnlyList<Change>>? FilesAdded;
 
-    
-    
     public event Action<IReadOnlyList<Move>>? FilesMoved;
 
     private readonly string _baseDir;
     private readonly FileSystemWatcher _fsw;
     private readonly object _lock = new();
-    
+
     private readonly List<string> _deleted = new();
     private readonly List<string> _created = new();
     private Timer? _debounceTimer;
@@ -50,14 +44,12 @@ public sealed class FileWatcher : IDisposable
         _debounceTimer = new Timer(_ => Flush());
     }
 
-    
     public void Start()
     {
         _fsw.EnableRaisingEvents = true;
         Logger.Log("[FileWatcher] 已开始文件监听");
     }
 
-    
     public void Stop()
     {
         _fsw.EnableRaisingEvents = false;
@@ -65,8 +57,6 @@ public sealed class FileWatcher : IDisposable
         Logger.Log("[FileWatcher] 已停止文件监听");
     }
 
-    
-    
     private Change ToChange(string fullPath)
     {
         var rel = Path.GetRelativePath(_baseDir, fullPath);
@@ -75,13 +65,11 @@ public sealed class FileWatcher : IDisposable
         return new Change(category, Path.GetFileName(fullPath));
     }
 
-    
-    
     private static bool ShouldTrack(string fullPath)
     {
         var ext = Path.GetExtension(fullPath);
         if (!AppConstants.IsImage(ext)) return false;
-        
+
         var dir = Path.GetDirectoryName(fullPath);
         if (dir != null)
         {
@@ -93,7 +81,7 @@ public sealed class FileWatcher : IDisposable
 
     private void OnDeleted(object sender, FileSystemEventArgs e)
     {
-        if (Directory.Exists(e.FullPath)) return; 
+        if (Directory.Exists(e.FullPath)) return;
         if (!ShouldTrack(e.FullPath)) return;
         lock (_lock)
         {
@@ -105,7 +93,7 @@ public sealed class FileWatcher : IDisposable
     private void OnRenamed(object sender, RenamedEventArgs e)
     {
         if (Directory.Exists(e.FullPath)) return;
-        
+
         lock (_lock)
         {
             if (ShouldTrack(e.OldFullPath)) _deleted.Add(e.OldFullPath);
@@ -115,7 +103,6 @@ public sealed class FileWatcher : IDisposable
         }
     }
 
-    
     private void Flush()
     {
         List<string> deleted, created;
@@ -128,7 +115,6 @@ public sealed class FileWatcher : IDisposable
         }
         if (deleted.Count == 0 && created.Count == 0) return;
 
-        
         var deletedByFile = deleted.ToLookup(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase);
         var createdByFile = created.ToLookup(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase);
 
@@ -136,7 +122,6 @@ public sealed class FileWatcher : IDisposable
         var removedChanges = new List<Change>();
         var addedChanges = new List<Change>();
 
-        
         var pairedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var g in deletedByFile)
@@ -159,7 +144,7 @@ public sealed class FileWatcher : IDisposable
 
         foreach (var g in createdByFile)
         {
-            if (pairedFiles.Contains(g.Key)) continue; 
+            if (pairedFiles.Contains(g.Key)) continue;
             addedChanges.Add(ToChange(g.First()));
         }
 

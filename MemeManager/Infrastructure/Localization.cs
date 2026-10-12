@@ -25,6 +25,5 @@ public static class Localization
         }
     }
 
-    
     public static string Get(string key) => Instance?.GetLocalizedString(key) ?? key;
 }

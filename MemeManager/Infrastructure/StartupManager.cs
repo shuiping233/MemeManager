@@ -26,7 +26,6 @@ public static class StartupManager
     {
         try
         {
-            
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
             return key?.GetValue(AppName) != null;
         }
@@ -41,7 +40,6 @@ public static class StartupManager
     {
         try
         {
-            
             if (IsEnabled())
                 return true;
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);

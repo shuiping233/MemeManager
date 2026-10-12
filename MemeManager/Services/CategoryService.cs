@@ -28,8 +28,6 @@ public class CategoryService
     public Task<bool> RenameCategoryAsync(string oldName, string newName) =>
         _engine.RenameCategoryAsync(oldName, newName);
 
-    
-    
     public (Dictionary<string, int> counts, int total) ComputeCounts()
     {
         var cache = _engine.GetAllMemes();

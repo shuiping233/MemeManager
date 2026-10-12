@@ -5,11 +5,8 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace MemeManager.Views;
 
-
-
 public static class AboutPage
 {
-    
     private static HyperlinkButton MakeLink(string textKey, string uri)
         => new()
         {

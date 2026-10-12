@@ -5,9 +5,6 @@ using Windows.Foundation;
 
 namespace MemeManager.Infrastructure;
 
-
-
-
 public static class Utils
 {
     /// <summary>
@@ -64,7 +61,6 @@ public static class Utils
                 break;
         }
 
-        
         if (!Fits(x, y, popupWidth, popupHeight, workArea))
         {
             if (actual == Placement.Above && Fits(overlapX, below, popupWidth, popupHeight, workArea))
@@ -85,7 +81,6 @@ public static class Utils
             }
         }
 
-        
         x = Clamp(x, workArea.X, Math.Max(workArea.X, workArea.Right - popupWidth));
         y = Clamp(y, workArea.Y, Math.Max(workArea.Y, workArea.Bottom - popupHeight));
 
@@ -154,7 +149,6 @@ public static class Utils
     /// </summary>
     public static string GetExeDirectory()
     {
-
         return AppContext.BaseDirectory;
     }
 

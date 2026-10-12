@@ -9,8 +9,7 @@ public sealed class GithubReleaseClient : UpdateServiceClientBase
 {
     public override string SourceName => "GitHub";
 
-    private const string ApiUrl =
-        "https://api.github.com/repos/shuiping233/MemeManager/releases/latest";
+    private const string ApiUrl = "https://api.github.com/repos/shuiping233/MemeManager/releases/latest";
 
     public override async Task<string?> GetLatestVersionAsync(CancellationToken ct = default)
     {
@@ -23,7 +22,7 @@ public sealed class GithubReleaseClient : UpdateServiceClientBase
             if (!doc.RootElement.TryGetProperty("tag_name", out var tag))
                 return null;
             var tagName = tag.GetString();
-            
+
             return VersionString.TryParse(tagName, out _) ? tagName : null;
         }
         catch (Exception ex)

@@ -16,11 +16,7 @@ public sealed partial class LocalizedToggleSwitch : UserControl
             typeof(LocalizedToggleSwitch),
             new PropertyMetadata(false));
 
-    public bool IsOn
-    {
-        get => (bool)GetValue(IsOnProperty);
-        set => SetValue(IsOnProperty, value);
-    }
+    public bool IsOn { get => (bool)GetValue(IsOnProperty); set => SetValue(IsOnProperty, value); }
 
     public event RoutedEventHandler? Toggled;
 

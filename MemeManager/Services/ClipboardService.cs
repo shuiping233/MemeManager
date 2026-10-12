@@ -108,7 +108,7 @@ public class ClipboardService
 
         try
         {
-            
+
             await CopyImageToClipboardAsync(filePath);
 
             // 数据改为延迟提供（SetDataProvider 异步构造），粘贴前多等一会确保
@@ -145,7 +145,6 @@ public class ClipboardService
             System.Threading.Thread.Sleep(20);
         }
 
-        
         var inputs = new NativeMethods.INPUT[4];
 
         inputs[0].type = NativeMethods.INPUT_KEYBOARD;

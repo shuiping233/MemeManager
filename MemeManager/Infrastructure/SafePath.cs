@@ -32,13 +32,6 @@ public static class SafePath
         return fullPath;
     }
 
-    
-    
-    
-    
-    
-    
-    
     public static bool IsSubPathOf(string basePath, string candidate)
     {
         if (string.IsNullOrWhiteSpace(basePath) || string.IsNullOrWhiteSpace(candidate))
@@ -47,17 +40,14 @@ public static class SafePath
         string fullBase = Path.TrimEndingDirectorySeparator(Path.GetFullPath(basePath));
         string fullCandidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidate));
 
-        
         if (fullCandidate.Equals(fullBase, StringComparison.OrdinalIgnoreCase))
             return false;
 
         string relative = Path.GetRelativePath(fullBase, fullCandidate);
 
-        
         if (Path.IsPathFullyQualified(relative))
             return false;
 
-        
         if (relative.Equals("..", StringComparison.OrdinalIgnoreCase))
             return false;
         if (relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)

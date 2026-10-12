@@ -51,19 +51,25 @@ public class VersionStringTests
     [InlineData("v1.2.4", "v1.2.3", true)]
     [InlineData("v1.2.2", "v1.2.3", false)]
     [InlineData("v1.2.3", "v1.2.3", false)]
-    [InlineData("v1.2.3", "dev build", false)]   // 当前版本无法解析 → 不提示
-    [InlineData("dev build", "v1.2.3", false)]   // 远端版本无法解析 → 不提示
+    [InlineData("v1.2.3", "dev build", false)] // 当前版本无法解析 → 不提示
+
+    [InlineData("dev build", "v1.2.3", false)] // 远端版本无法解析 → 不提示
+
     public void IsNewer_Works(string? latest, string? current, bool expected)
     {
         Assert.Equal(expected, VersionString.IsNewer(latest, current));
     }
 
     [Theory]
-    [InlineData("2026-07-14 12:00:00 dev build", true)]   // 日期里的 '-' 会被 TryParse 误解析,必须靠后缀识别
-    [InlineData("2026.08.14.1234 dev build", true)]       // 带点的 dev 版本
+    [InlineData("2026-07-14 12:00:00 dev build", true)] // 日期里的 '-' 会被 TryParse 误解析,必须靠后缀识别
+
+    [InlineData("2026.08.14.1234 dev build", true)] // 带点的 dev 版本
+
     [InlineData("dev build", true)]
-    [InlineData("DEV BUILD", true)]                       // 大小写不敏感
-    [InlineData("2026-07-14 12:00:00", false)]            // 无 dev build 字样
+    [InlineData("DEV BUILD", true)] // 大小写不敏感
+
+    [InlineData("2026-07-14 12:00:00", false)] // 无 dev build 字样
+
     [InlineData("v1.12.12", false)]
     [InlineData("1.2.3-beta.1", false)]
     [InlineData("", false)]

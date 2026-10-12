@@ -33,8 +33,7 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
     // 导入成功提示自动恢复为默认文案的延迟时长（毫秒）。
     private const int ImportHintRestoreDelay = 7 * 1000;
 
-    private readonly MemeDataEngine _engine =
-        App.GetService<MemeDataEngine>();
+    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
 
     private readonly ClipboardService _clipboard = App.GetService<ClipboardService>();
 
@@ -88,7 +87,6 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         CategoryCombo.Focus(FocusState.Programmatic);
     }
 
-
     // ---------- 分类下拉 ----------
 
     private void LoadCategories()
@@ -117,8 +115,9 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         }
         else
         {
-            var idx = items.FindIndex(v => !string.IsNullOrEmpty(v.Name)
-                && v.Name.Equals(lastName, StringComparison.OrdinalIgnoreCase));
+            var idx = items.FindIndex(v =>
+                    !string.IsNullOrEmpty(v.Name)
+                    && v.Name.Equals(lastName, StringComparison.OrdinalIgnoreCase));
             if (idx >= 0)
             {
                 CategoryCombo.SelectedIndex = idx;
@@ -297,12 +296,8 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
         _hintRestoreCts = new System.Threading.CancellationTokenSource();
 
         // 全部表情视图下导入实际落到“未分类”，展示其本地化名而非 AllMemes 字面。
-        string targetName = IsAllMemesView
-            ? Localization.Get("Category_Uncategorized")
-            : _currentCategory;
-        string text = imported > 0
-            ? string.Format(Localization.Get("Mini_ImportSuccess"), imported, targetName)
-            : Localization.Get("Mini_ImportDuplicate");
+        string targetName = IsAllMemesView ? Localization.Get("Category_Uncategorized") : _currentCategory;
+        string text = imported > 0 ? string.Format(Localization.Get("Mini_ImportSuccess"), imported, targetName) : Localization.Get("Mini_ImportDuplicate");
 
         MiniDropHintText.Text = text;
         DropHint.Visibility = Visibility.Collapsed;

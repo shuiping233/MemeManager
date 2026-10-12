@@ -67,8 +67,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // 防止粘贴导入的分类对话框重入
 
-    private readonly MemeDataEngine _engine =
-        App.GetService<MemeDataEngine>();
+    private readonly MemeDataEngine _engine = App.GetService<MemeDataEngine>();
 
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
@@ -145,15 +144,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         UpdateCategoryMaxWidth();
 
         // GridSplitter 无"拖动完成"回调：监听列宽变化 + 防抖写盘，实现拖动结束后保存。
-        _categoryWidthSaveDebouncer = new AsyncDebouncer(
-            AppConstants.CategoryListSizeChangedDebounce,
-            async (token) => { if (!token.IsCancellationRequested) { await SaveCategoryWidthAsync(); } });
+        _categoryWidthSaveDebouncer = new AsyncDebouncer(AppConstants.CategoryListSizeChangedDebounce, async (token) => { if (!token.IsCancellationRequested) { await SaveCategoryWidthAsync(); } });
         CategoryColumn.RegisterPropertyChangedCallback(
             ColumnDefinition.WidthProperty, (d, e) => _categoryWidthSaveDebouncer.Trigger());
 
         // 应用分类栏分隔条开关（隐藏则不可见、不可拖）
-        CategorySplitter.Visibility = ConfigService.Config.CategorySplitterEnabled
-            ? Visibility.Visible : Visibility.Collapsed;
+        CategorySplitter.Visibility = ConfigService.Config.CategorySplitterEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         // 重置分类列表的宽度为默认值
         WeakReferenceMessenger.Default.Register<ResetCategorySplitterMesssage>(this, (recipient, message) =>
@@ -207,7 +203,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                 if (iconPath != null)
                     TitleStripLogo.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
             }
-            catch (Exception ex) { Logger.Log("[TitalBar] 加载 Logo 失败: " + ex.Message); }
+            catch (Exception ex)
+            { Logger.Log("[TitalBar] 加载 Logo 失败: " + ex.Message); }
         };
 
         SaveLastCategoryDebouncer = new(AppConstants.LastCategorySaveDebounce, async (category) =>
@@ -292,7 +289,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             RefreshCategoryPaneUi();
 
             RefreshMemesView();
-
         };
         // 2.7：删除分类确认弹窗（VM 无 XamlRoot，弹窗 UI 留本页）
         ViewModel.ConfirmDeleteCategoryRequested = async cat =>
@@ -301,25 +297,19 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return result == ContentDialogResult.Primary;
         };
         // 2.7：重命名分类输入弹窗
-        ViewModel.PromptRenameCategoryRequested = cat
-            => DialogHelper.PromptRenameCategoryAsync(XamlRoot, cat.Name);
+        ViewModel.PromptRenameCategoryRequested = cat => DialogHelper.PromptRenameCategoryAsync(XamlRoot, cat.Name);
         // 2.7：重命名分类失败提示
-        ViewModel.RenameCategoryFailedRequested = cat
-            => DialogHelper.ShowCategoryExistsAsync(XamlRoot, cat.Name);
+        ViewModel.RenameCategoryFailedRequested = cat => DialogHelper.ShowCategoryExistsAsync(XamlRoot, cat.Name);
 
         // 2.7.1：粘贴导入（右键空白菜单 / Ctrl+V 共用，逻辑在 VM）——弹窗与批量导入依赖
         // XamlRoot / UI 编排器，留本页实现，VM 经委托回调回 Page。
-        ViewModel.PromptPasteCategoryRequested = defaultName
-            => DialogHelper.PromptPasteCategoryAsync(XamlRoot, defaultName);
-        ViewModel.InvalidCategoryNameRequested = async name
-            => await DialogHelper.ShowInvalidCategoryNameAsync(XamlRoot, name);
-        ViewModel.RunBatchImportRequested = async (files, category)
-            => await RunBatchImportAsync(files, category);
+        ViewModel.PromptPasteCategoryRequested = defaultName => DialogHelper.PromptPasteCategoryAsync(XamlRoot, defaultName);
+        ViewModel.InvalidCategoryNameRequested = async name => await DialogHelper.ShowInvalidCategoryNameAsync(XamlRoot, name);
+        ViewModel.RunBatchImportRequested = async (files, category) => await RunBatchImportAsync(files, category);
 
         // 2.8：表情项级命令（VM 只发请求，弹窗/批量写/选中项等依赖 Page 状态的逻辑留本页）
         ViewModel.EnterEditModeAndSelectRequested = vm => EnterEditModeAndSelect(vm);
-        ViewModel.PromptRenameMemeRequested = vm
-            => DialogHelper.PromptRenameMemeAsync(XamlRoot, vm.Title);
+        ViewModel.PromptRenameMemeRequested = vm => DialogHelper.PromptRenameMemeAsync(XamlRoot, vm.Title);
         ViewModel.DeleteMemeRequested = vm => _ = DeleteMemeCoreAsync(vm);
         ViewModel.BatchImportRequested = async () => await BatchImportCoreAsync();
         ViewModel.BatchExportRequested = async () => await BatchExportCoreAsync();
@@ -368,9 +358,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         string? text = null;
         if (ViewModel.CategoryList.Count == 0)
         {
-            text = ViewModel.CategoryFilterKeyword.Length > 0
-                ? string.Format(Localization.Get("Category_NoMatch"), ViewModel.CategoryFilterKeyword)
-                : Localization.Get("Category_Empty");
+            text = ViewModel.CategoryFilterKeyword.Length > 0 ? string.Format(Localization.Get("Category_NoMatch"), ViewModel.CategoryFilterKeyword) : Localization.Get("Category_Empty");
         }
 
         if (text is null)
@@ -390,7 +378,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var sel = ViewModel.CategoryList
             .FirstOrDefault(c => c.Name.Equals(ViewModel.CurrentCategory, StringComparison.OrdinalIgnoreCase));
         if (sel is null || ReferenceEquals(CategoryList.SelectedItem, sel)) return;
-
 
         CategoryList.SelectedItem = null;
         SelectCategoryItem(sel);
@@ -539,9 +526,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void ReapplyEditModeState()
     {
         bool explorerStyle = ConfigService.Config.ExplorerStyleMultiSelect;
-        MemeGridView.SelectionMode = explorerStyle
-            ? ListViewSelectionMode.Extended
-            : ListViewSelectionMode.Multiple;
+        MemeGridView.SelectionMode = explorerStyle ? ListViewSelectionMode.Extended : ListViewSelectionMode.Multiple;
         ApplySelectionBoxVisibility();
     }
 
@@ -593,7 +578,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         //  - 禁止任何内部拖拽（重排/移动到分类栏/拖回网格），故 CanReorderItems 关闭，
         //    且内部落点的 DragOver 已对全部表情返回 None 显示禁止光标。
         // 普通分类视图下两者皆开（可拖出、可内部重排）。
-        MemeGridView.CanDragItems = true;          // 始终允许拖出到外部
+        MemeGridView.CanDragItems = true; // 始终允许拖出到外部
         MemeGridView.CanReorderItems = !IsAllMemesView; // 仅全部表情下禁止内部重排
     }
 
@@ -952,7 +937,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             tcs.Task.Wait(100);
         }
 
-
         HidePreviewPopup(true, "ReleaseImages");
     }
 
@@ -1086,7 +1070,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 SelectCategoryItem(created);
             }
-
         }
     }
 
@@ -1170,9 +1153,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
 
         var keyword = MemeSearchBox.Text?.Trim();
-        EmptyHint.Text = string.IsNullOrWhiteSpace(keyword)
-            ? Localization.Get("Meme_EmptyHint")
-            : string.Format(Localization.Get("Meme_SearchEmptyHint"), keyword);
+        EmptyHint.Text = string.IsNullOrWhiteSpace(keyword) ? Localization.Get("Meme_EmptyHint") : string.Format(Localization.Get("Meme_SearchEmptyHint"), keyword);
         EmptyHint.Visibility = Visibility.Visible;
     }
 
@@ -1354,7 +1335,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         return new Windows.Foundation.Rect(topLeft.X, topLeft.Y, element.ActualWidth, element.ActualHeight);
     }
 
-
     // 根据当前是否有选中项，启用/禁用批量操作按钮（无选中时灰掉且不可点）
     private void UpdateBatchButtons()
     {
@@ -1395,9 +1375,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         //  - false：资源管理器风格 ListViewSelectionMode.Multiple（系统自带复选框），隐藏自绘复选框
         //  - true ：ListViewSelectionMode.Extended + 自绘右上角复选框，支持 shift 连续/反选
         bool explorerStyle = ConfigService.Config.ExplorerStyleMultiSelect;
-        MemeGridView.SelectionMode = explorerStyle
-            ? ListViewSelectionMode.Extended
-            : ListViewSelectionMode.Multiple;
+        MemeGridView.SelectionMode = explorerStyle ? ListViewSelectionMode.Extended : ListViewSelectionMode.Multiple;
         // 仅 Extended 模式显示我们自绘的复选框
         ApplySelectionBoxVisibility();
     }
@@ -1436,9 +1414,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             var box = FindCheckBox(args.ItemContainer);
             if (box != null)
-                box.Visibility = (ViewModel.EditMode && ConfigService.Config.ExplorerStyleMultiSelect)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                box.Visibility = (ViewModel.EditMode && ConfigService.Config.ExplorerStyleMultiSelect) ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 
@@ -1604,10 +1580,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         var op = IsAllMemesView
             ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy
             : Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
-              Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
         e.Data.RequestedOperation = op;
     }
-
 
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
     private async void MemeGridView_DragItemsCompleted(object sender, DragItemsCompletedEventArgs e)
@@ -1649,7 +1624,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         // 可见项（过滤视图）拖拽后的新顺序：复用策略做“锚点对齐”，重建策略沿用 WinUI 默认顺序。
         var filteredOrder = _listStrategy.ComputeDragOrder(ViewModel.MemeList, draggedGroup, ViewModel.DragAnchorFileName)
-            ?? ViewModel.MemeList.Select(m => m.FileName).ToList();
+        ?? ViewModel.MemeList.Select(m => m.FileName).ToList();
 
         Log($"DragItemsCompleted: 重排完成, 项数={filteredOrder.Count}");
 
@@ -2088,8 +2063,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     public void ApplyMiniModeVisibilityFromConfig()
     {
         if (MiniModeButton != null)
-            MiniModeButton.Visibility = ConfigService.Config.AllowMiniMode
-                ? Visibility.Visible : Visibility.Collapsed;
+            MiniModeButton.Visibility = ConfigService.Config.AllowMiniMode ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>重新读取数据目录并重渲染：分类、表情、缩略图全部刷新</summary>
@@ -2340,7 +2314,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             return;
         }
 
-
         // 以下部分为编辑模式中响应的快捷键功能
         if (!ViewModel.EditMode) return;
 
@@ -2536,8 +2509,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
             // 收集真实存在的文件全路径（过滤已存在于列表的，避免冗余导入）
             var fullPaths = added
-                .Where(c => !ViewModel.MemeList.Any(vm => !string.IsNullOrEmpty(vm.LocalPath) &&
-                    string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
+                .Where(c =>
+                        !ViewModel.MemeList.Any(vm =>
+                                !string.IsNullOrEmpty(vm.LocalPath) &&
+                                string.Equals(Path.GetFileName(vm.LocalPath), c.FileName, StringComparison.OrdinalIgnoreCase)))
                 .Select(c => Path.Combine(_engine.BaseDir, c.Category, c.FileName))
                 .Where(File.Exists)
                 .ToList();
@@ -2618,8 +2593,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         });
     }
 }
-
-
 
 internal enum CategorySwitchAction
 {

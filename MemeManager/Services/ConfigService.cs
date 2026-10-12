@@ -2,7 +2,6 @@ using System.Text.Json;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
 
-
 namespace MemeManager.Services;
 
 // 应用配置管理（从 MemeDataEngine 拆出）：持有 AppConfig、负责配置文件的加载/保存与打补丁持久化。
@@ -18,7 +17,6 @@ public class ConfigService
     private static string ConfigDir => AppConstants.AppDataDirPath;
     private static string ConfigPath => AppConstants.ConfigPath;
 
-    
     public void LoadConfig()
     {
         try
@@ -43,19 +41,13 @@ public class ConfigService
         if (string.IsNullOrWhiteSpace(Config.StoragePath))
             Config.StoragePath = AppConstants.DefaultMemeDataStoragePath();
 
-        
         _lastWrittenConfig = Config with { };
     }
 
-    
-    
     private AppConfig? _lastWrittenConfig;
 
-    
-    
     public async Task SaveConfigAsync()
     {
-        
         if (_lastWrittenConfig != null && Config == _lastWrittenConfig)
             return;
 
@@ -64,7 +56,7 @@ public class ConfigService
             Directory.CreateDirectory(ConfigDir);
             var json = JsonSerializer.Serialize(Config, JsonOptions);
             await File.WriteAllTextAsync(ConfigPath, json);
-            _lastWrittenConfig = Config with { }; 
+            _lastWrittenConfig = Config with { };
         }
         catch (Exception ex)
         {
@@ -72,7 +64,6 @@ public class ConfigService
         }
     }
 
-    
     public async Task UpdateConfigAsync(Action<AppConfig> patch)
     {
         patch(Config);

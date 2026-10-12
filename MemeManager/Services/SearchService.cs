@@ -18,7 +18,6 @@ public class SearchService
         _engine = engine;
     }
 
-    
     public string? Keyword { get; set; }
 
     //  - category 传 null 表示"全部表情"视图（引擎语义：返回所有分类）。
@@ -29,6 +28,5 @@ public class SearchService
         return _engine.GetMemes(category, kw);
     }
 
-    
     public IReadOnlyList<MemeModel> Query(string? category) => Query(category, Keyword);
 }

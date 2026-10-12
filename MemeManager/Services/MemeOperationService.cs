@@ -44,7 +44,6 @@ public class MemeOperationService
         return true;
     }
 
-    
     public async Task DeleteMemeAsync(MemeModel model)
     {
         if (!await _ui.ConfirmDeleteMemeAsync(string.IsNullOrWhiteSpace(model.Title) ? model.FileName : model.Title))
@@ -60,7 +59,6 @@ public class MemeOperationService
             onUiComplete: () => Logger.Log($"右键删除「{model.Title}」"));
     }
 
-    
     public async Task DeleteMemesAsync(IReadOnlyList<MemeModel> models)
     {
         if (models.Count == 0) return;
@@ -69,20 +67,13 @@ public class MemeOperationService
         if (!TryGuardWrite()) return;
 
         int total = models.Count;
-        await _runner.RunAsync(
-            BatchOperationKind.Delete,
-            total,
-            progress => _engine.DeleteMemesAsync(models, progress),
-            affectedModels: models,
-            onUiComplete: () =>
-            {
-                _ui.OnDeleteComplete();
-                Logger.Log($"删除完成: {total} 个图片");
-            });
+        await _runner.RunAsync(BatchOperationKind.Delete, total, progress => _engine.DeleteMemesAsync(models, progress), affectedModels: models, onUiComplete: () =>
+        {
+            _ui.OnDeleteComplete();
+            Logger.Log($"删除完成: {total} 个图片");
+        });
     }
 
-    
-    
     public async Task MoveMemesAsync(IEnumerable<MemeModel> memes, string targetName)
     {
         var list = memes.ToList();
@@ -100,8 +91,6 @@ public class MemeOperationService
             onUiComplete: () => Logger.Log($"移动 {total} 张图片到分类「{targetName}」"));
     }
 
-    
-    
     private async Task<bool> GuardMoveConflictAsync(IReadOnlyList<MemeModel> memes, string targetCategory)
     {
         var conflict = await _engine.FindMoveConflictAsync(memes, targetCategory);

@@ -24,21 +24,15 @@ public static class FileNameValidator
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
-        
         if (name is "." or "..")
             return false;
 
-        
-        
         if (name.EndsWith('.') || name.EndsWith(' '))
             return false;
 
-        
         if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             return false;
 
-        
-        
         string stem = name.Split('.')[0];
         if (ReservedDeviceNames.Contains(stem))
             return false;

@@ -10,8 +10,7 @@ public sealed class CnbReleaseClient : UpdateServiceClientBase
 {
     public override string SourceName => "CNB";
 
-    private const string LatestUrl =
-        "https://cnb.cool/shuiping233/MemeManager/-/releases/latest";
+    private const string LatestUrl = "https://cnb.cool/shuiping233/MemeManager/-/releases/latest";
 
     public override async Task<string?> GetLatestVersionAsync(CancellationToken ct = default)
     {
@@ -20,7 +19,7 @@ public sealed class CnbReleaseClient : UpdateServiceClientBase
         Logger.Log($"[UpdateCheck] 从 CNB Release 请求到了最新版本号");
 
         var tag = path.Trim().Split('/').LastOrDefault();
-        
+
         return VersionString.TryParse(tag, out _) ? tag : null;
     }
 }

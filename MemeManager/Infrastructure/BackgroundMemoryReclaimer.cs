@@ -42,15 +42,11 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         _config = config;
     }
 
-    
-    
-    
     public static bool ShouldStart(bool aggressiveEnabled, BackgroundMemoryOptions options)
         => aggressiveEnabled && options.FirstTrimDelay > TimeSpan.Zero;
 
     public void BeginHiddenSession()
     {
-        
         if (!ShouldStart(_config.Config.AggressiveBackgroundReclaim, _options)) return;
 
         _cts?.Cancel();
@@ -68,7 +64,6 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         _cts = null;
     }
 
-    
     private async Task RunAsync(CancellationToken token)
     {
         if (_options.FirstTrimDelay <= TimeSpan.Zero) return;
@@ -76,7 +71,6 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         Reclaim();
     }
 
-    
     private void Reclaim()
     {
         MemoryDiagnostics.CompactManagedHeap();

@@ -20,12 +20,14 @@ public class BackgroundMemoryReclaimerTests
         => Assert.False(BackgroundMemoryReclaimer.ShouldStart(aggressiveEnabled: false, Configured));
 
     [Theory]
-    [InlineData(0)]    // 0 = 禁用
-    [InlineData(-1)]   // 负值 = 禁用
+    [InlineData(0)] // 0 = 禁用
+
+    [InlineData(-1)] // 负值 = 禁用
+
     public void ShouldStart_False_WhenTrimDelayNotPositive(int seconds)
         => Assert.False(BackgroundMemoryReclaimer.ShouldStart(
-            aggressiveEnabled: true,
-            new BackgroundMemoryOptions(TimeSpan.FromSeconds(seconds))));
+                aggressiveEnabled: true,
+                new BackgroundMemoryOptions(TimeSpan.FromSeconds(seconds))));
 
     [Fact]
     public void FromAppConstants_MirrorsAppConstants()

@@ -24,13 +24,10 @@ public readonly record struct MemorySnapshot(
     int Gen1Collections = -1,
     int Gen2Collections = -1)
 {
-    
-    
-    
     public static MemorySnapshot Capture(int liveBitmapImages = -1, bool? pageAlive = null)
     {
         using var process = Process.GetCurrentProcess();
-        
+
         process.Refresh();
         return new MemorySnapshot(
             GC.GetTotalMemory(false),
@@ -44,13 +41,6 @@ public readonly record struct MemorySnapshot(
             GC.CollectionCount(2));
     }
 
-    
-    
-    
-    
-    
-    
-    
     public string ToLogLine(string tag)
     {
         var parts = new List<string>(8)
@@ -60,7 +50,6 @@ public readonly record struct MemorySnapshot(
             $"WorkingSet={MemoryDiagnostics.FormatMB(WorkingSetBytes)}",
         };
 
-        
         if (LiveBitmapImages >= 0)
             parts.Add($"LiveBitmapImages={LiveBitmapImages}");
         if (PageAlive.HasValue)
@@ -74,44 +63,29 @@ public readonly record struct MemorySnapshot(
     }
 }
 
-
-
-
-
-
 public static class MemoryDiagnostics
 {
-    
     public static bool Enabled => AppConstants.EnableMemoryDiagnostics;
 
     public static MemorySnapshot Capture(int liveBitmapImages = -1, bool? pageAlive = null)
         => MemorySnapshot.Capture(liveBitmapImages, pageAlive);
 
-    
     public static void Log(string tag, int liveBitmapImages = -1, bool? pageAlive = null)
     {
         if (!Enabled) return;
         Logger.Log(Capture(liveBitmapImages, pageAlive).ToLogLine(tag));
     }
 
-    
     public static string FormatMB(long bytes)
         => ((bytes / (1024.0 * 1024.0)).ToString("F1", CultureInfo.InvariantCulture)) + "MB";
 
-    
     public static string FormatDelta(long before, long after)
     {
         long delta = after - before;
-        string percent = before == 0
-            ? "n/a"
-            : ((delta * 100.0 / before).ToString("F1", CultureInfo.InvariantCulture)) + "%";
+        string percent = before == 0 ? "n/a" : ((delta * 100.0 / before).ToString("F1", CultureInfo.InvariantCulture)) + "%";
         return $"{FormatMB(delta)} ({percent})";
     }
 
-    
-    
-    
-    
     public static void CompactManagedHeap()
     {
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
@@ -119,10 +93,6 @@ public static class MemoryDiagnostics
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
 
-    
-    
-    
-    
     public static bool EmptyProcessWorkingSet()
     {
         using var process = Process.GetCurrentProcess();

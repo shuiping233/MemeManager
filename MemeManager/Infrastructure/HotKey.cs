@@ -74,9 +74,9 @@ public static class HotKeyUtils
 
         // 其余按键用 GetKeyNameText（正确构造 lParam：扫描码 + 扩展键位）
         uint scan = NativeMethods.MapVirtualKey(vk, 0); // MAPVK_VK_TO_VSC
-        // 扩展键（方向键、小键盘、右 Ctrl/Alt 等）需要第 24 位
+                                                        // 扩展键（方向键、小键盘、右 Ctrl/Alt 等）需要第 24 位
         bool extended = vk is 0x21 or 0x22 or 0x23 or 0x24 or 0x25 or 0x26 or 0x27 or 0x28 // 翻页/方向
-            or 0x2D or 0x2E or 0x2F or 0x6A or 0x6B or 0x6C or 0x6D or 0xA3 or 0xA4 or 0xA5; // Ins/Del/Home/End + 右修饰键
+        or 0x2D or 0x2E or 0x2F or 0x6A or 0x6B or 0x6C or 0x6D or 0xA3 or 0xA4 or 0xA5; // Ins/Del/Home/End + 右修饰键
         int lParam = ((int)scan << 16) | (extended ? 0x01000000 : 0);
 
         var sb = new System.Text.StringBuilder(64);
@@ -104,4 +104,3 @@ public static class HotKeyUtils
         };
     }
 }
-

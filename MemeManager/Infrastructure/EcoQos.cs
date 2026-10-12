@@ -22,9 +22,9 @@ internal static partial class EcoQos
     [StructLayout(LayoutKind.Sequential)]
     private struct THREAD_POWER_THROTTLING_STATE
     {
-        public uint Version;     // 必须为 1
+        public uint Version; // 必须为 1
         public uint ControlMask; // 要控制的字段掩码
-        public uint StateMask;   // 要启用的状态
+        public uint StateMask; // 要启用的状态
     }
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
@@ -32,9 +32,6 @@ internal static partial class EcoQos
     private static partial bool SetThreadInformation(
         IntPtr hThread, int threadInformationClass, IntPtr lpThreadInformation, uint cb);
 
-    
-
-    
     private const int ProcessPowerThrottling = 4;
 
     [LibraryImport("kernel32.dll")]
@@ -55,19 +52,15 @@ internal static partial class EcoQos
     [StructLayout(LayoutKind.Sequential)]
     private struct PROCESS_POWER_THROTTLING_STATE
     {
-        public uint Version;     // 必须为 1
+        public uint Version; // 必须为 1
         public uint ControlMask; // 要控制的字段掩码
-        public uint StateMask;   // 要启用的状态
+        public uint StateMask; // 要启用的状态
     }
 
     // 缓存当前线程是否已尝试设置，避免同一线程重复 P/Invoke
     [ThreadStatic]
     private static bool _applied;
 
-    
-    
-    
-    
     public static void ApplyIfEnabled()
     {
         if (_applied) return;
@@ -134,13 +127,11 @@ internal static partial class EcoQos
                 var ok = SetProcessInformation(
                     GetCurrentProcess(), ProcessPowerThrottling, ptr, size);
 
-                
-                
                 var priOk = SetPriorityClass(
                     GetCurrentProcess(), enable ? IDLE_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
 
                 Logger.Log($"[EcoQos] 进程级效率模式: {(enable ? "启用" : "关闭")} " +
-                           $"节流={(ok ? "成功" : "失败")} 优先级={(priOk ? "成功" : "失败")}");
+                    $"节流={(ok ? "成功" : "失败")} 优先级={(priOk ? "成功" : "失败")}");
             }
             finally
             {

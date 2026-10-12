@@ -25,11 +25,11 @@ public class SafePathTests
     public void CombineChildPath_DoubleDotEscape_Throws()
     {
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", ".."));
+                SafePath.CombineChildPath(@"C:\Meme", ".."));
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", @"..\..\secret"));
+                SafePath.CombineChildPath(@"C:\Meme", @"..\..\secret"));
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", @"Cats\..\..\secret"));
+                SafePath.CombineChildPath(@"C:\Meme", @"Cats\..\..\secret"));
     }
 
     [Fact]
@@ -37,16 +37,16 @@ public class SafePathTests
     {
         // Path.Combine 遇绝对路径 child 直接返回 child，必须被边界拦截
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", @"D:\evil"));
+                SafePath.CombineChildPath(@"C:\Meme", @"D:\evil"));
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", @"C:\Windows\System32"));
+                SafePath.CombineChildPath(@"C:\Meme", @"C:\Windows\System32"));
     }
 
     [Fact]
     public void CombineChildPath_UncChild_Throws()
     {
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", @"\\server\share\evil"));
+                SafePath.CombineChildPath(@"C:\Meme", @"\\server\share\evil"));
     }
 
     [Fact]
@@ -54,14 +54,14 @@ public class SafePathTests
     {
         // "\evil" 会被 Path.Combine 当作根相对路径解析，落到 C:\evil 而非 C:\Meme\evil
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", @"\evil"));
+                SafePath.CombineChildPath(@"C:\Meme", @"\evil"));
     }
 
     [Fact]
     public void CombineChildPath_DotItself_Throws()
     {
         Assert.Throws<InvalidOperationException>(() =>
-            SafePath.CombineChildPath(@"C:\Meme", "."));
+                SafePath.CombineChildPath(@"C:\Meme", "."));
     }
 
     [Fact]

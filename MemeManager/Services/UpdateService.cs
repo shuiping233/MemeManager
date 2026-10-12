@@ -6,11 +6,12 @@ namespace MemeManager.Services;
 // 更新检查状态（设置页"前往下载新版本"Flyout 显示用）
 public enum UpdateCheckState
 {
-    Idle,      // 尚未检查过（默认；用户需点"检查更新"才会发起请求，符合"不打扰"设计）
-    Checking,  // 检查中
-    UpToDate,  // 已是最新
+    Idle, // 尚未检查过（默认；用户需点"检查更新"才会发起请求，符合"不打扰"设计）
+    Checking, // 检查中
+    UpToDate, // 已是最新
     HasUpdate, // 发现新版本
-    Failed     // 检查失败（网络/超时/所有源都未返回有效版本号）
+    Failed // 检查失败（网络/超时/所有源都未返回有效版本号）
+
 }
 
 // 更新检查编排器（单例）：并发请求所有更新源，取第一个成功返回的版本号，
@@ -24,19 +25,15 @@ public partial class UpdateService : ObservableObject
     public UpdateService(IEnumerable<IUpdateServiceClient> clients)
         => _clients = clients.ToArray();
 
-    
     [ObservableProperty]
     public partial string? LatestVersion { get; set; }
 
     [ObservableProperty]
     public partial UpdateCheckState CheckState { get; set; } = UpdateCheckState.Idle;
 
-    
     [ObservableProperty]
     public partial bool IsChecking { get; set; }
 
-    
-    
     public bool HasNewVersion { get; private set; }
 
     // 触发一次更新检查。进行中再次调用会被短路忽略（不需要锁）。
@@ -49,8 +46,7 @@ public partial class UpdateService : ObservableObject
         try
         {
             using var cts = new CancellationTokenSource();
-            
-            
+
             var pending = _clients
                 .Select(c => TryGetLatestAsync(c, cts.Token))
                 .ToList();
@@ -68,13 +64,13 @@ public partial class UpdateService : ObservableObject
                 }
                 catch
                 {
-                    v = null; 
+                    v = null;
                 }
 
                 if (!string.IsNullOrWhiteSpace(v))
                 {
                     winner = v;
-                    cts.Cancel(); 
+                    cts.Cancel();
                     break;
                 }
             }
@@ -100,8 +96,6 @@ public partial class UpdateService : ObservableObject
         }
     }
 
-    
-    
     private static Task<string?> TryGetLatestAsync(IUpdateServiceClient client, CancellationToken ct)
     {
         try

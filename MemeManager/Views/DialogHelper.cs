@@ -176,7 +176,8 @@ public static class DialogHelper
     public enum PromptTextSelectionMode
     {
         CursorAtEnd, // 默认:光标停在文本末尾,方便在原名基础上追加
-        SelectAll,   // 全选原有文本
+        SelectAll, // 全选原有文本
+
     }
 
     // 带输入框的提示弹窗：返回用户输入的文本（已 Trim）。
@@ -215,9 +216,7 @@ public static class DialogHelper
                 else
                     box.SelectionStart = box.Text.Length;
             };
-            return await dialog.ShowAsync() == ContentDialogResult.Primary
-                ? box.Text?.Trim()
-                : null;
+            return await dialog.ShowAsync() == ContentDialogResult.Primary ? box.Text?.Trim() : null;
         }
         catch (Exception ex)
         {
@@ -286,7 +285,6 @@ public static class DialogHelper
     public static Task<ContentDialogResult> ShowProgramExitNoticeAsync(XamlRoot xamlRoot) =>
         ConfirmAsync(xamlRoot, Localization.Get("Dialog_ProgramExit_Title"),
             string.Format(Localization.Get("Dialog_ProgramExit_Message")));
-
 
     // 新增分类输入
     public static Task<string?> PromptNewCategoryAsync(XamlRoot xamlRoot) =>

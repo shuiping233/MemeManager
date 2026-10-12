@@ -17,8 +17,6 @@ public readonly struct VersionString : IComparable<VersionString>
         _prerelease = prerelease;
     }
 
-    
-    
     public static bool TryParse(string? s, out VersionString version)
     {
         version = default;
@@ -63,15 +61,12 @@ public readonly struct VersionString : IComparable<VersionString>
             if (a != b) return a.CompareTo(b);
         }
 
-        
         bool hasPre = _prerelease.Length > 0;
         bool otherHasPre = other._prerelease.Length > 0;
         if (hasPre != otherHasPre) return hasPre ? -1 : 1;
         return string.CompareOrdinal(_prerelease, other._prerelease);
     }
 
-    
-    
     public static bool IsNewer(string? latest, string? current)
     {
         if (!TryParse(latest, out var l)) return false;
@@ -83,5 +78,5 @@ public readonly struct VersionString : IComparable<VersionString>
     // 注意不能靠 TryParse 判定：因为日期里的 '-' 会被当成预发布分隔符
     public static bool IsDevBuild(string? version)
         => !string.IsNullOrWhiteSpace(version)
-           && version.EndsWith("dev build", StringComparison.OrdinalIgnoreCase);
+        && version.EndsWith("dev build", StringComparison.OrdinalIgnoreCase);
 }

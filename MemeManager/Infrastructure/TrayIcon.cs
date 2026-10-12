@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Models;
 using MemeManager.Services;
 
-
 namespace MemeManager.Infrastructure;
 
 // 系统托盘图标：右键弹出「显示主窗口 / 设置 / 退出」
@@ -20,7 +19,6 @@ public sealed class TrayIcon : IDisposable
     private readonly MemeDataEngine _engine;
     private bool _disposed;
 
-    
     private const int CMD_SHOW = 1001;
     private const int CMD_TOGGLE_MODE = 1002;
     private const int CMD_SETTINGS = 1003;
@@ -35,11 +33,6 @@ public sealed class TrayIcon : IDisposable
 
     public static void SetMenuTheme(bool darkMenu)
     {
-        
-        
-        
-        
-        
         if (!darkMenu) return;
         try
         {
@@ -50,7 +43,6 @@ public sealed class TrayIcon : IDisposable
             Log($"设置托盘菜单深色失败（未文档化 API，可忽略）: {ex.Message}");
         }
     }
-
 
     public TrayIcon(IntPtr ownerHwnd, MemeDataEngine engine)
     {
@@ -130,7 +122,6 @@ public sealed class TrayIcon : IDisposable
 
     public static IntPtr LoadAppIcon(string appIconPath)
     {
-        
         var path = appIconPath;
         if (File.Exists(path))
         {
@@ -189,7 +180,7 @@ public sealed class TrayIcon : IDisposable
             }
             catch { }
         }
-        
+
         return NativeMethods.LoadIcon(IntPtr.Zero, (IntPtr)IDI_APPLICATION);
     }
 
@@ -212,8 +203,6 @@ public sealed class TrayIcon : IDisposable
         Remove();
         NativeMethods.RemoveWindowSubclass(_hwnd, _subclassProc, TRAY_ICON_ID);
     }
-
-    
 
     private const uint NIF_MESSAGE = 0x1;
     private const uint NIF_ICON = 0x2;

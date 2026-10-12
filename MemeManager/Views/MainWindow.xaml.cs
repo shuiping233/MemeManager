@@ -183,9 +183,7 @@ public sealed partial class MainWindow : Window
             }
         };
 
-        windowSizeDebouncer = new Debouncer<Windows.Graphics.SizeInt32?>(
-            AppConstants.WindowsSizeChangedDebounce, (t) => { SaveWindowSize(t); return; }
-        );
+        windowSizeDebouncer = new Debouncer<Windows.Graphics.SizeInt32?>(AppConstants.WindowsSizeChangedDebounce, (t) => { SaveWindowSize(t); return; });
     }
 
     private readonly Debouncer<Windows.Graphics.SizeInt32?> windowSizeDebouncer;
@@ -209,9 +207,7 @@ public sealed partial class MainWindow : Window
     public void InitializeMode()
     {
         // 若 config 关闭了 Mini 模式，则不恢复 Mini（强制 Full）。
-        var mode = ConfigService.Config.AllowMiniMode
-            ? ConfigService.Config.LastAppMode
-            : AppMode.Full;
+        var mode = ConfigService.Config.AllowMiniMode ? ConfigService.Config.LastAppMode : AppMode.Full;
         SwitchMode(mode, persist: false);
     }
 
@@ -246,7 +242,7 @@ public sealed partial class MainWindow : Window
         {
             case AppMode.Full:
                 // TODO 从mini模式切换回来之后, 还差一个mini模式的分类刷新和保存没做, 当然不做也只会手感差一点
-                // 预期的效果应该要mini模式切到什么分类都好, 只要切回full模式就立刻保存分类, 
+                // 预期的效果应该要mini模式切到什么分类都好, 只要切回full模式就立刻保存分类,
                 // full模式里显示的分类高亮应该和mini模式的一致
                 RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
                 RestoreFullModeChrome();
@@ -379,10 +375,8 @@ public sealed partial class MainWindow : Window
         // 只会读到199x34之类的标题栏大小尺寸
         if (IsWindowMinimized() || !IsAppVisible) return;
 
-
         var cfg = ConfigService.Config;
         if (IsWindowMaximized()) return;
-
 
         if (bounds is not { } realBounds) return;
 
@@ -447,8 +441,8 @@ public sealed partial class MainWindow : Window
                 Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
             if (display != null && _appWindow != null)
             {
-                var r = display.WorkArea;          // 屏幕坐标
-                var pos = _appWindow.Position;      // 窗口左上角屏幕坐标
+                var r = display.WorkArea; // 屏幕坐标
+                var pos = _appWindow.Position; // 窗口左上角屏幕坐标
                 return new Windows.Foundation.Rect(
                     r.X - pos.X, r.Y - pos.Y, r.Width, r.Height);
             }

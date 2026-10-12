@@ -38,7 +38,8 @@ public static class ImageDragHelper
                 }
                 paths.Add(tempPath);
             }
-            catch (Exception ex) { Logger.Log("[Drag] 拖入(Bitmap)失败: " + ex.Message); }
+            catch (Exception ex)
+            { Logger.Log("[Drag] 拖入(Bitmap)失败: " + ex.Message); }
         }
 
         return paths;
@@ -73,14 +74,16 @@ public static class ImageDragHelper
                     var files = await Task.WhenAll(arr.Select(p => StorageFile.GetFileFromPathAsync(p).AsTask()));
                     request.SetData(files);
                 }
-                catch (Exception ex) { Logger.Log("[Drag] 拖出取文件失败: " + ex.Message); }
-                finally { deferral.Complete(); }
+                catch (Exception ex)
+                { Logger.Log("[Drag] 拖出取文件失败: " + ex.Message); }
+                finally
+                { deferral.Complete(); }
             });
         }
 
         // 单张非 GIF 额外 Bitmap 兜底（多张或 GIF 不提供，避免误导/额外开销）
         bool singleNonGif = valid.Count == 1 &&
-            !string.Equals(Path.GetExtension(valid[0]), ".gif", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(Path.GetExtension(valid[0]), ".gif", StringComparison.OrdinalIgnoreCase);
         if (singleNonGif)
         {
             var singlePath = valid[0];
@@ -103,8 +106,10 @@ public static class ImageDragHelper
                         ms.Seek(0);
                         request.SetData(RandomAccessStreamReference.CreateFromStream(ms));
                     }
-                    catch (Exception ex) { Logger.Log("[Drag] 拖出构造位图失败: " + ex.Message); }
-                    finally { deferral.Complete(); }
+                    catch (Exception ex)
+                    { Logger.Log("[Drag] 拖出构造位图失败: " + ex.Message); }
+                    finally
+                    { deferral.Complete(); }
                 });
             }
             else
@@ -125,7 +130,8 @@ public static class ImageDragHelper
                     ms.Seek(0);
                     data.SetBitmap(RandomAccessStreamReference.CreateFromStream(ms));
                 }
-                catch (Exception ex) { Logger.Log("[Drag] 拖出构造位图失败: " + ex.Message); }
+                catch (Exception ex)
+                { Logger.Log("[Drag] 拖出构造位图失败: " + ex.Message); }
             }
         }
 

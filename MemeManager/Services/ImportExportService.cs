@@ -61,21 +61,16 @@ public class ImportExportService
 
         ImportResult result = ImportResult.Empty;
 
-        await _runner.RunAsync(
-            BatchOperationKind.Import,
-            total,
-            work: async progress =>
-            {
-                return result = await _engine.ImportMemesAsync(list, targetCategory, progress,
-                    onCategoryCreated: createdName => onCategoryCreated?.Invoke(createdName));
-            },
-            targetCategory: targetCategory,
-            onUiComplete: () =>
-            {
-                Logger.Log($"导入完成: 新增 {result.Imported} 个, 重复跳过 {result.Duplicate} 个");
-                if (list.Count == 1 && result.DuplicateModel != null)
-                    _ = _ui.ShowSingleImportDuplicateAsync(result.DuplicateModel);
-            });
+        await _runner.RunAsync(BatchOperationKind.Import, total, work: async progress =>
+        {
+            return result = await _engine.ImportMemesAsync(list, targetCategory, progress,
+                onCategoryCreated: createdName => onCategoryCreated?.Invoke(createdName));
+        }, targetCategory: targetCategory, onUiComplete: () =>
+        {
+            Logger.Log($"导入完成: 新增 {result.Imported} 个, 重复跳过 {result.Duplicate} 个");
+            if (list.Count == 1 && result.DuplicateModel != null)
+                _ = _ui.ShowSingleImportDuplicateAsync(result.DuplicateModel);
+        });
     }
 
     // 批量导出：copy 语义，不占用写入锁（不改缓存/源文件）。

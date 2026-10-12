@@ -7,14 +7,10 @@ namespace MemeManager.Infrastructure;
 // 无需在代码里硬编码语言列表。所有涉及语言更改的地方都只调用这里，避免散落。
 public static class LangHelper
 {
-    
     public const string SystemLanguage = "System";
 
-    
-    
     public static IReadOnlyList<string> SupportedLanguages { get; } = DiscoverLanguages();
 
-    
     public static string DefaultLanguage { get; } =
         SupportedLanguages.FirstOrDefault(l => l.Equals("zh-CN", StringComparison.OrdinalIgnoreCase))
         ?? SupportedLanguages.FirstOrDefault()
@@ -53,22 +49,20 @@ public static class LangHelper
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
     }
 
-    
-    
     private static string ResolveLanguageDisplayName(string code)
     {
         var key = $"Settings_Language_{code}";
         var display = Localization.Get(key);
         if (display == key || string.IsNullOrEmpty(display))
         {
-            try { display = CultureInfo.GetCultureInfo(code).NativeName; }
-            catch { display = code; }
+            try
+            { display = CultureInfo.GetCultureInfo(code).NativeName; }
+            catch
+            { display = code; }
         }
         return display;
     }
 
-    
-    
     public static System.Collections.Generic.List<LanguageOption> BuildLanguageOptions()
     {
         var options = new System.Collections.Generic.List<LanguageOption>
@@ -82,8 +76,6 @@ public static class LangHelper
         return options;
     }
 
-    
-    
     public static void RefreshLanguageOptions(IList<LanguageOption> options)
     {
         foreach (var opt in options)
@@ -95,27 +87,20 @@ public static class LangHelper
         }
     }
 
-    
     public static string ResolveEffectiveLanguage(string? configured)
     {
         if (!string.IsNullOrWhiteSpace(configured) && !configured!.Equals(SystemLanguage, StringComparison.OrdinalIgnoreCase))
-            return SupportedLanguages.Contains(configured, StringComparer.OrdinalIgnoreCase)
-                ? configured
-                : DefaultLanguage;
+            return SupportedLanguages.Contains(configured, StringComparer.OrdinalIgnoreCase) ? configured : DefaultLanguage;
 
         return DetectSystemLanguage();
     }
 
-    
     public static string DetectSystemLanguage()
     {
         try
         {
-            var sys = Windows.System.UserProfile.GlobalizationPreferences.Languages.Count > 0
-                ? Windows.System.UserProfile.GlobalizationPreferences.Languages[0]
-                : CultureInfo.CurrentCulture.Name;
+            var sys = Windows.System.UserProfile.GlobalizationPreferences.Languages.Count > 0 ? Windows.System.UserProfile.GlobalizationPreferences.Languages[0] : CultureInfo.CurrentCulture.Name;
 
-            
             if (Array.Exists(SupportedLanguages.ToArray(), l => l.Equals(sys, StringComparison.OrdinalIgnoreCase)))
                 return sys;
 
@@ -126,15 +111,11 @@ public static class LangHelper
                     return l;
             }
         }
-        catch
-        {
-            
-        }
+        catch { }
 
         return DefaultLanguage;
     }
 
-    
     public static string? LangCodeFromIndex(int idx, IList<LanguageOption> options)
     {
         if (idx < 0 || idx >= options.Count)
@@ -143,11 +124,10 @@ public static class LangHelper
         return string.IsNullOrEmpty(code) ? SystemLanguage : code;
     }
 
-    
     public static int IndexFromLangCode(string? code, IList<LanguageOption> options)
     {
         if (string.IsNullOrWhiteSpace(code))
-            return 0; 
+            return 0;
         for (int i = 0; i < options.Count; i++)
         {
             if (options[i].Code.Equals(code, StringComparison.OrdinalIgnoreCase))
@@ -156,8 +136,6 @@ public static class LangHelper
         return 0;
     }
 
-    
-    
     public static void SetLanguage(string? code)
     {
         try
@@ -182,8 +160,9 @@ public static class LangHelper
 
             return Directory.GetDirectories(stringsFolder)
                 .Select(Path.GetFileName)
-                .Where(name => !string.IsNullOrWhiteSpace(name)
-                    && File.Exists(Path.Combine(stringsFolder, name!, "Resources.resw")))
+                .Where(name =>
+                        !string.IsNullOrWhiteSpace(name)
+                        && File.Exists(Path.Combine(stringsFolder, name!, "Resources.resw")))
                 .ToArray()!;
         }
         catch

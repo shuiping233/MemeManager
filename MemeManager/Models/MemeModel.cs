@@ -22,7 +22,6 @@ public class MemeModel
 
     public uint Priority { get; set; }
 
-
     /// <summary>
     /// 关键词模糊匹配 Title 或 Tags 时返回 true；keyword 为 null/空/空白时返回 false（若作为搜索过滤用途需要上游自行 if (!string.IsNullOrWhiteSpace(...)) 阻挡无效值进入）。
     /// </summary>
@@ -32,7 +31,7 @@ public class MemeModel
         if (Title is not null && Title.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             return true;
         return Tags is not null
-            && Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+        && Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -43,5 +42,4 @@ public class MemeModel
         if (string.IsNullOrWhiteSpace(category)) return false;
         return Category.Equals(category, StringComparison.OrdinalIgnoreCase);
     }
-
 }

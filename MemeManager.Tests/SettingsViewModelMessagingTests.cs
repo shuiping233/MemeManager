@@ -83,8 +83,9 @@ public class SettingsViewModelMessagingTests
 
         var callbackProps = typeof(SettingsViewModel)
             .GetProperties()
-            .Where(p => p.PropertyType == typeof(Action)
-                     || p.PropertyType == typeof(Action<string>))
+            .Where(p =>
+                    p.PropertyType == typeof(Action)
+                    || p.PropertyType == typeof(Action<string>))
             .ToArray();
 
         Assert.Empty(callbackProps);
