@@ -68,4 +68,16 @@
   [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object { -not $_.IsNeutralCulture } | Select-Object Name, NativeName | Where-Object Name
   ```
 
+## 编码约定
+
+以下规则适用于编写使用本地化字符串的代码（以上小节讲的是另一回事：翻译 / 新增语言流程）。
+
+- 代码中调用 `Localization.Get()` 时，直接传资源 key，**不要**带 `.xxx` 类型后缀。
+  例如 `Localization.Get("Settings_Title")`，而非 `Localization.Get("Settings_Title.Text")`。
+- 若要在 XAML 中直接引用 i18n 文本，给控件加 `l:Uids.Uid="xxx"`（Uid 即 resw 里的 key）。
+- 若 XAML 引用的 resw 文本，需根据控件实际读取显示文本的字段，给 resw 的 type name
+  添加对应 `.xxx` 后缀：
+  - `.Text` —— `TextBlock`、`MenuFlyoutItem` 等用此字段读取文本时使用。
+  - `.Content` —— `Button`、`ToolTip` 等用此字段读取文本时使用。
+
 [English]: ./README.md

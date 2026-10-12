@@ -76,4 +76,21 @@ but adding the key keeps the wording consistent and intentional.
   [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object { -not $_.IsNeutralCulture } | Select-Object Name, NativeName | Where-Object Name
   ```
 
+## Coding Conventions
+
+These rules apply when writing code that consumes localized strings (the sections
+above cover the separate translation / add-a-language workflow).
+
+- When calling `Localization.Get()`, pass the bare resource key — do NOT append
+  the `.xxx` type suffix. For example: `Localization.Get("Settings_Title")`,
+  not `Localization.Get("Settings_Title.Text")`.
+- To reference a localized string directly from XAML, add `l:Uids.Uid="xxx"` to
+  the element (the Uid is the resw key).
+- When a resw string is consumed from XAML, its type name must carry the suffix
+  matching the field the control reads its display text from:
+  - `.Text` — for controls that read the `Text` field (`TextBlock`,
+    `MenuFlyoutItem`, ...).
+  - `.Content` — for controls that read the `Content` field (`Button`,
+    `ToolTip`, ...).
+
 [简体中文]: ./README.zh-CN.md
