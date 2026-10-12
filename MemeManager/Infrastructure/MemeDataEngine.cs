@@ -18,7 +18,7 @@ public sealed record ImportResult(
     MemeModel? DuplicateModel,
     IReadOnlyList<MemeModel> Added)
 {
-    /// <summary>空结果：无输入、或（<see cref="ImportMemesSafeAsync"/>）被“写忙”守卫拒绝。</summary>
+    
     public static ImportResult Empty { get; } = new(0, 0, null, Array.Empty<MemeModel>());
 }
 
@@ -28,7 +28,7 @@ public class MemeDataEngine(ConfigService _config)
     // 兼顾 SSD 吞吐与句柄占用，后续调优直接改此处。
     private const int ImportParallelism = 16;
 
-    // 写盘 JSON：缩进可读 + 中文不转义（便于人工查看/修改）
+    
     private static JsonSerializerOptions JsonOptions => AppConstants.JsonOptions;
 
     private string _baseDir = AppConstants.DefaultMemeDataStoragePath();
@@ -42,40 +42,40 @@ public class MemeDataEngine(ConfigService _config)
 
     private readonly List<MemeModel> _memeCache = new();
 
-    // 数据目录文件监听：探测图片文件从库中消失（外部拖出/被删），
-    // 通过事件把结果交给 UI 层处理（与 UI 解耦）。
+    
+    
     public FileWatcher? Watcher { get; private set; }
 
 
-    // 标题反查 Map：title(小写) -> 该 title 对应的文件名列表
+    
     private readonly Dictionary<string, List<string>> _titleReverseMap = new(StringComparer.OrdinalIgnoreCase);
 
-    // 分类顺序：分类名(小写, 即文件夹名) -> 优先级（值越大越靠前）
+    
     private readonly Dictionary<string, uint> _categoryOrder = new(StringComparer.OrdinalIgnoreCase);
 
     public string BaseDir => _baseDir;
 
     private AppConfig Config { get => _config.Config; set => _config.Config = value; }
 
-    // 解析实际数据目录：确保绝对路径。空/相对路径（无盘符根）时回退到默认路径。
-    // 不再限制不能设在应用自身目录内（无写权限等失败场景已由写入失败弹窗兜底，不会崩溃）。
+    
+    
     private static string ResolveBaseDir(string? storagePath)
     {
         string? candidate = string.IsNullOrWhiteSpace(storagePath) ? null : storagePath.Trim();
         if (!string.IsNullOrWhiteSpace(candidate) && !Path.IsPathRooted(candidate))
-            candidate = null; // 拒绝相对路径，避免相对 exe 目录
+            candidate = null; 
 
         return string.IsNullOrWhiteSpace(candidate) ? AppConstants.DefaultMemeDataStoragePath() : candidate;
     }
 
-    // 最近一次创建默认分类（AddCategoryAsync）时的写失败详情；为空表示成功。
-    // 供启动流程在窗口就绪后弹窗提示用户（保证程序仍能启动，方便去设置里改目录）。
+    
+    
     public string? LastDefaultCategoryWriteError { get; private set; }
 
-    // 启动时发现配置中的数据目录不存在或不是文件夹，已回退默认路径时的提示信息；为空表示未回退。
+    
     public string? LastBaseDirRevertError { get; private set; }
 
-    // ---------- 配置 ----------
+    
 
     public async Task InitializeAsync()
     {
@@ -97,7 +97,7 @@ public class MemeDataEngine(ConfigService _config)
             LastBaseDirRevertError = bad;
             Logger.Log($"[Engine] 配置的数据目录无效(不存在或非文件夹)，已回退默认: {bad} -> {_baseDir}");
         }
-        // 若实际使用的目录与配置中记录的不一致（被回退），同步修正配置以免下次重复踩坑。
+        
         else if (!string.Equals(_baseDir, Config.StoragePath, StringComparison.OrdinalIgnoreCase))
             Config.StoragePath = _baseDir;
 
@@ -114,17 +114,17 @@ public class MemeDataEngine(ConfigService _config)
         Watcher.Start();
     }
 
-    // 分类顺序文件位于“数据保存目录/.metadata.json”（与分类子文件夹内的 .metadata.json 不同层级）
+    
     private string CategoryOrderPath => Path.Combine(_baseDir, AppConstants.MetadataFileName);
 
-    // 配置加载/保存已委托 ConfigService（见本类 _config 字段）；保留同名方法供 InitializeAsync
-    // 与既有调用方（MainWindow/SettingsPage 等经 _engine.SaveConfigAsync）无感衔接。
+    
+    
     private void LoadConfig() => _config.LoadConfig();
 
     private async Task SaveConfigAsync() => await _config.SaveConfigAsync();
 
-    // 打补丁配置并持久化（委托 ConfigService），随后处理数据目录解析与（必要时）元数据重载——
-    // 这部分属于引擎职责（数据目录归属），不归入 ConfigService。
+    
+    
     public async Task UpdateConfigAsync(Action<AppConfig> patch)
     {
         await _config.UpdateConfigAsync(patch);
@@ -133,17 +133,17 @@ public class MemeDataEngine(ConfigService _config)
         bool changed = !newBase.Equals(_baseDir, StringComparison.OrdinalIgnoreCase);
         _baseDir = newBase;
 
-        // 仅当存放路径真正变化时才重新加载该路径下的元数据。
-        // 注意：配置本身已由上面 _config.UpdateConfigAsync 落盘，此处无需再次 SaveConfigAsync。
+        
+        
         if (changed)
             await LoadAllMetadataAsync();
     }
 
-    // ---------- 加载 ----------
+    
 
     private async Task LoadAllMetadataAsync()
     {
-        // 在后台线程（带 EcoQoS 节流）执行目录扫描与元数据加载，避免阻塞 UI。
+        
         await EcoQos.RunAsync(() =>
         {
             LoadAllMetadataCore();
@@ -182,9 +182,9 @@ public class MemeDataEngine(ConfigService _config)
             foreach (var kv in meta.Items)
             {
                 var fileName = kv.Key;
-                // 安全过滤：key 必须是纯文件名（拒绝含路径分隔符/".."/绝对路径的键）且扩展名在图片白名单内。
-                // 安全审计 Medium：此前直接 Path.Combine(dir, fileName) 拼路径，被篡改的 .metadata.json
-                // 可用 "..\\..\\secret.txt" 之类键把 LocalPath 引到库外，导致导出/删除/打开操作库外文件。
+                
+                
+                
                 if (!IsSafeMetadataFileName(fileName))
                 {
                     Logger.Log($"[Engine] 跳过非法 metadata 条目: key='{fileName}' 分类='{category}'");
@@ -224,7 +224,7 @@ public class MemeDataEngine(ConfigService _config)
         list.Add(meme.FileName);
     }
 
-    // ---------- 查询 ----------
+    
 
     public IReadOnlyList<MemeModel> GetAllMemes() => _memeCache.ToList();
 
@@ -255,28 +255,28 @@ public class MemeDataEngine(ConfigService _config)
                 .ToList();
         }
 
-        // 普通分类视图：Priority 值越大越靠前（左侧/开头）；同值按导入时间新→旧
+        
         return query.OrderByDescending(m => m.Priority).ThenByDescending(m => m.DateAdded).ToList();
     }
 
     public IReadOnlyList<string> GetCategories()
     {
-        // 分类 = 内存中已有分类 ∪ 磁盘上实际存在的分类文件夹
+        
         var set = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        // 先快照再枚举，避免枚举过程中 _memeCache 被并发修改导致崩溃
+        
         foreach (var m in _memeCache.ToList())
             if (!string.IsNullOrWhiteSpace(m.Category)) set.Add(m.Category);
 
         if (!Directory.Exists(_baseDir)) return set.ToArray();
         foreach (var dir in Directory.GetDirectories(_baseDir))
         {
-            // 仅将含有 .metadata.json 的文件夹视为有效分类
+            
             if (File.Exists(Path.Combine(dir, AppConstants.MetadataFileName)))
                 set.Add(Path.GetFileName(dir));
         }
 
         var result = set.ToArray();
-        // 按优先级降序（值越大越靠前），同优先级按名称稳定排序
+        
         result.Sort((a, b) =>
         {
             int pa = _categoryOrder.TryGetValue(a, out var va) ? (int)va : 0;
@@ -287,7 +287,7 @@ public class MemeDataEngine(ConfigService _config)
         return result;
     }
 
-    // ---------- 分类顺序（拖拽重排） ----------
+    
 
     private async Task LoadCategoryOrderAsync()
     {
@@ -332,9 +332,9 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    /// <summary>
-    /// 按给定分类名顺序整体重算优先级（列表最前=最大优先级，依次递减），写回 .metadata.json。
-    /// </summary>
+    
+    
+    
     public async Task ReorderCategoriesAsync(IReadOnlyList<string> orderedNames)
     {
         uint p = (uint)orderedNames.Count;
@@ -343,7 +343,7 @@ public class MemeDataEngine(ConfigService _config)
         await SaveCategoryOrderAsync();
     }
 
-    // 通过标题反查文件名列表
+    
     public IReadOnlyList<string> ReverseLookupByTitle(string title)
     {
         if (_titleReverseMap.TryGetValue(title, out var list))
@@ -351,13 +351,13 @@ public class MemeDataEngine(ConfigService _config)
         return new List<string>();
     }
 
-    // ---------- 导入 ----------
+    
 
     public async Task<(MemeModel? model, bool duplicate)> ImportMemeAsync(string sourcePath, string category, string? title = null, List<string>? tags = null)
     {
         if (!File.Exists(sourcePath)) return (null, false);
-        // 引擎层兜底校验：仅接受白名单内的图片扩展名（与 UI 层过滤一致，纵深防御，
-        // 防止未来新入口绕过 UI 直接调引擎时把任意扩展名文件带入库内）。
+        
+        
         if (!AppConstants.IsImage(Path.GetExtension(sourcePath)))
         {
             Logger.Log($"[Engine] 导入拒绝非图片扩展名: {sourcePath}");
@@ -370,10 +370,10 @@ public class MemeDataEngine(ConfigService _config)
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            // 去重：同分类下文件名已存在则视为重复。
-            // 注意：缓存命中但磁盘文件已不存在（如曾被拖出到外部文件夹被移走）的，
-            // 不当作重复——否则重新导入同一张图会被误判“已存在”。此时先清除该僵尸缓存
-            // 记录，再按新导入流程覆盖写入，保证库与磁盘一致。
+            
+            
+            
+            
             var categoryDir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
             var targetPath = Path.Combine(categoryDir, fileName);
             var existing = _memeCache.FirstOrDefault(m =>
@@ -454,34 +454,34 @@ public class MemeDataEngine(ConfigService _config)
 
         var safeTarget = SanitizeCategory(category);
         var categoryDir = SafePath.CombineChildPath(_baseDir, safeTarget);
-        // 仅在分类目录原本不存在（即本次新建）时通知上层，便于 UI 即时刷新分类栏。
+        
         bool created = !Directory.Exists(categoryDir);
         Directory.CreateDirectory(categoryDir);
         if (created) onCategoryCreated?.Invoke(safeTarget);
 
-        // 目标分类 metadata 仅加载一次
+        
         var meta = await LoadCategoryMetadataAsync(categoryDir);
 
-        // 预建“文件名 -> 缓存项”索引（仅本分类），O(1) 去重，避免逐张线性扫描。
-        // 并行阶段只读取它（判定重复），绝不写入；写入留到阶段3串行。
+        
+        
         var existingByFile = _memeCache
             .Where(m => m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(m => m.FileName, m => m, StringComparer.OrdinalIgnoreCase);
 
         int imported = 0, duplicate = 0;
         MemeModel? duplicateModel = null;
-        // 本批真正新建的 model（按落地先后），回传给 UI 做增量插入。
+        
         var added = new List<MemeModel>();
 
-        // 每张的判定/落地结果容器（并行阶段填充，不触碰共享字典）。
+        
         var plans = new List<ImportPlan>(list.Count);
 
-        // ---------- 阶段1：并行算 hash + 去重判定（只读 existingByFile）----------
+        
         var po = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, po, async (sourcePath, _) =>
         {
             if (!File.Exists(sourcePath)) return;
-            // 引擎层兜底：非图片扩展名直接跳过（与 ImportMemeAsync 单张入口一致）
+            
             if (!AppConstants.IsImage(Path.GetExtension(sourcePath))) return;
 
             string hash;
@@ -495,9 +495,9 @@ public class MemeDataEngine(ConfigService _config)
             string ext = Path.GetExtension(sourcePath);
             string fileName = $"{hash}{ext}";
 
-            // 查预建索引判定重复（只读，线程安全）
+            
             bool isDuplicate = false;
-            bool zombie = false;   // 缓存命中但磁盘文件缺失，需在阶段3清理后覆盖
+            bool zombie = false;   
             if (existingByFile.TryGetValue(fileName, out var existing))
             {
                 if (File.Exists(existing.LocalPath))
@@ -510,14 +510,14 @@ public class MemeDataEngine(ConfigService _config)
                 plans.Add(new ImportPlan(sourcePath, hash, ext, fileName, isDuplicate, zombie));
         });
 
-        // 进度计数器：阶段1/阶段2 每完成一项（含重复/跳过/失败）计数一次，阶段3 不再报，避免重复计数。
+        
         long ioDone = 0;
 
-        // ---------- 阶段2：并行复制文件（IO 并行，不碰共享状态）----------
+        
         var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(plans, copyPo, async (plan, _) =>
         {
-            if (!plan.IsDuplicate)   // 重复项直接跳过，无须复制
+            if (!plan.IsDuplicate)   
             {
                 try
                 {
@@ -527,17 +527,17 @@ public class MemeDataEngine(ConfigService _config)
                 }
                 catch (Exception ex)
                 {
-                    // 失败静默打日志跳过（沿用现状，不弹窗）
+                    
                     Logger.Log($"[Engine] 导入复制失败: {plan.SourcePath} {ex.Message}");
                     plan.CopyOk = false;
                 }
             }
-            // 该项 IO 处理完毕（无论复制/重复/失败），进度 +1
+            
             var d = (uint)Interlocked.Increment(ref ioDone);
             progress?.Report(new BatchProgress(d, total));
         });
 
-        // ---------- 阶段3：串行落地（写 metadata/cache，纯内存极快）----------
+        
         foreach (var plan in plans)
         {
             if (plan.IsDuplicate)
@@ -549,11 +549,11 @@ public class MemeDataEngine(ConfigService _config)
 
             if (!plan.CopyOk)
             {
-                // 复制失败的项不写入 metadata/cache
+                
                 continue;
             }
 
-            // 僵尸缓存：先清掉缺失文件的旧缓存（仅串行阶段操作共享字典）
+            
             if (plan.Zombie && existingByFile.TryGetValue(plan.FileName, out var dead))
             {
                 _memeCache.Remove(dead);
@@ -592,12 +592,12 @@ public class MemeDataEngine(ConfigService _config)
 
             _memeCache.Add(model);
             IndexTitle(model);
-            existingByFile[plan.FileName] = model;   // 同批次内后续重复也能识别
+            existingByFile[plan.FileName] = model;   
             imported++;
             added.Add(model);
         }
 
-        // 整批仅写回一次 metadata
+        
         await SaveCategoryMetadataAsync(categoryDir, meta);
         return new ImportResult(imported, duplicate, duplicateModel, added);
     }
@@ -612,7 +612,7 @@ public class MemeDataEngine(ConfigService _config)
         Action<string>? onCategoryCreated = null)
     {
         if (Interlocked.Exchange(ref _writeBusy, 1) != 0)
-            return ImportResult.Empty; // 已有导入任务在跑，拒绝本次
+            return ImportResult.Empty; 
         try
         {
             return await ImportMemesAsync(sourcePaths, category, progress, onCategoryCreated);
@@ -623,7 +623,7 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    // 导入单张的判定/落地计划（并行阶段填充，阶段3串行消费）
+    
     private sealed record ImportPlan(
         string SourcePath,
         string Hash,
@@ -635,17 +635,17 @@ public class MemeDataEngine(ConfigService _config)
         public bool CopyOk;
     }
 
-    // ---------- 导出 ----------
+    
 
     public async Task ExportMemesAsync(IEnumerable<MemeModel> memes, string targetDir, IProgress<BatchProgress>? progress = null)
     {
         Directory.CreateDirectory(targetDir);
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        // 进度计数器：阶段1 每完成一项（复制 IO 完毕）计数一次
+        
         long ioDone = 0;
 
-        // 并行复制文件（IO 并行，互不依赖，无共享状态；失败静默忽略）
+        
         var copyPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, copyPo, async (meme, _) =>
         {
@@ -678,14 +678,14 @@ public class MemeDataEngine(ConfigService _config)
         var safeTarget = SanitizeCategory(targetCategory);
         try
         {
-            // 目标分类已有的所有 hash（无需按 Category 过滤：GetMemes(target) 返回项本就属于 target）
+            
             var existingHashes = GetMemes(safeTarget)
                 .Select(m => m.Hash)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var m in memes)
             {
-                // 本就在目标分类的项移动给自己，不算冲突（MoveMemesToCategoryAsync 也会跳过）
+                
                 if (m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
                     continue;
                 if (existingHashes.Contains(m.Hash))
@@ -710,20 +710,20 @@ public class MemeDataEngine(ConfigService _config)
         var targetMeta = await LoadCategoryMetadataAsync(targetDir);
         bool targetDirty = false;
 
-        // 目标分类当前最大优先级；移入项依次 +1，使其排到目标分类最前
-        // （Priority 越大越靠前，与导入/重排语义一致）。
+        
+        
         uint targetMaxPriority = 0;
         foreach (var entry in targetMeta.Items.Values)
             if (entry.Priority > targetMaxPriority) targetMaxPriority = entry.Priority;
 
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        // 进度计数器：阶段1 每完成一项（移动 IO 完毕，含跳过/失败）计数一次，阶段2 不再报，避免重复计数。
+        
         long ioDone = 0;
 
-        // 各源分类的 metadata 仅加载/保存一次（避免逐张读写 .metadata.json）。
-        // Key = 源目录路径，Value = (metadata, 是否已被修改需写回)。
-        // 先按去重的源目录统一异步加载一次，避免在循环内混用同步等待。
+        
+        
+        
         var sourceDirs = list
             .Where(m => !m.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
             .Select(m => SafePath.CombineChildPath(_baseDir, SanitizeCategory(m.Category)))
@@ -733,16 +733,16 @@ public class MemeDataEngine(ConfigService _config)
         foreach (var dir in sourceDirs)
             sourceMetas[dir] = (await LoadCategoryMetadataAsync(dir), false);
 
-        // 每张移动的判定/落地计划（并行阶段填充，阶段2串行消费，不触碰共享字典）
+        
         var plans = new List<MovePlan>(list.Count);
 
-        // ---------- 阶段1：并行移动物理文件（IO 并行，互不依赖）----------
+        
         var movePo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
         await Parallel.ForEachAsync(list, movePo, async (meme, _) =>
         {
             try
             {
-                // 已在目标分类：标记跳过
+                
                 if (meme.Category.Equals(safeTarget, StringComparison.OrdinalIgnoreCase))
                 {
                     lock (plans) plans.Add(new MovePlan(meme, MoveResult.SkippedSameTarget));
@@ -750,8 +750,8 @@ public class MemeDataEngine(ConfigService _config)
                 }
 
                 var destPath = Path.Combine(targetDir, meme.FileName);
-                // 目标已存在同名(hash)文件：跳过移动，不覆盖（同名=同内容，原文件保留，
-                // 避免即使守卫被绕过也静默丢失目标分类原有图片）。
+                
+                
                 if (File.Exists(destPath))
                 {
                     Logger.Log($"[Engine] 移动跳过(目标已存在): 文件={meme.FileName} 源分类=\"{meme.Category}\" -> 目标=\"{safeTarget}\"");
@@ -778,7 +778,7 @@ public class MemeDataEngine(ConfigService _config)
             }
         });
 
-        // ---------- 阶段2：串行落地（写 metadata/cache，纯内存极快）----------
+        
         foreach (var plan in plans)
         {
             var meme = plan.Meme;
@@ -797,7 +797,7 @@ public class MemeDataEngine(ConfigService _config)
                         sourceMetas[sourceDir] = (sm.meta, true);
                     }
 
-                    // 目标分类 metadata（移入项置顶：优先级 = 当前最大 + 1）
+                    
                     targetMeta.Items[meme.FileName] = new MemeMetaEntry
                     {
                         Title = meme.Title,
@@ -806,7 +806,7 @@ public class MemeDataEngine(ConfigService _config)
                     };
                     targetDirty = true;
 
-                    // 更新内存缓存
+                    
                     meme.Category = safeTarget;
                     meme.LocalPath = plan.DestPath!;
                     meme.Priority = targetMaxPriority;
@@ -815,8 +815,8 @@ public class MemeDataEngine(ConfigService _config)
             }
         }
 
-        // 仅各源分类与目标分类各写回一次 metadata（而非逐张写回）。
-        // 目标分类无实际移入（全部 skip/失败）则不写，也不强制建目录。
+        
+        
         if (targetDirty)
         {
             Directory.CreateDirectory(targetDir);
@@ -827,7 +827,7 @@ public class MemeDataEngine(ConfigService _config)
                 await SaveCategoryMetadataAsync(dir, entry.meta);
     }
 
-    // 移动单张的判定/落地计划（并行阶段填充，阶段2串行消费）
+    
     private sealed record MovePlan(
         MemeModel Meme,
         MoveResult Result,
@@ -857,7 +857,7 @@ public class MemeDataEngine(ConfigService _config)
         var oldDir = SafePath.CombineChildPath(_baseDir, safeOld);
         var newDir = SafePath.CombineChildPath(_baseDir, safeNew);
         if (!Directory.Exists(oldDir)) return false;
-        if (Directory.Exists(newDir)) return false; // 目标已存在，避免覆盖
+        if (Directory.Exists(newDir)) return false; 
 
         try
         {
@@ -869,7 +869,7 @@ public class MemeDataEngine(ConfigService _config)
             return false;
         }
 
-        // 更新内存缓存中该分类下表情的路径与分类名
+        
         foreach (var m in _memeCache)
         {
             if (m.Category.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
@@ -879,14 +879,14 @@ public class MemeDataEngine(ConfigService _config)
             }
         }
 
-        // 若当前记录的上次分类是被重命名的，同步更新
+        
         if (Config.LastCategory.Equals(safeOld, StringComparison.OrdinalIgnoreCase))
         {
             Config.LastCategory = safeNew;
             await SaveConfigAsync();
         }
 
-        // 同步更新分类顺序表中的 key（保留原优先级）
+        
         if (_categoryOrder.TryGetValue(safeOld, out var prio))
         {
             _categoryOrder.Remove(safeOld);
@@ -909,8 +909,8 @@ public class MemeDataEngine(ConfigService _config)
         var dir = SafePath.CombineChildPath(_baseDir, SanitizeCategory(category));
         var meta = await LoadCategoryMetadataAsync(dir);
 
-        // 按给定顺序整体重算：列表最前（索引0）拿最大优先级，依次递减，
-        // 以契合“Priority 越大越靠前（左）”的展示规则
+        
+        
         uint p = (uint)orderedFileNames.Count;
         bool changed = false;
         foreach (var fileName in orderedFileNames)
@@ -921,7 +921,7 @@ public class MemeDataEngine(ConfigService _config)
                 p--;
             }
         }
-        // 兜底：列表中未涵盖的 item（理论上不应出现），顺延补上更小的值
+        
         uint tail = 0;
         foreach (var kv in meta.Items)
             if (kv.Value.Priority == 0 && !orderedFileNames.Contains(kv.Key))
@@ -930,7 +930,7 @@ public class MemeDataEngine(ConfigService _config)
                 tail++;
             }
 
-        // 顺序未变则跳过写盘，避免每次拖拽落点都重写 metadata。
+        
         if (changed)
             await SaveCategoryMetadataAsync(dir, meta);
 
@@ -944,7 +944,7 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    // ---------- 重命名（仅改 metadata 里的 title） ----------
+    
 
     public async Task RenameMemeAsync(MemeModel meme, string newTitle)
     {
@@ -959,7 +959,7 @@ public class MemeDataEngine(ConfigService _config)
 
         await SaveCategoryMetadataAsync(dir, meta);
 
-        // 更新内存缓存与标题反查表
+        
         if (_titleReverseMap.TryGetValue(meme.Title, out var list))
         {
             list.Remove(meme.FileName);
@@ -969,13 +969,13 @@ public class MemeDataEngine(ConfigService _config)
         IndexTitle(meme);
     }
 
-    // ---------- 删除 ----------
+    
 
     public async Task DeleteMemesAsync(IEnumerable<MemeModel> memes, IProgress<BatchProgress>? progress = null)
     {
         var list = memes.ToList();
         uint total = (uint)list.Count;
-        // 进度计数器：阶段1 每完成一项（删除 IO 完毕）计数一次，阶段2 不再报，避免重复计数。
+        
         long ioDone = 0;
         var byCategory = list.GroupBy(m => m.Category, StringComparer.OrdinalIgnoreCase);
         foreach (var group in byCategory)
@@ -984,7 +984,7 @@ public class MemeDataEngine(ConfigService _config)
             var meta = await LoadCategoryMetadataAsync(categoryDir);
             var groupList = group.ToList();
 
-            // 阶段1：并行删除物理文件（IO 并行，互不依赖；失败静默忽略）
+            
             var delPo = new ParallelOptions { MaxDegreeOfParallelism = ImportParallelism };
             await Parallel.ForEachAsync(groupList, delPo, async (meme, _) =>
             {
@@ -997,7 +997,7 @@ public class MemeDataEngine(ConfigService _config)
                 progress?.Report(new BatchProgress(d, total));
             });
 
-            // 阶段2：串行更新内存缓存与 metadata（共享字典/集合必须串行，纯内存极快）
+            
             foreach (var meme in groupList)
             {
                 meta.Items.Remove(meme.FileName);
@@ -1014,7 +1014,7 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    // 仅从内存缓存移除（文件已消失、metadata 由监听刷新负责），供文件监听回调使用
+    
     public void RemoveMemesFromCache(IEnumerable<MemeModel> memes)
     {
         foreach (var meme in memes)
@@ -1029,14 +1029,14 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    // ---------- 分类管理 ----------
+    
 
     public async Task<bool> AddCategoryAsync(string category)
     {
         var trimmed = (category ?? string.Empty).Trim();
-        // 非法分类名（"."/".."、路径分隔符、非法字符、尾随点/空格、设备名等，见 FileNameValidator）
-        // 直接拒绝并返回 false——不静默兜底成"未分类"。静默改名会造成"UI 显示输入名、磁盘目录是
-        // 兜底名"的脏状态；非法名由 UI 层弹窗提示（ShowAddCategoryDialog / PromptCategoryForPasteAsync）。
+        
+        
+        
         if (!FileNameValidator.IsValidCategoryName(trimmed))
             return false;
 
@@ -1046,8 +1046,8 @@ public class MemeDataEngine(ConfigService _config)
         {
             Directory.CreateDirectory(dir);
             await SaveCategoryMetadataAsync(dir, new CategoryMetadata());
-            // 新分类默认优先级 0（排在同优先级最后），并持久化顺序。
-            // 用净化后的 trimmed（此前用原始 category，兜底改名时顺序表 key 与磁盘目录名对不上）。
+            
+            
             _categoryOrder[trimmed] = 0;
             await SaveCategoryOrderAsync();
             Logger.Log($"[Engine] 创建分类: {trimmed}");
@@ -1055,8 +1055,8 @@ public class MemeDataEngine(ConfigService _config)
         }
         catch (Exception ex)
         {
-            // 写入失败（无写权限等）不抛异常，保证调用方（尤其是启动流程）能继续启动；
-            // 记录详情供上层弹窗提示用户去设置里改目录。
+            
+            
             LastDefaultCategoryWriteError = $"{dir}: {ex.GetType().Name}: {ex.Message}";
             Logger.Log($"[Engine] 创建分类失败({trimmed}): {LastDefaultCategoryWriteError}");
             return false;
@@ -1083,7 +1083,7 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    // ---------- 分类删除 ----------
+    
 
     public async Task<bool> DeleteCategoryAsync(string category)
     {
@@ -1092,7 +1092,7 @@ public class MemeDataEngine(ConfigService _config)
 
         try
         {
-            // 1. 从内存缓存移除该分类下所有表情，并清理标题反查 Map
+            
             var toRemove = _memeCache.Where(m => m.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
             foreach (var m in toRemove)
             {
@@ -1105,10 +1105,10 @@ public class MemeDataEngine(ConfigService _config)
                 }
             }
 
-            // 2. 删除整个分类文件夹（图片 + .metadata.json）
+            
             Directory.Delete(dir, recursive: true);
 
-            // 3. 从分类顺序表移除该分类
+            
             _categoryOrder.Remove(SanitizeCategory(category));
             await SaveCategoryOrderAsync();
 
@@ -1122,7 +1122,7 @@ public class MemeDataEngine(ConfigService _config)
         }
     }
 
-    // ---------- metadata 读写 ----------
+    
 
     private async Task<CategoryMetadata> LoadCategoryMetadataAsync(string categoryDir)
     {
@@ -1148,28 +1148,28 @@ public class MemeDataEngine(ConfigService _config)
         await File.WriteAllTextAsync(metaPath, json);
     }
 
-    // ---------- 工具 ----------
+    
 
-    // metadata 键（fileName）安全校验：必须是纯文件名（无路径分隔符、非 "."/".."、非绝对路径）
-    // 且扩展名在图片白名单内。用于加载 .metadata.json 时过滤被篡改的条目（安全审计 Medium）。
+    
+    
     private static bool IsSafeMetadataFileName(string? fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName)) return false;
-        // 含路径分隔符 / 绝对路径 / 以 ".." 逃逸的键：Path.GetFileName 会剥离出最后的文件名，
-        // 与原值不一致即拒绝（"a\\b" → "b"；"..\\..\\secret.txt" → "secret.txt"；"C:\\x" → "x"）
+        
+        
         if (!fileName.Equals(Path.GetFileName(fileName), StringComparison.Ordinal))
             return false;
         if (fileName is "." or "..")
             return false;
-        // 扩展名必须在图片白名单内（防非图片文件进入库后被 shell 打开）
+        
         return AppConstants.IsImage(Path.GetExtension(fileName));
     }
 
     private static string SanitizeCategory(string category)
     {
-        // 严格校验（FileNameValidator.IsValidCategoryName）：拒绝 "."/".."、路径分隔符、非法字符、
-        // 尾随点/空格、Windows 保留设备名（CON/COM1 等）。此前仅过滤非法字符会放过 ".."，
-        // 导致 Path.Combine(_baseDir, "..") 越界写/递归删父目录（安全审计 Critical）。
+        
+        
+        
         var trimmed = (category ?? string.Empty).Trim();
         if (!FileNameValidator.IsValidCategoryName(trimmed))
             return AppConstants.UncategorizedCategory;

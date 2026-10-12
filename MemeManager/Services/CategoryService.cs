@@ -28,8 +28,8 @@ public class CategoryService
     public Task<bool> RenameCategoryAsync(string oldName, string newName) =>
         _engine.RenameCategoryAsync(oldName, newName);
 
-    // 计算各分类图片数 + "全部表情"总数（基于内存缓存，避免每分类一次 GetMemes 临时分配）。
-    // 返回 (分类名→数量, 总数)；写入 VM 对象的动作由调用方完成（服务不持有 VM 引用）。
+    
+    
     public (Dictionary<string, int> counts, int total) ComputeCounts()
     {
         var cache = _engine.GetAllMemes();

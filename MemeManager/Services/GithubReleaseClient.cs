@@ -23,7 +23,7 @@ public sealed class GithubReleaseClient : UpdateServiceClientBase
             if (!doc.RootElement.TryGetProperty("tag_name", out var tag))
                 return null;
             var tagName = tag.GetString();
-            // 只认合法版本号，远端数据异常（乱串）时不当作版本
+            
             return VersionString.TryParse(tagName, out _) ? tagName : null;
         }
         catch (Exception ex)

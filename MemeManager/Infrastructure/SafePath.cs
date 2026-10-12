@@ -32,13 +32,13 @@ public static class SafePath
         return fullPath;
     }
 
-    /// <summary>
-    /// candidate 是否为 basePath 的严格子路径（规范化后比较）。
-    /// 返回 false 的情况：candidate == basePath、跨盘（Path.GetRelativePath 返回绝对路径）、
-    /// 以 ".." 逃逸到 basePath 之外。
-    /// 注意：不能简单用 relative.StartsWith("..")——合法文件名如 "..hidden" 的相对路径
-    /// 是 "..hidden"，会被误判为逃逸；必须精确匹配 ".." 或以 ".." + 分隔符开头。
-    /// </summary>
+    
+    
+    
+    
+    
+    
+    
     public static bool IsSubPathOf(string basePath, string candidate)
     {
         if (string.IsNullOrWhiteSpace(basePath) || string.IsNullOrWhiteSpace(candidate))
@@ -47,17 +47,17 @@ public static class SafePath
         string fullBase = Path.TrimEndingDirectorySeparator(Path.GetFullPath(basePath));
         string fullCandidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidate));
 
-        // 等于 base 本身不算“子”路径
+        
         if (fullCandidate.Equals(fullBase, StringComparison.OrdinalIgnoreCase))
             return false;
 
         string relative = Path.GetRelativePath(fullBase, fullCandidate);
 
-        // 跨盘：GetRelativePath 返回绝对路径（如 "D:\x"）
+        
         if (Path.IsPathFullyQualified(relative))
             return false;
 
-        // 精确逃逸判定：relative == ".." 或以 "..\" / "../" 开头
+        
         if (relative.Equals("..", StringComparison.OrdinalIgnoreCase))
             return false;
         if (relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)

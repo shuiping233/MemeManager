@@ -25,6 +25,6 @@ public static class Localization
         }
     }
 
-    // 取本地化字符串；未初始化或缺失时返回 key 本身，避免界面空白。
+    
     public static string Get(string key) => Instance?.GetLocalizedString(key) ?? key;
 }

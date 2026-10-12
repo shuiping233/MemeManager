@@ -24,13 +24,13 @@ public readonly record struct MemorySnapshot(
     int Gen1Collections = -1,
     int Gen2Collections = -1)
 {
-    /// <summary>采集当前进程快照（依赖 Process/GC，不做单测）。</summary>
-    /// <param name="liveBitmapImages">VM 仍持有的 BitmapImage 数量；负数表示不采集。</param>
-    /// <param name="pageAlive">页面弱引用探针结果；null 表示本次未探测。</param>
+    
+    
+    
     public static MemorySnapshot Capture(int liveBitmapImages = -1, bool? pageAlive = null)
     {
         using var process = Process.GetCurrentProcess();
-        // Process 的计数器是"最近一次刷新"的快照值，显式 Refresh 以免采样时机误差。
+        
         process.Refresh();
         return new MemorySnapshot(
             GC.GetTotalMemory(false),
@@ -44,13 +44,13 @@ public readonly record struct MemorySnapshot(
             GC.CollectionCount(2));
     }
 
-    /// <summary>
-    /// 拼成一行日志（纯函数，可单测）。例：
-    /// <c>[Memory] Idle#1 after: Managed=3.4MB Private=137.8MB WorkingSet=2.6MB LiveBitmapImages=0 AllocTotal=14.8MB GC=10/10/10</c>
-    ///
-    /// 判读要点：`AllocTotal` 是**累计分配量**（只增不减，涨 ≠ 泄漏）；`GC` 是 0/1/2 代回收次数。
-    /// 两者配合才能区分"真泄漏"与"垃圾还没被 GC 回收"。
-    /// </summary>
+    
+    
+    
+    
+    
+    
+    
     public string ToLogLine(string tag)
     {
         var parts = new List<string>(8)
@@ -60,7 +60,7 @@ public readonly record struct MemorySnapshot(
             $"WorkingSet={MemoryDiagnostics.FormatMB(WorkingSetBytes)}",
         };
 
-        // 未采集的项省略，避免日志里出现误导性的 -1。
+        
         if (LiveBitmapImages >= 0)
             parts.Add($"LiveBitmapImages={LiveBitmapImages}");
         if (PageAlive.HasValue)
@@ -74,31 +74,31 @@ public readonly record struct MemorySnapshot(
     }
 }
 
-/// <summary>
-/// 内存诊断与后台回收动作的唯一入口（开关 / 采集 / 格式化 / GC / 工作集裁剪），便于后续调试直接调用。
-/// 诊断开关见 <see cref="AppConstants.EnableMemoryDiagnostics"/>；后台回收的延迟见
-/// <see cref="AppConstants.WorkingSetTrimDelay"/>。
-/// </summary>
+
+
+
+
+
 public static class MemoryDiagnostics
 {
-    /// <summary>诊断总开关：关闭时零输出、零采集（回收动作不受它影响）。</summary>
+    
     public static bool Enabled => AppConstants.EnableMemoryDiagnostics;
 
     public static MemorySnapshot Capture(int liveBitmapImages = -1, bool? pageAlive = null)
         => MemorySnapshot.Capture(liveBitmapImages, pageAlive);
 
-    /// <summary>按开关输出一行快照。只在隐藏/呼出等低频时点调用。</summary>
+    
     public static void Log(string tag, int liveBitmapImages = -1, bool? pageAlive = null)
     {
         if (!Enabled) return;
         Logger.Log(Capture(liveBitmapImages, pageAlive).ToLogLine(tag));
     }
 
-    /// <summary>字节 → MB 文本（1 位小数；负数用于差值）。纯函数。</summary>
+    
     public static string FormatMB(long bytes)
         => ((bytes / (1024.0 * 1024.0)).ToString("F1", CultureInfo.InvariantCulture)) + "MB";
 
-    /// <summary>差值文本：<c>-90.5MB (-33.4%)</c>；before 为 0 时百分比退化为 <c>n/a</c>。纯函数。</summary>
+    
     public static string FormatDelta(long before, long after)
     {
         long delta = after - before;
@@ -108,10 +108,10 @@ public static class MemoryDiagnostics
         return $"{FormatMB(delta)} ({percent})";
     }
 
-    /// <summary>
-    /// 强制压缩式 GC（含 LOH 压缩）+ 跑完终结器队列。
-    /// 必须等"元素已从视觉树摘除"若干秒后再跑才有效——隐藏瞬间跑几乎回收不到东西（WinRT 引用尚未断）。
-    /// </summary>
+    
+    
+    
+    
     public static void CompactManagedHeap()
     {
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
@@ -119,10 +119,10 @@ public static class MemoryDiagnostics
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
 
-    /// <summary>
-    /// 裁剪进程工作集（EmptyWorkingSet）。返回是否成功。
-    /// 只压 Working Set，对 Private Bytes 零贡献（实测）；效果是暂时的，页会被后续访问自然回填。
-    /// </summary>
+    
+    
+    
+    
     public static bool EmptyProcessWorkingSet()
     {
         using var process = Process.GetCurrentProcess();

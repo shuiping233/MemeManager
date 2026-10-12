@@ -7,14 +7,14 @@ namespace MemeManager.Infrastructure;
 // 无需在代码里硬编码语言列表。所有涉及语言更改的地方都只调用这里，避免散落。
 public static class LangHelper
 {
-    // “跟随系统”选项对应的语言代码（持久化到配置时写作 "system"）。
+    
     public const string SystemLanguage = "System";
 
-    // 应用实际支持的语言：扫描 Strings 目录下的子目录得到（如 ["zh-CN","en-US"]）。
-    // 仅保留含 Resources.resw 的子目录，避免列出无文案的空目录。
+    
+    
     public static IReadOnlyList<string> SupportedLanguages { get; } = DiscoverLanguages();
 
-    // 默认语言：系统语言不被支持时的兜底。优先 zh-CN，否则取首个发现的语言。
+    
     public static string DefaultLanguage { get; } =
         SupportedLanguages.FirstOrDefault(l => l.Equals("zh-CN", StringComparison.OrdinalIgnoreCase))
         ?? SupportedLanguages.FirstOrDefault()
@@ -53,8 +53,8 @@ public static class LangHelper
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
     }
 
-    // 解析某语言的下拉显示名：优先取 resw 的 Settings_Language_<code>，
-    // 缺失（返回 key 本身或空串）时回退到 CultureInfo 本地名，保证不出现空白/原始 key。
+    
+    
     private static string ResolveLanguageDisplayName(string code)
     {
         var key = $"Settings_Language_{code}";
@@ -67,8 +67,8 @@ public static class LangHelper
         return display;
     }
 
-    // 构建下拉项：首项固定“跟随系统”，其余按 SupportedLanguages 顺序。
-    // 显示名取自 resw 的 Settings_Language_<code>（跟随系统取 Settings_Language_System）。
+    
+    
     public static System.Collections.Generic.List<LanguageOption> BuildLanguageOptions()
     {
         var options = new System.Collections.Generic.List<LanguageOption>
@@ -82,8 +82,8 @@ public static class LangHelper
         return options;
     }
 
-    // 切换语言后，原地刷新已有下拉项的显示名（按 Code 匹配），避免重设 ItemsSource
-    // 导致 ComboBox 重新选择并递归触发 SelectionChanged。
+    
+    
     public static void RefreshLanguageOptions(IList<LanguageOption> options)
     {
         foreach (var opt in options)
@@ -95,7 +95,7 @@ public static class LangHelper
         }
     }
 
-    // 配置里 Language 为空或 "system"（首次启动/跟随系统）时，返回系统语言（fallback 到默认语言）。
+    
     public static string ResolveEffectiveLanguage(string? configured)
     {
         if (!string.IsNullOrWhiteSpace(configured) && !configured!.Equals(SystemLanguage, StringComparison.OrdinalIgnoreCase))
@@ -106,7 +106,7 @@ public static class LangHelper
         return DetectSystemLanguage();
     }
 
-    // 探测系统语言：取 Windows 显示语言，命中支持列表则返回，否则兜底默认语言。
+    
     public static string DetectSystemLanguage()
     {
         try
@@ -115,7 +115,7 @@ public static class LangHelper
                 ? Windows.System.UserProfile.GlobalizationPreferences.Languages[0]
                 : CultureInfo.CurrentCulture.Name;
 
-            // 先精确匹配，再按主语言(如 en / zh)匹配，最后兜底。
+            
             if (Array.Exists(SupportedLanguages.ToArray(), l => l.Equals(sys, StringComparison.OrdinalIgnoreCase)))
                 return sys;
 
@@ -128,13 +128,13 @@ public static class LangHelper
         }
         catch
         {
-            // 探测失败：保持兜底
+            
         }
 
         return DefaultLanguage;
     }
 
-    // 下拉索引 -> 语言代码。0(跟随系统) 返回空字符串，表示“使用系统语言”。
+    
     public static string? LangCodeFromIndex(int idx, IList<LanguageOption> options)
     {
         if (idx < 0 || idx >= options.Count)
@@ -143,11 +143,11 @@ public static class LangHelper
         return string.IsNullOrEmpty(code) ? SystemLanguage : code;
     }
 
-    // 语言代码(含 null/空=跟随系统) -> 下拉索引。
+    
     public static int IndexFromLangCode(string? code, IList<LanguageOption> options)
     {
         if (string.IsNullOrWhiteSpace(code))
-            return 0; // 首项固定为“跟随系统”
+            return 0; 
         for (int i = 0; i < options.Count; i++)
         {
             if (options[i].Code.Equals(code, StringComparison.OrdinalIgnoreCase))
@@ -156,8 +156,8 @@ public static class LangHelper
         return 0;
     }
 
-    // 运行时切换语言：写入配置并立即生效（库支持不重启切换）。
-    // 传 null/空/"system" 均表示“跟随系统”，统一持久化为 "system"。
+    
+    
     public static void SetLanguage(string? code)
     {
         try

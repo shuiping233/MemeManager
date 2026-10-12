@@ -24,21 +24,21 @@ public static class FileNameValidator
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
-        // "." / ".."：目录逃逸根子（".. " 之类尾随空格形态由下方 EndsWith 拦截）
+        
         if (name is "." or "..")
             return false;
 
-        // 尾随点/空格：Windows 会静默吞掉（CreateDirectory("abc.") 实际建 "abc"），
-        // 导致磁盘目录名与分类名不一致，后续删除/重命名/打开全部错位。
+        
+        
         if (name.EndsWith('.') || name.EndsWith(' '))
             return false;
 
-        // 非法字符（含 / \ : * ? " < > | 与控制字符）
+        
         if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             return false;
 
-        // Windows 保留设备名：CON、PRN、AUX、NUL、COM1-9、LPT1-9（含 "CON.txt" 这种带扩展名形态）。
-        // 非安全边界：仅因 CreateDirectory("...CON") 会失败，提前拦截避免脏状态。
+        
+        
         string stem = name.Split('.')[0];
         if (ReservedDeviceNames.Contains(stem))
             return false;

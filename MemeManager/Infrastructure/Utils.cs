@@ -5,9 +5,9 @@ using Windows.Foundation;
 
 namespace MemeManager.Infrastructure;
 
-/// <summary>
-/// 与坐标 / 尺寸 / 缩放相关的纯几何计算，集中放在这里，避免散落到 XAML 事件回调里。
-/// </summary>
+
+
+
 public static class Utils
 {
     /// <summary>
@@ -64,7 +64,7 @@ public static class Utils
                 break;
         }
 
-        // 首选方向放不下则依次尝试其它方向
+        
         if (!Fits(x, y, popupWidth, popupHeight, workArea))
         {
             if (actual == Placement.Above && Fits(overlapX, below, popupWidth, popupHeight, workArea))
@@ -85,7 +85,7 @@ public static class Utils
             }
         }
 
-        // 最后兜底：硬夹进工作区，保证可见
+        
         x = Clamp(x, workArea.X, Math.Max(workArea.X, workArea.Right - popupWidth));
         y = Clamp(y, workArea.Y, Math.Max(workArea.Y, workArea.Bottom - popupHeight));
 

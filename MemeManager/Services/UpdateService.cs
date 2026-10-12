@@ -24,23 +24,22 @@ public partial class UpdateService : ObservableObject
     public UpdateService(IEnumerable<IUpdateServiceClient> clients)
         => _clients = clients.ToArray();
 
-    // 最近一次检查得到的最新版本号（无结果时为 null）
+    
     [ObservableProperty]
     public partial string? LatestVersion { get; set; }
 
     [ObservableProperty]
     public partial UpdateCheckState CheckState { get; set; } = UpdateCheckState.Idle;
 
-    // 是否正在检查（防重入 + UI 可显示"检查中"）
+    
     [ObservableProperty]
     public partial bool IsChecking { get; set; }
 
-    // 是否有比当前版本更新的版本（按钮右上角 badge 的依据）。
-    // 当前版本是本地 dev build 等无法比较时恒为 false，不提示更新。
+    
+    
     public bool HasNewVersion { get; private set; }
 
     // 触发一次更新检查。进行中再次调用会被短路忽略（不需要锁）。
-    // 失败不重试（按设计）；用户可再次调用。
     public async Task CheckAsync()
     {
         if (IsChecking) return;
@@ -50,8 +49,8 @@ public partial class UpdateService : ObservableObject
         try
         {
             using var cts = new CancellationTokenSource();
-            // TryGetLatestAsync 兜底：个别源在"获取 Task 时"即同步抛异常
-            // （实现不守"失败返回 null"契约）也不能拖垮整体。
+            
+            
             var pending = _clients
                 .Select(c => TryGetLatestAsync(c, cts.Token))
                 .ToList();
@@ -69,13 +68,13 @@ public partial class UpdateService : ObservableObject
                 }
                 catch
                 {
-                    v = null; // 个别源抛异常不影响整体
+                    v = null; 
                 }
 
                 if (!string.IsNullOrWhiteSpace(v))
                 {
                     winner = v;
-                    cts.Cancel(); // 已拿到结果，取消其余源
+                    cts.Cancel(); 
                     break;
                 }
             }
@@ -101,8 +100,8 @@ public partial class UpdateService : ObservableObject
         }
     }
 
-    // 取 client 的查询任务；client 若在"获取 Task 阶段"即同步抛异常
-    // （实现不守"失败返回 null"契约），退化为 null 结果，不影响整体编排。
+    
+    
     private static Task<string?> TryGetLatestAsync(IUpdateServiceClient client, CancellationToken ct)
     {
         try

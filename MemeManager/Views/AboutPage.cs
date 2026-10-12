@@ -5,11 +5,11 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace MemeManager.Views;
 
-// 关于弹窗：经典 Windows 风格关于框（Logo + 简介 + 开源许可 + 作者 + 项目/依赖链接）。
-// 从 SettingsPage 抽离，保持 SettingsPage 整洁。
+
+
 public static class AboutPage
 {
-    // 左对齐的链接按钮：去掉默认内边距使文本左边缘与上方文本对齐，整体靠左。
+    
     private static HyperlinkButton MakeLink(string textKey, string uri)
         => new()
         {

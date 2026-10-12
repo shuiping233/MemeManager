@@ -108,7 +108,7 @@ public class ClipboardService
 
         try
         {
-            // 复用“仅复制到剪贴板”的逻辑，随后模拟 Ctrl+V 粘贴到前台窗口
+            
             await CopyImageToClipboardAsync(filePath);
 
             // 数据改为延迟提供（SetDataProvider 异步构造），粘贴前多等一会确保
@@ -145,7 +145,7 @@ public class ClipboardService
             System.Threading.Thread.Sleep(20);
         }
 
-        // 构造 4 个按键动作：Ctrl按下 -> V按下 -> V弹起 -> Ctrl弹起
+        
         var inputs = new NativeMethods.INPUT[4];
 
         inputs[0].type = NativeMethods.INPUT_KEYBOARD;

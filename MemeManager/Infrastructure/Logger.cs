@@ -65,19 +65,19 @@ public static class Logger
                 }
                 catch
                 {
-                    // 写入失败（如文件被删/磁盘异常）：丢弃当前写入器，下次重建。
+                    
                     TryDisposeWriter();
                 }
             }
         }
         catch
         {
-            // 日志写入失败不应影响主程序
+            
         }
     }
 
-    // 确保写入器已打开且指向正确路径；路径变更或写入器为空时（重建/首次）重新打开。
-    // 重建失败有最短间隔保护，避免异常风暴。
+    
+    
     private static void EnsureWriter(string logDir, string logPath)
     {
         lock (_lock)

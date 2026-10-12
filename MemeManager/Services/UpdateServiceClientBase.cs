@@ -21,14 +21,14 @@ public abstract class UpdateServiceClientBase : IUpdateServiceClient
 
     public abstract Task<string?> GetLatestVersionAsync(CancellationToken ct = default);
 
-    // 发起 GET 并返回"解析来源文本"：优先取重定向 Location 头（307 场景），
-    // 否则取响应体（2xx）。任何异常/取消/非 2xx 且无 Location 均返回 null。
+    
+    
     protected static async Task<string?> FetchAsync(string sourceName, string url, CancellationToken ct)
     {
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            // GitHub API 强制要求 User-Agent，否则 403；对其他源无害，统一携带。
+            
             req.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
             using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
 
@@ -46,7 +46,7 @@ public abstract class UpdateServiceClientBase : IUpdateServiceClient
         }
         catch (OperationCanceledException)
         {
-            return null; // 超时或被 UpdateService 取消，均视为无结果
+            return null; 
         }
         catch (Exception ex)
         {

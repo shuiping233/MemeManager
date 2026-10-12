@@ -44,7 +44,7 @@ public class MemeOperationService
         return true;
     }
 
-    // 单张右键删除（已含确认弹窗 + 写锁守卫）。
+    
     public async Task DeleteMemeAsync(MemeModel model)
     {
         if (!await _ui.ConfirmDeleteMemeAsync(string.IsNullOrWhiteSpace(model.Title) ? model.FileName : model.Title))
@@ -60,7 +60,7 @@ public class MemeOperationService
             onUiComplete: () => Logger.Log($"右键删除「{model.Title}」"));
     }
 
-    // 批量删除选中项（已含确认弹窗 + 写锁守卫）；完成后清空网格选中态。
+    
     public async Task DeleteMemesAsync(IReadOnlyList<MemeModel> models)
     {
         if (models.Count == 0) return;
@@ -81,8 +81,8 @@ public class MemeOperationService
             });
     }
 
-    // 移动一组表情到目标分类（已含写锁守卫 + 冲突守卫）。
-    // 调用方负责解析"要移动哪些项"（如编辑模式下的选中项）；本方法只做执行与冲突拦截。
+    
+    
     public async Task MoveMemesAsync(IEnumerable<MemeModel> memes, string targetName)
     {
         var list = memes.ToList();
@@ -100,8 +100,8 @@ public class MemeOperationService
             onUiComplete: () => Logger.Log($"移动 {total} 张图片到分类「{targetName}」"));
     }
 
-    // 移动前 hash 冲突守卫：若目标分类已存在相同图片则弹模态提示并阻止移动，避免同名(hash)文件被静默覆盖。
-    // 返回 true 表示可继续移动。
+    
+    
     private async Task<bool> GuardMoveConflictAsync(IReadOnlyList<MemeModel> memes, string targetCategory)
     {
         var conflict = await _engine.FindMoveConflictAsync(memes, targetCategory);

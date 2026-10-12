@@ -26,7 +26,7 @@ public static class StartupManager
     {
         try
         {
-            // 仅判断 Run 项下是否存在本程序的键值，存在即视为已开启。
+            
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
             return key?.GetValue(AppName) != null;
         }
@@ -41,7 +41,7 @@ public static class StartupManager
     {
         try
         {
-            // 已写入则跳过，避免无意义的重复注册表写入。
+            
             if (IsEnabled())
                 return true;
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);

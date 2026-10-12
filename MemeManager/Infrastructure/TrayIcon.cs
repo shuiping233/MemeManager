@@ -20,7 +20,7 @@ public sealed class TrayIcon : IDisposable
     private readonly MemeDataEngine _engine;
     private bool _disposed;
 
-    // 菜单命令 ID
+    
     private const int CMD_SHOW = 1001;
     private const int CMD_TOGGLE_MODE = 1002;
     private const int CMD_SETTINGS = 1003;
@@ -35,11 +35,11 @@ public sealed class TrayIcon : IDisposable
 
     public static void SetMenuTheme(bool darkMenu)
     {
-        // 托盘菜单深色背景跟随应用主题：Dark 直接强制；System 先检测系统主题再决定；Light 不强制
-        // （保持系统默认浅色菜单）。uxtheme.dll 未文档化 API SetPreferredAppMode(ordinal #135, AllowDark=2)，
-        // 进程级生效，仅影响托盘这一个 Win32 经典菜单。Windows 更新可能改变行为（Win10 1809+/Win11 社区验证有效）。
-        // 未文档化 API 可能抛 EntryPointNotFoundException（未来 Windows 移除该 ordinal），
-        // 纯视觉设置失败不应影响启动，故 try-catch 兜底。
+        
+        
+        
+        
+        
         if (!darkMenu) return;
         try
         {
@@ -130,7 +130,7 @@ public sealed class TrayIcon : IDisposable
 
     public static IntPtr LoadAppIcon(string appIconPath)
     {
-        // 从 exe 运行目录的 AppIcon.ico 文件加载（LoadImage 已验证可用）
+        
         var path = appIconPath;
         if (File.Exists(path))
         {
@@ -189,7 +189,7 @@ public sealed class TrayIcon : IDisposable
             }
             catch { }
         }
-        // 回退到系统图标
+        
         return NativeMethods.LoadIcon(IntPtr.Zero, (IntPtr)IDI_APPLICATION);
     }
 
@@ -213,7 +213,7 @@ public sealed class TrayIcon : IDisposable
         NativeMethods.RemoveWindowSubclass(_hwnd, _subclassProc, TRAY_ICON_ID);
     }
 
-    // ---------- 常量与结构体 ----------
+    
 
     private const uint NIF_MESSAGE = 0x1;
     private const uint NIF_ICON = 0x2;

@@ -32,9 +32,9 @@ internal static partial class EcoQos
     private static partial bool SetThreadInformation(
         IntPtr hThread, int threadInformationClass, IntPtr lpThreadInformation, uint cb);
 
-    // ---------- 进程级 EcoQoS（任务管理器“效率模式”小绿叶）----------
+    
 
-    // SetProcessInformation 的 ProcessInformationClass
+    
     private const int ProcessPowerThrottling = 4;
 
     [LibraryImport("kernel32.dll")]
@@ -64,10 +64,10 @@ internal static partial class EcoQos
     [ThreadStatic]
     private static bool _applied;
 
-    /// <summary>
-    /// 在当前线程上套用 EcoQoS 节流（若配置开启且系统支持）。
-    /// 建议在后台工作线程的入口处调用一次（线程池线程每次复用都需重新设置）。
-    /// </summary>
+    
+    
+    
+    
     public static void ApplyIfEnabled()
     {
         if (_applied) return;
@@ -134,8 +134,8 @@ internal static partial class EcoQos
                 var ok = SetProcessInformation(
                     GetCurrentProcess(), ProcessPowerThrottling, ptr, size);
 
-                // 任务管理器的小绿叶依赖进程优先级被降级：仅设 PowerThrottling 不会显示叶子，
-                // 需配合 SetPriorityClass 到 IDLE（EnergyStarX 同款做法）。
+                
+                
                 var priOk = SetPriorityClass(
                     GetCurrentProcess(), enable ? IDLE_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
 

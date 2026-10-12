@@ -42,15 +42,15 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         _config = config;
     }
 
-    /// <summary>
-    /// 是否应当启动隐藏态回收（纯函数，可单测）：总开关开启，且回收延迟 &gt; 0（&lt;= 0 表示整体禁用）。
-    /// </summary>
+    
+    
+    
     public static bool ShouldStart(bool aggressiveEnabled, BackgroundMemoryOptions options)
         => aggressiveEnabled && options.FirstTrimDelay > TimeSpan.Zero;
 
     public void BeginHiddenSession()
     {
-        // 总开关关闭：完全不介入，隐藏流程保持"只做 x:Load 卸载 + 一次 GC"的原有行为。
+        
         if (!ShouldStart(_config.Config.AggressiveBackgroundReclaim, _options)) return;
 
         _cts?.Cancel();
@@ -68,7 +68,7 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         _cts = null;
     }
 
-    // 隐藏后只做一次：延迟到点（期间被呼出即取消）→ 回收。
+    
     private async Task RunAsync(CancellationToken token)
     {
         if (_options.FirstTrimDelay <= TimeSpan.Zero) return;
@@ -76,7 +76,7 @@ public sealed class BackgroundMemoryReclaimer : IBackgroundMemoryReclaimer
         Reclaim();
     }
 
-    // 一次回收动作：强制压缩 GC（含终结器队列，这一步才是拿回 Private Bytes 的）+ 裁剪工作集。
+    
     private void Reclaim()
     {
         MemoryDiagnostics.CompactManagedHeap();

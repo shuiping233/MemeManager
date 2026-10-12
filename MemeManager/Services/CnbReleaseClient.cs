@@ -20,7 +20,7 @@ public sealed class CnbReleaseClient : UpdateServiceClientBase
         Logger.Log($"[UpdateCheck] 从 CNB Release 请求到了最新版本号");
 
         var tag = path.Trim().Split('/').LastOrDefault();
-        // 只认合法版本号，远端数据异常（乱串）时不当作版本
+        
         return VersionString.TryParse(tag, out _) ? tag : null;
     }
 }

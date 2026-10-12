@@ -60,7 +60,7 @@ public sealed class ReuseStrategy : IMemeListStrategy
             .FirstOrDefault(x => x.m.FileName.Equals(anchorFileName, StringComparison.OrdinalIgnoreCase))?.i ?? -1;
         if (anchorIdx < 0) return null;
 
-        // 落点插入位置 = 锚点项之前、且不属于被拖组的元素个数
+        
         int insertAt = 0;
         for (int i = 0; i < anchorIdx; i++)
             if (!groupNames.Contains(list[i].FileName)) insertAt++;

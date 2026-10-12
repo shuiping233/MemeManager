@@ -17,8 +17,8 @@ public readonly struct VersionString : IComparable<VersionString>
         _prerelease = prerelease;
     }
 
-    // 解析版本号字符串；失败（空/含非数字段/如本地 dev build 的
-    // "2026-07-14 12:00:00 dev build"）返回 false。
+    
+    
     public static bool TryParse(string? s, out VersionString version)
     {
         version = default;
@@ -63,15 +63,15 @@ public readonly struct VersionString : IComparable<VersionString>
             if (a != b) return a.CompareTo(b);
         }
 
-        // 主版本相同：正式版（无后缀）高于任何预发布版；同为预发布按字典序
+        
         bool hasPre = _prerelease.Length > 0;
         bool otherHasPre = other._prerelease.Length > 0;
         if (hasPre != otherHasPre) return hasPre ? -1 : 1;
         return string.CompareOrdinal(_prerelease, other._prerelease);
     }
 
-    // latest 是否严格新于 current。任一方无法解析（如本地 dev build）一律视为
-    // false——不提示更新（自己编译的版本无需被催更；远端数据异常也不误报）。
+    
+    
     public static bool IsNewer(string? latest, string? current)
     {
         if (!TryParse(latest, out var l)) return false;
@@ -80,10 +80,7 @@ public readonly struct VersionString : IComparable<VersionString>
     }
 
     // 当前版本是否为开发版构建（如本地构建的 "2026-07-14 12:00:00 dev build"）。
-    // 注意不能靠 TryParse 判定：日期里的 '-' 会被当成预发布分隔符，
-    // "2026-07-14 12:00:00 dev build" 会被解析成主版本 2026 + 后缀而"成功"，
-    // 误判为合法正式版。此类版本没有语义化版本号：仍可走检查流程拿远端版本号，
-    // 但无法判断更新状态。
+    // 注意不能靠 TryParse 判定：因为日期里的 '-' 会被当成预发布分隔符
     public static bool IsDevBuild(string? version)
         => !string.IsNullOrWhiteSpace(version)
            && version.EndsWith("dev build", StringComparison.OrdinalIgnoreCase);

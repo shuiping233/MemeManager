@@ -116,7 +116,7 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool IsIconic(IntPtr hWnd);
 
-    // ---------- 拖放文件（WM_DROPFILES，兼容 QQ 等来源的拖入）----------
+    
 
     [DllImport("shell32.dll")]
     public static extern void DragAcceptFiles(IntPtr hWnd, bool fAccept);
@@ -132,7 +132,7 @@ internal static partial class NativeMethods
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int GetKeyNameTextW(int lParam, System.Text.StringBuilder lpString, int cchSize);
 
-    // 引入窗口子类化 API
+    
     [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, IntPtr dwRefData);
@@ -140,7 +140,7 @@ internal static partial class NativeMethods
     [LibraryImport("comctl32.dll", EntryPoint = "DefSubclassProc")]
     public static partial IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
 
-    // --- 键盘输入模拟相关定义 ---
+    
     public const int INPUT_KEYBOARD = 1;
     public const uint KEYEVENTF_KEYUP = 0x0002;
     public const ushort VK_CONTROL = 0x11;
@@ -200,7 +200,7 @@ internal static partial class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
-    // ---------- 系统托盘 (NotifyIcon) ----------
+    
 
     [DllImport("shell32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern bool Shell_NotifyIcon(uint dwMessage, ref TrayNotifyIconData lpData);
@@ -260,7 +260,7 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool RemoveWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass);
 
-    // ---------- 线程级效率模式（EcoQoS）----------
+    
 
     [LibraryImport("kernel32.dll")]
     public static partial IntPtr GetCurrentThread();
