@@ -221,6 +221,7 @@ The app's languages are driven by resource files under `Strings/`. For details o
 - Similar projects
   - [SuzuEmojy] : similar project, a meme manager based on Python3 and Qt6.
   - [OhMyMeme] : similar project, a meme manager based on Python3 and Webview2, which can import memes from chat apps like QQ/WeChat with one click, and supports saving and syncing memes to cloud storage services.
+  - [MemePanel] : similar project, a meme managemer based on "pure C + Win32 + GDI+", with no linking to the C runtime and zero third-party dependencies, measured at about 12 MB of private memory in hidden state as a tray-resident app.
   - [StickersManager2] : similar project, a meme manager based on C++20 and QT6.
   - [MSearcher] : An earlier similar project, a meme manager based on Electron, "quickly organize and search your meme images or stickers", supports OCR renaming.
   - [EmoKit] : similar project, a meme manager based on Python3, Qt5 and QFluentWidgets.
@@ -243,6 +244,7 @@ The app's languages are driven by resource files under `Strings/`. For details o
 [EmoticonTool]: https://github.com/xcsbhjz/EmoticonTool
 [emoji-manager]: https://github.com/morinoyuki/emoji-manager-releases
 [EmojiManager]: https://github.com/Natsukage/EmojiManager
+[MemePanel]: https://github.com/Traveritas/MemePanel
 
 [Windows App Runtime]: https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads
 [.NET 10 Desktop Runtime]: https://dotnet.microsoft.com/download/dotnet/10.0

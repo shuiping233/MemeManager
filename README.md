@@ -235,6 +235,7 @@ Mini模式时, 主窗口置顶状态跟随Full模式的置顶状态, 提供基�
 - 同类项目
   - [SuzuEmojy] : 同类项目, 基于Python3和Qt6开发的表情管理器, "一个专注于 Windows 的本地表情包管理工具"
   - [OhMyMeme] : 同类项目, 基于Python3和Webview2开发的表情管理器, 可从QQ/微信等聊天应用一键导入表情包, 且支持将表情包保存和同步到网络存储服务中
+  - [MemePanel] : 同类项目, 基于"纯 C + Win32 + GDI+ "不链接 C 运行时，零第三方依赖"的"托盘常驻约 12 MB 为隐藏态实测的私有内存"的表情包管理工具
   - [StickersManager2] : 同类项目, 基于C++20和QT6开发的表情管理器
   - [MSearcher] : 较早期的同类项目, 基于Electron开发的表情管理器, "可以快速地整理和搜索你的 meme 图或表情包", 支持OCR重命名
   - [EmoKit] : 同类项目, 基于Python3和Qt5和QFluentWidgets开发的表情管理器
@@ -257,6 +258,7 @@ Mini模式时, 主窗口置顶状态跟随Full模式的置顶状态, 提供基�
 [EmoticonTool]: https://github.com/xcsbhjz/EmoticonTool
 [emoji-manager]: https://github.com/morinoyuki/emoji-manager-releases
 [EmojiManager]: https://github.com/Natsukage/EmojiManager
+[MemePanel]: https://github.com/Traveritas/MemePanel
 
 [Windows App runtime]: https://learn.microsoft.com/zh-cn/windows/apps/windows-app-sdk/downloads
 [.NET 10 桌面运行时]: https://dotnet.microsoft.com/zh-cn/download/dotnet/10.0
