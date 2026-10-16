@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
@@ -10,6 +9,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using System.Collections.ObjectModel;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
 using Windows.System;
@@ -689,7 +689,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // （会话早期关闭才能避免插入占位撑开），此处无需再关；
             // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
             // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
-            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.AcceptedOperation = DataPackageOperation.Move;
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
@@ -698,7 +698,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         {
             // 分类自身重排序：开启 CanReorderItems，允许占位撑开动画
             CategoryList.CanReorderItems = true;
-            e.AcceptedOperation = DataPackageOperation.Move; // 分类自身重排序Move语义是必须而且争取e的
+            e.AcceptedOperation = DataPackageOperation.Move;
         }
     }
 
@@ -836,7 +836,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 写锁守卫 + 冲突守卫 + 后台移动均委托 MemeOperationService
             await _memeOps.MoveMemesAsync(memes, targetCat.Name);
         }
-        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.AcceptedOperation = DataPackageOperation.Move;
 
         // 由放下确认动画负责收起高亮（内部先摘 _hoveredCategoryItem，避免被 DragItemsCompleted 截断）
         if (sender is Grid droppedItem) PlayCategoryDropConfirmAnimation(droppedItem);
@@ -1104,10 +1104,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     {
         if (ViewModel.DraggingMemes != null && ViewModel.DraggingMemes.Count > 0)
         {
-            e.AcceptedOperation = DataPackageOperation.Copy;
+            // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致
+            e.AcceptedOperation = DataPackageOperation.Move;
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
-            e.DragUIOverride.IsGlyphVisible = false; // 父层后执行会覆盖子层的 false，得在这里也关掉，否则“复制 + 号”又会回来
+            e.DragUIOverride.IsGlyphVisible = true;
 
             // 高亮悬停的分类 item
             if (sender is Grid grid && !ReferenceEquals(_hoveredCategoryItem, grid))
@@ -1664,9 +1665,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             Log("DragItemsStarting: 设拖出格式失败（已放弃，不影响重排）: " + ex.Message);
         }
 
-        // 仅copy语义, 内部控件拖拽自行处理图片移动到分类逻辑细节
-        // 对外则默认copy, 以解决拖拽图片到外部程序时(资源管理器)会使用move语义导致图片被移出数据目录
-        e.Data.RequestedOperation = DataPackageOperation.Copy;
+        // 普通分类：Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收。
+        // 全部表情：仅声明 Copy（禁止内部移动/重排，不允许 Move 语义）。
+        // 仅声明 Copy 不会真的移走文件——外部按 Copy 取数据，文件仍留在数据目录。
+        var op = IsAllMemesView
+            ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy
+            : Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |
+            Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        e.Data.RequestedOperation = op;
     }
 
     // 拖拽完成。编辑模式下 WinUI 内置重排已把 _memeList 真正重排好，这里读顺序写回 Priority。
