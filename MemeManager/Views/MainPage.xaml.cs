@@ -1609,15 +1609,14 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SnapshotMemeOrders();
 
         // 拖出格式按配置分支：
-        //  - StorageFileDrag 关闭（默认，稳定优先）：仅用 SetBitmap + in-mem 流
-        //    （进程内、同公寓，释放无跨公寓 COM 开销，安全）。单张任意类型（含 GIF）都设 Bitmap 流，
-        //    老 QQ 认 Bitmap 格式（静态图可拖入；GIF 会变为静态图，已知代价）。
-        //  - StorageFileDrag 开启（恢复文件拖出）：改用 SetDataProvider 延迟提供 StorageItems
-        //    （+单张非 GIF 兜底 Bitmap）。拖放目标真正请求时才异步取 StorageFile，不在
+        //  - StorageFileDrag 开启：
+        //    已经验证, 确认 SetDataProvider 路径稳定, 不再存在
         //    DragItemsStarting 同步构造跨公寓 COM 对象，从而避开 DataPackage 析构时的释放竞态
-        //    (0x40080201 / 0xc000027b)。可让动态 GIF 等作为文件拖到 QQ，且不触发闪退。
-        //    【注：此分支稳定性有待验证，验证期内若出问题可关掉 StorageFileDrag 退回稳定路径】
-        // 内部重排(CanReorderItems)不读 DataPackage 内容，仅靠 Move 语义生效，互不影响。
+        //    (0x40080201 / 0xc000027b)的崩溃问题。
+        //  - StorageFileDrag 关闭：仅用 SetBitmap + in-mem 流
+        //    （进程内、同公寓，释放无跨公寓 COM 开销，安全）。单张任意类型（含 GIF）都设 Bitmap 流，
+        //     老 QQ 认 Bitmap 格式（静态图可拖入；GIF 会变为静态图，已知代价）。
+        // 内部重排(CanReorderItems)不读 DataPackage 内容，与拖出格式互不影响。
         try
         {
             var valid = group
