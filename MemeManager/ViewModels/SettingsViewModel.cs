@@ -96,7 +96,11 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     // 语言切换后重算动态文案（供设置页 LanguageComboBox 切换后调用）
-    public void RefreshLocalizedTexts() => OnPropertyChanged(nameof(CheckStateText));
+    public void RefreshLocalizedTexts()
+    {
+        OnPropertyChanged(nameof(CheckStateText));
+        RefreshCacheSize();
+    }
 
     // 手动检查更新：await 编排完成后状态经 PropertyChanged 自动刷新 UI
     [RelayCommand]
@@ -164,6 +168,55 @@ public partial class SettingsViewModel : ObservableObject
         {
             Logger.Log($"[Settings] 打开日志文件夹错误: {ex.Message}");
         }
+    }
+
+    // 拖出影子副本的缓存目录（见 DragOutShadow）。
+    [RelayCommand]
+    private async Task OpenCacheFolderAsync()
+    {
+        var path = AppConstants.ShadowFileTempRootPath;
+        try
+        {
+            Directory.CreateDirectory(path);
+            await Windows.System.Launcher.LaunchFolderPathAsync(path);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 打开缓存文件夹错误: {ex.Message}");
+        }
+    }
+
+    // 清空缓存：副本会在下次拖出时按需重建，删除无副作用。
+    [RelayCommand]
+    private void ClearCache()
+    {
+        var path = AppConstants.ShadowFileTempRootPath;
+        try
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+            Logger.Log("[Settings] 已清空缓存数据");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Settings] 清空缓存数据错误: {ex.Message}");
+        }
+        RefreshCacheSize();
+    }
+
+    private string _clearCacheButtonText = Localization.Get("Settings_ClearCache");
+
+    // 清空缓存按钮文案（含当前占用大小），由 RefreshCacheSize 更新。
+    public string ClearCacheButtonText
+    {
+        get => _clearCacheButtonText;
+        private set { _clearCacheButtonText = value; OnPropertyChanged(); }
+    }
+
+    // 重算缓存占用；设置页显示时与清空后调用，语言切换经 RefreshLocalizedTexts 一并触发。
+    public void RefreshCacheSize()
+    {
+        var mb = Utils.GetDirectorySize(AppConstants.ShadowFileTempRootPath) / 1024d / 1024d;
+        ClearCacheButtonText = string.Format(Localization.Get("Settings_ClearCache"), mb.ToString("0.##"));
     }
 
     // 反馈建议：直接用系统默认浏览器打开 GitHub Issues 页（不内嵌 WebView）。

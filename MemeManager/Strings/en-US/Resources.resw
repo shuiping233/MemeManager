@@ -693,6 +693,12 @@ Reverted to the previous valid path.</value>
   <data name="Settings_OpenExeFolder.Content" xml:space="preserve">
     <value>To software folder</value>
   </data>
+  <data name="Settings_OpenCacheFolder.Content" xml:space="preserve">
+    <value>To cache folder</value>
+  </data>
+  <data name="Settings_ClearCache" xml:space="preserve">
+    <value>Clear cache data ({0} MB)</value>
+  </data>
   <data name="Settings_ImageStretch.Text" xml:space="preserve">
     <value>Image stretch</value>
   </data>

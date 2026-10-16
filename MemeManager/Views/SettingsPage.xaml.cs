@@ -201,6 +201,9 @@ public sealed partial class SettingsPage : Page
         // 进入设置页时把焦点放到“完成”按钮上，避免焦点落在首个可聚焦控件
         // （主题 ComboBox）导致回车变成打开下拉菜单而非确认。
         CloseButton.Focus(FocusState.Programmatic);
+
+        // 缓存占用随拖出行为变化，进页面时重算按钮文案
+        ViewModel.RefreshCacheSize();
     }
 
     private void SettingsPage_Unloaded(object sender, RoutedEventArgs e)

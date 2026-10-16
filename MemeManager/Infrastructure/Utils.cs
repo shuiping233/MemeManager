@@ -152,6 +152,29 @@ public static class Utils
         return AppContext.BaseDirectory;
     }
 
+    /// <summary>
+    /// 统计目录下所有文件（含子目录）的占用字节数；目录不存在返回 0，个别文件读不到则跳过。
+    /// </summary>
+    public static long GetDirectorySize(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return 0;
+
+        long total = 0;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try { total += new FileInfo(file).Length; }
+                catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Utils] 统计目录大小失败: {path} {ex.Message}");
+        }
+        return total;
+    }
+
     // ---------- 过滤视图拖拽重排（多集交换） ----------
 
     /// <summary>

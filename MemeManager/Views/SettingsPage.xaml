@@ -63,6 +63,13 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="OpenCacheFolderButton" l:Uids.Uid="Settings_OpenCacheFolder"
+                        Command="{x:Bind ViewModel.OpenCacheFolderCommand}"/>
+                <Button x:Name="ClearCacheButton" Content="{x:Bind ViewModel.ClearCacheButtonText, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.ClearCacheCommand}"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button x:Name="FeedbackButton" l:Uids.Uid="Settings_Feedback"
                         Command="{x:Bind ViewModel.FeedbackCommand}"/>
                 <Grid>
