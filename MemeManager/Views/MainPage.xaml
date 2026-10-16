@@ -194,6 +194,7 @@
                       DragItemsStarting="CategoryList_DragItemsStarting"
                       DragItemsCompleted="CategoryList_DragItemsCompleted"
                       DragOver="CategoryList_DragOver"
+                      DragLeave="CategoryList_DragLeave"
                       SelectionChanged="CategoryList_SelectionChanged">
                 <ListView.ContextFlyout>
                     <MenuFlyout>
@@ -210,6 +211,7 @@
                         <Grid Padding="8,6"
                               AllowDrop="True"
                               DragOver="CategoryListItem_DragOver"
+                              Background="Transparent"  
                               Drop="CategoryListItem_Drop">
                             <ToolTipService.ToolTip>
                                 <ToolTip Content="{x:Bind Name, Mode=OneWay}"/>

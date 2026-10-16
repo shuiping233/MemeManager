@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Messaging;
 using MemeManager.Infrastructure;
 using MemeManager.Models;
@@ -10,6 +9,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using System.Collections.ObjectModel;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
 using Windows.System;
@@ -396,6 +396,13 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         SnapshotCategoryOrders();
     }
 
+    // 当前拖拽悬停高亮的分类项容器（无则 null）
+    private Grid? _hoveredCategoryItem;
+
+    // 半透明主题色高亮（静态复用，避免每次 new）
+    private static readonly SolidColorBrush CategoryDropHighlightBrush =
+        new(Windows.UI.Color.FromArgb(0x40, 0x00, 0x78, 0xD4));
+
     // 分类栏选中赋值的统一入口：仅当目标项在当前视图（CategoryList）里才设置，
     // 避免把不在 Items 中的对象设为 SelectedItem；搜索态下选中的分类可能被过滤掉，
     // 此时由 RestoreCategorySelectionVisual 在关键词变化后兜底恢复。
@@ -767,6 +774,8 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             await _memeOps.MoveMemesAsync(memes, targetCat.Name);
         }
         e.AcceptedOperation = DataPackageOperation.Move;
+
+        ClearCategoryItemHighlight();
     }
 
     /// <summary>将键盘焦点设置到搜索输入框（供窗口从托盘呼出后调用）</summary>
@@ -1035,11 +1044,35 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
             e.DragUIOverride.IsGlyphVisible = true;
+
+            // 高亮悬停的分类 item
+            if (sender is Grid grid && !ReferenceEquals(_hoveredCategoryItem, grid))
+            {
+                if (_hoveredCategoryItem is not null)
+                    _hoveredCategoryItem.Background = null;
+
+                _hoveredCategoryItem = grid;
+                grid.Background = CategoryDropHighlightBrush;
+            }
         }
         else
         {
             e.AcceptedOperation = DataPackageOperation.None;
         }
+    }
+
+    private void ClearCategoryItemHighlight()
+    {
+        if (_hoveredCategoryItem is not null)
+        {
+            _hoveredCategoryItem.Background = null;
+            _hoveredCategoryItem = null;
+        }
+    }
+    private void CategoryList_DragLeave(object sender, DragEventArgs e)
+    {
+        // 指针离开 ListView 整个边界时清除（在 item 之间移动不会触发）
+        ClearCategoryItemHighlight();
     }
 
     // 新增分类对话框：成功后在列表末尾追加并选中
@@ -1473,6 +1506,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 记录被拖项 + 设 StorageItems（供拖到文件管理器/输入框时复制）。
     private void MemeGridView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
+        // 防御性消除可能因为拖拽操作遗留的分类item高亮
+        ClearCategoryItemHighlight();
+
         // 全量刷新（F5）重建 ItemsSource 期间禁止发起拖拽：此时 GridView 正在重置集合，
         // 若进入拖拽会让 WinUI 在重建中又操作同一容器而崩溃。直接取消本次拖拽。
         if (ViewModel.Reloading)
@@ -1590,7 +1626,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         Log($"DragItemsCompleted: ViewModel.DraggingMemes={(ViewModel.DraggingMemes?.Count ?? 0)}, ViewModel.EditMode={ViewModel.EditMode}, DropResult={e.DropResult}");
         // 拖拽会话结束（无论拖到哪/是否取消）：恢复分类列表重排能力
         // （DragItemsStarting 里为防插入占位撑开被临时关闭）。必须在所有提前 return 之前恢复。
+        // 且清除拖拽分类item的高亮
         CategoryList.CanReorderItems = true;
+        ClearCategoryItemHighlight();
         if (ViewModel.DraggingMemes == null) return;
 
         // “全部表情”视图下项来自不同分类，不存在单一分类顺序，禁止重排写回，
