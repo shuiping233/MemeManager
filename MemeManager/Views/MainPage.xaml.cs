@@ -688,12 +688,11 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 拖入表情图片：CanReorderItems 已在 MemeGridView_DragItemsStarting 提前关闭
             // （会话早期关闭才能避免插入占位撑开），此处无需再关；
             // 不关闭 CanDragItems，以保证分类项仍能作为 drop 目标接收图片（移动到该分类）。
-            // 与 DragItemsStarting 的 RequestedOperation=Copy 保持一致，否则 WinUI 认为不兼容显示禁止符号
+            // 与 DragItemsStarting 的 RequestedOperation=Move 保持一致，否则 WinUI 认为不兼容显示禁止符号
             e.AcceptedOperation = DataPackageOperation.Copy;
             e.DragUIOverride.Caption = Localization.Get("Meme_MoveToThisCategory");
             e.DragUIOverride.IsCaptionVisible = true;
-            // 效果图标同样要在此关闭：本层在冒泡链上晚于 CategoryListItem_DragOver 执行，会覆盖其设置
-            e.DragUIOverride.IsGlyphVisible = false;
+            e.DragUIOverride.IsGlyphVisible = true;
         }
         else
         {
@@ -1617,7 +1616,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         //    DragItemsStarting 同步构造跨公寓 COM 对象，从而避开 DataPackage 析构时的释放竞态
         //    (0x40080201 / 0xc000027b)。可让动态 GIF 等作为文件拖到 QQ，且不触发闪退。
         //    【注：此分支稳定性有待验证，验证期内若出问题可关掉 StorageFileDrag 退回稳定路径】
-        // 内部重排(CanReorderItems)不读 DataPackage 内容，与拖出格式互不影响。
+        // 内部重排(CanReorderItems)不读 DataPackage 内容，仅靠 Move 语义生效，互不影响。
         try
         {
             var valid = group
