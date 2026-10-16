@@ -385,9 +385,7 @@
     <value>Image moved out</value>
   </data>
   <data name="Dialog_ImageMovedOut_Message" xml:space="preserve">
-    <value>The image file has been moved out of the data directory, possibly because you dragged it to File Explorer.
-If you meant to copy it, hold Ctrl while dragging.
-To recover, re-import the image.</value>
+    <value>It has been detected that some image files have been moved out of the data directory. This may have been caused by you manually operating on the image directory through File Explorer or another program. Operations on the image data directory that are not performed by this program cannot be tracked, and their metadata cannot be updated. If you did not explicitly operate on the image data directory, it is recommended that you check whether any other process is operating on the image data directory.</value>
   </data>
   <data name="Dialog_CannotImport_Title" xml:space="preserve">
     <value>Cannot import</value>

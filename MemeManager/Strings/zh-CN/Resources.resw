@@ -385,9 +385,7 @@
     <value>图片被移出</value>
   </data>
   <data name="Dialog_ImageMovedOut_Message" xml:space="preserve">
-    <value>图片文件已被移出的数据目录, 这可能是您将图片拖拽到资源管理器中导致的
-若您的目的是复制图片到目标文件夹，请按住 Ctrl 再进行拖拽
-如果需要恢复，请重新导入该图片</value>
+    <value>探测到有图片文件已被移出的数据目录, 这可能是您手动通过资源管理器或者其他程序操作图片目录导致的, 非本程序对图片数据目录操作无法跟踪且更新元数据, 若非您明确的操作图片数据目录, 则推荐检查一下是否有其他进程再操作图片数据目录 </value>
   </data>
   <data name="Dialog_CannotImport_Title" xml:space="preserve">
     <value>无法导入</value>
