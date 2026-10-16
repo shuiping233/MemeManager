@@ -399,9 +399,72 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     // 当前拖拽悬停高亮的分类项容器（无则 null）
     private Grid? _hoveredCategoryItem;
 
-    // 半透明主题色高亮（静态复用，避免每次 new）
-    private static readonly SolidColorBrush CategoryDropHighlightBrush =
-        new(Windows.UI.Color.FromArgb(0x40, 0x00, 0x78, 0xD4));
+    // 驱动当前高亮层的 Storyboard（悬停动画），清除时 Stop 以复位
+    private Storyboard? _categoryHighlightStoryboard;
+
+    // 悬停/放下的动画定义在分类项模板内（见 MainPage.xaml 的 CategoryList ItemTemplate）：
+    // ThemeAnimation 只认 TargetName，而 TargetName 要靠模板自身的 namescope 解析到该 item 的
+    // 高亮层，Storyboard 因此不能建在模板外。
+    private const string DropHighlightInStoryboardKey = "DropHighlightInStoryboard";
+    private const string DropHighlightConfirmStoryboardKey = "DropHighlightConfirmStoryboard";
+
+    // 高亮层是分类项模板里唯一的 Border（x:Name="DropHighlight"）
+    private static Border? DropHighlightLayerOf(Grid item) =>
+        item.Children.OfType<Border>().FirstOrDefault();
+
+    private static Storyboard? StoryboardOf(Grid item, string key) =>
+        item.Resources.ContainsKey(key) ? item.Resources[key] as Storyboard : null;
+
+    // 悬停高亮：DragOverThemeAnimation 让高亮层滑入淡入。
+    // 显隐走 Visibility、不依赖动画是否生效，动画只是叠加在显隐之上的效果。
+    private void StartCategoryItemHighlight(Grid item)
+    {
+        if (DropHighlightLayerOf(item) is not { } layer) return;
+
+        _categoryHighlightStoryboard?.Stop();
+        _categoryHighlightStoryboard = null;
+        layer.Visibility = Visibility.Visible;
+
+        if (StoryboardOf(item, DropHighlightInStoryboardKey) is not { } storyboard) return;
+
+        storyboard.Begin();
+        _categoryHighlightStoryboard = storyboard;
+    }
+
+    private void ClearCategoryItemHighlight()
+    {
+        _categoryHighlightStoryboard?.Stop();
+        _categoryHighlightStoryboard = null;
+
+        if (_hoveredCategoryItem is { } item && DropHighlightLayerOf(item) is { } layer)
+            layer.Visibility = Visibility.Collapsed;
+
+        _hoveredCategoryItem = null;
+    }
+
+    // 放下确认：DropTargetItemThemeAnimation 让高亮层再强调一次，播完收起高亮。
+    // 这里先摘掉 _hoveredCategoryItem，否则紧随其后的 DragItemsCompleted → Clear 会把动画截断。
+    private void PlayCategoryDropConfirmAnimation(Grid item)
+    {
+        _categoryHighlightStoryboard?.Stop();
+        _categoryHighlightStoryboard = null;
+        _hoveredCategoryItem = null;
+
+        if (DropHighlightLayerOf(item) is not { } layer) return;
+        layer.Visibility = Visibility.Visible;
+
+        if (StoryboardOf(item, DropHighlightConfirmStoryboardKey) is not { } storyboard) return;
+
+        void OnCompleted(object? sender, object e)
+        {
+            storyboard.Completed -= OnCompleted;
+            storyboard.Stop();
+            layer.Visibility = Visibility.Collapsed;
+        }
+
+        storyboard.Completed += OnCompleted;
+        storyboard.Begin();
+    }
 
     // 分类栏选中赋值的统一入口：仅当目标项在当前视图（CategoryList）里才设置，
     // 避免把不在 Items 中的对象设为 SelectedItem；搜索态下选中的分类可能被过滤掉，
@@ -775,7 +838,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
         e.AcceptedOperation = DataPackageOperation.Move;
 
-        ClearCategoryItemHighlight();
+        // 由放下确认动画负责收起高亮（内部先摘 _hoveredCategoryItem，避免被 DragItemsCompleted 截断）
+        if (sender is Grid droppedItem) PlayCategoryDropConfirmAnimation(droppedItem);
+        else ClearCategoryItemHighlight();
     }
 
     /// <summary>将键盘焦点设置到搜索输入框（供窗口从托盘呼出后调用）</summary>
@@ -1048,11 +1113,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             // 高亮悬停的分类 item
             if (sender is Grid grid && !ReferenceEquals(_hoveredCategoryItem, grid))
             {
-                if (_hoveredCategoryItem is not null)
-                    _hoveredCategoryItem.Background = null;
-
+                ClearCategoryItemHighlight();
                 _hoveredCategoryItem = grid;
-                grid.Background = CategoryDropHighlightBrush;
+                StartCategoryItemHighlight(grid);
             }
         }
         else
@@ -1061,14 +1124,6 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         }
     }
 
-    private void ClearCategoryItemHighlight()
-    {
-        if (_hoveredCategoryItem is not null)
-        {
-            _hoveredCategoryItem.Background = null;
-            _hoveredCategoryItem = null;
-        }
-    }
     private void CategoryList_DragLeave(object sender, DragEventArgs e)
     {
         // 指针离开 ListView 整个边界时清除（在 item 之间移动不会触发）

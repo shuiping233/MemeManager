@@ -13,6 +13,17 @@
     NavigationCacheMode="Disabled"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <!-- 拖拽图片悬停在分类项上的高亮：跟随系统强调色的淡填充 + 半透明描边，
+             由分类项模板里的 DropHighlight 层承载（见 CategoryList 的 ItemTemplate）。 -->
+        <SolidColorBrush x:Key="CategoryDropHighlightFillBrush"
+                         Color="{ThemeResource SystemAccentColor}"
+                         Opacity="0.16"/>
+        <SolidColorBrush x:Key="CategoryDropHighlightBorderBrush"
+                         Color="{ThemeResource SystemAccentColor}"
+                         Opacity="0.5"/>
+    </Page.Resources>
+
     <Grid x:Name="RootGrid" PointerMoved="Root_PointerMoved">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -208,10 +219,10 @@
                 </ListView.ContextFlyout>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewmodels:CategoryViewModel">
-                        <Grid Padding="8,6"
-                              AllowDrop="True"
+                        <Grid AllowDrop="True"
                               DragOver="CategoryListItem_DragOver"
-                              Background="Transparent"  
+                              Background="Transparent"
+                              VerticalAlignment="Stretch"
                               Drop="CategoryListItem_Drop">
                             <ToolTipService.ToolTip>
                                 <ToolTip Content="{x:Bind Name, Mode=OneWay}"/>
@@ -241,21 +252,53 @@
                                     </MenuFlyoutItem>
                                 </MenuFlyout>
                             </Grid.ContextFlyout>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <SymbolIcon Grid.Column="0"
-                                        Symbol="Folder"
-                                        VerticalAlignment="Center"
-                                        Margin="0,0,8,0"/>
-                            <Grid Grid.Column="1">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="1" Text="{x:Bind Count, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
+
+                            <Grid.Resources>
+                                <!-- 拖拽悬停高亮：原生 DragOverThemeAnimation 让高亮层滑入淡入。
+                                     ThemeAnimation 只认 TargetName，且靠模板自身的 namescope 解析到
+                                     该 item 的高亮层，所以 Storyboard 必须建在模板内（代码按 x:Key 取用）。 -->
+                                <Storyboard x:Key="DropHighlightInStoryboard">
+                                    <DragOverThemeAnimation TargetName="DropHighlight"
+                                                            Direction="Top"/>
+                                </Storyboard>
+                                <!-- 放下确认：DropTargetItemThemeAnimation -->
+                                <Storyboard x:Key="DropHighlightConfirmStoryboard">
+                                    <DropTargetItemThemeAnimation TargetName="DropHighlight"/>
+                                </Storyboard>
+                            </Grid.Resources>
+
+                            <!-- 拖拽悬停高亮层：铺满整个分类项，与系统 pointer-over 高亮同范围。
+                                 负 Margin 用来抵消 DefaultListViewItemStyle 的 Padding="16,0,12,0"
+                                 （自身只占 ListViewItem 内容区，不抵消就比 hover 背景小一圈）；
+                                 若将来给 CategoryList 换了 ItemContainerStyle，这里要跟着改。
+                                 置于内容下层，且不吃命中测试，以免抢走外层 Grid 的拖拽事件。 -->
+                            <Border x:Name="DropHighlight"
+                                    Margin="-16,0,-12,0"
+                                    CornerRadius="6"
+                                    BorderThickness="1"
+                                    Background="{ThemeResource CategoryDropHighlightFillBrush}"
+                                    BorderBrush="{ThemeResource CategoryDropHighlightBorderBrush}"
+                                    IsHitTestVisible="False"
+                                    Visibility="Collapsed"/>
+
+                            <!-- 内容留白由这层承担：外层 Grid 必须铺满整项，高亮层才能跟 pointer-over 同范围 -->
+                            <Grid Padding="8,6" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <SymbolIcon Grid.Column="0"
+                                            Symbol="Folder"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,8,0"/>
+                                <Grid Grid.Column="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="1" Text="{x:Bind Count, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </DataTemplate>
