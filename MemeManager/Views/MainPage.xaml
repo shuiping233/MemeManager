@@ -273,7 +273,7 @@
                                  若将来给 CategoryList 换了 ItemContainerStyle，这里要跟着改。
                                  置于内容下层，且不吃命中测试，以免抢走外层 Grid 的拖拽事件。 -->
                             <Border x:Name="DropHighlight"
-                                    Margin="-16,0,-12,0"
+                                    Margin="-14,0,-6,0"
                                     CornerRadius="6"
                                     BorderThickness="1"
                                     Background="{ThemeResource CategoryDropHighlightFillBrush}"
