@@ -1631,8 +1631,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             {
                 // 复用 ImageDragHelper：注册 StorageItems（延迟提供）+ 单张非 GIF 的 Bitmap 兜底。
                 // GIF 仅作文件拖出（Bitmap 只静态图，塞 GIF 会变第一帧），保持动图。
-                var paths = valid.Select(v => v.LocalPath!).ToArray();
-                ImageDragHelper.ConfigureDragOut(e.Data, paths, true);
+                // shadowCopy：普通分类视图声明了 Move（内置重排需要），资源管理器会据此"复制到目标后删源"，
+                // 故交给外部的是影子副本；全部表情视图只声明 Copy，直接给源路径即可。
+                ImageDragHelper.ConfigureDragOut(e.Data, valid.Select(v => v.Model).ToList(), true, shadowCopy: !IsAllMemesView);
             }
             else
             {
@@ -1665,9 +1666,10 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
             Log("DragItemsStarting: 设拖出格式失败（已放弃，不影响重排）: " + ex.Message);
         }
 
-        // 普通分类：Move 供内部重排(CanReorderItems)使用；Copy 供拖到外部(QQ/输入框)接收。
-        // 全部表情：仅声明 Copy（禁止内部移动/重排，不允许 Move 语义）。
-        // 仅声明 Copy 不会真的移走文件——外部按 Copy 取数据，文件仍留在数据目录。
+        // 普通分类：Move 供内置重排(CanReorderItems)使用——实测该重排要求源允许 Move；Copy 供拖到
+        // 外部(QQ/输入框)接收。允许 Move 意味着资源管理器拖出时会"复制后删源"，故普通分类交给外部
+        // 的是影子副本（ConfigureDragOut 的 shadowCopy），数据目录里的源文件不受影响。
+        // 全部表情：仅声明 Copy（禁止内部移动/重排，不允许 Move 语义），也就不需要影子副本。
         var op = IsAllMemesView
             ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy
             : Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move |

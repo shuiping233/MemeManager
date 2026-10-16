@@ -132,6 +132,9 @@ public partial class App : Application
         await Localization.InitializeAsync();
         await DataEngine.InitializeAsync();
 
+        // 清理上次运行遗留的拖出影子副本（%TEMP%）：上一次的拖拽会话必然已结束
+        DragOutShadow.CleanupStale();
+
         Logger.Log("[MemeManager] 应用程序开始启动");
 
         Logger.Log($"[EcoQos] 效率模式配置: {(ConfigService.Config.EcoMode ? "启用" : "关闭")}");

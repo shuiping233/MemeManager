@@ -207,7 +207,10 @@ public sealed partial class MiniPage : Page, IExternalDropPage, IImageReleasable
             return;
 
         // 复用 ImageDragHelper：装 StorageItems + 单张非 GIF 的 Bitmap 兜底，GIF 仅文件拖出。
-        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.LocalPath }, ConfigService.Config.StorageFileDrag);
+        // Mini 没有内部重排需求，显式收紧为仅 Copy（DragStartingEventArgs 的允许集合默认可能含 Move，
+        // 而 Move 正是资源管理器"复制后删源"的开关），因此也不需要影子副本。
+        e.AllowedOperations = DataPackageOperation.Copy;
+        ImageDragHelper.ConfigureDragOut(e.Data, new[] { vm.Model }, ConfigService.Config.StorageFileDrag);
         Logger.Log($"[Mini] 拖出 1 张图片 ({Path.GetFileName(vm.LocalPath)})");
     }
 

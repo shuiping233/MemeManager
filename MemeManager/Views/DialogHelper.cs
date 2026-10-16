@@ -119,8 +119,8 @@ public static class DialogHelper
     public static Task ShowInfoAsync(XamlRoot xamlRoot, string title, string message) =>
         ShowMessageAsync(xamlRoot, title, message);
 
-    // 图片被拖出数据目录（拖到资源管理器等外部目标且为 Move）后提醒：
-    // 受系统限制文件已被剪切走，告知用户可重新导入恢复，或按住 Ctrl 拖拽以复制。
+    // FileWatcher 探测到图片文件从数据目录消失后提醒：本程序拖拽交给外部的是影子副本
+    // （DragOutShadow），源文件不会被剪切走，此处针对外部程序或手动操作造成的变更。
     public static Task ShowImageMovedOutAsync(XamlRoot xamlRoot) =>
         ShowMessageAsync(xamlRoot,
             Localization.Get("Dialog_ImageMovedOut_Title"),

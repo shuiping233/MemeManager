@@ -1,4 +1,5 @@
 using MemeManager.Infrastructure;
+using MemeManager.Models;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Streams;
@@ -47,31 +48,37 @@ public static class ImageDragHelper
 
     // ---------- 拖出：往 DataPackage 装图片数据 ----------
 
-    // 把一组本地图片路径装入 DataPackage，供拖到 QQ/输入框等外部目标接收。
+    // 把一组待拖出的表情装入 DataPackage，供拖到 QQ/输入框等外部目标接收。
     //  - StorageItems：延迟提供（SetDataProvider），拖放目标真正请求时才异步取 StorageFile——
     //    不在 DragItemsStarting 同步构造跨公寓 COM 对象，从而避开 DataPackage 析构时的跨公寓
-    //    COM 释放竞态(0x40080201 / 0xc000027b)。paths 是本地 string 数组（值类型，无 COM 对象），
-    //    DragItemsStarting 退出时没有任何跨公寓对象要释放——这正是修复关键。
+    //    COM 释放竞态(0x40080201 / 0xc000027b)。memes 只是值对象，DragItemsStarting 退出时
+    //    没有任何跨公寓对象要释放——这正是修复关键。
     //  - 单张非 GIF 额外提供 Bitmap 兜底（给只认 Bitmap 的老客户端）；GIF 不提供 Bitmap
     //    （Bitmap 只能静态图，塞 GIF 会变第一帧，反而误导），仅作文件拖出保留动图。
     //
     // storageFileDrag：是否启用 StorageItems 文件拖出（与配置一致）。关闭时仅用 Bitmap 兜底（单张）。
-    public static void ConfigureDragOut(DataPackage data, IReadOnlyList<string> paths, bool storageFileDrag)
+    // shadowCopy：交付的是 %TEMP% 下的影子副本而非数据目录里的源路径。仅在调用方允许 Move 语义时开启
+    //   （MainPage 普通分类视图需要 Move 来支撑内置重排；资源管理器在 Move 下会"复制到目标后删源"，
+    //   交付副本后数据目录不受影响，见 DragOutShadow）。
+    public static void ConfigureDragOut(DataPackage data, IReadOnlyList<MemeModel> memes, bool storageFileDrag, bool shadowCopy = false)
     {
-        var valid = paths
-            .Where(p => !string.IsNullOrEmpty(p) && File.Exists(p))
+        var valid = memes
+            .Where(m => !string.IsNullOrEmpty(m.LocalPath) && File.Exists(m.LocalPath))
             .ToList();
         if (valid.Count == 0) return;
 
         if (storageFileDrag)
         {
-            var arr = valid.ToArray();
             data.SetDataProvider(StandardDataFormats.StorageItems, async (request) =>
             {
                 var deferral = request.GetDeferral();
                 try
                 {
-                    var files = await Task.WhenAll(arr.Select(p => StorageFile.GetFileFromPathAsync(p).AsTask()));
+                    // 影子副本在这里才导出：内部拖拽（移动分类 / 网格重排）靠 DraggingMemes，走不到这里。
+                    var paths = shadowCopy
+                        ? await DragOutShadow.ExportAsync(App.DataEngine, valid)
+                        : valid.Select(m => m.LocalPath!).ToList();
+                    var files = await Task.WhenAll(paths.Select(p => StorageFile.GetFileFromPathAsync(p).AsTask()));
                     request.SetData(files);
                 }
                 catch (Exception ex)
@@ -83,10 +90,10 @@ public static class ImageDragHelper
 
         // 单张非 GIF 额外 Bitmap 兜底（多张或 GIF 不提供，避免误导/额外开销）
         bool singleNonGif = valid.Count == 1 &&
-        !string.Equals(Path.GetExtension(valid[0]), ".gif", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(Path.GetExtension(valid[0].LocalPath), ".gif", StringComparison.OrdinalIgnoreCase);
         if (singleNonGif)
         {
-            var singlePath = valid[0];
+            var singlePath = valid[0].LocalPath!;
             if (storageFileDrag)
             {
                 // 文件拖出开启：延迟提供 Bitmap（与 StorageItems  alike，避开同步构造跨公寓 COM 对象）

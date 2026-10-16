@@ -20,6 +20,11 @@ public static class AppConstants
     public static string ConfigPath => Path.Combine(AppDataDirPath, ConfigFileName);
     public static string InstanceLockPath => Path.Combine(AppDataDirPath, InstanceLockFileName);
 
+    // 拖出到外部进程时交付的影子副本根目录（见 DragOutShadow）：资源管理器在 Move 语义下会
+    // "复制到目标后删源"，交付副本而非源路径才能保证数据目录里的文件不被带走。
+    public static string ShadowFileTempRootPath =>
+        Path.Combine(Path.GetTempPath(), AppName, "DragOut");
+
     // AppIcon.ico 路径（发布/调试均会拷贝到 Assets 下），托盘图标与标题条 Logo 共用。
     public static string IconPath =>
         Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
