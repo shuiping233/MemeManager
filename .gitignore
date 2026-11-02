@@ -60,6 +60,8 @@ _ReSharper*/
 # Generated files
 Generated\ Files/
 *_wpftmp.csproj
+release-body.md
+.release-changelog.md
 
 # opencode
 .opencode.jsonc

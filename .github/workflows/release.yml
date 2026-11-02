@@ -96,6 +96,7 @@ jobs:
         uses: mikepenz/release-changelog-builder-action@v6
         with:
           mode: "COMMIT"
+          outputFile: .release-changelog.md
           configurationJson: |
             {
               "template": "#{{CHANGELOG}}",
@@ -119,6 +120,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compose release body
+        run: python3 scripts/compose_release_body.py --tag "${{ github.ref_name }}" --changelog .release-changelog.md --output release-body.md
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -130,7 +134,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          body: ${{ steps.build_changelog.outputs.changelog }}
+          body_path: release-body.md
           files: |
             artifacts/MemeManager-win-x64-runtime-zip/MemeManager-win-x64-runtime-${{ github.ref_name }}.zip
             artifacts/MemeManager-win-arm64-runtime-zip/MemeManager-win-arm64-runtime-${{ github.ref_name }}.zip
@@ -154,7 +158,6 @@ jobs:
       - name: Publish to CNB
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-          RELEASE_BODY: ${{ steps.build_changelog.outputs.changelog }}
         run: |
           assets=()
           for p in artifacts/MemeManager-win-x64-runtime-zip/*.zip \
@@ -168,9 +171,9 @@ jobs:
           done
           echo "待上传附件: ${#assets[@]} 个"
           for a in "${assets[@]}"; do echo "  - $a"; done
-          args=(--repo "shuiping233/MemeManager" --tag "${{ github.ref_name }}" --name "MemeManager ${{ github.ref_name }}" --body "$RELEASE_BODY")
+          args=(--repo "shuiping233/MemeManager" --tag "${{ github.ref_name }}" --name "MemeManager ${{ github.ref_name }}")
           for a in "${assets[@]}"; do args+=(--asset "$a"); done
-          python scripts/publish_cnb.py "${args[@]}"
+          python scripts/publish_cnb.py "${args[@]}" --body-file release-body.md
 
   # MSIX 打包·旁加载轨：用自签名证书签名（仓库 secret MSIX_PFX_BASE64 / MSIX_PFX_PASSWORD），
   # 附带导出的 .cer 供安装者先安装到“受信任的根证书颁发机构”。

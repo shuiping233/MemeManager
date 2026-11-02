@@ -6,10 +6,13 @@
         --repo 组织名/仓库名 \
         --tag v1.2.3 \
         --name "MemeManager v1.2.3" \
-        --body "版本说明..." \
+        --body-file release-body.md \
         --asset path/to/a.zip \
         --asset path/to/b.msix \
         [--prerelease]
+
+    版本描述也可以直接用 --body "版本说明..." 传入字符串;
+    两者同时给出时以 --body-file 为准.
 
 环境变量:
     CNB_TOKEN  必填。CNB 访问令牌，对应 API 的 `Authorization: Bearer <token>`。
@@ -64,6 +67,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--tag", required=True, help="标签名，如 v1.2.3")
     p.add_argument("--name", required=True, help="版本标题")
     p.add_argument("--body", default="", help="版本描述")
+    p.add_argument("--body-file", default="", help="从 UTF-8 文件读取版本描述, 优先于 --body")
     p.add_argument("--asset", action="append", default=[], help="要上传的附件路径（可重复传多个）")
     p.add_argument("--prerelease", action="store_true", help="标记为预发布版本")
     return p.parse_args(argv)
@@ -77,11 +81,17 @@ def load_config(args: argparse.Namespace) -> Config:
     for a in assets:
         if not a.is_file():
             raise SystemExit(f"错误: 附件不存在: {a}")
+    body = args.body
+    if args.body_file:
+        body_file = Path(args.body_file)
+        if not body_file.is_file():
+            raise SystemExit(f"错误: 版本描述文件不存在: {args.body_file}")
+        body = body_file.read_text(encoding="utf-8")
     return Config(
         repo=args.repo,
         tag=args.tag,
         name=args.name,
-        body=args.body,
+        body=body,
         assets=assets,
         prerelease=args.prerelease,
         token=token,
