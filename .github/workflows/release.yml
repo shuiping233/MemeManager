@@ -240,8 +240,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force "$env:MSIX_DIR" | Out-Null
           # 先完整枚举再复制：Get-ChildItem -Recurse 是流式的，直接管道复制会把已落入
-          # MSIX_DIR 的产物再次枚举到并“自己覆盖自己”报错
-          $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter *.msix -File)
+          # MSIX_DIR 的产物再次枚举到并“自己覆盖自己”报错。
+          # 只取 MemeManager_*.msix：Windows App SDK 会把各架构的运行时 msix 也铺到输出目录，
+          # 它们同名（Microsoft.WindowsAppRuntime.2.msix），不能当作发布附件。
+          $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter MemeManager_*.msix -File)
           foreach ($f in $msixFiles) { Copy-Item $f.FullName -Destination "$env:MSIX_DIR" -Force }
           $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2("$env:RUNNER_TEMP\MemeManager-sign.pfx", $env:MSIX_PFX_PASSWORD)
           [IO.File]::WriteAllBytes("$env:MSIX_DIR\MemeManager-sign.cer", $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
@@ -305,7 +307,9 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "$env:MSIX_DIR" | Out-Null
-          $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter *.msix -File)
+          # 只取 MemeManager_*.msix：Windows App SDK 会把各架构的运行时 msix 也铺到输出目录，
+          # 它们同名（Microsoft.WindowsAppRuntime.2.msix），不能当作发布附件。
+          $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter MemeManager_*.msix -File)
           foreach ($f in $msixFiles) { Copy-Item $f.FullName -Destination "$env:MSIX_DIR" -Force }
 
       - name: Upload msix artifact
