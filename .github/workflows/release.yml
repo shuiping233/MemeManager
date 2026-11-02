@@ -126,6 +126,7 @@ jobs:
 
       # 两个架构的 msix 文件名自带架构后缀（MemeManager_<ver>_x64.msix / _arm64.msix），不会撞名；
       # 但 .cer 是同一张证书导出的同名文件（MemeManager-sign.cer），只取 x64 那份上传，避免附件重名。
+      # Store 轨的 msix 已在收集阶段加 `_unsigned` 后缀，不会覆盖旁加载轨的已签名包。
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -310,7 +311,11 @@ jobs:
           # 只取 MemeManager_*.msix：Windows App SDK 会把各架构的运行时 msix 也铺到输出目录，
           # 它们同名（Microsoft.WindowsAppRuntime.2.msix），不能当作发布附件。
           $msixFiles = @(Get-ChildItem -Path . -Recurse -Filter MemeManager_*.msix -File)
-          foreach ($f in $msixFiles) { Copy-Item $f.FullName -Destination "$env:MSIX_DIR" -Force }
+          # Store 轨未签名，加 _unsigned 后缀与旁加载轨的已签名同名包区分；
+          # 否则 Release 上传时（overwrite_files 默认覆盖）会用未签名包顶掉已签名包，而 .cer 照发。
+          foreach ($f in $msixFiles) {
+            Copy-Item $f.FullName -Destination "$env:MSIX_DIR\$($f.BaseName)_unsigned$($f.Extension)" -Force
+          }
 
       - name: Upload msix artifact
         uses: actions/upload-artifact@v4
