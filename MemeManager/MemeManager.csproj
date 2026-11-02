@@ -22,10 +22,17 @@
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- 自包含发布（SelfContained=true，CI 的 -runtime zip）时一并携带 Windows App SDK 运行时，
+         不再依赖系统预装的 WindowsAppRuntime；框架依赖与 MSIX 发布保持 false。
+         注意：Windows App SDK 的自包含需配合 WindowsPackageType=None，并由
+         WindowsAppSdkUndockedRegFreeWinRT 提供免注册 WinRT 激活。 -->
+    <WindowsAppSDKSelfContained Condition="'$(WindowsAppSDKSelfContained)' == '' and '$(SelfContained)' == 'true'">true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained Condition="'$(WindowsAppSDKSelfContained)' == ''">false</WindowsAppSDKSelfContained>
     <!-- 默认以非打包方式运行：用 Bootstrap 初始化 Windows App SDK（避免 DeploymentManager 崩溃）。
-         仅在显式生成 MSIX 包（GenerateAppxPackageOnBuild=true）时回到打包模式。 -->
+         仅在显式生成 MSIX 包（GenerateAppxPackageOnBuild=true）时回到打包模式。
+         自包含模式运行时随应用分发，Bootstrap 会去找不存在的框架包，必须关闭。 -->
     <WindowsPackageType Condition="'$(GenerateAppxPackageOnBuild)' != 'true'">None</WindowsPackageType>
-    <WindowsAppSdkBootstrapInitialize Condition="'$(GenerateAppxPackageOnBuild)' != 'true'">true</WindowsAppSdkBootstrapInitialize>
+    <WindowsAppSdkBootstrapInitialize Condition="'$(GenerateAppxPackageOnBuild)' != 'true' and '$(WindowsAppSDKSelfContained)' != 'true'">true</WindowsAppSdkBootstrapInitialize>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -33,7 +40,6 @@
     <PublishAot>false</PublishAot>
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
-    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 
 
     <!-- 保留栈追踪与全球化，确保 WinUI / COM 互操作正常运行 -->

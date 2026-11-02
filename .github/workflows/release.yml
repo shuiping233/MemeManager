@@ -11,7 +11,7 @@ on:
 # 产物名形如 MemeManager-win-x64-runtime-<tag>.zip / MemeManager-win-arm64-<tag>.zip / MSIX。
 
 jobs:
-  # 文件系统发布：自包含（自带 .NET 运行时）exe 文件夹，压缩为带 -runtime 后缀的 zip
+  # 文件系统发布：自包含（自带 .NET 运行时与 Windows App SDK 运行时）exe 文件夹，压缩为带 -runtime 后缀的 zip
   publish-zip-runtime:
     runs-on: windows-latest
     strategy:

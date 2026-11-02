@@ -35,8 +35,8 @@ A high-performance tool for managing and using your meme/sticker collection, bui
 
 ### First Install
 
-1. Visit the [GitHub Release](https://github.com/shuiping233/MemeManager/releases) or the [CNB Release](https://cnb.cool/shuiping233/MemeManager/-/releases) page of this repository and download the latest build. The archive with `runtime` in its name already bundles the .NET runtime, so you only need to install [Windows App Runtime] as well; the archive without `runtime` is recommended here, so the app can reuse the runtime already present on your system.
-2. After extracting the archive, run `MemeManager.exe`. The app depends on [Windows App Runtime] and the [.NET 10 Desktop Runtime], so you need to install them. Alternatively, you can just run the program first — it will show an error dialog that redirects you to the download page for the missing dependency.
+1. Visit the [GitHub Release](https://github.com/shuiping233/MemeManager/releases) or the [CNB Release](https://cnb.cool/shuiping233/MemeManager/-/releases) page of this repository and download the latest build. The archive with `runtime` in its name bundles both the .NET runtime and [Windows App Runtime], so it runs right after extraction; the archive without `runtime` is smaller, but requires the runtimes listed below so the app can reuse the ones already present on your system.
+2. After extracting the archive, run `MemeManager.exe`. The archive without `runtime` depends on [Windows App Runtime] and the [.NET 10 Desktop Runtime], so you need to install them. Alternatively, you can just run the program first — it will show an error dialog that redirects you to the download page for the missing dependency.
 
 ### Import / Export Images
 

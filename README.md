@@ -37,9 +37,9 @@
 
 ### 初次安装
 
-1. 访问本仓库的 [Github Release](https://github.com/shuiping233/MemeManager/releases) 或 [CNB仓库Release](https://cnb.cool/shuiping233/MemeManager/-/releases) 页面下载最新版本的构建产物, 带`runtime`字样的压缩包中是包含了dotnet运行时的, 仅需安装 [Windows App runtime] 即可, 此处推荐无`runtime`的安装包, 以便软件复用系统已有的运行时
+1. 访问本仓库的 [Github Release](https://github.com/shuiping233/MemeManager/releases) 或 [CNB仓库Release](https://cnb.cool/shuiping233/MemeManager/-/releases) 页面下载最新版本的构建产物, 带`runtime`字样的压缩包中已内置 .NET 运行时和 [Windows App runtime], 解压即可直接运行; 不带`runtime`的安装包体积更小, 但需要系统已安装下文列出的运行时, 以便软件复用系统已有的运行时
 
-2. 解压压缩包后, 运行`MemeManager.exe`即可, 由于软件依赖 [Windows App runtime] 和 [.NET 10 桌面运行时], 你需要下载此运行时, 当然也可以先直接运行运行程序, 程序会自动弹窗报错来重定向到你需要下载的依赖下载页面
+2. 解压压缩包后, 运行`MemeManager.exe`即可, 不带`runtime`的包依赖 [Windows App runtime] 和 [.NET 10 桌面运行时], 你需要下载此运行时, 当然也可以先直接运行运行程序, 程序会自动弹窗报错来重定向到你需要下载的依赖下载页面
 
 ### 图片导入导出
 
