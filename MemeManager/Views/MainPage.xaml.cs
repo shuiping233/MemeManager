@@ -898,6 +898,16 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                     SelectCategoryItem(sel);
                 }
             }
+
+            // x:Load 重建出的新 GridView 会回到 XAML 默认的 SelectionMode=None，而 VM 的
+            // EditMode 仍是 true。不补回多选模式的话，退出编辑模式时 SelectedItems.Clear()
+            // 会在 None 模式下抛 COMException(0x8000FFFF/E_UNEXPECTED)。
+            if (ViewModel.EditMode)
+            {
+                ReapplyEditModeState();
+                SyncSelectionToViewModels();
+                UpdateBatchButtons();
+            }
         }
         else
         {
@@ -1475,7 +1485,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
     private void EnterEditModeAndSelect(MemeViewModel vm)
     {
         EnterEditMode();
-        MemeGridView.SelectedItems.Clear();
+        ClearGridSelection();
         MemeGridView.SelectedItems.Add(vm);
     }
 
@@ -1768,7 +1778,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
                     .Select(m => ViewModel.MemeList.FirstOrDefault(v => v.FileName.Equals(m.FileName, StringComparison.OrdinalIgnoreCase)))
                     .Where(v => v != null)
                     .ToList()!;
-                MemeGridView.SelectedItems.Clear();
+                ClearGridSelection();
                 foreach (var vm in vms)
                     MemeGridView.SelectedItems.Add(vm);
                 UpdateBatchButtons();
@@ -1977,9 +1987,9 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         DialogHelper.ShowMoveConflictAsync(this.XamlRoot, targetCategory, pairs);
 
     // IMemeOperationUi：删除完成后清空网格选中态。
-    // MemeGridView 用 ?. ——批量删除进行中用户可能关闭主窗口（x:Load 卸载网格），
-    // 完成回调此时到达，x:Name 为 null。
-    public void OnDeleteComplete() => MemeGridView?.SelectedItems.Clear();
+    // 走 ClearGridSelection：批量删除进行中用户可能关闭主窗口（x:Load 卸载网格），
+    // 完成回调此时到达 x:Name 可能为 null；且删除后列表为空时直接 Clear 会抛 E_UNEXPECTED。
+    public void OnDeleteComplete() => ClearGridSelection();
 
     private async Task BatchImportCoreAsync()
     {
@@ -2427,7 +2437,7 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         if (!ViewModel.EditMode) return;
         bool allSelected = MemeGridView.SelectedItems.Count == ViewModel.MemeList.Count && ViewModel.MemeList.Count > 0;
         if (allSelected)
-            MemeGridView.SelectedItems.Clear();
+            ClearGridSelection();
         else
             // 用 GridView 内置批量选中，避免逐项 Add 触发 O(n²) 判断 + 重复 UI 刷新导致卡顿
             MemeGridView.SelectAll();
@@ -2451,12 +2461,29 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         EditButton.Content = Localization.Get("Meme_Edit");
         BatchBar.Visibility = Visibility.Collapsed;
         // 退出编辑模式：仅关闭原生多选；拖拽重排保持开启（普通模式也允许排序）
-        MemeGridView.SelectedItems.Clear();
-        MemeGridView.SelectionMode = ListViewSelectionMode.None;
+        ClearGridSelection();
+        if (MemeGridView is not null)
+            MemeGridView.SelectionMode = ListViewSelectionMode.None;
         ViewModel.LastShiftAnchor = -1;
         SelectAllButton.Content = Localization.Get("Meme_SelectAll");
         ApplySelectionBoxVisibility();
         foreach (var vm in ViewModel.MemeList) vm.IsSelected = false;
+    }
+
+    // WinUI 的 SelectedItems.Clear() 在 SelectionMode=None（x:Load 重建后尚未恢复编辑模式）
+    // 或列表已空、选中项已不在数据源里时会抛 COMException(0x8000FFFF/E_UNEXPECTED)。
+    // 选中态属于可重建的 UI 状态，统一在这里兜住，不能让异常冒到未处理异常处理器。
+    private void ClearGridSelection()
+    {
+        if (MemeGridView is null || MemeGridView.SelectedItems.Count == 0) return;
+        try
+        {
+            MemeGridView.SelectedItems.Clear();
+        }
+        catch (Exception ex)
+        {
+            Log($"[选择] 清空网格选中失败: {ex.Message}");
+        }
     }
 
     // 编辑模式进出时，统一切换所有 item 容器内复选框的可见性。
