@@ -121,6 +121,27 @@ internal static partial class NativeMethods
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "DragQueryFileW")]
     public static extern uint DragQueryFile(IntPtr hDrop, uint iFile, IntPtr lpszFile, uint cch);
 
+    // ---------- 剪贴板原始文件列表（WinRT StorageItems 被第三方数据对象拒绝时的兜底） ----------
+
+    public const uint CF_HDROP = 15;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr GetClipboardData(uint uFormat);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint EnumClipboardFormats(uint format);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "GetClipboardFormatNameW")]
+    public static extern int GetClipboardFormatName(uint format, IntPtr lpszFormatName, int cchMaxCount);
+
     [DllImport("shell32.dll")]
     public static extern void DragFinish(IntPtr hDrop);
 

@@ -136,6 +136,86 @@ public class ClipboardService
         }
     }
 
+    /// <summary>
+    /// 仅用 Win32 读取剪贴板中的文件路径（CF_HDROP）。第三方应用（如 QQ）的数据对象可能拒绝
+    /// WinRT 请求的 FORMATETC（GetStorageItemsAsync 抛 DV_E_FORMATETC），此时 CF_HDROP 通常仍可用。
+    /// </summary>
+    public List<string> GetClipboardFilePathsByWin32()
+    {
+        var paths = new List<string>();
+        if (!OpenClipboardWithRetry())
+        {
+            Logger.Log($"[Paste] Win32: OpenClipboard 失败, lastError={Marshal.GetLastWin32Error()}");
+            return paths;
+        }
+
+        try
+        {
+            var formats = new List<string>();
+            uint format = 0;
+            while ((format = NativeMethods.EnumClipboardFormats(format)) != 0)
+                formats.Add(DescribeClipboardFormat(format));
+            Logger.Log($"[Paste] Win32: 原始格式=[{string.Join(",", formats)}]");
+
+            IntPtr hDrop = NativeMethods.GetClipboardData(NativeMethods.CF_HDROP);
+            if (hDrop == IntPtr.Zero)
+            {
+                Logger.Log($"[Paste] Win32: 无 CF_HDROP, lastError={Marshal.GetLastWin32Error()}");
+                return paths;
+            }
+
+            uint count = NativeMethods.DragQueryFile(hDrop, uint.MaxValue, IntPtr.Zero, 0);
+            Logger.Log($"[Paste] Win32: CF_HDROP 文件数={count}");
+            for (uint i = 0; i < count; i++)
+            {
+                uint length = NativeMethods.DragQueryFile(hDrop, i, IntPtr.Zero, 0);
+                if (length == 0) continue;
+
+                IntPtr buffer = Marshal.AllocHGlobal((int)(length + 1) * sizeof(char));
+                try
+                {
+                    uint copied = NativeMethods.DragQueryFile(hDrop, i, buffer, length + 1);
+                    if (copied > 0)
+                        paths.Add(Marshal.PtrToStringUni(buffer, (int)copied) ?? "");
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+        }
+        finally
+        {
+            NativeMethods.CloseClipboard();
+        }
+        return paths;
+    }
+
+    private static bool OpenClipboardWithRetry()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            if (NativeMethods.OpenClipboard(IntPtr.Zero)) return true;
+            Thread.Sleep(20);
+        }
+        return false;
+    }
+
+    private static string DescribeClipboardFormat(uint format)
+    {
+        const int BufferChars = 256;
+        IntPtr buffer = Marshal.AllocHGlobal(BufferChars * sizeof(char));
+        try
+        {
+            int length = NativeMethods.GetClipboardFormatName(format, buffer, BufferChars);
+            return length > 0 ? $"{format}:{Marshal.PtrToStringUni(buffer, length)}" : format.ToString();
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
     private static void TriggerCtrlV(IntPtr? targetWindow = null)
     {
         // 若指定了目标窗口，先把前台焦点切过去，确保 Ctrl+V 落在正确的应用里

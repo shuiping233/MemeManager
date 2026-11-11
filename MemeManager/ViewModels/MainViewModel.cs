@@ -454,6 +454,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
         bool hasBitmap = view.Contains(StandardDataFormats.Bitmap);
         bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
+        Logger.Log($"[MemeManager] [粘贴] 判定: Bitmap={hasBitmap}, StorageItems={hasStorageItems}");
         return (hasBitmap || hasStorageItems) ? ClipboardContentKind.Image : ClipboardContentKind.NotImage;
     }
 
@@ -519,7 +520,7 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
         }
         catch (Exception ex)
         {
-            Logger.Log("[MemeManager] [粘贴] PasteFromClipboardAsync 失败: " + ex.Message);
+            Logger.Log("[MemeManager] [粘贴] PasteFromClipboardAsync 失败: " + ex);
         }
     }
 
@@ -584,22 +585,57 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
 
     // 从剪贴板收集待导入的源路径：StorageItems 直接用原路径，Bitmap 先落地临时文件。
     // 返回 (待导入路径, 需事后清理的临时文件路径)。实际导入交给 RunBatchImportRequested 统一处理。
+    // 逐项隔离异常并保留完整诊断信息：第三方的 FileDrop（如 QQ）可能给出无法物化的 shell 项，
+    // 单项失败不应阻断其余项与 Bitmap 兜底。
     private async Task<(List<string> paths, List<string> temps)> CollectClipboardImportPathsAsync(DataPackageView view)
     {
         var paths = new List<string>();
         var temps = new List<string>();
-        try
+
+        bool hasStorageItems = view.Contains(StandardDataFormats.StorageItems);
+        bool hasBitmap = view.Contains(StandardDataFormats.Bitmap);
+        Logger.Log($"[MemeManager] [Paste] 收集开始: StorageItems={hasStorageItems}, Bitmap={hasBitmap}, " +
+                   $"formats=[{string.Join(",", view.AvailableFormats)}]");
+
+        if (hasStorageItems)
         {
-            if (view.Contains(StandardDataFormats.StorageItems))
+            try
             {
                 var items = await view.GetStorageItemsAsync();
+                Logger.Log($"[MemeManager] [Paste] StorageItems 数量={items.Count}");
                 foreach (var item in items)
                 {
-                    if (item is StorageFile file && AppConstants.IsImage(file.FileType))
-                        paths.Add(file.Path);
+                    try
+                    {
+                        if (item is StorageFile file)
+                        {
+                            string fileType = file.FileType;
+                            string path = file.Path;
+                            bool exists = !string.IsNullOrEmpty(path) && File.Exists(path);
+                            Logger.Log($"[MemeManager] [Paste] 文件项: type={fileType} path=[{path}] exists={exists}");
+                            if (AppConstants.IsImage(fileType) && exists) paths.Add(path);
+                        }
+                        else
+                        {
+                            Logger.Log($"[MemeManager] [Paste] 非文件项: {item?.GetType().FullName}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"[MemeManager] [Paste] 读取文件项失败: {ex}");
+                    }
                 }
             }
-            else if (view.Contains(StandardDataFormats.Bitmap))
+            catch (Exception ex)
+            {
+                Logger.Log($"[MemeManager] [Paste] GetStorageItemsAsync 失败: {ex}");
+            }
+        }
+
+        // StorageItems 拿不到有效图片时继续尝试 Bitmap（QQ 的 FileDrop 可能只是壳）
+        if (paths.Count == 0 && hasBitmap)
+        {
+            try
             {
                 var streamRef = await view.GetBitmapAsync();
                 using var stream = await streamRef.OpenReadAsync();
@@ -610,12 +646,33 @@ public partial class MainViewModel(MemeDataEngine engine, SearchService search, 
                 }
                 paths.Add(tempPath);
                 temps.Add(tempPath);
+                Logger.Log($"[MemeManager] [Paste] 已从 Bitmap 落地临时文件: {tempPath}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"[MemeManager] [Paste] GetBitmapAsync 失败: {ex}");
             }
         }
-        catch (Exception ex)
+
+        // WinRT 两条路都拿不到时，直接读原始的 CF_HDROP 兜底
+        if (paths.Count == 0)
         {
-            Logger.Log($"[MemeManager] [Paste] 收集路径失败: {ex.Message}");
+            try
+            {
+                foreach (var path in clipboard.GetClipboardFilePathsByWin32())
+                {
+                    bool exists = !string.IsNullOrEmpty(path) && File.Exists(path);
+                    Logger.Log($"[MemeManager] [Paste] Win32 文件项: path=[{path}] exists={exists}");
+                    if (AppConstants.IsImage(Path.GetExtension(path)) && exists) paths.Add(path);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"[MemeManager] [Paste] Win32 读取剪贴板失败: {ex}");
+            }
         }
+
+        Logger.Log($"[MemeManager] [Paste] 收集结束: paths={paths.Count}, temps={temps.Count}");
         return (paths, temps);
     }
 }
