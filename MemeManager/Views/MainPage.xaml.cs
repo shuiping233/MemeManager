@@ -1045,36 +1045,38 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
         if (PreviewBorder != null)
         {
-            var sb = new Storyboard();
-            var da = new DoubleAnimation
+            try
             {
-                From = 1,
-                To = 0,
-                Duration = TimeSpan.FromMilliseconds(PreviewFadeOutMs)
-            };
-            Storyboard.SetTarget(da, PreviewBorder);
-            Storyboard.SetTargetProperty(da, "Opacity");
-            sb.Completed += (_, _) =>
+                PreviewFadeInStoryboard.Stop();
+                PreviewFadeOutStoryboard.Stop();
+                _previewFadeOutReason = reason;
+                PreviewFadeOutStoryboard.Begin();
+                return;
+            }
+            catch (Exception ex)
             {
-                // 淡出期间若又被重新显示（_previewFadingOut 被置 false），则不关闭
-                if (_previewFadingOut)
-                {
-                    _previewFadingOut = false;
-                    PreviewPopup.IsOpen = false;
-                    PreviewImage.Source = null;
-                    Log($"[预览] 浮窗已关闭 (来源=fadeout{reason})");
-                }
-            };
-            sb.Children.Add(da);
-            sb.Begin();
+                // 动画只是装饰，失败不能拖垮 UI：退化为直接关闭
+                Log($"[预览] 淡出动画失败，直接关闭: {ex}");
+            }
         }
-        else
-        {
-            PreviewPopup.IsOpen = false;
-            PreviewImage.Source = null;
-            _previewFadingOut = false;
-            Log($"[预览] 浮窗已关闭 (来源=direct{reason})");
-        }
+
+        PreviewPopup.IsOpen = false;
+        PreviewImage.Source = null;
+        _previewFadingOut = false;
+        Log($"[预览] 浮窗已关闭 (来源=direct{reason})");
+    }
+
+    private Storyboard PreviewFadeInStoryboard => (Storyboard)Resources["PreviewFadeInStoryboard"];
+    private Storyboard PreviewFadeOutStoryboard => (Storyboard)Resources["PreviewFadeOutStoryboard"];
+
+    private void PreviewFadeOutStoryboard_Completed(object? sender, object e)
+    {
+        // 淡出期间若又被重新显示（_previewFadingOut 被置 false），则不关闭
+        if (!_previewFadingOut) return;
+        _previewFadingOut = false;
+        PreviewPopup.IsOpen = false;
+        PreviewImage.Source = null;
+        Log($"[预览] 浮窗已关闭 (来源=fadeout{_previewFadeOutReason})");
     }
 
     // 从 DataView 的 StorageItems（拖拽时写入的文件路径）还原被拖的 MemeModel 列表
@@ -1272,12 +1274,12 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
 
     // ---------- 悬停放大预览（Popup）----------
 
-    // 淡入/淡出动画时长（毫秒），调快就改小这两个值
-    private const int PreviewFadeInMs = 95;
-    private const int PreviewFadeOutMs = 0;
+    // 淡入/淡出动画定义在 MainPage.xaml 的 PreviewFadeInStoryboard / PreviewFadeOutStoryboard，
+    // 时长也在那里调；不在代码里构造 Storyboard（原因见 XAML 注释）。
 
     // 浮窗是否正在淡出中（淡出动画结束前不真正关闭，便于快速划过时复用）
     private bool _previewFadingOut;
+    private string _previewFadeOutReason = "";
 
     // 上次鼠标在窗口内的位置（DIP）。用于过滤“静止时 WinUI 仍产生的 PointerMoved 抖动”，
     // 只有鼠标真正移动超过阈值才关闭预览（避免鼠标没动却反复开关）。
@@ -1401,17 +1403,18 @@ public sealed partial class MainPage : Page, IExternalDropPage, IImageReleasable
         _previewFadingOut = false;
         if (PreviewBorder == null) return;
 
-        var sb = new Storyboard();
-        var da = new DoubleAnimation
+        try
         {
-            From = 0,
-            To = 1,
-            Duration = TimeSpan.FromMilliseconds(PreviewFadeInMs)
-        };
-        Storyboard.SetTarget(da, PreviewBorder);
-        Storyboard.SetTargetProperty(da, "Opacity");
-        sb.Children.Add(da);
-        sb.Begin();
+            PreviewFadeOutStoryboard.Stop();
+            PreviewFadeInStoryboard.Stop();
+            PreviewFadeInStoryboard.Begin();
+        }
+        catch (Exception ex)
+        {
+            // 动画只是装饰，失败不能拖垮 UI：退化为直接显示
+            Log($"[预览] 淡入动画失败，直接显示: {ex}");
+            PreviewBorder.Opacity = 1;
+        }
     }
 
     // 取得元素相对【页面根】的矩形（DIP）。Popup 的 Offset 是窗口相对坐标，
